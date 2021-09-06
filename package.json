@@ -22,7 +22,8 @@
     "jest": "^27.1.0",
     "jest-cli": "^27.1.0",
     "lint-staged": "^11.1.2",
-    "moleculer-repl": "^0.6.6"
+    "moleculer-repl": "^0.6.6",
+    "prettier": "^2.3.2"
   },
   "dependencies": {
     "html-to-text": "^8.0.0",
@@ -44,6 +45,6 @@
     ]
   },
   "lint-staged": {
-    "*.{js,css,md}": "prettier --tab-width 4 --use-tabs false --write"
+    "*.js": "prettier --tab-width 4 --use-tabs false --write"
   }
 }
