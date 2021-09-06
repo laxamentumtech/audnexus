@@ -1,18 +1,49 @@
 {
+  "name": "audnexus",
+  "version": "1.0.0",
+  "description": "My Moleculer-based microservices project",
+  "scripts": {
+    "dev": "moleculer-runner --repl --hot services/**/*.service.js",
+    "start": "moleculer-runner",
+    "cli": "moleculer connect ",
+    "ci": "jest --watch",
+    "test": "jest --coverage",
+    "lint": "eslint services",
+    "prepare": "husky install"
+  },
+  "keywords": [
+    "microservices",
+    "moleculer"
+  ],
+  "author": "",
+  "devDependencies": {
+    "eslint": "^7.32.0",
+    "husky": "^7.0.2",
+    "jest": "^27.1.0",
+    "jest-cli": "^27.1.0",
+    "lint-staged": "^11.1.2",
+    "moleculer-repl": "^0.6.6"
+  },
   "dependencies": {
     "html-to-text": "^8.0.0",
+    "ioredis": "^4.27.9",
     "isomorphic-fetch": "^3.0.0",
-    "jsdom": "^17.0.0"
+    "jsdom": "^17.0.0",
+    "moleculer": "^0.14.16",
+    "moleculer-web": "^0.10.2"
   },
-  "devDependencies": {
-    "husky": "^7.0.2",
-    "lint-staged": "^11.1.2",
-    "prettier": "^2.3.2"
+  "engines": {
+    "node": ">= 12.x.x"
+  },
+  "jest": {
+    "coverageDirectory": "../coverage",
+    "testEnvironment": "node",
+    "rootDir": "./services",
+    "roots": [
+      "../test"
+    ]
   },
   "lint-staged": {
-    "*.{js,css,md}": "prettier --tab-width 4 --write"
-  },
-  "scripts": {
-    "prepare": "husky install"
+    "*.{js,css,md}": "prettier --tab-width 4 --use-tabs false --write"
   }
 }
