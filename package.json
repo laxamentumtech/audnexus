@@ -3,5 +3,16 @@
     "html-to-text": "^8.0.0",
     "isomorphic-fetch": "^3.0.0",
     "jsdom": "^17.0.0"
+  },
+  "devDependencies": {
+    "husky": "^7.0.2",
+    "lint-staged": "^11.1.2",
+    "prettier": "^2.3.2"
+  },
+  "lint-staged": {
+    "*.{js,css,md}": "prettier --write"
+  },
+  "scripts": {
+    "prepare": "husky install"
   }
 }
