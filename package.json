@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "html-to-text": "^8.0.0",
+    "isomorphic-fetch": "^3.0.0",
+    "jsdom": "^17.0.0"
+  }
+}
