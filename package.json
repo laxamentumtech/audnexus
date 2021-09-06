@@ -10,7 +10,7 @@
     "prettier": "^2.3.2"
   },
   "lint-staged": {
-    "*.{js,css,md}": "prettier --write"
+    "*.{js,css,md}": "prettier --tab-width 4 --write"
   },
   "scripts": {
     "prepare": "husky install"
