@@ -2,6 +2,8 @@
 const apiHelper = require("../helpers/audibleApi");
 const scrapeHelper = require("../helpers/audibleScrape");
 const stitchHelper = require("../helpers/audibleStitch");
+
+const { MoleculerError } = require("moleculer").Errors;
 /**
  * @typedef {import('moleculer').Context} Context Moleculer's Context
  */
@@ -36,6 +38,10 @@ module.exports = {
             },
             /** @param {Context} ctx  */
             async handler(ctx) {
+                if (!this.checkAsinValidity(ctx.params.asin)) {
+                    throw new MoleculerError("Bad ASIN", 400);
+                }
+
                 const api = new apiHelper(ctx.params.asin);
                 const scraper = new scrapeHelper(ctx.params.asin);
 
@@ -57,7 +63,22 @@ module.exports = {
     /**
      * Methods
      */
-    methods: {},
+    methods: {
+        /**
+         *
+         * @param {string} asin string to extract ASIN from
+         * @returns {string} ASIN.
+         */
+        checkAsinValidity(asin) {
+            const asinRegex = /[0-9A-Z]{10}/gm;
+
+            let match = asin.match(asinRegex);
+            if (match) {
+                return true;
+            }
+            return false;
+        },
+    },
 
     /**
      * Service created lifecycle event handler
