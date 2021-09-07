@@ -93,7 +93,8 @@ class apiHelper {
 
             // Make it into a date object
             else if (key == "release_date") {
-                finalJson[key] = Date.parse(inputJson[key]);
+                let release_date = new Date(inputJson[key]);
+                finalJson[key] = release_date.toISOString();
             }
 
             // Rename to long_summary
