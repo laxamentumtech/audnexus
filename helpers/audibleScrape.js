@@ -48,7 +48,7 @@ class scrapeHelper {
         let genres = dom.window.document.querySelectorAll(
             "li.categoriesLabel a"
         );
-        if (genres) {
+        if (genres.length) {
             let genreArr = [];
 
             // Check parent genre
@@ -73,7 +73,7 @@ class scrapeHelper {
 
         // Series
         let series = dom.window.document.querySelectorAll("li.seriesLabel a");
-        if (series) {
+        if (series.length) {
             let seriesRaw =
                 dom.window.document.querySelector("li.seriesLabel").innerHTML;
             let seriesArr = [];
