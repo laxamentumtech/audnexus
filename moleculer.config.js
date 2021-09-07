@@ -62,7 +62,6 @@ module.exports = {
 
     // Define a cacher.
     // More info: https://moleculer.services/docs/0.14/caching.html
-    // cacher: "Redis",
     cacher: process.env.REDIS_URL || "Redis",
 
     // Define a serializer.
@@ -197,7 +196,11 @@ module.exports = {
     replCommands: null,
 
     // Called after broker created.
-    created(broker) {},
+    created(broker) {
+        broker.loadService("./services/api.service.js");
+        broker.loadService("./services/book.service.js");
+        broker.start();
+    },
 
     // Called after broker started.
     async started(broker) {},
