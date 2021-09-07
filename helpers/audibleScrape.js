@@ -118,7 +118,7 @@ class scrapeHelper {
      * @returns {string} Cleaned book position string, like "Book 3"
      */
     getBookFromHTML(html) {
-        const bookRegex = /(Book [+-]?(\d*\.)?\d+)/gm;
+        const bookRegex = /(Book ?(\d*\.)?\d+[+-]?[\d]?)/gm;
         const matches = html.match(bookRegex);
         return matches;
     }
