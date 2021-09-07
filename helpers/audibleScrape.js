@@ -73,9 +73,9 @@ class scrapeHelper {
 
         // Series
         let series = dom.window.document.querySelectorAll("li.seriesLabel a");
-        let seriesRaw =
-            dom.window.document.querySelector("li.seriesLabel").innerHTML;
         if (series) {
+            let seriesRaw =
+                dom.window.document.querySelector("li.seriesLabel").innerHTML;
             let seriesArr = [];
             let book_pos = this.getBookFromHTML(seriesRaw);
 
