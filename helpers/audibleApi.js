@@ -96,7 +96,12 @@ class apiHelper {
                 finalJson[key] = Date.parse(inputJson[key]);
             }
 
-            // Remove _SL500_
+            // Rename to long_summary
+            else if (key == "publisher_summary") {
+                finalJson["long_summary"] = inputJson[key];
+            }
+
+            // Remove _SL500_ and rename to cover_image
             else if (key == "product_images") {
                 finalJson["cover_image"] = inputJson[key][500].replace(
                     "_SL500_.",
