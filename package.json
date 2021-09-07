@@ -1,7 +1,7 @@
 {
   "name": "audnexus",
   "version": "1.0.0",
-  "description": "My Moleculer-based microservices project",
+  "description": "A Moleculer-based microservices API for aggregating audiobook data",
   "scripts": {
     "dev": "moleculer-runner --repl --hot services/**/*.service.js",
     "start": "moleculer-runner",
