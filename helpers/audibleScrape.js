@@ -48,7 +48,7 @@ class scrapeHelper {
         let genres = dom.window.document.querySelectorAll(
             "li.categoriesLabel a"
         );
-        if (genres) {
+        if (genres.length) {
             let genreArr = [];
 
             // Check parent genre
@@ -73,9 +73,9 @@ class scrapeHelper {
 
         // Series
         let series = dom.window.document.querySelectorAll("li.seriesLabel a");
-        let seriesRaw =
-            dom.window.document.querySelector("li.seriesLabel").innerHTML;
-        if (series) {
+        if (series.length) {
+            let seriesRaw =
+                dom.window.document.querySelector("li.seriesLabel").innerHTML;
             let seriesArr = [];
             let book_pos = this.getBookFromHTML(seriesRaw);
 
@@ -118,7 +118,7 @@ class scrapeHelper {
      * @returns {string} Cleaned book position string, like "Book 3"
      */
     getBookFromHTML(html) {
-        const bookRegex = /(Book [+-]?(\d*\.)?\d+)/gm;
+        const bookRegex = /(Book ?(\d*\.)?\d+[+-]?[\d]?)/gm;
         const matches = html.match(bookRegex);
         return matches;
     }

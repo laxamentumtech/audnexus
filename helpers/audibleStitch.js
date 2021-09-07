@@ -6,27 +6,31 @@ class stitchHelper {
     }
 
     includeGenres() {
-        this.finalJson.genres = this.htmlRes.genres;
+        if (this.htmlRes.genres) {
+            this.finalJson.genres = this.htmlRes.genres;
+        }
     }
 
     setSeriesOrder() {
-        let htmlSeries = this.htmlRes.series;
-        let returnJson = this.finalJson;
+        if (this.apiRes.publication_name) {
+            let htmlSeries = this.htmlRes.series;
+            let returnJson = this.finalJson;
 
-        // If multiple series, set one with publication_name as primary
-        if (htmlSeries.length > 1) {
-            htmlSeries.forEach((item) => {
-                if (item.name == this.apiRes.publication_name) {
-                    returnJson.primary_series = item;
-                } else {
-                    returnJson.secondary_series = item;
-                }
-            });
-        } else {
-            returnJson.primary_series = htmlSeries[0];
+            // If multiple series, set one with publication_name as primary
+            if (htmlSeries.length > 1) {
+                htmlSeries.forEach((item) => {
+                    if (item.name == this.apiRes.publication_name) {
+                        returnJson.primary_series = item;
+                    } else {
+                        returnJson.secondary_series = item;
+                    }
+                });
+            } else {
+                returnJson.primary_series = htmlSeries[0];
+            }
+
+            delete returnJson.publication_name;
         }
-
-        delete returnJson.publication_name;
     }
 
     process() {
