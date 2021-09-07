@@ -88,7 +88,7 @@ class apiHelper {
                     peopleArr.push(personJson);
                 });
                 // Use final array as value
-                inputJson[key] = peopleArr;
+                finalJson[key] = peopleArr;
             }
 
             // Make it into a date object
