@@ -37,7 +37,7 @@ class scrapeHelper {
     }
 
     /**
-     * 
+     *
      * @param {JSDOM} dom the fetched dom object
      * @returns {json} genre and series.
      */
@@ -45,44 +45,56 @@ class scrapeHelper {
         let returnJson = {};
 
         // Genres
-        let genres = dom.window.document.querySelectorAll("li.categoriesLabel a");
-        if (genres.length) {
+        let genres = dom.window.document.querySelectorAll(
+            "li.categoriesLabel a"
+        );
+        if (genres) {
+            let genreArr = [];
+
             // Check parent genre
             if (genres[0]) {
-                returnJson.parent_genre = {
+                genreArr.push({
                     name: genres[0].textContent,
                     id: this.getAsinFromUrl(genres[0].getAttribute("href")),
-                };
+                    type: "parent",
+                });
             }
             // Check child genre
             if (genres[1]) {
-                returnJson.child_genre = {
+                genreArr.push({
                     name: genres[1].textContent,
                     id: this.getAsinFromUrl(genres[1].getAttribute("href")),
-                };
+                    type: "child",
+                });
             }
+
+            returnJson.genres = genreArr;
         }
 
         // Series
         let series = dom.window.document.querySelectorAll("li.seriesLabel a");
         let seriesRaw =
             dom.window.document.querySelector("li.seriesLabel").innerHTML;
-        if (series.length) {
+        if (series) {
+            let seriesArr = [];
             let book_pos = this.getBookFromHTML(seriesRaw);
+
             if (series[0]) {
-                returnJson.series1 = {
+                seriesArr.push({
                     name: series[0].textContent,
                     id: this.getAsinFromUrl(series[0].getAttribute("href")),
                     position: book_pos[0],
-                };
+                });
             }
             if (series[1]) {
-                returnJson.series2 = {
+                seriesArr.push({
                     name: series[1].textContent,
                     id: this.getAsinFromUrl(series[1].getAttribute("href")),
                     position: book_pos[1],
-                };
+                });
             }
+
+            returnJson.series = seriesArr;
         }
 
         return returnJson;
@@ -90,7 +102,7 @@ class scrapeHelper {
 
     // Helpers
     /**
-     * 
+     *
      * @param {string} url string to extract ASIN from
      * @returns {string} ASIN.
      */
@@ -101,7 +113,7 @@ class scrapeHelper {
     }
 
     /**
-     * 
+     *
      * @param {jsdom} html block/object to retrieve book number from.
      * @returns {string} Cleaned book position string, like "Book 3"
      */

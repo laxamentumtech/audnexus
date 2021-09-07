@@ -1,6 +1,6 @@
 const fetch = require("isomorphic-fetch");
 // For merchandising_summary
-const { htmlToText } = require('html-to-text');
+const { htmlToText } = require("html-to-text");
 
 class apiHelper {
     constructor(asin) {
@@ -39,7 +39,7 @@ class apiHelper {
     }
 
     /**
-     * 
+     *
      * @param {json} jsonRes fetched json response from api.audible.com
      * @returns {json} relevant data to keep
      */
@@ -68,7 +68,7 @@ class apiHelper {
             // Clean short description of html tags
             if (key == "merchandising_summary") {
                 finalJson["short_summary"] = htmlToText(inputJson[key], {
-                    wordwrap: false
+                    wordwrap: false,
                 });
             }
 
@@ -98,7 +98,10 @@ class apiHelper {
 
             // Remove _SL500_
             else if (key == "product_images") {
-                finalJson["cover_image"] = inputJson[key][500].replace("_SL500_.", "");
+                finalJson["cover_image"] = inputJson[key][500].replace(
+                    "_SL500_.",
+                    ""
+                );
             }
 
             // Common case
