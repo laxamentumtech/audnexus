@@ -9,7 +9,7 @@
     "ci": "jest --watch",
     "test": "jest --coverage",
     "lint": "eslint services",
-    "prepare": "husky install"
+    "prepare": ""
   },
   "keywords": [
     "microservices",
