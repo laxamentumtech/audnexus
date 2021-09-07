@@ -102,12 +102,12 @@ module.exports = {
         logResponseData: null,
 
         // Serve assets from "public" folder. More info: https://moleculer.services/docs/0.14/moleculer-web.html#Serve-static-files
-        assets: {
-            folder: "public",
+        // assets: {
+        //     folder: "public",
 
-            // Options to `server-static` module
-            options: {},
-        },
+        //     // Options to `server-static` module
+        //     options: {},
+        // },
     },
 
     methods: {
