@@ -1,7 +1,7 @@
 "use strict";
-const apiHelper = require("../plugins/audibleApiHelper");
-const scrapeHelper = require("../plugins/audibleScrapeHelper");
-const stitchHelper = require("../plugins/audibleStitchHelper");
+const apiHelper = require("../helpers/audibleApi");
+const scrapeHelper = require("../helpers/audibleScrape");
+const stitchHelper = require("../helpers/audibleStitch");
 /**
  * @typedef {import('moleculer').Context} Context Moleculer's Context
  */
