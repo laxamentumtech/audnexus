@@ -22,7 +22,7 @@ class stitchHelper {
             // If multiple series, set one with publication_name as primary
             if (htmlSeries.length > 1) {
                 htmlSeries.forEach((item) => {
-                    if (item.name == this.apiRes.publication_name) {
+                    if (item.name === this.apiRes.publication_name) {
                         returnJson.primary_series = item
                     } else {
                         returnJson.secondary_series = item

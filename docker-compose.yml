@@ -62,4 +62,3 @@ networks:
 
 volumes:
   data:
-  portainer_data:

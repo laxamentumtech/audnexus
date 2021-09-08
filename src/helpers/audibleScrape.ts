@@ -67,7 +67,7 @@ class scrapeHelper {
             'li.categoriesLabel a'
         )
         if (genres.length) {
-            const genreArr = new Array<Genre>()
+            const genreArr: Genre[] = []
 
             // Check parent genre
             if (genres[0]) {
@@ -94,21 +94,21 @@ class scrapeHelper {
         if (series.length) {
             const seriesRaw =
                 dom.window.document.querySelector('li.seriesLabel').innerHTML
-            const book_pos = this.getBookFromHTML(seriesRaw)
-            const seriesArr = new Array<Series>()
+            const bookPos = this.getBookFromHTML(seriesRaw)
+            const seriesArr: Series[] = []
 
             if (series[0]) {
                 seriesArr.push({
                     name: series[0].textContent,
                     id: this.getAsinFromUrl(series[0].getAttribute('href')),
-                    position: book_pos[0]
+                    position: bookPos[0]
                 })
             }
             if (series[1]) {
                 seriesArr.push({
                     name: series[1].textContent,
                     id: this.getAsinFromUrl(series[1].getAttribute('href')),
-                    position: book_pos[1]
+                    position: bookPos[1]
                 })
             }
 
