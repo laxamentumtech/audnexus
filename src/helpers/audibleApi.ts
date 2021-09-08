@@ -47,7 +47,7 @@ class apiHelper {
      */
     parseResponse (jsonRes) {
         const inputJson = jsonRes.product
-        const finalJson = {}
+        const finalJson: any = {}
 
         const keysToKeep = [
             'asin',
