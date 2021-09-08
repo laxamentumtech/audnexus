@@ -1,21 +1,21 @@
-import { MongoClient } from "mongodb";
-import Papr from "papr";
+import { MongoClient } from 'mongodb'
+import Papr from 'papr'
 
-export let client: MongoClient;
+export let client: MongoClient
 
-const papr = new Papr();
+const papr = new Papr()
 const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017'
 
-export async function connect() {
-    client = await MongoClient.connect(uri);
+export async function connect () {
+    client = await MongoClient.connect(uri)
 
-    papr.initialize(client.db("audnexus"));
+    papr.initialize(client.db('audnexus'))
 
-    await papr.updateSchemas();
+    await papr.updateSchemas()
 }
 
-export async function disconnect() {
-    await client.close();
+export async function disconnect () {
+    await client.close()
 }
 
-export default papr;
+export default papr

@@ -1,13 +1,13 @@
 class sharedHelper {
-    checkAsinValidity(asin: string) {
-        const asinRegex = /[0-9A-Z]{10}/gm;
-    
-        let match = asin.match(asinRegex);
+    checkAsinValidity (asin: string) {
+        const asinRegex = /[0-9A-Z]{10}/gm
+
+        const match = asin.match(asinRegex)
         if (match) {
-            return true;
+            return true
         }
-        return false;
+        return false
     }
 }
 
-export default sharedHelper;
+export default sharedHelper

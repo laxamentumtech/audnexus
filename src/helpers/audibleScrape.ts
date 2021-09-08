@@ -1,24 +1,25 @@
-import fetch from "isomorphic-fetch";
+import fetch from 'isomorphic-fetch'
 // For HTML scraping
-import jsdom from "jsdom";
-const { JSDOM } = jsdom;
+import jsdom from 'jsdom'
+const { JSDOM } = jsdom
 
 class scrapeHelper {
     asin: any;
     reqUrl: string;
-    constructor(asin) {
-        this.asin = asin;
-        this.reqUrl = this.buildUrl(asin);
+    constructor (asin) {
+        this.asin = asin
+        this.reqUrl = this.buildUrl(asin)
     }
+
     /**
      *
      * @param {string} ASIN The Audible ID to base the URL on
      * @returns {string} full url to fetch.
      */
-    buildUrl(ASIN: string): string {
-        let baseUrl = "https://www.audible.com/pd";
-        let reqUrl = `${baseUrl}/${ASIN}`;
-        return reqUrl;
+    buildUrl (ASIN: string): string {
+        const baseUrl = 'https://www.audible.com/pd'
+        const reqUrl = `${baseUrl}/${ASIN}`
+        return reqUrl
     }
 
     /**
@@ -26,14 +27,14 @@ class scrapeHelper {
      * @param {buildUrl} reqUrl the full url to fetch.
      * @returns {json} data from parseResponse() function.
      */
-    async fetchBook() {
+    async fetchBook () {
         try {
-            let response = await fetch(this.reqUrl);
-            let text = await response.text();
-            let dom = await new JSDOM(text);
-            return this.parseResponse(dom);
+            const response = await fetch(this.reqUrl)
+            const text = await response.text()
+            const dom = await new JSDOM(text)
+            return this.parseResponse(dom)
         } catch (err) {
-            return err;
+            return err
             // console.log(err);
         }
     }
@@ -43,7 +44,7 @@ class scrapeHelper {
      * @param {JSDOM} dom the fetched dom object
      * @returns {json} genre and series.
      */
-    parseResponse(dom) {
+    parseResponse (dom) {
         interface Genre {
             name: string,
             id: string,
@@ -56,65 +57,65 @@ class scrapeHelper {
             position: string,
         }
 
-        let returnJson = {
+        const returnJson = {
             genres: Array<Genre>(),
-            series: Array<Series>(),
-        };
+            series: Array<Series>()
+        }
 
         // Genres
-        let genres = dom.window.document.querySelectorAll(
-            "li.categoriesLabel a"
-        );
+        const genres = dom.window.document.querySelectorAll(
+            'li.categoriesLabel a'
+        )
         if (genres.length) {
-            let genreArr = new Array<Genre>();
+            const genreArr = new Array<Genre>()
 
             // Check parent genre
             if (genres[0]) {
                 genreArr.push({
                     name: genres[0].textContent,
-                    id: this.getAsinFromUrl(genres[0].getAttribute("href")),
-                    type: "parent",
-                });
+                    id: this.getAsinFromUrl(genres[0].getAttribute('href')),
+                    type: 'parent'
+                })
             }
             // Check child genre
             if (genres[1]) {
                 genreArr.push({
                     name: genres[1].textContent,
-                    id: this.getAsinFromUrl(genres[1].getAttribute("href")),
-                    type: "child",
-                });
+                    id: this.getAsinFromUrl(genres[1].getAttribute('href')),
+                    type: 'child'
+                })
             }
 
-            returnJson.genres = genreArr;
+            returnJson.genres = genreArr
         }
 
         // Series
-        let series = dom.window.document.querySelectorAll("li.seriesLabel a");
+        const series = dom.window.document.querySelectorAll('li.seriesLabel a')
         if (series.length) {
-            let seriesRaw =
-                dom.window.document.querySelector("li.seriesLabel").innerHTML;
-            let book_pos = this.getBookFromHTML(seriesRaw);
-            let seriesArr = new Array<Series>();
+            const seriesRaw =
+                dom.window.document.querySelector('li.seriesLabel').innerHTML
+            const book_pos = this.getBookFromHTML(seriesRaw)
+            const seriesArr = new Array<Series>()
 
             if (series[0]) {
                 seriesArr.push({
                     name: series[0].textContent,
-                    id: this.getAsinFromUrl(series[0].getAttribute("href")),
-                    position: book_pos[0],
-                });
+                    id: this.getAsinFromUrl(series[0].getAttribute('href')),
+                    position: book_pos[0]
+                })
             }
             if (series[1]) {
                 seriesArr.push({
                     name: series[1].textContent,
-                    id: this.getAsinFromUrl(series[1].getAttribute("href")),
-                    position: book_pos[1],
-                });
+                    id: this.getAsinFromUrl(series[1].getAttribute('href')),
+                    position: book_pos[1]
+                })
             }
 
-            returnJson.series = seriesArr;
+            returnJson.series = seriesArr
         }
 
-        return returnJson;
+        return returnJson
     }
 
     // Helpers
@@ -123,10 +124,10 @@ class scrapeHelper {
      * @param {string} url string to extract ASIN from
      * @returns {string} ASIN.
      */
-    getAsinFromUrl(url: string): string {
-        const asinRegex = /[0-9A-Z]{9}.+?(?=\?)/gm;
-        const ASIN = url.match(asinRegex)![0];
-        return ASIN;
+    getAsinFromUrl (url: string): string {
+        const asinRegex = /[0-9A-Z]{9}.+?(?=\?)/gm
+        const ASIN = url.match(asinRegex)![0]
+        return ASIN
     }
 
     /**
@@ -134,11 +135,11 @@ class scrapeHelper {
      * @param {jsdom} html block/object to retrieve book number from.
      * @returns {string} Cleaned book position string, like "Book 3"
      */
-    getBookFromHTML(html): string {
-        const bookRegex = /(Book ?(\d*\.)?\d+[+-]?[\d]?)/gm;
-        const matches = html.match(bookRegex);
-        return matches;
+    getBookFromHTML (html): string {
+        const bookRegex = /(Book ?(\d*\.)?\d+[+-]?[\d]?)/gm
+        const matches = html.match(bookRegex)
+        return matches
     }
 }
 
-export default scrapeHelper;
+export default scrapeHelper
