@@ -24,7 +24,7 @@ services:
       - "traefik.http.routers.redirs.middlewares=redirect-to-https"
 
   portainer:
-    image: portainer/portainer-ce:2.0.0
+    image: portainer/portainer-ce:latest
     command: -H unix:///var/run/docker.sock
     restart: always
     volumes:
