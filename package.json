@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build-ts": "tsc",
-    "build": "npm run build-ts && npm run lint",
+    "build": "npm run build-ts",
     "debug": "npm run build && npm run watch-debug",
     "lint": "tsc --noEmit && eslint \"**/*.{js,ts}\" --quiet --fix",
     "serve-debug": "nodemon --inspect dist/server.js",
