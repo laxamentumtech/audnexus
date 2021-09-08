@@ -37,6 +37,7 @@ async function routes (fastify, options) {
             .code(200)
             .header('Content-Type', 'application/json; charset=utf-8')
             .send(result)
+        await disconnect()
     })
 }
 
