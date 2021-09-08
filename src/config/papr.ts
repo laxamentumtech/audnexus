@@ -11,7 +11,7 @@ export async function connect () {
 
     papr.initialize(client.db())
 
-    // await papr.updateSchemas()
+    await papr.updateSchemas()
 }
 
 export async function disconnect () {
