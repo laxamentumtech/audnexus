@@ -1,4 +1,3 @@
-import { connect, disconnect } from '../papr'
 import scrapeHelper from '../../helpers/audibleScrape'
 import apiHelper from '../../helpers/audibleApi'
 import stitchHelper from '../../helpers/audibleStitch'
@@ -7,7 +6,6 @@ import Book from '../models/Book'
 
 async function routes (fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
-        await connect()
         const result = await Book.findOne({
             asin: request.params.asin
         })
@@ -26,7 +24,6 @@ async function routes (fastify, options) {
                 const stitch = new stitchHelper(res[0], res[1])
                 const item = await Book.insertOne(stitch.process())
                 console.log(item)
-                await disconnect()
                 reply
                     .code(200)
                     .header('Content-Type', 'application/json; charset=utf-8')
@@ -37,7 +34,6 @@ async function routes (fastify, options) {
             .code(200)
             .header('Content-Type', 'application/json; charset=utf-8')
             .send(result)
-        await disconnect()
     })
 }
 

@@ -9,9 +9,9 @@ const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017'
 export async function connect () {
     client = await MongoClient.connect(uri)
 
-    papr.initialize(client.db('audnexus'))
+    papr.initialize(client.db())
 
-    await papr.updateSchemas()
+    // await papr.updateSchemas()
 }
 
 export async function disconnect () {
