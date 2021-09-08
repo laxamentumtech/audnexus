@@ -40,7 +40,7 @@ services:
       - "traefik.http.routers.frontend.tls.certresolver=leresolver"
 
   mongo:
-    image: mongo:4
+    image: mongo:5
     volumes:
       - data:/data/db
     networks:
@@ -54,11 +54,7 @@ services:
   traefik:
     image: traefik:v2.4
     command:
-      # - "--api.insecure=true"
-      # - "--api.dashboard=true"
-      # - "--api.debug=true"
       - "--providers.docker=true"
-      - "--log.LEVEL=DEBUG"
       - "--entryPoints.web.address=:80"
       - "--entryPoints.websecure.address=:443"
       - "--providers.docker.exposedbydefault=false"
