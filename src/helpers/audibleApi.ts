@@ -1,9 +1,11 @@
-const fetch = require("isomorphic-fetch");
+import fetch from "isomorphic-fetch";
 // For merchandising_summary
-const { htmlToText } = require("html-to-text");
+import { htmlToText } from "html-to-text";
 
 class apiHelper {
-    constructor(asin) {
+    asin: string;
+    reqUrl: string;
+    constructor(asin: string) {
         this.asin = asin;
         this.reqUrl = this.buildUrl(asin);
     }
@@ -13,7 +15,7 @@ class apiHelper {
      * @param {string} ASIN The Audible ID to base the URL on
      * @returns {string} full url to fetch.
      */
-    buildUrl(ASIN) {
+    buildUrl(ASIN: string): string {
         let baseUrl = "https://api.audible.com/1.0/catalog/products";
         let resGroups =
             "?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media";
@@ -74,17 +76,20 @@ class apiHelper {
 
             // Narrators and authors both come in array objects
             else if (key == "authors" || key == "narrators") {
-                let peopleArr = [];
-                inputJson[key].forEach((person) => {
-                    let asin = person.asin;
-                    let name = person.name;
-                    let personJson = {};
+                interface Person {
+                    asin?: string,
+                    name: string,
+                }
+                let peopleArr: Person[] = [];
+                // Loop through each person
+                inputJson[key].forEach((person: Person) => {
+                    let personJson = <Person>{};
 
                     // Use asin for author if available
-                    if (asin) {
-                        personJson.asin = asin;
+                    if (person.asin) {
+                        personJson.asin = person.asin;
                     }
-                    personJson.name = name;
+                    personJson.name = person.name;
                     peopleArr.push(personJson);
                 });
                 // Use final array as value
@@ -94,7 +99,7 @@ class apiHelper {
             // Make it into a date object
             else if (key == "release_date") {
                 let release_date = new Date(inputJson[key]);
-                finalJson[key] = release_date.toISOString();
+                finalJson[key] = release_date;
             }
 
             // Rename to long_summary
@@ -120,4 +125,4 @@ class apiHelper {
     }
 }
 
-module.exports = apiHelper;
+export default apiHelper;

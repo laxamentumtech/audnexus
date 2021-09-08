@@ -1,4 +1,7 @@
 class stitchHelper {
+    apiRes: any;
+    htmlRes: any;
+    finalJson: any;
     constructor(apiRes, htmlRes) {
         this.apiRes = apiRes;
         this.htmlRes = htmlRes;
@@ -41,4 +44,4 @@ class stitchHelper {
     }
 }
 
-module.exports = stitchHelper;
+export default stitchHelper;

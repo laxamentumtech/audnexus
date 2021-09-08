@@ -1,9 +1,11 @@
-const fetch = require("isomorphic-fetch");
+import fetch from "isomorphic-fetch";
 // For HTML scraping
-const jsdom = require("jsdom");
+import jsdom from "jsdom";
 const { JSDOM } = jsdom;
 
 class scrapeHelper {
+    asin: any;
+    reqUrl: string;
     constructor(asin) {
         this.asin = asin;
         this.reqUrl = this.buildUrl(asin);
@@ -13,7 +15,7 @@ class scrapeHelper {
      * @param {string} ASIN The Audible ID to base the URL on
      * @returns {string} full url to fetch.
      */
-    buildUrl(ASIN) {
+    buildUrl(ASIN: string): string {
         let baseUrl = "https://www.audible.com/pd";
         let reqUrl = `${baseUrl}/${ASIN}`;
         return reqUrl;
@@ -42,14 +44,29 @@ class scrapeHelper {
      * @returns {json} genre and series.
      */
     parseResponse(dom) {
-        let returnJson = {};
+        interface Genre {
+            name: string,
+            id: string,
+            type: string,
+        }
+
+        interface Series {
+            name: string,
+            id: string,
+            position: string,
+        }
+
+        let returnJson = {
+            genres: Array<Genre>(),
+            series: Array<Series>(),
+        };
 
         // Genres
         let genres = dom.window.document.querySelectorAll(
             "li.categoriesLabel a"
         );
         if (genres.length) {
-            let genreArr = [];
+            let genreArr = new Array<Genre>();
 
             // Check parent genre
             if (genres[0]) {
@@ -76,8 +93,8 @@ class scrapeHelper {
         if (series.length) {
             let seriesRaw =
                 dom.window.document.querySelector("li.seriesLabel").innerHTML;
-            let seriesArr = [];
             let book_pos = this.getBookFromHTML(seriesRaw);
+            let seriesArr = new Array<Series>();
 
             if (series[0]) {
                 seriesArr.push({
@@ -106,9 +123,9 @@ class scrapeHelper {
      * @param {string} url string to extract ASIN from
      * @returns {string} ASIN.
      */
-    getAsinFromUrl(url) {
+    getAsinFromUrl(url: string): string {
         const asinRegex = /[0-9A-Z]{9}.+?(?=\?)/gm;
-        const ASIN = url.match(asinRegex)[0];
+        const ASIN = url.match(asinRegex)![0];
         return ASIN;
     }
 
@@ -117,11 +134,11 @@ class scrapeHelper {
      * @param {jsdom} html block/object to retrieve book number from.
      * @returns {string} Cleaned book position string, like "Book 3"
      */
-    getBookFromHTML(html) {
+    getBookFromHTML(html): string {
         const bookRegex = /(Book ?(\d*\.)?\d+[+-]?[\d]?)/gm;
         const matches = html.match(bookRegex);
         return matches;
     }
 }
 
-module.exports = scrapeHelper;
+export default scrapeHelper;
