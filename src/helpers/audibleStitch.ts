@@ -34,6 +34,7 @@ class StitchHelper {
                 } else {
                     this.tempJson.primarySeries = htmlSeries[0]
                 }
+                delete this.tempJson.publicationName
             }
         }
     }

@@ -25,9 +25,10 @@ async function routes (fastify, options) {
                 const stitch = new StitchHelper(res[0], res[1])
                 const item = await Book.insertOne(stitch.process())
                 console.log(item)
+                return item
             })
         }
-        await reply
+        return result
     })
 }
 

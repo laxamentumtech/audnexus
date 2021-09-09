@@ -5,7 +5,8 @@ services:
     build:
       context: .
     image: audnexus
-    env_file: docker-compose.env
+    environment:
+    - MONGODB_URI=mongodb://mongo/audnexus
     ports:
       - "3000:3000"
     depends_on:
@@ -26,7 +27,7 @@ services:
   mongo:
     image: mongo:5
     volumes:
-      - data:/data/db
+      - ~/mongo/data:/data/db
     networks:
       - internal
 
@@ -59,6 +60,3 @@ services:
 
 networks:
   internal:
-
-volumes:
-  data:
