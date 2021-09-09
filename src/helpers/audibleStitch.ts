@@ -1,4 +1,4 @@
-class stitchHelper {
+class StitchHelper {
     apiRes: any;
     htmlRes: any;
     finalJson: any;
@@ -44,4 +44,4 @@ class stitchHelper {
     }
 }
 
-export default stitchHelper
+export default StitchHelper

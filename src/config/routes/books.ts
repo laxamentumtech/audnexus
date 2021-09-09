@@ -1,7 +1,7 @@
-import scrapeHelper from '../../helpers/audibleScrape'
-import apiHelper from '../../helpers/audibleApi'
-import stitchHelper from '../../helpers/audibleStitch'
-import sharedHelper from '../../helpers/shared'
+import ScrapeHelper from '../../helpers/audibleScrape'
+import ApiHelper from '../../helpers/audibleApi'
+import StitchHelper from '../../helpers/audibleStitch'
+import SharedHelper from '../../helpers/shared'
 import Book from '../models/Book'
 
 async function routes (fastify, options) {
@@ -10,18 +10,18 @@ async function routes (fastify, options) {
             asin: request.params.asin
         })
         if (!result) {
-            const commonHelpers = new sharedHelper()
+            const commonHelpers = new SharedHelper()
             if (!commonHelpers.checkAsinValidity(request.params.asin)) {
                 throw new Error('Bad ASIN')
             }
 
-            const api = new apiHelper(request.params.asin)
-            const scraper = new scrapeHelper(request.params.asin)
+            const api = new ApiHelper(request.params.asin)
+            const scraper = new ScrapeHelper(request.params.asin)
 
             // Fetch both api and html at same time
             const listOfPromises = [api.fetchBook(), scraper.fetchBook()]
             return await Promise.all(listOfPromises).then(async (res) => {
-                const stitch = new stitchHelper(res[0], res[1])
+                const stitch = new StitchHelper(res[0], res[1])
                 const item = await Book.insertOne(stitch.process())
                 console.log(item)
                 reply

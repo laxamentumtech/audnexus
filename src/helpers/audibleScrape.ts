@@ -3,7 +3,7 @@ import fetch from 'isomorphic-fetch'
 import jsdom from 'jsdom'
 const { JSDOM } = jsdom
 
-class scrapeHelper {
+class ScrapeHelper {
     asin: any;
     reqUrl: string;
     constructor (asin) {
@@ -57,18 +57,19 @@ class scrapeHelper {
             position: string,
         }
 
+        const genres = dom.window.document.querySelectorAll(
+            'li.categoriesLabel a'
+            )
+        const series = dom.window.document.querySelectorAll('li.seriesLabel a')
+
         const returnJson = {
-            genres: Array<Genre>(),
-            series: Array<Series>()
+            genres: Array<Genre>(genres.length),
+            series: Array<Series>(series.length)
         }
 
         // Genres
-        const genres = dom.window.document.querySelectorAll(
-            'li.categoriesLabel a'
-        )
         if (genres.length) {
             const genreArr: Genre[] = []
-
             // Check parent genre
             if (genres[0]) {
                 genreArr.push({
@@ -90,7 +91,6 @@ class scrapeHelper {
         }
 
         // Series
-        const series = dom.window.document.querySelectorAll('li.seriesLabel a')
         if (series.length) {
             const seriesRaw =
                 dom.window.document.querySelector('li.seriesLabel').innerHTML
@@ -142,4 +142,4 @@ class scrapeHelper {
     }
 }
 
-export default scrapeHelper
+export default ScrapeHelper

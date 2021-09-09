@@ -1,4 +1,4 @@
-class sharedHelper {
+class SharedHelper {
     checkAsinValidity (asin: string) {
         const asinRegex = /[0-9A-Z]{10}/gm
 
@@ -10,4 +10,4 @@ class sharedHelper {
     }
 }
 
-export default sharedHelper
+export default SharedHelper

@@ -2,7 +2,7 @@ import fetch from 'isomorphic-fetch'
 // For merchandising_summary
 import { htmlToText } from 'html-to-text'
 
-class apiHelper {
+class ApiHelper {
     asin: string;
     reqUrl: string;
     constructor (asin: string) {
@@ -72,10 +72,8 @@ class apiHelper {
                 finalJson.short_summary = htmlToText(inputJson[key], {
                     wordwrap: false
                 })
-            }
-
             // Narrators and authors both come in array objects
-            else if (key === 'authors' || key === 'narrators') {
+            } else if (key === 'authors' || key === 'narrators') {
                 interface Person {
                     asin?: string,
                     name: string,
@@ -94,29 +92,21 @@ class apiHelper {
                 })
                 // Use final array as value
                 finalJson[key] = peopleArr
-            }
-
             // Make it into a date object
-            else if (key === 'release_date') {
+            } else if (key === 'release_date') {
                 const releaseDate = new Date(inputJson[key])
                 finalJson[key] = releaseDate
-            }
-
-            // Rename to long_summary
-            else if (key === 'publisher_summary') {
+                // Rename to long_summary
+            } else if (key === 'publisher_summary') {
                 finalJson.long_summary = inputJson[key]
-            }
-
             // Remove _SL500_ and rename to cover_image
-            else if (key === 'product_images') {
+            } else if (key === 'product_images') {
                 finalJson.cover_image = inputJson[key][500].replace(
                     '_SL500_.',
                     ''
                 )
-            }
-
             // Common case
-            else if (inputJson[key]) {
+            } else if (inputJson[key]) {
                 finalJson[key] = inputJson[key]
             }
         })
@@ -125,4 +115,4 @@ class apiHelper {
     }
 }
 
-export default apiHelper
+export default ApiHelper
