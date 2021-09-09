@@ -6,10 +6,10 @@ import Book from '../../models/Book'
 
 async function routes (fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
-        const result = await Book.findOne({
+        const item = await Book.findOne({
             asin: request.params.asin
         })
-        if (!result) {
+        if (!item) {
             const commonHelpers = new SharedHelper()
             if (!commonHelpers.checkAsinValidity(request.params.asin)) {
                 throw new Error('Bad ASIN')
@@ -27,7 +27,7 @@ async function routes (fastify, options) {
                 console.log(item)
             })
         }
-        await reply
+        return item
     })
 }
 
