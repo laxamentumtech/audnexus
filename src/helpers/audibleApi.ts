@@ -111,7 +111,7 @@ class ApiHelper {
             // Make it into a date object
             } else if (key === 'release_date') {
                 const releaseDate = new Date(inputJson[key])
-                finalJson[key] = releaseDate
+                finalJson.releaseDate = releaseDate
             // Rename to long_summary
             } else if (key === 'publisher_summary') {
                 finalJson.summary = inputJson[key]
