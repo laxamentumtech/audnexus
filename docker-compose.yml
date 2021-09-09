@@ -60,6 +60,3 @@ services:
 
 networks:
   internal:
-
-volumes:
-  data:
