@@ -1,8 +1,8 @@
-import ScrapeHelper from '../../helpers/audibleScrape'
-import ApiHelper from '../../helpers/audibleApi'
-import StitchHelper from '../../helpers/audibleStitch'
-import SharedHelper from '../../helpers/shared'
-import Book from '../models/Book'
+import ScrapeHelper from '../../../helpers/audibleScrape'
+import ApiHelper from '../../../helpers/audibleApi'
+import StitchHelper from '../../../helpers/audibleStitch'
+import SharedHelper from '../../../helpers/shared'
+import Book from '../../models/Book'
 
 async function routes (fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
@@ -19,21 +19,15 @@ async function routes (fastify, options) {
             const scraper = new ScrapeHelper(request.params.asin)
 
             // Fetch both api and html at same time
-            const listOfPromises = [api.fetchBook(), scraper.fetchBook()]
+            // as const because https://stackoverflow.com/a/62895959/15412097
+            const listOfPromises = [api.fetchBook(), scraper.fetchBook()] as const
             return await Promise.all(listOfPromises).then(async (res) => {
                 const stitch = new StitchHelper(res[0], res[1])
                 const item = await Book.insertOne(stitch.process())
                 console.log(item)
-                reply
-                    .code(200)
-                    .header('Content-Type', 'application/json; charset=utf-8')
-                    .send(item)
             })
         }
-        reply
-            .code(200)
-            .header('Content-Type', 'application/json; charset=utf-8')
-            .send(result)
+        await reply
     })
 }
 

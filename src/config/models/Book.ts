@@ -5,50 +5,50 @@ const bookSchema = schema({
     asin: types.string({ required: true }),
     title: types.string({ required: true }),
     subtitle: types.string(),
-    short_summary: types.string({ required: true }),
-    long_summary: types.string({ required: true }),
+    description: types.string({ required: true }),
+    summary: types.string({ required: true }),
     authors: types.array(
         types.object(
             {
-                name: types.string({ required: true }),
-                asin: types.string()
+                asin: types.string(),
+                name: types.string({ required: true })
             }
         )
     ),
     narrators: types.array(
         types.object(
             {
-                name: types.string({ required: true }),
-                asin: types.string()
+                asin: types.string(),
+                name: types.string({ required: true })
             }
         )
     ),
-    release_date: types.date({ required: true }),
-    publisher_name: types.string({ required: true }),
+    releaseDate: types.date({ required: true }),
+    publisherName: types.string({ required: true }),
     language: types.string({ required: true }),
-    runtime_length_min: types.number({ required: true }),
-    format_type: types.string({ required: true }),
-    cover_image: types.string({ required: true }),
+    runtimeLengthMin: types.number({ required: true }),
+    formatType: types.string({ required: true }),
+    image: types.string({ required: true }),
     genres: types.array(
         types.object(
             {
+                asin: types.string({ required: true }),
                 name: types.string({ required: true }),
-                id: types.string({ required: true }),
                 type: types.string({ required: true })
             }
         )
     ),
-    primary_series: types.object(
+    primarySeries: types.object(
         {
+            asin: types.string({ required: true }),
             name: types.string({ required: true }),
-            id: types.string({ required: true }),
             position: types.string({ required: true })
         }
     ),
-    secondary_series: types.object(
+    secondarySeries: types.object(
         {
+            asin: types.string({ required: true }),
             name: types.string({ required: true }),
-            id: types.string({ required: true }),
             position: types.string({ required: true })
         }
     )

@@ -1,6 +1,8 @@
 import fetch from 'isomorphic-fetch'
 // For merchandising_summary
 import { htmlToText } from 'html-to-text'
+import { ApiBookInterface } from '../interfaces/books/index'
+import { AuthorInterface, NarratorInterface } from '../interfaces/people/index'
 
 class ApiHelper {
     asin: string;
@@ -28,26 +30,34 @@ class ApiHelper {
      * @param {scraperUrl} reqUrl the full url to fetch.
      * @returns {JSON} response from Audible API
      */
-    async fetchBook () {
-        try {
-            const response = await fetch(this.reqUrl)
-            const json = await response.json()
-            // console.log(json);
-            return this.parseResponse(json)
-        } catch (err) {
-            return err
-            // console.log(err);
-        }
+    async fetchBook (): Promise<ApiBookInterface> {
+        const response = await fetch(this.reqUrl)
+        const json = await response.json()
+        // console.log(json);
+        return this.parseResponse(json)
     }
 
     /**
      *
      * @param {json} jsonRes fetched json response from api.audible.com
-     * @returns {json} relevant data to keep
+     * @returns {ApiBookInterface} relevant data to keep
      */
-    parseResponse (jsonRes) {
+    parseResponse (jsonRes): ApiBookInterface {
         const inputJson = jsonRes.product
         const finalJson: any = {}
+
+        const snakeCaseToCamelCase = (input: string) =>
+            input
+                .split('_')
+                .reduce(
+                    (res, word, i) =>
+                        i === 0
+                            ? word.toLowerCase()
+                            : `${res}${word.charAt(0).toUpperCase()}${word
+                                    .substr(1)
+                                    .toLowerCase()}`,
+                    ''
+                )
 
         const keysToKeep = [
             'asin',
@@ -69,45 +79,48 @@ class ApiHelper {
         keysToKeep.forEach((key) => {
             // Clean short description of html tags
             if (key === 'merchandising_summary') {
-                finalJson.short_summary = htmlToText(inputJson[key], {
+                finalJson.description = htmlToText(inputJson[key], {
                     wordwrap: false
                 })
             // Narrators and authors both come in array objects
-            } else if (key === 'authors' || key === 'narrators') {
-                interface Person {
-                    asin?: string,
-                    name: string,
-                }
-                const peopleArr: Person[] = []
+            } else if (key === 'authors') {
+                const authorArr: AuthorInterface[] = []
                 // Loop through each person
-                inputJson[key].forEach((person: Person) => {
-                    const personJson = <Person>{}
+                inputJson[key].forEach((person: AuthorInterface) => {
+                    const authorJson = <AuthorInterface>{}
 
                     // Use asin for author if available
                     if (person.asin) {
-                        personJson.asin = person.asin
+                        authorJson.asin = person.asin
                     }
-                    personJson.name = person.name
-                    peopleArr.push(personJson)
+                    authorJson.name = person.name
+                    authorArr.push(authorJson)
                 })
                 // Use final array as value
-                finalJson[key] = peopleArr
+                finalJson[key] = authorArr
+            } else if (key === 'narrators') {
+                const narratorArr: NarratorInterface[] = []
+                // Loop through each person
+                inputJson[key].forEach((person: NarratorInterface) => {
+                    const narratorJson = <NarratorInterface>{}
+                    narratorJson.name = person.name
+                    narratorArr.push(narratorJson)
+                })
+                // Use final array as value
+                finalJson[key] = narratorArr
             // Make it into a date object
             } else if (key === 'release_date') {
                 const releaseDate = new Date(inputJson[key])
                 finalJson[key] = releaseDate
-                // Rename to long_summary
+            // Rename to long_summary
             } else if (key === 'publisher_summary') {
-                finalJson.long_summary = inputJson[key]
+                finalJson.summary = inputJson[key]
             // Remove _SL500_ and rename to cover_image
             } else if (key === 'product_images') {
-                finalJson.cover_image = inputJson[key][500].replace(
-                    '_SL500_.',
-                    ''
-                )
+                finalJson.image = inputJson[key][500].replace('_SL500_.', '')
             // Common case
             } else if (inputJson[key]) {
-                finalJson[key] = inputJson[key]
+                finalJson[snakeCaseToCamelCase(key)] = inputJson[key]
             }
         })
 

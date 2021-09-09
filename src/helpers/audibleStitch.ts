@@ -1,46 +1,49 @@
+import { ApiBookInterface, BookInterface, HtmlBookInterface } from '../interfaces/books/index'
+
 class StitchHelper {
-    apiRes: any;
-    htmlRes: any;
-    finalJson: any;
-    constructor (apiRes, htmlRes) {
+    apiRes: ApiBookInterface;
+    htmlRes: HtmlBookInterface;
+    tempJson: any;
+    bookJson!: BookInterface;
+    constructor (apiRes: ApiBookInterface, htmlRes: HtmlBookInterface) {
         this.apiRes = apiRes
         this.htmlRes = htmlRes
-        this.finalJson = apiRes
+        this.tempJson = apiRes
     }
 
     includeGenres () {
         if (this.htmlRes.genres) {
-            this.finalJson.genres = this.htmlRes.genres
+            this.tempJson.genres = this.htmlRes.genres
         }
     }
 
     setSeriesOrder () {
-        if (this.apiRes.publication_name) {
+        if (this.apiRes.publicationName) {
             const htmlSeries = this.htmlRes.series
-            const returnJson = this.finalJson
 
-            // If multiple series, set one with publication_name as primary
-            if (htmlSeries.length > 1) {
-                htmlSeries.forEach((item) => {
-                    if (item.name === this.apiRes.publication_name) {
-                        returnJson.primary_series = item
-                    } else {
-                        returnJson.secondary_series = item
-                    }
-                })
-            } else {
-                returnJson.primary_series = htmlSeries[0]
+            // If multiple series, set one with primarySeries as primary
+            if (htmlSeries) {
+                if (htmlSeries.length > 1) {
+                    htmlSeries.forEach((item) => {
+                        if (item.name === this.apiRes.publicationName) {
+                            this.tempJson.primarySeries = item
+                        } else {
+                            this.tempJson.secondarySeries = item
+                        }
+                    })
+                } else {
+                    this.tempJson.primarySeries = htmlSeries[0]
+                }
             }
-
-            delete returnJson.publication_name
         }
     }
 
-    process () {
+    process (): BookInterface {
         this.includeGenres()
         this.setSeriesOrder()
-        console.log(this.finalJson)
-        return this.finalJson
+        console.log(this.tempJson)
+        this.bookJson = this.tempJson
+        return this.bookJson
     }
 }
 
