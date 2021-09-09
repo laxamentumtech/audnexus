@@ -37,7 +37,7 @@ services:
       - internal
 
   traefik:
-    image: traefik:v2.4
+    image: traefik:v2.5
     command:
       - "--providers.docker=true"
       - "--entryPoints.web.address=:80"
