@@ -1,50 +1,51 @@
 {
   "name": "audnexus",
-  "version": "1.0.0",
-  "description": "A Moleculer-based microservices API for aggregating audiobook data",
+  "version": "0.1.0",
+  "description": "An API for aggregating audiobook data",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/djdembeck/audnexus"
+  },
   "scripts": {
-    "dev": "moleculer-runner --repl --hot services/**/*.service.js",
-    "start": "moleculer-runner",
-    "cli": "moleculer connect ",
-    "ci": "jest --watch",
-    "test": "jest --coverage",
-    "lint": "eslint services",
-    "prepare": ""
+    "build-ts": "tsc",
+    "build": "npm run build-ts",
+    "debug": "npm run build && npm run watch-debug",
+    "lint": "tsc --noEmit && eslint \"**/*.{js,ts}\" --quiet --fix",
+    "serve-debug": "nodemon --inspect dist/server.js",
+    "serve": "node dist/server.js",
+    "start": "npm run build && npm run serve",
+    "test": "jest --forceExit --coverage --verbose",
+    "watch-debug": "concurrently -k -p \"[{name}]\" -n \"TypeScript,Node\" -c \"yellow.bold,cyan.bold,green.bold\" \"npm run watch-ts\" \"npm run serve-debug\"",
+    "watch-node": "nodemon dist/server.js",
+    "watch-test": "npm run test -- --watchAll",
+    "watch-ts": "tsc -w",
+    "watch": "concurrently -k -p \"[{name}]\" -n \"TypeScript,Node\" -c \"yellow.bold,cyan.bold,green.bold\" \"npm run watch-ts\" \"npm run watch-node\""
   },
-  "keywords": [
-    "microservices",
-    "moleculer"
-  ],
-  "author": "",
-  "devDependencies": {
-    "eslint": "^7.32.0",
-    "husky": "^7.0.2",
-    "jest": "^27.1.0",
-    "jest-cli": "^27.1.0",
-    "lint-staged": "^11.1.2",
-    "moleculer-repl": "^0.6.6",
-    "prettier": "^2.3.2"
-  },
+  "author": "David Dembeck",
+  "license": "GPL-3.0",
   "dependencies": {
+    "concurrently": "^6.2.1",
+    "fastify": "^3.21.0",
+    "fastify-plugin": "^3.0.0",
     "html-to-text": "^8.0.0",
-    "ioredis": "^4.27.9",
     "isomorphic-fetch": "^3.0.0",
     "jsdom": "^17.0.0",
-    "moleculer": "^0.14.16",
-    "moleculer-web": "^0.10.2"
+    "mongodb": "^4.1.1",
+    "nodemon": "^2.0.12",
+    "papr": "^2.1.0",
+    "typescript": "^4.4.2"
   },
-  "engines": {
-    "node": ">= 12.x.x"
-  },
-  "jest": {
-    "coverageDirectory": "../coverage",
-    "testEnvironment": "node",
-    "rootDir": "./services",
-    "roots": [
-      "../test"
-    ]
-  },
-  "lint-staged": {
-    "*.js": "prettier --tab-width 4 --use-tabs false --write"
+  "devDependencies": {
+    "@types/html-to-text": "^8.0.1",
+    "@types/isomorphic-fetch": "^0.0.35",
+    "@types/jsdom": "^16.2.13",
+    "@types/node": "^16.7.13",
+    "@typescript-eslint/eslint-plugin": "^4.31.0",
+    "@typescript-eslint/parser": "^4.31.0",
+    "eslint": "^7.32.0",
+    "eslint-config-standard": "^16.0.3",
+    "eslint-plugin-import": "^2.24.2",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^5.1.0"
   }
 }

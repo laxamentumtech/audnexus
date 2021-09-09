@@ -1,38 +1,30 @@
 version: "3.3"
 
 services:
-
-  api:
+  node-server:
     build:
       context: .
     image: audnexus
     env_file: docker-compose.env
-    environment:
-      SERVICES: api
-      PORT: 3000
+    ports:
+      - "3000:3000"
     depends_on:
+      - mongo
       - redis
+    networks:
+      - internal
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.api-gw.rule=PathPrefix(`/`)"
-      - "traefik.http.services.api-gw.loadbalancer.server.port=3000"
-    networks:
-      - internal
-
-  book:
-    build:
-      context: .
-    image: audnexus
-    env_file: docker-compose.env
-    environment:
-      SERVICES: book
-    depends_on:
-      - redis
-    networks:
-      - internal
+      - "traefik.http.routers.node-server.rule=Host(`api.audnex.us`)"
+      - "traefik.http.routers.node-server.entrypoints=websecure"
+      - "traefik.http.routers.node-server.tls.certresolver=myresolver"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.redirs.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.redirs.entrypoints=web"
+      - "traefik.http.routers.redirs.middlewares=redirect-to-https"
 
   mongo:
-    image: mongo:4
+    image: mongo:5
     volumes:
       - data:/data/db
     networks:
@@ -44,15 +36,22 @@ services:
       - internal
 
   traefik:
-    image: traefik:v2.1
+    image: traefik:v2.4
     command:
-      - "--api.insecure=true" # Don't do that in production!
       - "--providers.docker=true"
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.websecure.address=:443"
       - "--providers.docker.exposedbydefault=false"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
+      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.myresolver.acme.email=admin@laxamentum.tech"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
-      - 3000:80
-      - 3001:8080
+      - "443:443"
+      - "80:80"
+      - "8080:8080"
     volumes:
+      - "./letsencrypt:/letsencrypt"
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - internal
