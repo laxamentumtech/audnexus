@@ -13,6 +13,7 @@ services:
     depends_on:
       - mongo
       - redis
+      - traefik
     networks:
       - internal
     labels:
