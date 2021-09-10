@@ -7,9 +7,9 @@ export interface GenreInterface {
 }
 
 export interface SeriesInterface {
-    asin: string,
+    asin?: string,
     name: string,
-    position: string
+    position?: string
 }
 
 interface CoreBook {

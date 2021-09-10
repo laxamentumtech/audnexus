@@ -33,7 +33,7 @@ class ApiHelper {
     async fetchBook (): Promise<ApiBookInterface> {
         const response = await fetch(this.reqUrl)
         const json = await response.json()
-        // console.log(json);
+        // console.log(json)
         return this.parseResponse(json)
     }
 
@@ -110,6 +110,10 @@ class ApiHelper {
                 finalJson[key] = narratorArr
             // Make it into a date object
             } else if (key === 'release_date') {
+                // Some releases use issue_date, try that if this fails
+                if (!inputJson[key] && inputJson.issue_date) {
+                    key = 'issue_date'
+                }
                 const releaseDate = new Date(inputJson[key])
                 finalJson.releaseDate = releaseDate
             // Rename to long_summary

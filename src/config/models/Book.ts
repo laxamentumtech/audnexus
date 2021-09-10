@@ -40,16 +40,16 @@ const bookSchema = schema({
     ),
     primarySeries: types.object(
         {
-            asin: types.string({ required: true }),
+            asin: types.string(),
             name: types.string({ required: true }),
-            position: types.string({ required: true })
+            position: types.string()
         }
     ),
     secondarySeries: types.object(
         {
-            asin: types.string({ required: true }),
+            asin: types.string(),
             name: types.string({ required: true }),
-            position: types.string({ required: true })
+            position: types.string()
         }
     )
 })
