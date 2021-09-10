@@ -45,7 +45,7 @@ class StitchHelper {
     process (): BookInterface {
         this.includeGenres()
         this.setSeriesOrder()
-        console.log(this.tempJson)
+        // console.log(this.tempJson)
         this.bookJson = this.tempJson
         return this.bookJson
     }
