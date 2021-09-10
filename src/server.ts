@@ -7,7 +7,9 @@ import { connect } from './config/papr'
 const Port = process.env.PORT || 3000
 const host = '0.0.0.0'
 const server = fastify({
-    logger: true
+    logger: {
+        level: 'warn'
+    }
 })
 
 server.register(showBook)
