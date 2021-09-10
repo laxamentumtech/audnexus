@@ -1,4 +1,4 @@
-FROM node:14 as build-env
+FROM node:16 as build-env
 ADD . /app
 WORKDIR /app
 RUN npm ci --only=production && \
