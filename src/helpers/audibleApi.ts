@@ -83,7 +83,7 @@ class ApiHelper {
                     wordwrap: false
                 })
             // Narrators and authors both come in array objects
-            } else if (key === 'authors') {
+            } else if (key === 'authors' && inputJson[key]) {
                 const authorArr: AuthorInterface[] = []
                 // Loop through each person
                 inputJson[key].forEach((person: AuthorInterface) => {
@@ -98,7 +98,7 @@ class ApiHelper {
                 })
                 // Use final array as value
                 finalJson[key] = authorArr
-            } else if (key === 'narrators') {
+            } else if (key === 'narrators' && inputJson[key]) {
                 const narratorArr: NarratorInterface[] = []
                 // Loop through each person
                 inputJson[key].forEach((person: NarratorInterface) => {
@@ -120,7 +120,7 @@ class ApiHelper {
             } else if (key === 'publisher_summary') {
                 finalJson.summary = inputJson[key]
             // Remove _SL500_ and rename to cover_image
-            } else if (key === 'product_images') {
+            } else if (key === 'product_images' && inputJson[key]) {
                 finalJson.image = inputJson[key][500].replace('_SL500_.', '')
             // Common case
             } else if (inputJson[key]) {

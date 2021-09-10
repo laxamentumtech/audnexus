@@ -26,7 +26,6 @@ async function routes (fastify, options) {
             return await Promise.all(listOfPromises).then(async (res) => {
                 const stitch = new StitchHelper(res[0])
                 if (res[1] !== undefined) {
-                    console.log(res[1])
                     stitch.htmlRes = res[1]
                 }
                 const item = await Book.insertOne(stitch.process())
