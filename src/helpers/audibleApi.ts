@@ -125,6 +125,8 @@ class ApiHelper {
             // Common case
             } else if (inputJson[key]) {
                 finalJson[snakeCaseToCamelCase(key)] = inputJson[key]
+            } else {
+                console.log(`Key: ${key}, does not exist on ${finalJson.asin}`)
             }
         })
 

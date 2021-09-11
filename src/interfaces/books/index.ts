@@ -14,25 +14,25 @@ export interface SeriesInterface {
 
 interface CoreBook {
     asin: string;
-    title: string;
-    subtitle?: string;
-    description: string;
-    summary: string;
     authors: AuthorInterface[];
-    narrators?: NarratorInterface[];
-    releaseDate: Date;
-    publisherName: string;
-    language: string;
-    runtimeLengthMin: number;
+    description: string;
     formatType: string;
     image: string;
+    language: string;
+    narrators?: NarratorInterface[];
+    publisherName: string;
+    releaseDate: Date;
+    runtimeLengthMin: number;
+    subtitle?: string;
+    summary: string;
+    title: string;
 }
 
 // Final format of data stored
 export interface BookInterface extends CoreBook {
     genres?: GenreInterface[];
-    primarySeries?: SeriesInterface;
-    secondarySeries?: SeriesInterface;
+    seriesPrimary?: SeriesInterface;
+    seriesSecondary?: SeriesInterface;
 }
 
 // What we expect to keep from Audible's API
@@ -44,6 +44,6 @@ export interface ApiBookInterface extends CoreBook {
 export interface HtmlBookInterface {
     genres?: GenreInterface[];
     series?: SeriesInterface[];
-    primarySeries?: SeriesInterface;
-    secondarySeries?: SeriesInterface;
+    seriesPrimary?: SeriesInterface;
+    seriesSecondary?: SeriesInterface;
 }

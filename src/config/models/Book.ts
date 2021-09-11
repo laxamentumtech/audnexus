@@ -3,10 +3,6 @@ import papr from '../papr'
 
 const bookSchema = schema({
     asin: types.string({ required: true }),
-    title: types.string({ required: true }),
-    subtitle: types.string(),
-    description: types.string({ required: true }),
-    summary: types.string({ required: true }),
     authors: types.array(
         types.object(
             {
@@ -15,20 +11,8 @@ const bookSchema = schema({
             }
         )
     ),
-    narrators: types.array(
-        types.object(
-            {
-                asin: types.string(),
-                name: types.string({ required: true })
-            }
-        )
-    ),
-    releaseDate: types.date({ required: true }),
-    publisherName: types.string({ required: true }),
-    language: types.string({ required: true }),
-    runtimeLengthMin: types.number({ required: true }),
+    description: types.string({ required: true }),
     formatType: types.string({ required: true }),
-    image: types.string({ required: true }),
     genres: types.array(
         types.object(
             {
@@ -38,20 +22,36 @@ const bookSchema = schema({
             }
         )
     ),
-    primarySeries: types.object(
+    image: types.string({ required: true }),
+    language: types.string({ required: true }),
+    narrators: types.array(
+        types.object(
+            {
+                asin: types.string(),
+                name: types.string({ required: true })
+            }
+            )
+            ),
+            publisherName: types.string({ required: true }),
+    releaseDate: types.date({ required: true }),
+    runtimeLengthMin: types.number(),
+    seriesPrimary: types.object(
         {
             asin: types.string(),
             name: types.string({ required: true }),
             position: types.string()
         }
     ),
-    secondarySeries: types.object(
+    seriesSeceondary: types.object(
         {
             asin: types.string(),
             name: types.string({ required: true }),
             position: types.string()
         }
-    )
+    ),
+    subtitle: types.string(),
+    summary: types.string({ required: true }),
+    title: types.string({ required: true })
 })
 
 export type BookDocument = typeof bookSchema[0];

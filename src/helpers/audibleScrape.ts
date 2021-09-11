@@ -32,7 +32,7 @@ class ScrapeHelper {
     async fetchBook (): Promise<HtmlBookInterface | undefined> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
-            const message = `An error has occured while scraping HTML: ${response.status}`
+            const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
             console.log(message)
             return undefined
         } else {
@@ -89,31 +89,31 @@ class ScrapeHelper {
             const seriesArr: SeriesInterface[] = []
 
             if (series[0]) {
-                const primarySeries = {} as SeriesInterface
+                const seriesPrimary = {} as SeriesInterface
 
-                primarySeries.name = series[0].textContent
+                seriesPrimary.name = series[0].textContent
                 if (series[0].getAttribute('href')) {
-                    primarySeries.asin = this.getAsinFromUrl(series[0].getAttribute('href'))
+                    seriesPrimary.asin = this.getAsinFromUrl(series[0].getAttribute('href'))
                 }
                 if (bookPos && bookPos[0]) {
-                    primarySeries.position = bookPos[0]
+                    seriesPrimary.position = bookPos[0]
                 }
 
-                seriesArr.push(primarySeries)
+                seriesArr.push(seriesPrimary)
             }
 
             if (series[1]) {
-                const secondarySeries = {} as SeriesInterface
+                const seriesSecondary = {} as SeriesInterface
 
-                secondarySeries.name = series[1].textContent
+                seriesSecondary.name = series[1].textContent
                 if (series[1].getAttribute('href')) {
-                    secondarySeries.asin = this.getAsinFromUrl(series[1].getAttribute('href'))
+                    seriesSecondary.asin = this.getAsinFromUrl(series[1].getAttribute('href'))
                 }
                 if (bookPos && bookPos[1]) {
-                    secondarySeries.position = bookPos[1]
+                    seriesSecondary.position = bookPos[1]
                 }
 
-                seriesArr.push(secondarySeries)
+                seriesArr.push(seriesSecondary)
             }
 
             returnJson.series = seriesArr
