@@ -30,9 +30,9 @@ const bookSchema = schema({
                 asin: types.string(),
                 name: types.string({ required: true })
             }
-            )
-            ),
-            publisherName: types.string({ required: true }),
+        )
+    ),
+    publisherName: types.string({ required: true }),
     releaseDate: types.date({ required: true }),
     runtimeLengthMin: types.number(),
     seriesPrimary: types.object(

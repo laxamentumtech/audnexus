@@ -21,22 +21,22 @@ class StitchHelper {
             if (this.htmlRes) {
                 const htmlSeries = this.htmlRes.series
 
-                // If multiple series, set one with primarySeries as primary
+                // If multiple series, set one with seriesPrimary as primary
                 if (htmlSeries) {
                     if (htmlSeries.length > 1) {
                         htmlSeries.forEach((item) => {
                             if (item.name === this.apiRes.publicationName) {
-                                this.tempJson.primarySeries = item
+                                this.tempJson.seriesPrimary = item
                             } else {
-                                this.tempJson.secondarySeries = item
+                                this.tempJson.seriesSecondary = item
                             }
                         })
                     } else {
-                        this.tempJson.primarySeries = htmlSeries[0]
+                        this.tempJson.seriesPrimary = htmlSeries[0]
                     }
                 }
             } else {
-                this.tempJson.primarySeries = { name: this.tempJson.publicationName } as SeriesInterface
+                this.tempJson.seriesPrimary = { name: this.tempJson.publicationName } as SeriesInterface
             }
             delete this.tempJson.publicationName
         }
