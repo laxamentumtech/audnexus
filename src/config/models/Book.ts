@@ -42,7 +42,7 @@ const bookSchema = schema({
             position: types.string()
         }
     ),
-    seriesSeceondary: types.object(
+    seriesSecondary: types.object(
         {
             asin: types.string(),
             name: types.string({ required: true }),

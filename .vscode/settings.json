@@ -1,6 +1,7 @@
 {
     "conventionalCommits.scopes": [
         "log",
-        "stitcher"
+        "stitcher",
+        "schema"
     ]
 }
