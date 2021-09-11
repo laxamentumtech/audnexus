@@ -61,19 +61,19 @@ class ApiHelper {
 
         const keysToKeep = [
             'asin',
-            'title',
-            'subtitle',
-            'merchandising_summary',
-            'publisher_summary',
             'authors',
-            'narrators',
-            'publication_name',
-            'release_date',
-            'publisher_name',
-            'language',
-            'runtime_length_min',
             'format_type',
-            'product_images'
+            'language',
+            'merchandising_summary',
+            'narrators',
+            'product_images',
+            'publication_name',
+            'publisher_name',
+            'publisher_summary',
+            'release_date',
+            'runtime_length_min',
+            'subtitle',
+            'title'
         ]
 
         keysToKeep.forEach((key) => {
@@ -126,7 +126,10 @@ class ApiHelper {
             } else if (inputJson[key]) {
                 finalJson[snakeCaseToCamelCase(key)] = inputJson[key]
             } else {
-                console.log(`Key: ${key}, does not exist on ${finalJson.asin}`)
+                // Log missing non-optionals
+                if (key !== 'publication_name' && key !== 'subtitle') {
+                    console.log(`Key: ${key}, does not exist on ${finalJson.asin}`)
+                }
             }
         })
 
