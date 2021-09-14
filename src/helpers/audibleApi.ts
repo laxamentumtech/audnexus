@@ -46,92 +46,144 @@ class ApiHelper {
         const inputJson = jsonRes.product
         const finalJson: any = {}
 
-        const snakeCaseToCamelCase = (input: string) =>
-            input
-                .split('_')
-                .reduce(
-                    (res, word, i) =>
-                        i === 0
-                            ? word.toLowerCase()
-                            : `${res}${word.charAt(0).toUpperCase()}${word
-                                    .substr(1)
-                                    .toLowerCase()}`,
-                    ''
-                )
+        let key: string
+        const missingKeyMsg = (key: string) => console.log(`Key: ${key}, does not exist on: ${finalJson.asin}`)
 
-        const keysToKeep = [
-            'asin',
-            'authors',
-            'format_type',
-            'language',
-            'merchandising_summary',
-            'narrators',
-            'product_images',
-            'publication_name',
-            'publisher_name',
-            'publisher_summary',
-            'release_date',
-            'runtime_length_min',
-            'subtitle',
-            'title'
-        ]
+        // Asin
+        key = 'asin'
+        if (key in inputJson) {
+            finalJson[key] = inputJson[key]
+        } else {
+            missingKeyMsg(key)
+        }
 
-        keysToKeep.forEach((key) => {
-            // Clean short description of html tags
-            if (key === 'merchandising_summary') {
-                finalJson.description = htmlToText(inputJson[key], {
-                    wordwrap: false
-                })
-            // Narrators and authors both come in array objects
-            } else if (key === 'authors' && inputJson[key]) {
-                const authorArr: AuthorInterface[] = []
-                // Loop through each person
-                inputJson[key].forEach((person: AuthorInterface) => {
-                    const authorJson = <AuthorInterface>{}
+        // Authors
+        key = 'authors'
+        if (key in inputJson) {
+            const authorArr: AuthorInterface[] = []
+            // Loop through each person
+            inputJson[key].forEach((person: AuthorInterface) => {
+                const authorJson = <AuthorInterface>{}
 
-                    // Use asin for author if available
-                    if (person.asin) {
-                        authorJson.asin = person.asin
-                    }
-                    authorJson.name = person.name
-                    authorArr.push(authorJson)
-                })
-                // Use final array as value
-                finalJson[key] = authorArr
-            } else if (key === 'narrators' && inputJson[key]) {
-                const narratorArr: NarratorInterface[] = []
-                // Loop through each person
-                inputJson[key].forEach((person: NarratorInterface) => {
-                    const narratorJson = <NarratorInterface>{}
-                    narratorJson.name = person.name
-                    narratorArr.push(narratorJson)
-                })
-                // Use final array as value
-                finalJson[key] = narratorArr
-            // Make it into a date object
-            } else if (key === 'release_date') {
-                // Some releases use issue_date, try that if this fails
-                if (!inputJson[key] && inputJson.issue_date) {
-                    key = 'issue_date'
+                // Use asin for author if available
+                if (person.asin) {
+                    authorJson.asin = person.asin
                 }
-                const releaseDate = new Date(inputJson[key])
-                finalJson.releaseDate = releaseDate
-            // Rename to long_summary
-            } else if (key === 'publisher_summary') {
-                finalJson.summary = inputJson[key]
-            // Remove _SL500_ and rename to cover_image
-            } else if (key === 'product_images' && inputJson[key]) {
-                finalJson.image = inputJson[key][500].replace('_SL500_.', '')
-            // Common case
-            } else if (inputJson[key]) {
-                finalJson[snakeCaseToCamelCase(key)] = inputJson[key]
-            } else {
-                // Log missing non-optionals
-                if (key !== 'publication_name' && key !== 'subtitle') {
-                    console.log(`Key: ${key}, does not exist on ${finalJson.asin}`)
-                }
+                authorJson.name = person.name
+                authorArr.push(authorJson)
+            })
+            // Use final array as value
+            finalJson[key] = authorArr
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // Description
+        // Clean description of html tags
+        key = 'merchandising_summary'
+        if (key in inputJson) {
+            finalJson.description = htmlToText(inputJson[key], {
+                wordwrap: false
+            })
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // FormatType
+        key = 'format_type'
+        if (key in inputJson) {
+            finalJson.formatType = inputJson[key]
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // Image
+        // Remove _SL500_ and rename to image
+        key = 'product_images'
+        if (key in inputJson) {
+            finalJson.image = inputJson[key][500].replace('_SL500_.', '')
+        }
+
+        // Language
+        key = 'language'
+        if (key in inputJson) {
+            finalJson[key] = inputJson[key]
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // Narrators
+        key = 'narrators'
+        if (key in inputJson) {
+            const narratorArr: NarratorInterface[] = []
+            // Loop through each person
+            inputJson[key].forEach((person: NarratorInterface) => {
+                const narratorJson = <NarratorInterface>{}
+                narratorJson.name = person.name
+                narratorArr.push(narratorJson)
+            })
+            // Use final array as value
+            finalJson[key] = narratorArr
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // PublisherName
+        key = 'publisher_name'
+        if (key in inputJson) {
+            finalJson.publisherName = inputJson[key]
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // ReleaseDate
+        // Make it into a date object
+        key = 'release_date'
+        if (key in inputJson) {
+            // Some releases use issue_date, try that if this fails
+            if (!inputJson[key] && inputJson.issue_date) {
+                key = 'issue_date'
             }
-        })
+            const releaseDate = new Date(inputJson[key])
+            finalJson.releaseDate = releaseDate
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // RuntimeLengthMin
+        key = 'runtime_length_min'
+        if (key in inputJson) {
+            finalJson.runtimeLengthMin = inputJson[key]
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // SeriesPrimary
+        key = 'publication_name'
+        if (key in inputJson) {
+            finalJson.publicationName = inputJson[key]
+        }
+
+        // Subtitle
+        key = 'subtitle'
+        if (key in inputJson) {
+            finalJson[key] = inputJson[key]
+        }
+
+        // Summary
+        // Rename to summary
+        key = 'publisher_summary'
+        if (key in inputJson) {
+            finalJson.summary = inputJson[key]
+        }
+
+        // Title
+        key = 'title'
+        if (key in inputJson) {
+            finalJson[key] = inputJson[key]
+        } else {
+            missingKeyMsg(key)
+        }
 
         return finalJson
     }

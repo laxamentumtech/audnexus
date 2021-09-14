@@ -2,6 +2,7 @@
     "conventionalCommits.scopes": [
         "log",
         "stitcher",
-        "schema"
+        "schema",
+        "audible-api"
     ]
 }
