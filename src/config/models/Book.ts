@@ -22,7 +22,7 @@ const bookSchema = schema({
             }
         )
     ),
-    image: types.string({ required: true }),
+    image: types.string(),
     language: types.string({ required: true }),
     narrators: types.array(
         types.object(
