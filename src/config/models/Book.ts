@@ -12,7 +12,7 @@ const bookSchema = schema({
         )
     ),
     description: types.string({ required: true }),
-    formatType: types.string({ required: true }),
+    formatType: types.string(),
     genres: types.array(
         types.object(
             {

@@ -49,7 +49,9 @@ class ApiHelper {
 
         let key: string
         let newKey: string
-        const missingKeyMsg = (key: string) => console.log(`Key: ${key}, does not exist on: ${finalJson.asin}`)
+        const missingKeyMsg = (key: string) => {
+            throw new Error(`Key: ${key}, does not exist on: ${finalJson.asin}`)
+        }
         const standardKeyHandling = (oldKey: string, newKey: string) => {
             if (oldKey in inputJson) {
                 finalJson[newKey] = inputJson[oldKey]
@@ -103,7 +105,7 @@ class ApiHelper {
         // FormatType
         key = 'format_type'
         newKey = 'formatType'
-        standardKeyHandling(key, newKey)
+        optionalKeyHandling(key, newKey)
 
         // Image
         // Remove _SL500_ and rename to image
@@ -129,8 +131,6 @@ class ApiHelper {
             })
             // Use final array as value
             finalJson[key] = narratorArr
-        } else {
-            missingKeyMsg(key)
         }
 
         // PublisherName
@@ -155,7 +155,7 @@ class ApiHelper {
         // RuntimeLengthMin
         key = 'runtime_length_min'
         newKey = 'runtimeLengthMin'
-        standardKeyHandling(key, newKey)
+        optionalKeyHandling(key, newKey)
 
         // SeriesPrimary
         key = 'publication_name'
