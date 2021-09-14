@@ -1,6 +1,7 @@
 import fetch from 'isomorphic-fetch'
 // For merchandising_summary
 import { htmlToText } from 'html-to-text'
+import { AudibleInterface } from '../interfaces/audible/index'
 import { ApiBookInterface } from '../interfaces/books/index'
 import { AuthorInterface, NarratorInterface } from '../interfaces/people/index'
 
@@ -39,10 +40,10 @@ class ApiHelper {
 
     /**
      *
-     * @param {json} jsonRes fetched json response from api.audible.com
+     * @param {AudibleInterface} jsonRes fetched json response from api.audible.com
      * @returns {ApiBookInterface} relevant data to keep
      */
-    parseResponse (jsonRes): ApiBookInterface {
+    parseResponse (jsonRes: AudibleInterface): ApiBookInterface {
         const inputJson = jsonRes.product
         const finalJson: any = {}
 
