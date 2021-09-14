@@ -48,15 +48,25 @@ class ApiHelper {
         const finalJson: any = {}
 
         let key: string
+        let newKey: string
         const missingKeyMsg = (key: string) => console.log(`Key: ${key}, does not exist on: ${finalJson.asin}`)
+        const standardKeyHandling = (oldKey: string, newKey: string) => {
+            if (oldKey in inputJson) {
+                finalJson[newKey] = inputJson[oldKey]
+            } else {
+                missingKeyMsg(key)
+            }
+        }
+        const optionalKeyHandling = (oldKey: string, newKey: string) => {
+            if (oldKey in inputJson) {
+                finalJson[newKey] = inputJson[oldKey]
+            }
+        }
 
         // Asin
         key = 'asin'
-        if (key in inputJson) {
-            finalJson[key] = inputJson[key]
-        } else {
-            missingKeyMsg(key)
-        }
+        newKey = key
+        standardKeyHandling(key, newKey)
 
         // Authors
         key = 'authors'
@@ -92,11 +102,8 @@ class ApiHelper {
 
         // FormatType
         key = 'format_type'
-        if (key in inputJson) {
-            finalJson.formatType = inputJson[key]
-        } else {
-            missingKeyMsg(key)
-        }
+        newKey = 'formatType'
+        standardKeyHandling(key, newKey)
 
         // Image
         // Remove _SL500_ and rename to image
@@ -107,11 +114,8 @@ class ApiHelper {
 
         // Language
         key = 'language'
-        if (key in inputJson) {
-            finalJson[key] = inputJson[key]
-        } else {
-            missingKeyMsg(key)
-        }
+        newKey = key
+        standardKeyHandling(key, newKey)
 
         // Narrators
         key = 'narrators'
@@ -131,11 +135,8 @@ class ApiHelper {
 
         // PublisherName
         key = 'publisher_name'
-        if (key in inputJson) {
-            finalJson.publisherName = inputJson[key]
-        } else {
-            missingKeyMsg(key)
-        }
+        newKey = 'publisherName'
+        standardKeyHandling(key, newKey)
 
         // ReleaseDate
         // Make it into a date object
@@ -153,38 +154,29 @@ class ApiHelper {
 
         // RuntimeLengthMin
         key = 'runtime_length_min'
-        if (key in inputJson) {
-            finalJson.runtimeLengthMin = inputJson[key]
-        } else {
-            missingKeyMsg(key)
-        }
+        newKey = 'runtimeLengthMin'
+        standardKeyHandling(key, newKey)
 
         // SeriesPrimary
         key = 'publication_name'
-        if (key in inputJson) {
-            finalJson.publicationName = inputJson[key]
-        }
+        newKey = 'publicationName'
+        optionalKeyHandling(key, newKey)
 
         // Subtitle
         key = 'subtitle'
-        if (key in inputJson) {
-            finalJson[key] = inputJson[key]
-        }
+        newKey = key
+        optionalKeyHandling(key, newKey)
 
         // Summary
         // Rename to summary
         key = 'publisher_summary'
-        if (key in inputJson) {
-            finalJson.summary = inputJson[key]
-        }
+        newKey = 'summary'
+        standardKeyHandling(key, newKey)
 
         // Title
         key = 'title'
-        if (key in inputJson) {
-            finalJson[key] = inputJson[key]
-        } else {
-            missingKeyMsg(key)
-        }
+        newKey = key
+        standardKeyHandling(key, newKey)
 
         return finalJson
     }
