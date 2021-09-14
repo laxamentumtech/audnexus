@@ -1,0 +1,8 @@
+{
+    "conventionalCommits.scopes": [
+        "log",
+        "stitcher",
+        "schema",
+        "audible-api"
+    ]
+}

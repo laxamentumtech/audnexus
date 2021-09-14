@@ -29,11 +29,17 @@ class ScrapeHelper {
      * @param {buildUrl} reqUrl the full url to fetch.
      * @returns {json} data from parseResponse() function.
      */
-    async fetchBook (): Promise<HtmlBookInterface> {
+    async fetchBook (): Promise<HtmlBookInterface | undefined> {
         const response = await fetch(this.reqUrl)
-        const text = await response.text()
-        const dom = await new JSDOM(text)
-        return this.parseResponse(dom)
+        if (!response.ok) {
+            const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
+            console.log(message)
+            return undefined
+        } else {
+            const text = await response.text()
+            const dom = await new JSDOM(text)
+            return this.parseResponse(dom)
+        }
     }
 
     /**
@@ -83,18 +89,31 @@ class ScrapeHelper {
             const seriesArr: SeriesInterface[] = []
 
             if (series[0]) {
-                seriesArr.push({
-                    asin: this.getAsinFromUrl(series[0].getAttribute('href')),
-                    name: series[0].textContent,
-                    position: bookPos[0]
-                })
+                const seriesPrimary = {} as SeriesInterface
+
+                seriesPrimary.name = series[0].textContent
+                if (series[0].getAttribute('href')) {
+                    seriesPrimary.asin = this.getAsinFromUrl(series[0].getAttribute('href'))
+                }
+                if (bookPos && bookPos[0]) {
+                    seriesPrimary.position = bookPos[0]
+                }
+
+                seriesArr.push(seriesPrimary)
             }
+
             if (series[1]) {
-                seriesArr.push({
-                    asin: this.getAsinFromUrl(series[1].getAttribute('href')),
-                    name: series[1].textContent,
-                    position: bookPos[1]
-                })
+                const seriesSecondary = {} as SeriesInterface
+
+                seriesSecondary.name = series[1].textContent
+                if (series[1].getAttribute('href')) {
+                    seriesSecondary.asin = this.getAsinFromUrl(series[1].getAttribute('href'))
+                }
+                if (bookPos && bookPos[1]) {
+                    seriesSecondary.position = bookPos[1]
+                }
+
+                seriesArr.push(seriesSecondary)
             }
 
             returnJson.series = seriesArr

@@ -1,10 +1,11 @@
-version: "3.3"
+version: "3.7"
 
 services:
   node-server:
     build:
       context: .
     image: audnexus
+    restart: always
     environment:
     - MONGODB_URI=mongodb://mongo/audnexus
     ports:
@@ -12,8 +13,10 @@ services:
     depends_on:
       - mongo
       - redis
+      - traefik
     networks:
       - internal
+      - web
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.node-server.rule=Host(`api.audnex.us`)"
@@ -26,6 +29,7 @@ services:
 
   mongo:
     image: mongo:5
+    restart: always
     volumes:
       - ~/mongo/data:/data/db
     networks:
@@ -33,11 +37,13 @@ services:
 
   redis:
     image: redis:alpine
+    restart: always
     networks:
       - internal
 
   traefik:
     image: traefik:v2.5
+    restart: always
     command:
       - "--providers.docker=true"
       - "--entryPoints.web.address=:80"
@@ -55,8 +61,8 @@ services:
       - "./letsencrypt:/letsencrypt"
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - internal
-      - default
+      - web
 
 networks:
   internal:
+  web:

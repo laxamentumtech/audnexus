@@ -1,6 +1,7 @@
 import fetch from 'isomorphic-fetch'
 // For merchandising_summary
 import { htmlToText } from 'html-to-text'
+import { AudibleInterface } from '../interfaces/audible/index'
 import { ApiBookInterface } from '../interfaces/books/index'
 import { AuthorInterface, NarratorInterface } from '../interfaces/people/index'
 
@@ -33,96 +34,149 @@ class ApiHelper {
     async fetchBook (): Promise<ApiBookInterface> {
         const response = await fetch(this.reqUrl)
         const json = await response.json()
-        // console.log(json);
+        // console.log(json)
         return this.parseResponse(json)
     }
 
     /**
      *
-     * @param {json} jsonRes fetched json response from api.audible.com
+     * @param {AudibleInterface} jsonRes fetched json response from api.audible.com
      * @returns {ApiBookInterface} relevant data to keep
      */
-    parseResponse (jsonRes): ApiBookInterface {
+    parseResponse (jsonRes: AudibleInterface): ApiBookInterface {
         const inputJson = jsonRes.product
         const finalJson: any = {}
 
-        const snakeCaseToCamelCase = (input: string) =>
-            input
-                .split('_')
-                .reduce(
-                    (res, word, i) =>
-                        i === 0
-                            ? word.toLowerCase()
-                            : `${res}${word.charAt(0).toUpperCase()}${word
-                                    .substr(1)
-                                    .toLowerCase()}`,
-                    ''
-                )
-
-        const keysToKeep = [
-            'asin',
-            'title',
-            'subtitle',
-            'merchandising_summary',
-            'publisher_summary',
-            'authors',
-            'narrators',
-            'publication_name',
-            'release_date',
-            'publisher_name',
-            'language',
-            'runtime_length_min',
-            'format_type',
-            'product_images'
-        ]
-
-        keysToKeep.forEach((key) => {
-            // Clean short description of html tags
-            if (key === 'merchandising_summary') {
-                finalJson.description = htmlToText(inputJson[key], {
-                    wordwrap: false
-                })
-            // Narrators and authors both come in array objects
-            } else if (key === 'authors') {
-                const authorArr: AuthorInterface[] = []
-                // Loop through each person
-                inputJson[key].forEach((person: AuthorInterface) => {
-                    const authorJson = <AuthorInterface>{}
-
-                    // Use asin for author if available
-                    if (person.asin) {
-                        authorJson.asin = person.asin
-                    }
-                    authorJson.name = person.name
-                    authorArr.push(authorJson)
-                })
-                // Use final array as value
-                finalJson[key] = authorArr
-            } else if (key === 'narrators') {
-                const narratorArr: NarratorInterface[] = []
-                // Loop through each person
-                inputJson[key].forEach((person: NarratorInterface) => {
-                    const narratorJson = <NarratorInterface>{}
-                    narratorJson.name = person.name
-                    narratorArr.push(narratorJson)
-                })
-                // Use final array as value
-                finalJson[key] = narratorArr
-            // Make it into a date object
-            } else if (key === 'release_date') {
-                const releaseDate = new Date(inputJson[key])
-                finalJson.releaseDate = releaseDate
-            // Rename to long_summary
-            } else if (key === 'publisher_summary') {
-                finalJson.summary = inputJson[key]
-            // Remove _SL500_ and rename to cover_image
-            } else if (key === 'product_images') {
-                finalJson.image = inputJson[key][500].replace('_SL500_.', '')
-            // Common case
-            } else if (inputJson[key]) {
-                finalJson[snakeCaseToCamelCase(key)] = inputJson[key]
+        let key: string
+        let newKey: string
+        const missingKeyMsg = (key: string) => {
+            throw new Error(`Key: ${key}, does not exist on: ${finalJson.asin}`)
+        }
+        const standardKeyHandling = (oldKey: string, newKey: string) => {
+            if (oldKey in inputJson) {
+                finalJson[newKey] = inputJson[oldKey]
+            } else {
+                missingKeyMsg(key)
             }
-        })
+        }
+        const optionalKeyHandling = (oldKey: string, newKey: string) => {
+            if (oldKey in inputJson) {
+                finalJson[newKey] = inputJson[oldKey]
+            }
+        }
+
+        // Asin
+        key = 'asin'
+        newKey = key
+        standardKeyHandling(key, newKey)
+
+        // Authors
+        key = 'authors'
+        if (key in inputJson) {
+            const authorArr: AuthorInterface[] = []
+            // Loop through each person
+            inputJson[key].forEach((person: AuthorInterface) => {
+                const authorJson = <AuthorInterface>{}
+
+                // Use asin for author if available
+                if (person.asin) {
+                    authorJson.asin = person.asin
+                }
+                authorJson.name = person.name
+                authorArr.push(authorJson)
+            })
+            // Use final array as value
+            finalJson[key] = authorArr
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // Description
+        // Clean description of html tags
+        key = 'merchandising_summary'
+        if (key in inputJson) {
+            finalJson.description = htmlToText(inputJson[key], {
+                wordwrap: false
+            })
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // FormatType
+        key = 'format_type'
+        newKey = 'formatType'
+        optionalKeyHandling(key, newKey)
+
+        // Image
+        // Remove _SL500_ and rename to image
+        key = 'product_images'
+        if (key in inputJson) {
+            finalJson.image = inputJson[key][500].replace('_SL500_.', '')
+        }
+
+        // Language
+        key = 'language'
+        newKey = key
+        standardKeyHandling(key, newKey)
+
+        // Narrators
+        key = 'narrators'
+        if (key in inputJson) {
+            const narratorArr: NarratorInterface[] = []
+            // Loop through each person
+            inputJson[key].forEach((person: NarratorInterface) => {
+                const narratorJson = <NarratorInterface>{}
+                narratorJson.name = person.name
+                narratorArr.push(narratorJson)
+            })
+            // Use final array as value
+            finalJson[key] = narratorArr
+        }
+
+        // PublisherName
+        key = 'publisher_name'
+        newKey = 'publisherName'
+        standardKeyHandling(key, newKey)
+
+        // ReleaseDate
+        // Make it into a date object
+        key = 'release_date'
+        if (key in inputJson) {
+            // Some releases use issue_date, try that if this fails
+            if (!inputJson[key] && inputJson.issue_date) {
+                key = 'issue_date'
+            }
+            const releaseDate = new Date(inputJson[key])
+            finalJson.releaseDate = releaseDate
+        } else {
+            missingKeyMsg(key)
+        }
+
+        // RuntimeLengthMin
+        key = 'runtime_length_min'
+        newKey = 'runtimeLengthMin'
+        optionalKeyHandling(key, newKey)
+
+        // SeriesPrimary
+        key = 'publication_name'
+        newKey = 'publicationName'
+        optionalKeyHandling(key, newKey)
+
+        // Subtitle
+        key = 'subtitle'
+        newKey = key
+        optionalKeyHandling(key, newKey)
+
+        // Summary
+        // Rename to summary
+        key = 'publisher_summary'
+        newKey = 'summary'
+        standardKeyHandling(key, newKey)
+
+        // Title
+        key = 'title'
+        newKey = key
+        standardKeyHandling(key, newKey)
 
         return finalJson
     }
