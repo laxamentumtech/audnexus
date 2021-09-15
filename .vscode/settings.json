@@ -3,6 +3,7 @@
         "log",
         "stitcher",
         "schema",
-        "audible-api"
+        "audible-api",
+        "docker"
     ]
 }

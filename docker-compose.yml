@@ -2,12 +2,12 @@ version: "3.7"
 
 services:
   node-server:
-    build:
-      context: .
-    image: audnexus
+    image: ghcr.io/djdembeck/audnexus:develop
     restart: always
     environment:
-    - MONGODB_URI=mongodb://mongo/audnexus
+    - MONGODB_URI=${NODE_MONGODB_URI}
+    - ADP_TOKEN=${NODE_ADP_TOKEN}
+    - PRIVATE_KEY=${NODE_PRIVATE_KEY}
     ports:
       - "3000:3000"
     depends_on:
