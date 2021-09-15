@@ -1,6 +1,6 @@
-import ApiHelper from '../helpers/audibleApi'
-import { AudibleInterface } from '../interfaces/audible'
-import { ApiBookInterface } from '../interfaces/books'
+import ApiHelper from '../../src/helpers/audibleApi'
+import { AudibleInterface } from '../../src/interfaces/audible'
+import { ApiBookInterface } from '../../src/interfaces/books'
 
 // Run through known book data to test responses
 const asinProjectHailMary: string = 'B08G9PRS1K'
