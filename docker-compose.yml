@@ -45,7 +45,7 @@ services:
   traefik:
     image: traefik:v2.5
     restart: always
-    environment: 
+    environment:
     - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
     - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY}
     command:
