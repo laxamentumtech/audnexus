@@ -32,7 +32,7 @@
     "jsdom": "^17.0.0",
     "jsrsasign": "^10.4.0",
     "moment": "^2.29.1",
-    "mongodb": "^4.1.1",
+    "mongodb": "^4.1.2",
     "nodemon": "^2.0.12",
     "papr": "^2.1.0",
     "pino-pretty": "^7.0.0",
