@@ -34,6 +34,27 @@ export interface AudibleInterface {
         subtitle?: string;
         thesaurus_subject_keywords: [string]
         title: string;
-        response_groups: [string]
     }
+    response_groups: [string]
+}
+
+export interface SingleChapter {
+    length_ms: number,
+    start_offset_ms: number,
+    start_offset_sec: number,
+    title: string
+}
+
+export interface ChapterInterface {
+    content_metadata: {
+        chapter_info: {
+            brandIntroDurationMs: number,
+            brandOutroDurationMs: number,
+            chapters: SingleChapter[],
+            is_accurate: boolean,
+            runtime_length_ms: number,
+            runtime_length_sec: number
+        }
+    },
+    response_groups: [string]
 }

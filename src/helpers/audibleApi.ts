@@ -50,7 +50,7 @@ class ApiHelper {
         let key: string
         let newKey: string
         const missingKeyMsg = (key: string) => {
-            throw new Error(`Key: ${key}, does not exist on: ${finalJson.asin}`)
+            throw new Error(`Required key: ${key}, does not exist on: ${finalJson.asin}`)
         }
         const standardKeyHandling = (oldKey: string, newKey: string) => {
             if (oldKey in inputJson) {
