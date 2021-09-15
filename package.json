@@ -41,6 +41,7 @@
   "devDependencies": {
     "@types/html-to-text": "^8.0.1",
     "@types/isomorphic-fetch": "^0.0.35",
+    "@types/jest": "^27.0.1",
     "@types/jsdom": "^16.2.13",
     "@types/jsrsasign": "^8.0.13",
     "@types/node": "^16.9.1",
@@ -49,7 +50,10 @@
     "eslint": "^7.32.0",
     "eslint-config-standard": "^16.0.3",
     "eslint-plugin-import": "^2.24.2",
+    "eslint-plugin-jest": "^24.4.0",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^5.1.0"
+    "eslint-plugin-promise": "^5.1.0",
+    "jest": "^27.2.0",
+    "ts-jest": "^27.0.5"
   }
 }
