@@ -1,5 +1,21 @@
 import { AuthorInterface, NarratorInterface } from '../people/index'
 
+export interface ApiSingleChapterInterface {
+    lengthMs: number,
+    startOffsetMs: number,
+    startffsetSec: number,
+    title: string
+}
+
+export interface ApiChapterInterface {
+    brandIntroDurationMs: number,
+    brandOutroDurationMs: number,
+    chapters: ApiSingleChapterInterface[],
+    isAccurate: boolean,
+    runtimeLengthMs: number,
+    runtimeLengthSec: number
+}
+
 export interface GenreInterface {
     asin: string,
     name: string,
@@ -30,6 +46,7 @@ interface CoreBook {
 
 // Final format of data stored
 export interface BookInterface extends CoreBook {
+    chapterInfo: ApiChapterInterface;
     genres?: GenreInterface[];
     seriesPrimary?: SeriesInterface;
     seriesSecondary?: SeriesInterface;

@@ -22,7 +22,7 @@ class ApiHelper {
         const baseUrl = 'https://api.audible.com/1.0/catalog/products'
         const resGroups =
             '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media'
-        const reqUrl = `${baseUrl}/${ASIN}/${resGroups}`
+        const reqUrl = `${baseUrl}/${ASIN}${resGroups}`
         return reqUrl
     }
 
@@ -31,11 +31,10 @@ class ApiHelper {
      * @param {scraperUrl} reqUrl the full url to fetch.
      * @returns {JSON} response from Audible API
      */
-    async fetchBook (): Promise<ApiBookInterface> {
+    async fetchBook (): Promise<AudibleInterface> {
         const response = await fetch(this.reqUrl)
-        const json = await response.json()
-        // console.log(json)
-        return this.parseResponse(json)
+        const json: AudibleInterface = await response.json()
+        return json
     }
 
     /**
@@ -50,7 +49,7 @@ class ApiHelper {
         let key: string
         let newKey: string
         const missingKeyMsg = (key: string) => {
-            throw new Error(`Key: ${key}, does not exist on: ${finalJson.asin}`)
+            throw new Error(`Required key: ${key}, does not exist on: ${finalJson.asin}`)
         }
         const standardKeyHandling = (oldKey: string, newKey: string) => {
             if (oldKey in inputJson) {

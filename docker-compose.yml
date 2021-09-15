@@ -2,12 +2,12 @@ version: "3.7"
 
 services:
   node-server:
-    build:
-      context: .
-    image: audnexus
+    image: ghcr.io/djdembeck/audnexus:develop
     restart: always
     environment:
-    - MONGODB_URI=mongodb://mongo/audnexus
+    - MONGODB_URI=${NODE_MONGODB_URI}
+    - ADP_TOKEN=${NODE_ADP_TOKEN}
+    - PRIVATE_KEY=${NODE_PRIVATE_KEY}
     ports:
       - "3000:3000"
     depends_on:
@@ -19,9 +19,10 @@ services:
       - web
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=audnexus_web"
       - "traefik.http.routers.node-server.rule=Host(`api.audnex.us`)"
       - "traefik.http.routers.node-server.entrypoints=websecure"
-      - "traefik.http.routers.node-server.tls.certresolver=myresolver"
+      - "traefik.http.routers.node-server.tls.certresolver=cloudflare"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       - "traefik.http.routers.redirs.rule=hostregexp(`{host:.+}`)"
       - "traefik.http.routers.redirs.entrypoints=web"
@@ -44,15 +45,24 @@ services:
   traefik:
     image: traefik:v2.5
     restart: always
+    environment:
+    - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
+    - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY}
     command:
       - "--providers.docker=true"
       - "--entryPoints.web.address=:80"
       - "--entryPoints.websecure.address=:443"
       - "--providers.docker.exposedbydefault=false"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge=true"
-      - "--certificatesresolvers.myresolver.acme.httpchallenge.entrypoint=web"
-      - "--certificatesresolvers.myresolver.acme.email=admin@laxamentum.tech"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.cloudflare.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.cloudflare.acme.caServer=${TRAEFIK_ACME_CASERVER}"
+      - "--entrypoints.websecure.http.tls.domains[0].main=${TRAEFIK_BASE_DNS}"
+      - "--entrypoints.websecure.http.tls.domains[0].sans=*.${TRAEFIK_BASE_DNS}"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge=true"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.delaybeforecheck=0"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers[0]=1.1.1.1:53"
+      - "--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers[1]=8.8.8.8:53"
+      - "--certificatesresolvers.cloudflare.acme.storage=/letsencrypt/acme.json"
     ports:
       - "443:443"
       - "80:80"

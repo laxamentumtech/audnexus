@@ -1,6 +1,7 @@
 import { fastify } from 'fastify'
 import showBook from './config/routes/books/show'
 import deleteBook from './config/routes/books/delete'
+import showChapter from './config/routes/books/chapters/show'
 import { connect } from './config/papr'
 
 // Heroku or local port
@@ -13,6 +14,7 @@ const server = fastify({
 })
 
 server.register(showBook)
+server.register(showChapter)
 server.register(deleteBook)
 
 server.listen(Port, host, async (err, address) => {
