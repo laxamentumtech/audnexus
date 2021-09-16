@@ -83,9 +83,9 @@ class ChapterHelper {
 
     /**
      *
-     * @returns {ApiChapterInterface} data from parseResponse() function.
+     * @returns {ChapterInterface} data from parseResponse() function.
      */
-    async fetchBook (): Promise<ApiChapterInterface> {
+    async fetchBook (): Promise<ChapterInterface> {
         const response = await fetch(this.reqUrl, {
             headers: {
                 'x-adp-token': this.adpToken,
@@ -99,8 +99,7 @@ class ChapterHelper {
         } else {
             const response = await fetch(this.reqUrl)
             const json: ChapterInterface = await response.json()
-            // console.log(JSON.stringify(json))
-            return this.parseResponse(json)
+            return json
         }
     }
 

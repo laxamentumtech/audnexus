@@ -24,7 +24,7 @@ async function routes (fastify, options) {
 
             // Fetch both api and html at same time
             // as const because https://stackoverflow.com/a/62895959/15412097
-            const listOfPromises = [api.parseResponse(await api.fetchBook()), scraper.fetchBook(), chap.fetchBook()] as const
+            const listOfPromises = [api.parseResponse(await api.fetchBook()), scraper.fetchBook(), chap.parseResponse(await chap.fetchBook())] as const
             return await Promise.all(listOfPromises).then(async (res) => {
                 const stitch = new StitchHelper(res[0])
                 if (res[1] !== undefined) {
@@ -34,7 +34,6 @@ async function routes (fastify, options) {
                     stitch.tempJson.chapterInfo = res[2]
                 }
                 const item = await Book.insertOne(stitch.process())
-                // console.log(item)
                 return item
             })
         }
