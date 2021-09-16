@@ -40,35 +40,35 @@ describe('When fetching Project Hail Mary chapters from Audible API', () => {
     })
 
     it('returned chapter #1 length', () => {
-        expect(response.content_metadata.chapter_info.chapters[0]['length_ms']).toBe(13307)
+        expect(response.content_metadata.chapter_info.chapters[0].length_ms).toBe(13307)
     })
 
     it('returned chapter #1 start_offset_ms', () => {
-        expect(response.content_metadata.chapter_info.chapters[0]['start_offset_ms']).toBe(0)
+        expect(response.content_metadata.chapter_info.chapters[0].start_offset_ms).toBe(0)
     })
 
     it('returned chapter #1 start_offset_sec', () => {
-        expect(response.content_metadata.chapter_info.chapters[0]['start_offset_sec']).toBe(0)
+        expect(response.content_metadata.chapter_info.chapters[0].start_offset_sec).toBe(0)
     })
 
     it('returned chapter #1 title', () => {
-        expect(response.content_metadata.chapter_info.chapters[0]['title']).toBe('Opening Credits')
+        expect(response.content_metadata.chapter_info.chapters[0].title).toBe('Opening Credits')
     })
 
     it('returned chapter #30 length', () => {
-        expect(response.content_metadata.chapter_info.chapters[31]['length_ms']).toBe(838616)
+        expect(response.content_metadata.chapter_info.chapters[31].length_ms).toBe(838616)
     })
 
     it('returned chapter #30 start_offset_ms', () => {
-        expect(response.content_metadata.chapter_info.chapters[31]['start_offset_ms']).toBe(57371288)
+        expect(response.content_metadata.chapter_info.chapters[31].start_offset_ms).toBe(57371288)
     })
 
     it('returned chapter #30 start_offset_sec', () => {
-        expect(response.content_metadata.chapter_info.chapters[31]['start_offset_sec']).toBe(57371)
+        expect(response.content_metadata.chapter_info.chapters[31].start_offset_sec).toBe(57371)
     })
 
     it('returned chapter #30 title', () => {
-        expect(response.content_metadata.chapter_info.chapters[31]['title']).toBe('Chapter 30')
+        expect(response.content_metadata.chapter_info.chapters[31].title).toBe('Chapter 30')
     })
 })
 
