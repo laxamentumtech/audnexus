@@ -1,5 +1,6 @@
 import ChapterHelper from '../../src/helpers/audibleChapter'
 import { ChapterInterface } from '../../src/interfaces/audible'
+import { ApiChapterInterface } from '../../src/interfaces/books'
 
 // Run through known book data to test responses
 const asinProjectHailMary: string = 'B08G9PRS1K'
@@ -68,5 +69,72 @@ describe('When fetching Project Hail Mary chapters from Audible API', () => {
 
     it('returned chapter #30 title', () => {
         expect(response.content_metadata.chapter_info.chapters[31]['title']).toBe('Chapter 30')
+    })
+})
+
+// Run through chapter parsing of a book with bad names
+const asinTheSeep: string = '1721358595'
+const chapTheSeep = new ChapterHelper(asinTheSeep)
+
+describe('When parsing The Seep', () => {
+    let response: ApiChapterInterface
+    beforeAll(async () => {
+        response = chapTheSeep.parseResponse(await chapTheSeep.fetchBook())
+    })
+
+    it('returned 32 chapters', () => {
+        expect(response.chapters.length).toBe(26)
+    })
+
+    it('returned brandIntroDurationMs', () => {
+        expect(response.brandIntroDurationMs).toBe(2043)
+    })
+
+    it('returned brandOutroDurationMs', () => {
+        expect(response.brandOutroDurationMs).toBe(5061)
+    })
+
+    it('returned isAccurate', () => {
+        expect(response.isAccurate).toBe(true)
+    })
+
+    it('returned runtimeLengthMs', () => {
+        expect(response.runtimeLengthMs).toBe(11087747)
+    })
+
+    it('returned runtimeLengthSec', () => {
+        expect(response.runtimeLengthSec).toBe(11088)
+    })
+
+    it('returned chapter #4 length', () => {
+        expect(response.chapters[3].lengthMs).toBe(7448)
+    })
+
+    it('returned chapter #4 start_offset_ms', () => {
+        expect(response.chapters[3].startOffsetMs).toBe(139180)
+    })
+
+    it('returned chapter #4 start_offset_sec', () => {
+        expect(response.chapters[3].startffsetSec).toBe(139)
+    })
+
+    it('returned chapter #4 title', () => {
+        expect(response.chapters[3].title).toBe('Part One: The Softest Invasion')
+    })
+
+    it('returned chapter #18 length', () => {
+        expect(response.chapters[23].lengthMs).toBe(223190)
+    })
+
+    it('returned chapter #18 startOffsetMs', () => {
+        expect(response.chapters[23].startOffsetMs).toBe(10171073)
+    })
+
+    it('returned chapter #18 startffsetSec', () => {
+        expect(response.chapters[23].startffsetSec).toBe(10171)
+    })
+
+    it('returned chapter #18 title', () => {
+        expect(response.chapters[23].title).toBe('Chapter 18')
     })
 })
