@@ -135,19 +135,19 @@ class ScrapeHelper {
                 const seriesSecondary = {} as SeriesInterface
                 let asin: string
                 let href: string
-    
+
                 if (series[1].getAttribute('href')) {
                     href = series[1].getAttribute('href')!
                     asin = this.getAsinFromUrl(href)
-    
+
                     if (series[1].textContent) {
                         seriesSecondary.asin = asin
                         seriesSecondary.name = series[1].textContent
-    
+
                         if (bookPos && bookPos[1]) {
                             seriesSecondary.position = bookPos[1]
                         }
-    
+
                         seriesArr.push(seriesSecondary)
                     }
                 }

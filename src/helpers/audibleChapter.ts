@@ -44,7 +44,7 @@ class ChapterHelper {
 
     /**
      * Performs various checks on chapter names and cleans them up
-     * @param {string} chapter 
+     * @param {string} chapter
      * @returns {string} cleaned chapter
      */
     chapterTitleCleanup (chapter: string): string {
