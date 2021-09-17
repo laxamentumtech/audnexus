@@ -6,6 +6,7 @@
         "audible-api",
         "docker",
         "actions",
-        "parser"
+        "parser",
+        "scraper"
     ]
 }
