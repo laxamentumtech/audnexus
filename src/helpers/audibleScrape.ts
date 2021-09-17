@@ -2,8 +2,7 @@
 import { HtmlBookInterface, GenreInterface, SeriesInterface } from '../interfaces/books/index'
 import fetch from 'isomorphic-fetch'
 // For HTML scraping
-import jsdom from 'jsdom'
-const { JSDOM } = jsdom
+import { JSDOM } from 'jsdom'
 
 class ScrapeHelper {
     asin: string;
@@ -29,7 +28,7 @@ class ScrapeHelper {
      * @param {buildUrl} reqUrl the full url to fetch.
      * @returns {json} data from parseResponse() function.
      */
-    async fetchBook (): Promise<HtmlBookInterface | undefined> {
+    async fetchBook (): Promise<JSDOM | undefined> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
             const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
@@ -37,8 +36,8 @@ class ScrapeHelper {
             return undefined
         } else {
             const text = await response.text()
-            const dom = await new JSDOM(text)
-            return this.parseResponse(dom)
+            const dom = new JSDOM(text)
+            return dom
         }
     }
 
