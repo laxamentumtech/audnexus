@@ -4,6 +4,9 @@
         "stitcher",
         "schema",
         "audible-api",
-        "docker"
+        "docker",
+        "actions",
+        "parser",
+        "scraper"
     ]
 }

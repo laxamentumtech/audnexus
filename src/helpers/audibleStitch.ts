@@ -10,12 +10,18 @@ class StitchHelper {
         this.tempJson = apiRes
     }
 
+    /**
+     * Sets genres key in returned json if it exists
+     */
     includeGenres () {
         if (this.htmlRes && this.htmlRes.genres) {
             this.tempJson.genres = this.htmlRes.genres
         }
     }
 
+    /**
+     * Sets series' keys if they exist
+     */
     setSeriesOrder () {
         if (this.apiRes.publicationName) {
             if (this.htmlRes) {
@@ -42,6 +48,10 @@ class StitchHelper {
         }
     }
 
+    /**
+     * Call functions in the class to parse final JSON
+     * @returns {BookInterface}
+     */
     process (): BookInterface {
         this.includeGenres()
         this.setSeriesOrder()

@@ -2,8 +2,7 @@
 import { HtmlBookInterface, GenreInterface, SeriesInterface } from '../interfaces/books/index'
 import fetch from 'isomorphic-fetch'
 // For HTML scraping
-import jsdom from 'jsdom'
-const { JSDOM } = jsdom
+import { JSDOM } from 'jsdom'
 
 class ScrapeHelper {
     asin: string;
@@ -14,7 +13,7 @@ class ScrapeHelper {
     }
 
     /**
-     *
+     * Creates URL to use in fetchBook
      * @param {string} ASIN The Audible ID to base the URL on
      * @returns {string} full url to fetch.
      */
@@ -24,12 +23,104 @@ class ScrapeHelper {
         return reqUrl
     }
 
+    collectGenres (genres): GenreInterface[] {
+        const genreArr: GenreInterface[] = []
+
+        // Check parent genre
+        if (genres[0]) {
+            let asin: string
+            let href: string
+
+            if (genres[0].getAttribute('href')) {
+                href = genres[0].getAttribute('href')!
+                asin = this.getAsinFromUrl(href)
+                if (genres[0].textContent && asin) {
+                    genreArr.push({
+                        asin: asin,
+                        name: genres[0].textContent,
+                        type: 'parent'
+                    })
+                }
+            }
+        }
+
+        // Check child genre
+        if (genres[1]) {
+            let asin: string
+            let href: string
+
+            if (genres[1].getAttribute('href')) {
+                href = genres[1].getAttribute('href')!
+                asin = this.getAsinFromUrl(href)
+                if (genres[1].textContent && asin) {
+                    genreArr.push({
+                        asin: asin,
+                        name: genres[1].textContent,
+                        type: 'child'
+                    })
+                }
+            }
+        }
+
+        return genreArr
+    }
+
+    collectSeries (series, dom): SeriesInterface[] {
+        const seriesRaw = dom.window.document.querySelector('li.seriesLabel')!.innerHTML
+        const bookPos = this.getBookFromHTML(seriesRaw)
+        const seriesArr: SeriesInterface[] = []
+
+        if (series[0]) {
+            const seriesPrimary = {} as SeriesInterface
+            let asin: string
+            let href: string
+
+            if (series[0].getAttribute('href')) {
+                href = series[0].getAttribute('href')!
+                asin = this.getAsinFromUrl(href)
+
+                if (series[0].textContent) {
+                    seriesPrimary.asin = asin
+                    seriesPrimary.name = series[0].textContent
+
+                    if (bookPos && bookPos[0]) {
+                        seriesPrimary.position = bookPos[0]
+                    }
+
+                    seriesArr.push(seriesPrimary)
+                }
+            }
+        }
+
+        if (series[1]) {
+            const seriesSecondary = {} as SeriesInterface
+            let asin: string
+            let href: string
+
+            if (series[1].getAttribute('href')) {
+                href = series[1].getAttribute('href')!
+                asin = this.getAsinFromUrl(href)
+
+                if (series[1].textContent) {
+                    seriesSecondary.asin = asin
+                    seriesSecondary.name = series[1].textContent
+
+                    if (bookPos && bookPos[1]) {
+                        seriesSecondary.position = bookPos[1]
+                    }
+
+                    seriesArr.push(seriesSecondary)
+                }
+            }
+        }
+        return seriesArr
+    }
+
     /**
-     *
-     * @param {buildUrl} reqUrl the full url to fetch.
-     * @returns {json} data from parseResponse() function.
+     * Fetches the html page and checks it's response
+     * @returns {Promise<JSDOM | undefined>} return text from the html page
      */
-    async fetchBook (): Promise<HtmlBookInterface | undefined> {
+    async fetchBook (): Promise<JSDOM | undefined> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
             const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
@@ -37,17 +128,22 @@ class ScrapeHelper {
             return undefined
         } else {
             const text = await response.text()
-            const dom = await new JSDOM(text)
-            return this.parseResponse(dom)
+            const dom = new JSDOM(text)
+            return dom
         }
     }
 
     /**
-     *
+     * Parses fetched HTML page to extract genres and series'
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    parseResponse (dom): HtmlBookInterface {
+    async parseResponse (dom: JSDOM | undefined): Promise<HtmlBookInterface | undefined> {
+        // Base undefined check
+        if (!dom) {
+            return undefined
+        }
+
         const genres = dom.window.document.querySelectorAll(
             'li.categoriesLabel a'
             )
@@ -60,63 +156,12 @@ class ScrapeHelper {
 
         // Genres
         if (genres.length) {
-            const genreArr: GenreInterface[] = []
-            // Check parent genre
-            if (genres[0]) {
-                genreArr.push({
-                    asin: this.getAsinFromUrl(genres[0].getAttribute('href')),
-                    name: genres[0].textContent,
-                    type: 'parent'
-                })
-            }
-            // Check child genre
-            if (genres[1]) {
-                genreArr.push({
-                    asin: this.getAsinFromUrl(genres[1].getAttribute('href')),
-                    name: genres[1].textContent,
-                    type: 'child'
-                })
-            }
-
-            returnJson.genres = genreArr
+            returnJson.genres = this.collectGenres(genres)
         }
 
         // Series
-        if (series.length) {
-            const seriesRaw =
-                dom.window.document.querySelector('li.seriesLabel').innerHTML
-            const bookPos = this.getBookFromHTML(seriesRaw)
-            const seriesArr: SeriesInterface[] = []
-
-            if (series[0]) {
-                const seriesPrimary = {} as SeriesInterface
-
-                seriesPrimary.name = series[0].textContent
-                if (series[0].getAttribute('href')) {
-                    seriesPrimary.asin = this.getAsinFromUrl(series[0].getAttribute('href'))
-                }
-                if (bookPos && bookPos[0]) {
-                    seriesPrimary.position = bookPos[0]
-                }
-
-                seriesArr.push(seriesPrimary)
-            }
-
-            if (series[1]) {
-                const seriesSecondary = {} as SeriesInterface
-
-                seriesSecondary.name = series[1].textContent
-                if (series[1].getAttribute('href')) {
-                    seriesSecondary.asin = this.getAsinFromUrl(series[1].getAttribute('href'))
-                }
-                if (bookPos && bookPos[1]) {
-                    seriesSecondary.position = bookPos[1]
-                }
-
-                seriesArr.push(seriesSecondary)
-            }
-
-            returnJson.series = seriesArr
+        if (series.length && dom.window.document.querySelector('li.seriesLabel')) {
+            returnJson.series = this.collectSeries(series, dom)
         }
 
         return returnJson
@@ -124,7 +169,7 @@ class ScrapeHelper {
 
     // Helpers
     /**
-     *
+     * Regex to return just the ASIN from the given URL
      * @param {string} url string to extract ASIN from
      * @returns {string} ASIN.
      */
@@ -135,8 +180,8 @@ class ScrapeHelper {
     }
 
     /**
-     *
-     * @param {jsdom} html block/object to retrieve book number from.
+     * Regex to return just the book position from HTML input
+     * @param {JSDOM} html block/object to retrieve book number from.
      * @returns {string} Cleaned book position string, like "Book 3"
      */
     getBookFromHTML (html): string {

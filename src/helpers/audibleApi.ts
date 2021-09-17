@@ -14,7 +14,7 @@ class ApiHelper {
     }
 
     /**
-     *
+     * Creates URL to use in fetchBook
      * @param {string} ASIN The Audible ID to base the URL on
      * @returns {string} full url to fetch.
      */
@@ -27,22 +27,32 @@ class ApiHelper {
     }
 
     /**
-     *
+     * Fetches Audible API JSON
      * @param {scraperUrl} reqUrl the full url to fetch.
-     * @returns {JSON} response from Audible API
+     * @returns {Promise<AudibleInterface>} response from Audible API
      */
-    async fetchBook (): Promise<AudibleInterface> {
+    async fetchBook (): Promise<AudibleInterface | undefined> {
         const response = await fetch(this.reqUrl)
-        const json: AudibleInterface = await response.json()
-        return json
+        if (!response.ok) {
+            const message = `An error has occured while fetching from Audible API ${response.status}: ${this.asin}`
+            throw new Error(message)
+        } else {
+            const json: AudibleInterface = await response.json()
+            return json
+        }
     }
 
     /**
-     *
+     * Parses fetched Audible API data
      * @param {AudibleInterface} jsonRes fetched json response from api.audible.com
-     * @returns {ApiBookInterface} relevant data to keep
+     * @returns {Promise<ApiBookInterface>} relevant data to keep
      */
-    parseResponse (jsonRes: AudibleInterface): ApiBookInterface {
+    async parseResponse (jsonRes: AudibleInterface | undefined): Promise<ApiBookInterface> {
+        // Base undefined check
+        if (!jsonRes) {
+            throw new Error('No API response to parse')
+        }
+
         const inputJson = jsonRes.product
         const finalJson: any = {}
 

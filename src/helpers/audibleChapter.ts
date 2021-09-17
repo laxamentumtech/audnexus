@@ -19,7 +19,7 @@ class ChapterHelper {
     }
 
     /**
-     *
+     * Creates URL to use in fetchBook
      * @param {string} ASIN The Audible ID to base the URL on
      * @returns {string} full url to fetch.
      */
@@ -31,6 +31,10 @@ class ChapterHelper {
         return reqUrl
     }
 
+    /**
+     * Creates path string used by signRequest
+     * @returns {string} concat path to be used by signRequest
+     */
     buildPath (): string {
         const baseUrl = '1.0/content'
         const params = 'metadata?response_groups=chapter_info'
@@ -38,6 +42,11 @@ class ChapterHelper {
         return reqUrl
     }
 
+    /**
+     * Performs various checks on chapter names and cleans them up
+     * @param {string} chapter
+     * @returns {string} cleaned chapter
+     */
     chapterTitleCleanup (chapter: string): string {
         // Starting chapter title data
         const originalTitle: string = chapter
@@ -61,9 +70,9 @@ class ChapterHelper {
     }
 
     /**
-     *
-     * @param adpToken from Audible-api auth file
-     * @param privateKey from Audible-api auth file
+     * Creates the x-adp-signature header required to auth the API call
+     * @param {string} adpToken from Audible-api auth file
+     * @param {string} privateKey from Audible-api auth file
      * @returns {string} encoded 'x-adp-signature' header
      */
     signRequest (adpToken: string, privateKey: string): string {
@@ -82,10 +91,10 @@ class ChapterHelper {
     }
 
     /**
-     *
-     * @returns {ApiChapterInterface} data from parseResponse() function.
+     * Fetches chapter Audible API JSON
+     * @returns {Promise<ChapterInterface>} data from parseResponse() function.
      */
-    async fetchBook (): Promise<ApiChapterInterface> {
+    async fetchBook (): Promise<ChapterInterface> {
         const response = await fetch(this.reqUrl, {
             headers: {
                 'x-adp-token': this.adpToken,
@@ -99,17 +108,16 @@ class ChapterHelper {
         } else {
             const response = await fetch(this.reqUrl)
             const json: ChapterInterface = await response.json()
-            // console.log(JSON.stringify(json))
-            return this.parseResponse(json)
+            return json
         }
     }
 
     /**
-     *
+     * Pareses fetched chapters from Audible API and cleaning up chapter titles
      * @param {ChapterInterface} jsonRes fetched json response from api.audible.com
-     * @returns {ApiChapterInterface} relevant data to keep
+     * @returns {Promise<ApiChapterInterface>} relevant data to keep
      */
-    parseResponse (jsonRes: ChapterInterface): ApiChapterInterface {
+    async parseResponse (jsonRes: ChapterInterface): Promise<ApiChapterInterface> {
         const inputJson = jsonRes.content_metadata.chapter_info
         const finalJson: any = {}
 
