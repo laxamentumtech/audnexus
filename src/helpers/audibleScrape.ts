@@ -13,7 +13,7 @@ class ScrapeHelper {
     }
 
     /**
-     *
+     * Creates URL to use in fetchBook
      * @param {string} ASIN The Audible ID to base the URL on
      * @returns {string} full url to fetch.
      */
@@ -24,9 +24,8 @@ class ScrapeHelper {
     }
 
     /**
-     *
-     * @param {buildUrl} reqUrl the full url to fetch.
-     * @returns {json} data from parseResponse() function.
+     * Fetches the html page and checks it's response
+     * @returns {Promise<JSDOM | undefined>} return text from the html page
      */
     async fetchBook (): Promise<JSDOM | undefined> {
         const response = await fetch(this.reqUrl)
@@ -42,11 +41,16 @@ class ScrapeHelper {
     }
 
     /**
-     *
+     * Parses fetched HTML page to extract genres and series'
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    async parseResponse (dom): Promise<HtmlBookInterface> {
+    async parseResponse (dom: JSDOM | undefined): Promise<HtmlBookInterface> {
+        // Base undefined check
+        if (!dom) {
+            throw new Error('No HTML response to parse')
+        }
+
         const genres = dom.window.document.querySelectorAll(
             'li.categoriesLabel a'
             )
@@ -60,59 +64,93 @@ class ScrapeHelper {
         // Genres
         if (genres.length) {
             const genreArr: GenreInterface[] = []
+
             // Check parent genre
             if (genres[0]) {
-                genreArr.push({
-                    asin: this.getAsinFromUrl(genres[0].getAttribute('href')),
-                    name: genres[0].textContent,
-                    type: 'parent'
-                })
+                let asin: string
+                let href: string
+
+                if (genres[0].getAttribute('href')) {
+                    href = genres[0].getAttribute('href')!
+                    asin = this.getAsinFromUrl(href)
+                    if (genres[0].textContent && asin) {
+                        genreArr.push({
+                            asin: asin,
+                            name: genres[0].textContent,
+                            type: 'parent'
+                        })
+                    }
+                }
             }
             // Check child genre
             if (genres[1]) {
-                genreArr.push({
-                    asin: this.getAsinFromUrl(genres[1].getAttribute('href')),
-                    name: genres[1].textContent,
-                    type: 'child'
-                })
+                let asin: string
+                let href: string
+
+                if (genres[1].getAttribute('href')) {
+                    href = genres[1].getAttribute('href')!
+                    asin = this.getAsinFromUrl(href)
+                    if (genres[1].textContent && asin) {
+                        genreArr.push({
+                            asin: asin,
+                            name: genres[1].textContent,
+                            type: 'child'
+                        })
+                    }
+                }
             }
 
             returnJson.genres = genreArr
         }
 
         // Series
-        if (series.length) {
-            const seriesRaw =
-                dom.window.document.querySelector('li.seriesLabel').innerHTML
+        if (series.length && dom.window.document.querySelector('li.seriesLabel')) {
+            const seriesRaw = dom.window.document.querySelector('li.seriesLabel')!.innerHTML
             const bookPos = this.getBookFromHTML(seriesRaw)
             const seriesArr: SeriesInterface[] = []
 
             if (series[0]) {
                 const seriesPrimary = {} as SeriesInterface
+                let asin: string
+                let href: string
 
-                seriesPrimary.name = series[0].textContent
                 if (series[0].getAttribute('href')) {
-                    seriesPrimary.asin = this.getAsinFromUrl(series[0].getAttribute('href'))
-                }
-                if (bookPos && bookPos[0]) {
-                    seriesPrimary.position = bookPos[0]
-                }
+                    href = series[0].getAttribute('href')!
+                    asin = this.getAsinFromUrl(href)
 
-                seriesArr.push(seriesPrimary)
+                    if (series[0].textContent) {
+                        seriesPrimary.asin = asin
+                        seriesPrimary.name = series[0].textContent
+
+                        if (bookPos && bookPos[0]) {
+                            seriesPrimary.position = bookPos[0]
+                        }
+
+                        seriesArr.push(seriesPrimary)
+                    }
+                }
             }
 
             if (series[1]) {
                 const seriesSecondary = {} as SeriesInterface
-
-                seriesSecondary.name = series[1].textContent
+                let asin: string
+                let href: string
+    
                 if (series[1].getAttribute('href')) {
-                    seriesSecondary.asin = this.getAsinFromUrl(series[1].getAttribute('href'))
+                    href = series[1].getAttribute('href')!
+                    asin = this.getAsinFromUrl(href)
+    
+                    if (series[1].textContent) {
+                        seriesSecondary.asin = asin
+                        seriesSecondary.name = series[1].textContent
+    
+                        if (bookPos && bookPos[1]) {
+                            seriesSecondary.position = bookPos[1]
+                        }
+    
+                        seriesArr.push(seriesSecondary)
+                    }
                 }
-                if (bookPos && bookPos[1]) {
-                    seriesSecondary.position = bookPos[1]
-                }
-
-                seriesArr.push(seriesSecondary)
             }
 
             returnJson.series = seriesArr
@@ -123,7 +161,7 @@ class ScrapeHelper {
 
     // Helpers
     /**
-     *
+     * Regex to return just the ASIN from the given URL
      * @param {string} url string to extract ASIN from
      * @returns {string} ASIN.
      */
@@ -134,8 +172,8 @@ class ScrapeHelper {
     }
 
     /**
-     *
-     * @param {jsdom} html block/object to retrieve book number from.
+     * Regex to return just the book position from HTML input
+     * @param {JSDOM} html block/object to retrieve book number from.
      * @returns {string} Cleaned book position string, like "Book 3"
      */
     getBookFromHTML (html): string {
