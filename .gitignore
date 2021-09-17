@@ -65,3 +65,6 @@ typings/
 
 # JetBrains IDE
 .idea
+
+# Docker
+docker-compose.env
