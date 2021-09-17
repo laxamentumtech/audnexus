@@ -14,7 +14,7 @@
     "serve-debug": "nodemon --inspect dist/server.js",
     "serve": "node dist/server.js",
     "start": "npm run build && npm run serve",
-    "test": "jest --coverage --verbose --silent",
+    "test": "jest --coverage --forceExit --verbose --silent",
     "watch-debug": "concurrently -k -p \"[{name}]\" -n \"TypeScript,Node\" -c \"yellow.bold,cyan.bold,green.bold\" \"npm run watch-ts\" \"npm run serve-debug\"",
     "watch-node": "nodemon dist/server.js",
     "watch-test": "npm run test -- --watchAll",

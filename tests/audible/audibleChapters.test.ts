@@ -78,8 +78,11 @@ const chapTheSeep = new ChapterHelper(asinTheSeep)
 
 describe('When parsing The Seep', () => {
     let response: ApiChapterInterface
-    beforeAll(async () => {
-        response = chapTheSeep.parseResponse(await chapTheSeep.fetchBook())
+    beforeAll((done) => {
+        chapTheSeep.fetchBook().then(result => {
+            response = chapTheSeep.parseResponse(result)
+            done()
+        })
     })
 
     it('returned 32 chapters', () => {

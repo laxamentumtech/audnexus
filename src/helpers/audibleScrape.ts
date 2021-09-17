@@ -32,7 +32,7 @@ class ScrapeHelper {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
             const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
-            // console.log(message)
+            console.log(message)
             return undefined
         } else {
             const text = await response.text()

@@ -7,8 +7,11 @@ const htmlProjectHailMary = new ScrapeHelper(asinProjectHailMary)
 
 describe('When scraping Project Hail Mary genres from Audible', () => {
     let response: HtmlBookInterface
-    beforeAll(async () => {
-        response = htmlProjectHailMary.parseResponse(await htmlProjectHailMary.fetchBook())
+    beforeAll((done) => {
+        htmlProjectHailMary.fetchBook().then(result => {
+            response = htmlProjectHailMary.parseResponse(result)
+            done()
+        })
     })
 
     it('returned 2 genres', () => {
@@ -58,8 +61,11 @@ const htmlSorcerersStone = new ScrapeHelper(asinSorcerersStone)
 
 describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     let response: HtmlBookInterface
-    beforeAll(async () => {
-        response = htmlSorcerersStone.parseResponse(await htmlSorcerersStone.fetchBook())
+    beforeAll((done) => {
+        htmlSorcerersStone.fetchBook().then(result => {
+            response = htmlSorcerersStone.parseResponse(result)
+            done()
+        })
     })
 
     it('returned 2 genres', () => {
@@ -95,11 +101,11 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     })
 
     it('returned a primary series asin', () => {
-        expect(response.series![0].asin).toBe('B0182NWM9I')
+        expect(response.series![0].asin).toBe('B07CM5ZDJL')
     })
 
     it('returned a primary series name', () => {
-        expect(response.series![0].name).toBe('Harry Potter')
+        expect(response.series![0].name).toBe('Wizarding World')
     })
 
     it('returned a primary series position', () => {
@@ -107,11 +113,11 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     })
 
     it('returned a secondary series asin', () => {
-        expect(response.series![1].asin).toBe('B07CM5ZDJL')
+        expect(response.series![1].asin).toBe('B0182NWM9I')
     })
 
     it('returned a secondary series name', () => {
-        expect(response.series![1].name).toBe('Wizarding World')
+        expect(response.series![1].name).toBe('Harry Potter')
     })
 
     it('returned a secondary series position', () => {
@@ -124,8 +130,11 @@ const htmlColdestCase = new ScrapeHelper(asinColdestCase)
 
 describe('When fetching The Coldest Case from Audible API', () => {
     let response: HtmlBookInterface
-    beforeAll(async () => {
-        response = htmlColdestCase.parseResponse(await htmlColdestCase.fetchBook())
+    beforeAll((done) => {
+        htmlColdestCase.fetchBook().then(result => {
+            response = htmlColdestCase.parseResponse(result)
+            done()
+        })
     })
 
     it('returned 2 genres', () => {
@@ -183,8 +192,11 @@ const htmlMartian = new ScrapeHelper(asinMartian)
 
 describe('When scraping The Martian from Audible', () => {
     let response: any
-    beforeAll(async () => {
-        response = await htmlMartian.fetchBook()
+    beforeAll((done) => {
+        htmlMartian.fetchBook().then(result => {
+            response = result
+            done()
+        })
     })
 
     it('returned undefined', () => {
