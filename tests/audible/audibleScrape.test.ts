@@ -1,4 +1,3 @@
-import { JSDOM } from 'jsdom'
 import ScrapeHelper from '../../src/helpers/audibleScrape'
 import { HtmlBookInterface } from '../../src/interfaces/books'
 
