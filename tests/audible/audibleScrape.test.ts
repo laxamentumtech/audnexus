@@ -38,7 +38,7 @@ describe('When scraping Project Hail Mary genres from Audible', () => {
     it('returned genre 2 type', () => {
         expect(response.genres![1].type).toBe('child')
     })
-    
+
     it('returned 0 series', () => {
         expect(response.series!.length).toBe(0)
     })
@@ -155,7 +155,7 @@ describe('When fetching The Coldest Case from Audible API', () => {
     it('returned genre 2 type', () => {
         expect(response.genres![1].type).toBe('child')
     })
-    
+
     it('returned 1 series', () => {
         expect(response.series!.length).toBe(1)
     })
