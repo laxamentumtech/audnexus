@@ -10,7 +10,7 @@ describe('When fetching Project Hail Mary from Audible API', () => {
     let response: AudibleInterface
     beforeAll((done) => {
         apiProjectHailMary.fetchBook().then(result => {
-            response = result
+            response = result!
             done()
         })
     })
@@ -84,7 +84,7 @@ describe('When fetching The Coldest Case from Audible API', () => {
     let response: AudibleInterface
     beforeAll((done) => {
         apiColdestCase.fetchBook().then(result => {
-            response = result
+            response = result!
             done()
         })
     })
