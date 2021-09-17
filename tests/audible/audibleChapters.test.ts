@@ -10,7 +10,7 @@ describe('When fetching Project Hail Mary chapters from Audible API', () => {
     let response: ChapterInterface
     beforeAll((done) => {
         chapProjectHailMary.fetchBook().then(result => {
-            response = result
+            response = result!
             done()
         })
     })
@@ -81,7 +81,7 @@ describe('When parsing The Seep', () => {
     beforeAll((done) => {
         chapTheSeep.fetchBook().then(result => {
             chapTheSeep.parseResponse(result).then(result => {
-                response = result
+                response = result!
                 done()
             })
         })
