@@ -23,6 +23,11 @@ class ScrapeHelper {
         return reqUrl
     }
 
+    /**
+     * Checks the presence of genres on html page and formats them into JSON
+     * @param {NodeListOf<Element>} genres selected source from categoriesLabel
+     * @returns {GenreInterface[]}
+     */
     collectGenres (genres): GenreInterface[] {
         const genreArr: GenreInterface[] = []
 
@@ -65,8 +70,13 @@ class ScrapeHelper {
         return genreArr
     }
 
-    collectSeries (series, dom): SeriesInterface[] {
-        const seriesRaw = dom.window.document.querySelector('li.seriesLabel')!.innerHTML
+    /**
+     * Checks the presence of series' on html page and formats them into JSON
+     * @param {NodeListOf<Element>} series selected source from seriesLabel
+     * @param {string} seriesRaw innerHTML of the series node
+     * @returns {SeriesInterface[]}
+     */
+    collectSeries (series, seriesRaw: string): SeriesInterface[] {
         const bookPos = this.getBookFromHTML(seriesRaw)
         const seriesArr: SeriesInterface[] = []
 
@@ -161,7 +171,8 @@ class ScrapeHelper {
 
         // Series
         if (series.length && dom.window.document.querySelector('li.seriesLabel')) {
-            returnJson.series = this.collectSeries(series, dom)
+            const seriesRaw = dom.window.document.querySelector('li.seriesLabel')!.innerHTML
+            returnJson.series = this.collectSeries(series, seriesRaw)
         }
 
         return returnJson

@@ -94,7 +94,7 @@ class ChapterHelper {
      * Fetches chapter Audible API JSON
      * @returns {Promise<ChapterInterface>} data from parseResponse() function.
      */
-    async fetchBook (): Promise<ChapterInterface> {
+    async fetchBook (): Promise<ChapterInterface | undefined> {
         const response = await fetch(this.reqUrl, {
             headers: {
                 'x-adp-token': this.adpToken,
@@ -104,7 +104,8 @@ class ChapterHelper {
         })
         if (!response.ok) {
             const message = `An error has occured while fetching chapters ${response.status}`
-            throw new Error(message)
+            console.log(message)
+            return undefined
         } else {
             const response = await fetch(this.reqUrl)
             const json: ChapterInterface = await response.json()
@@ -117,7 +118,12 @@ class ChapterHelper {
      * @param {ChapterInterface} jsonRes fetched json response from api.audible.com
      * @returns {Promise<ApiChapterInterface>} relevant data to keep
      */
-    async parseResponse (jsonRes: ChapterInterface): Promise<ApiChapterInterface> {
+    async parseResponse (jsonRes: ChapterInterface | undefined): Promise<ApiChapterInterface | undefined> {
+        // Base undefined check
+        if (!jsonRes || !jsonRes.content_metadata.chapter_info) {
+            return undefined
+        }
+
         const inputJson = jsonRes.content_metadata.chapter_info
         const finalJson: any = {}
 

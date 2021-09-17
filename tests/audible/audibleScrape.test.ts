@@ -105,11 +105,11 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     })
 
     it('returned a primary series asin', () => {
-        expect(response.series![0].asin).toBe('B07CM5ZDJL')
+        expect(response.series![0].asin).toBe('B0182NWM9I')
     })
 
     it('returned a primary series name', () => {
-        expect(response.series![0].name).toBe('Wizarding World')
+        expect(response.series![0].name).toBe('Harry Potter')
     })
 
     it('returned a primary series position', () => {
@@ -117,11 +117,11 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     })
 
     it('returned a secondary series asin', () => {
-        expect(response.series![1].asin).toBe('B0182NWM9I')
+        expect(response.series![1].asin).toBe('B07CM5ZDJL')
     })
 
     it('returned a secondary series name', () => {
-        expect(response.series![1].name).toBe('Harry Potter')
+        expect(response.series![1].name).toBe('Wizarding World')
     })
 
     it('returned a secondary series position', () => {
@@ -202,6 +202,26 @@ describe('When scraping The Martian from Audible', () => {
         htmlMartian.fetchBook().then(result => {
             response = result
             done()
+        })
+    })
+
+    it('returned undefined', () => {
+        expect(response).toBeUndefined()
+    })
+})
+
+// Test parse is also undefined
+const asinBad: string = 'B0036I54I6'
+const htmlBad = new ScrapeHelper(asinBad)
+
+describe('When fetching a broken ASIN\'s HTML from Audible', () => {
+    let response: any
+    beforeAll((done) => {
+        htmlBad.fetchBook().then(result => {
+            htmlBad.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
         })
     })
 

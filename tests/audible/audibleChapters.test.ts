@@ -10,7 +10,7 @@ describe('When fetching Project Hail Mary chapters from Audible API', () => {
     let response: ChapterInterface
     beforeAll((done) => {
         chapProjectHailMary.fetchBook().then(result => {
-            response = result
+            response = result!
             done()
         })
     })
@@ -81,7 +81,7 @@ describe('When parsing The Seep', () => {
     beforeAll((done) => {
         chapTheSeep.fetchBook().then(result => {
             chapTheSeep.parseResponse(result).then(result => {
-                response = result
+                response = result!
                 done()
             })
         })
@@ -141,5 +141,25 @@ describe('When parsing The Seep', () => {
 
     it('returned chapter #18 title', () => {
         expect(response.chapters[23].title).toBe('Chapter 18')
+    })
+})
+
+// Test known BAD returns
+const asinBad: string = 'B0036I54I6'
+const chapBad = new ChapterHelper(asinBad)
+
+describe('When fetching an broken ASIN\'s chapters from Audible API', () => {
+    let response: ApiChapterInterface
+    beforeAll((done) => {
+        chapBad.fetchBook().then(result => {
+            chapBad.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
+        })
+    })
+
+    it('returned undefined', () => {
+        expect(response).toBeUndefined()
     })
 })
