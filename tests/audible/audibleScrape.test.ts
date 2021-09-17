@@ -209,3 +209,23 @@ describe('When scraping The Martian from Audible', () => {
         expect(response).toBeUndefined()
     })
 })
+
+// Test parse is also undefined
+const asinBad: string = 'B0036I54I6'
+const htmlBad = new ScrapeHelper(asinBad)
+
+describe('When fetching a broken ASIN\'s HTML from Audible', () => {
+    let response: any
+    beforeAll((done) => {
+        htmlBad.fetchBook().then(result => {
+            htmlBad.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
+        })
+    })
+
+    it('returned undefined', () => {
+        expect(response).toBeUndefined()
+    })
+})

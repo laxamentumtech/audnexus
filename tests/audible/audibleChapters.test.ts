@@ -143,3 +143,23 @@ describe('When parsing The Seep', () => {
         expect(response.chapters[23].title).toBe('Chapter 18')
     })
 })
+
+// Test known BAD returns
+const asinBad: string = 'B0036I54I6'
+const chapBad = new ChapterHelper(asinBad)
+
+describe('When fetching an broken ASIN\'s chapters from Audible API', () => {
+    let response: ApiChapterInterface
+    beforeAll((done) => {
+        chapBad.fetchBook().then(result => {
+            chapBad.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
+        })
+    })
+
+    it('returned undefined', () => {
+        expect(response).toBeUndefined()
+    })
+})

@@ -294,3 +294,114 @@ describe('When stitching together The Coldest Case from Audible', () => {
         expect(response.seriesSecondary!).toBeUndefined()
     })
 })
+
+const asinBad: string = 'B0036I54I6'
+
+describe('When fetching an ASIN that has no chapters or HTML from Audible', () => {
+    let response: BookInterface
+    beforeAll(async () => {
+        const api = new ApiHelper(asinBad)
+        const chap = new ChapterHelper(asinBad)
+        const scraper = new ScrapeHelper(asinBad)
+
+        // Run fetch tasks in parallel/resolve promises
+        const [apiRes, scraperRes, chapRes] = await Promise.all([api.fetchBook(), scraper.fetchBook(), chap.fetchBook()])
+
+        // Run parse tasks in parallel/resolve promises
+        const [parseApi, parseScraper, parseChap] = await Promise.all([api.parseResponse(apiRes), scraper.parseResponse(scraperRes), chap.parseResponse(chapRes)])
+
+        const stitch = new StitchHelper(parseApi)
+        if (parseScraper !== undefined) {
+            stitch.htmlRes = parseScraper
+        }
+        if (parseChap !== undefined) {
+            stitch.tempJson.chapterInfo = parseChap
+        }
+
+        response = stitch.process()
+    })
+
+    it('returned asin', () => {
+        expect(response.asin).toBe(asinBad)
+    })
+
+    it('returned 4 authors', () => {
+        expect(response.authors!.length).toBe(4)
+    })
+
+    it('returned author #1', () => {
+        expect(response.authors![0].asin).toBeUndefined()
+        expect(response.authors![0].name).toBe('Diane Wood Middlebrook (Professor of English')
+    })
+
+    it('returned author #2', () => {
+        expect(response.authors![1].asin).toBeUndefined()
+        expect(response.authors![1].name).toBe('Stanford University)')
+    })
+
+    it('returned author #3', () => {
+        expect(response.authors![2].asin).toBeUndefined()
+        expect(response.authors![2].name).toBe('Herbert Lindenberger (Avalon Foundation Professor of Humanities')
+    })
+
+    it('returned author #4', () => {
+        expect(response.authors![3].asin).toBeUndefined()
+        expect(response.authors![3].name).toBe('Comparative Literature')
+    })
+
+    it('returned description', () => {
+        expect(response.description).toBe('Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions...')
+    })
+
+    it('returned format_type', () => {
+        expect(response.formatType).toBe('unabridged')
+    })
+
+    it('returned language', () => {
+        expect(response.language).toBe('english')
+    })
+
+    it('returned no narrators', () => {
+        expect(response.narrators).toBeUndefined()
+    })
+
+    it('returned cover image', () => {
+        expect(response.image).toBe('https://m.media-amazon.com/images/I/51gXD-lb7vL.jpg')
+    })
+
+    it('returned publisher', () => {
+        expect(response.publisherName).toBe('Stanford Audio')
+    })
+
+    it('returned publisher_summary', () => {
+        expect(response.summary).toBe('Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions for American poetry and share the woman\'s perspective in distinct, powerful voices. Professor Middlebrook, author of the best selling <i>Anne Sexton: A Biography</i>, sheds light on the unique and important contributions of these poets by examining 4 works: \"Morning Song\" and \"Ariel\" by Plath and \"The Fortress\" and \"The Double Image\" by Sexton. Her conversations with Professor Lindenberger and an audience further delve into the work and lives of these women, their friendship, and their tragic deaths.')
+    })
+
+    it('returned release_date', () => {
+        expect(new Date(response.releaseDate).toISOString()).toBe(new Date('1999-12-16T00:00:00.000Z').toISOString())
+    })
+
+    it('returned runtime length in minutes', () => {
+        expect(response.runtimeLengthMin).toBe(114)
+    })
+
+    it('returned title', () => {
+        expect(response.title).toBe('The Poetry of Anne Sexton and Sylvia Plath')
+    })
+
+    it('returned no genres', () => {
+        expect(response.genres).toBeUndefined()
+    })
+
+    it('returned no seriesPrimary', () => {
+        expect(response.seriesPrimary).toBeUndefined()
+    })
+
+    it('returned no chaptersSecondary', () => {
+        expect(response.seriesSecondary).toBeUndefined()
+    })
+
+    it('returned no chapters', () => {
+        expect(response.chapterInfo).toBeUndefined()
+    })
+})
