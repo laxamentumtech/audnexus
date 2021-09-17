@@ -138,10 +138,10 @@ class ScrapeHelper {
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    async parseResponse (dom: JSDOM | undefined): Promise<HtmlBookInterface> {
+    async parseResponse (dom: JSDOM | undefined): Promise<HtmlBookInterface | undefined> {
         // Base undefined check
         if (!dom) {
-            throw new Error('No HTML response to parse')
+            return undefined
         }
 
         const genres = dom.window.document.querySelectorAll(
