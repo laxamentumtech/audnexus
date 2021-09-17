@@ -18,24 +18,26 @@ async function routes (fastify, options) {
             asin: request.params.asin
         })
         if (!result) {
+            // Set up helpers
             const api = new ApiHelper(request.params.asin)
             const chap = new ChapterHelper(request.params.asin)
             const scraper = new ScrapeHelper(request.params.asin)
 
-            // Fetch both api and html at same time
-            // as const because https://stackoverflow.com/a/62895959/15412097
-            const listOfPromises = [api.parseResponse(await api.fetchBook()), scraper.parseResponse(await scraper.fetchBook()), chap.parseResponse(await chap.fetchBook())] as const
-            return await Promise.all(listOfPromises).then(async (res) => {
-                const stitch = new StitchHelper(res[0])
-                if (res[1] !== undefined) {
-                    stitch.htmlRes = res[1]
-                }
-                if (res[2] !== undefined) {
-                    stitch.tempJson.chapterInfo = res[2]
-                }
-                const item = await Book.insertOne(stitch.process())
-                return item
-            })
+            // Run fetch tasks in parallel/resolve promises
+            const [apiRes, scraperRes, chapRes] = await Promise.all([api.fetchBook(), scraper.fetchBook(), chap.fetchBook()])
+
+            // Run parse tasks in parallel/resolve promises
+            const [parseApi, parseScraper, parseChap] = await Promise.all([api.parseResponse(apiRes), scraper.parseResponse(scraperRes), chap.parseResponse(chapRes)])
+
+            const stitch = new StitchHelper(parseApi)
+            if (parseScraper !== undefined) {
+                stitch.htmlRes = parseScraper
+            }
+            if (parseChap !== undefined) {
+                stitch.tempJson.chapterInfo = parseChap
+            }
+            const item = await Book.insertOne(stitch.process())
+            return item
         }
         return result
     })

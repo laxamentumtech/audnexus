@@ -42,7 +42,7 @@ class ApiHelper {
      * @param {AudibleInterface} jsonRes fetched json response from api.audible.com
      * @returns {ApiBookInterface} relevant data to keep
      */
-    parseResponse (jsonRes: AudibleInterface): ApiBookInterface {
+    async parseResponse (jsonRes: AudibleInterface): Promise<ApiBookInterface> {
         const inputJson = jsonRes.product
         const finalJson: any = {}
 

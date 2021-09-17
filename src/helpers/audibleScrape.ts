@@ -46,7 +46,7 @@ class ScrapeHelper {
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    parseResponse (dom): HtmlBookInterface {
+    async parseResponse (dom): Promise<HtmlBookInterface> {
         const genres = dom.window.document.querySelectorAll(
             'li.categoriesLabel a'
             )

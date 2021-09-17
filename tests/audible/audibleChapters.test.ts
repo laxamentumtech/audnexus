@@ -80,8 +80,10 @@ describe('When parsing The Seep', () => {
     let response: ApiChapterInterface
     beforeAll((done) => {
         chapTheSeep.fetchBook().then(result => {
-            response = chapTheSeep.parseResponse(result)
-            done()
+            chapTheSeep.parseResponse(result).then(result => {
+                response = result
+                done()
+            })
         })
     })
 

@@ -108,7 +108,7 @@ class ChapterHelper {
      * @param {ChapterInterface} jsonRes fetched json response from api.audible.com
      * @returns {ApiChapterInterface} relevant data to keep
      */
-    parseResponse (jsonRes: ChapterInterface): ApiChapterInterface {
+    async parseResponse (jsonRes: ChapterInterface): Promise<ApiChapterInterface> {
         const inputJson = jsonRes.content_metadata.chapter_info
         const finalJson: any = {}
 

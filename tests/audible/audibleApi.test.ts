@@ -184,8 +184,10 @@ describe('When parsing The Coldest Case', () => {
     let response: ApiBookInterface
     beforeAll((done) => {
         apiColdestCase.fetchBook().then(result => {
-            response = apiColdestCase.parseResponse(result)
-            done()
+            apiColdestCase.parseResponse(result).then(result => {
+                response = result
+                done()
+            })
         })
     })
 

@@ -9,8 +9,10 @@ describe('When scraping Project Hail Mary genres from Audible', () => {
     let response: HtmlBookInterface
     beforeAll((done) => {
         htmlProjectHailMary.fetchBook().then(result => {
-            response = htmlProjectHailMary.parseResponse(result)
-            done()
+            htmlProjectHailMary.parseResponse(result).then(result => {
+                response = result
+                done()
+            })
         })
     })
 
@@ -63,8 +65,10 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     let response: HtmlBookInterface
     beforeAll((done) => {
         htmlSorcerersStone.fetchBook().then(result => {
-            response = htmlSorcerersStone.parseResponse(result)
-            done()
+            htmlSorcerersStone.parseResponse(result).then(result => {
+                response = result
+                done()
+            })
         })
     })
 
@@ -132,8 +136,10 @@ describe('When fetching The Coldest Case from Audible API', () => {
     let response: HtmlBookInterface
     beforeAll((done) => {
         htmlColdestCase.fetchBook().then(result => {
-            response = htmlColdestCase.parseResponse(result)
-            done()
+            htmlColdestCase.parseResponse(result).then(result => {
+                response = result
+                done()
+            })
         })
     })
 
