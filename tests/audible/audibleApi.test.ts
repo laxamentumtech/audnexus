@@ -277,3 +277,33 @@ describe('When parsing The Coldest Case', () => {
         expect(response.title).toBe('The Coldest Case: A Black Book Audio Drama')
     })
 })
+
+// Test parse is also undefined
+const asinBad: string = '1234567891'
+const apiBad = new ApiHelper(asinBad)
+
+describe('When fetching a fake ASIN from Audible API', () => {
+    let response: AudibleInterface
+    beforeAll((done) => {
+        apiBad.fetchBook().then(result => {
+            response = result!
+            done()
+        })
+    })
+
+    it('returned undefined title', () => {
+        expect(response.product.title).toBeUndefined()
+    })
+
+    it('threw error when parsing undefined', async () => {
+        await expect(apiBad.parseResponse(response))
+        .rejects
+        .toThrow('Required key: authors, does not exist on: 1234567891')
+    })
+
+    it('threw error when parsing undefined', async () => {
+        await expect(apiBad.parseResponse(undefined))
+        .rejects
+        .toThrow('No API response to parse')
+    })
+})
