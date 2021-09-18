@@ -1,15 +1,20 @@
 import ScrapeHelper from '../../src/helpers/audibleScrape'
 import { HtmlBookInterface } from '../../src/interfaces/books'
 
-// Run through known book data to test responses
-const asinProjectHailMary: string = 'B08G9PRS1K'
-const htmlProjectHailMary = new ScrapeHelper(asinProjectHailMary)
+let asinBad: string
+let htmlBad: ScrapeHelper
 
+let asinGood: string
+let htmlGood: ScrapeHelper
+
+// Run through known book data to test responses
 describe('When scraping Project Hail Mary genres from Audible', () => {
     let response: HtmlBookInterface
     beforeAll((done) => {
-        htmlProjectHailMary.fetchBook().then(result => {
-            htmlProjectHailMary.parseResponse(result).then(result => {
+        asinGood = 'B08G9PRS1K'
+        htmlGood = new ScrapeHelper(asinGood)
+        htmlGood.fetchBook().then(result => {
+            htmlGood.parseResponse(result).then(result => {
                 response = result!
                 done()
             })
@@ -57,15 +62,14 @@ describe('When scraping Project Hail Mary genres from Audible', () => {
     })
 })
 
-    // Run through known book data to test responses
-const asinSorcerersStone: string = 'B017V4IM1G'
-const htmlSorcerersStone = new ScrapeHelper(asinSorcerersStone)
-
+// Run through known book data to test responses
 describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     let response: HtmlBookInterface
     beforeAll((done) => {
-        htmlSorcerersStone.fetchBook().then(result => {
-            htmlSorcerersStone.parseResponse(result).then(result => {
+        asinGood = 'B017V4IM1G'
+        htmlGood = new ScrapeHelper(asinGood)
+        htmlGood.fetchBook().then(result => {
+            htmlGood.parseResponse(result).then(result => {
                 response = result!
                 done()
             })
@@ -129,14 +133,14 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     })
 })
 
-const asinColdestCase: string = 'B08C6YJ1LS'
-const htmlColdestCase = new ScrapeHelper(asinColdestCase)
-
+// Run through single series book
 describe('When fetching The Coldest Case from Audible API', () => {
     let response: HtmlBookInterface
     beforeAll((done) => {
-        htmlColdestCase.fetchBook().then(result => {
-            htmlColdestCase.parseResponse(result).then(result => {
+        asinGood = 'B08C6YJ1LS'
+        htmlGood = new ScrapeHelper(asinGood)
+        htmlGood.fetchBook().then(result => {
+            htmlGood.parseResponse(result).then(result => {
                 response = result!
                 done()
             })
@@ -193,13 +197,12 @@ describe('When fetching The Coldest Case from Audible API', () => {
 })
 
 // Run through known book data to test responses
-const asinMartian: string = 'B00B5HZGUG'
-const htmlMartian = new ScrapeHelper(asinMartian)
-
 describe('When scraping The Martian from Audible', () => {
     let response: any
     beforeAll((done) => {
-        htmlMartian.fetchBook().then(result => {
+        asinBad = 'B00B5HZGUG'
+        htmlBad = new ScrapeHelper(asinBad)
+        htmlBad.fetchBook().then(result => {
             response = result
             done()
         })
@@ -210,13 +213,11 @@ describe('When scraping The Martian from Audible', () => {
     })
 })
 
-// Test parse is also undefined
-const asinBad: string = 'B0036I54I6'
-const htmlBad = new ScrapeHelper(asinBad)
-
 describe('When fetching a broken ASIN\'s HTML from Audible', () => {
     let response: any
     beforeAll((done) => {
+        asinBad = 'B0036I54I6'
+        htmlBad = new ScrapeHelper(asinBad)
         htmlBad.fetchBook().then(result => {
             htmlBad.parseResponse(result).then(result => {
                 response = result!
@@ -227,5 +228,27 @@ describe('When fetching a broken ASIN\'s HTML from Audible', () => {
 
     it('returned undefined', () => {
         expect(response).toBeUndefined()
+    })
+})
+
+describe('When parsing a book with a series but no position', () => {
+    let response: HtmlBookInterface
+    beforeAll((done) => {
+        asinBad = '059345586X'
+        htmlBad = new ScrapeHelper(asinBad)
+        htmlBad.fetchBook().then(result => {
+            htmlBad.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
+        })
+    })
+
+    it('returned no book position', () => {
+        expect(response.seriesPrimary?.position).toBeUndefined()
+    })
+
+    it('returned no book position', () => {
+        expect(response.seriesSecondary?.position).toBeUndefined()
     })
 })

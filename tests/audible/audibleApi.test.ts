@@ -2,25 +2,30 @@ import ApiHelper from '../../src/helpers/audibleApi'
 import { AudibleInterface } from '../../src/interfaces/audible'
 import { ApiBookInterface } from '../../src/interfaces/books'
 
-// Run through known book data to test responses
-const asinProjectHailMary: string = 'B08G9PRS1K'
-const apiProjectHailMary = new ApiHelper(asinProjectHailMary)
+let asinBad: string
+let apiBad: ApiHelper
 
+let asinGood: string
+let apiGood: ApiHelper
+
+// Run through known book data to test responses
 describe('When fetching Project Hail Mary from Audible API', () => {
     let response: AudibleInterface
     beforeAll((done) => {
-        apiProjectHailMary.fetchBook().then(result => {
+        asinGood = 'B08G9PRS1K'
+        apiGood = new ApiHelper(asinGood)
+        apiGood.fetchBook().then(result => {
             response = result!
             done()
         })
     })
 
     it('returned built url', () => {
-        expect(apiProjectHailMary.buildUrl(asinProjectHailMary)).toBe(`https://api.audible.com/1.0/catalog/products/${asinProjectHailMary}?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media`)
+        expect(apiGood.buildUrl(asinGood)).toBe(`https://api.audible.com/1.0/catalog/products/${asinGood}?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media`)
     })
 
     it('returned asin', () => {
-        expect(response.product.asin).toBe(asinProjectHailMary)
+        expect(response.product.asin).toBe(asinGood)
     })
 
     it('returned 1 author', () => {
@@ -77,24 +82,23 @@ describe('When fetching Project Hail Mary from Audible API', () => {
     })
 })
 
-const asinColdestCase: string = 'B08C6YJ1LS'
-const apiColdestCase = new ApiHelper(asinColdestCase)
-
 describe('When fetching The Coldest Case from Audible API', () => {
     let response: AudibleInterface
     beforeAll((done) => {
-        apiColdestCase.fetchBook().then(result => {
+        asinGood = 'B08C6YJ1LS'
+        apiGood = new ApiHelper(asinGood)
+        apiGood.fetchBook().then(result => {
             response = result!
             done()
         })
     })
 
     it('returned built url', () => {
-        expect(apiColdestCase.buildUrl(asinColdestCase)).toBe(`https://api.audible.com/1.0/catalog/products/${asinColdestCase}?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media`)
+        expect(apiGood.buildUrl(asinGood)).toBe(`https://api.audible.com/1.0/catalog/products/${asinGood}?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media`)
     })
 
     it('returned asin', () => {
-        expect(response.product.asin).toBe(asinColdestCase)
+        expect(response.product.asin).toBe(asinGood)
     })
 
     it('returned 3 authors', () => {
@@ -183,8 +187,10 @@ describe('When fetching The Coldest Case from Audible API', () => {
 describe('When parsing The Coldest Case', () => {
     let response: ApiBookInterface
     beforeAll((done) => {
-        apiColdestCase.fetchBook().then(result => {
-            apiColdestCase.parseResponse(result).then(result => {
+        asinGood = 'B08C6YJ1LS'
+        apiGood = new ApiHelper(asinGood)
+        apiGood.fetchBook().then(result => {
+            apiGood.parseResponse(result).then(result => {
                 response = result
                 done()
             })
@@ -192,7 +198,7 @@ describe('When parsing The Coldest Case', () => {
     })
 
     it('returned asin', () => {
-        expect(response.asin).toBe(asinColdestCase)
+        expect(response.asin).toBe(asinGood)
     })
 
     it('returned 3 authors', () => {
@@ -279,12 +285,11 @@ describe('When parsing The Coldest Case', () => {
 })
 
 // Test parse is also undefined
-const asinBad: string = '1234567891'
-const apiBad = new ApiHelper(asinBad)
-
 describe('When fetching a fake ASIN from Audible API', () => {
     let response: AudibleInterface
     beforeAll((done) => {
+        asinBad = '1234567891'
+        apiBad = new ApiHelper(asinBad)
         apiBad.fetchBook().then(result => {
             response = result!
             done()
@@ -295,15 +300,33 @@ describe('When fetching a fake ASIN from Audible API', () => {
         expect(response.product.title).toBeUndefined()
     })
 
-    it('threw error when parsing undefined', async () => {
+    it('threw no authors key error', async () => {
         await expect(apiBad.parseResponse(response))
         .rejects
-        .toThrow('Required key: authors, does not exist on: 1234567891')
+        .toThrowError('Required key: authors, does not exist on: 1234567891')
     })
 
     it('threw error when parsing undefined', async () => {
         await expect(apiBad.parseResponse(undefined))
         .rejects
-        .toThrow('No API response to parse')
+        .toThrowError('No API response to parse')
+    })
+})
+
+describe('When parsing a book with no title from Audible API', () => {
+    let response: AudibleInterface
+    beforeAll((done) => {
+        asinBad = 'B07BS4RKGH'
+        apiBad = new ApiHelper(asinBad)
+        apiBad.fetchBook().then(result => {
+            response = result!
+            done()
+        })
+    })
+
+    it('threw an error', async () => {
+        await expect(apiBad.parseResponse(response))
+        .rejects
+        .toThrowError('Required key: title, does not exist on: B07BS4RKGH')
     })
 })
