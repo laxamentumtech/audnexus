@@ -3,7 +3,7 @@ import { AuthorInterface, NarratorInterface } from '../people/index'
 export interface ApiSingleChapterInterface {
     lengthMs: number,
     startOffsetMs: number,
-    startffsetSec: number,
+    startOffsetSec: number,
     title: string
 }
 

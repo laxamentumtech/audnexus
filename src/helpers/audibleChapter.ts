@@ -160,7 +160,7 @@ class ChapterHelper {
 
                 chapJson.lengthMs = chapter.length_ms
                 chapJson.startOffsetMs = chapter.start_offset_ms
-                chapJson.startffsetSec = chapter.start_offset_sec
+                chapJson.startOffsetSec = chapter.start_offset_sec
                 chapJson.title = this.chapterTitleCleanup(chapter.title)
 
                 chapArr.push(chapJson)
