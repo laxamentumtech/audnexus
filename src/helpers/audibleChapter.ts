@@ -103,7 +103,7 @@ class ChapterHelper {
             }
         })
         if (!response.ok) {
-            const message = `An error has occured while fetching chapters ${response.status}`
+            const message = `An error has occured while fetching chapters ${response.status}: ${this.reqUrl}`
             console.log(message)
             return undefined
         } else {
