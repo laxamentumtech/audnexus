@@ -103,7 +103,7 @@ class ChapterHelper {
             }
         })
         if (!response.ok) {
-            const message = `An error has occured while fetching chapters ${response.status}`
+            const message = `An error has occured while fetching chapters ${response.status}: ${this.reqUrl}`
             console.log(message)
             return undefined
         } else {
@@ -160,7 +160,7 @@ class ChapterHelper {
 
                 chapJson.lengthMs = chapter.length_ms
                 chapJson.startOffsetMs = chapter.start_offset_ms
-                chapJson.startffsetSec = chapter.start_offset_sec
+                chapJson.startOffsetSec = chapter.start_offset_sec
                 chapJson.title = this.chapterTitleCleanup(chapter.title)
 
                 chapArr.push(chapJson)

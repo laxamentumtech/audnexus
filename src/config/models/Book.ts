@@ -20,7 +20,7 @@ const bookSchema = schema({
                     {
                         lengthMs: types.number({ required: true }),
                         startOffsetMs: types.number({ required: true }),
-                        startffsetSec: types.number({ required: true }),
+                        startOffsetSec: types.number({ required: true }),
                         title: types.string({ required: true })
                     }
                 ), { required: true }

@@ -120,7 +120,7 @@ describe('When parsing The Seep', () => {
     })
 
     it('returned chapter #4 start_offset_sec', () => {
-        expect(response.chapters[3].startffsetSec).toBe(139)
+        expect(response.chapters[3].startOffsetSec).toBe(139)
     })
 
     it('returned chapter #4 title', () => {
@@ -135,8 +135,8 @@ describe('When parsing The Seep', () => {
         expect(response.chapters[23].startOffsetMs).toBe(10171073)
     })
 
-    it('returned chapter #18 startffsetSec', () => {
-        expect(response.chapters[23].startffsetSec).toBe(10171)
+    it('returned chapter #18 startOffsetSec', () => {
+        expect(response.chapters[23].startOffsetSec).toBe(10171)
     })
 
     it('returned chapter #18 title', () => {
