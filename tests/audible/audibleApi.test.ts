@@ -330,3 +330,25 @@ describe('When parsing a book with no title from Audible API', () => {
         .toThrowError('Required key: title, does not exist on: B07BS4RKGH')
     })
 })
+
+describe('When fetching a book with no image from Audible API', () => {
+    let response: AudibleInterface
+    beforeAll((done) => {
+        asinBad = 'B008D2SJRS'
+        apiBad = new ApiHelper(asinBad)
+        apiBad.fetchBook().then(result => {
+            response = result!
+            done()
+        })
+    })
+
+    it('returned no product_images', async () => {
+        expect(response.product.product_images).toMatchObject({})
+    })
+
+    it('returned no image when parsing', async () => {
+        apiBad.parseResponse(response).then(result => {
+            expect(result.image).toBeUndefined()
+        })
+    })
+})
