@@ -148,9 +148,11 @@ class ScrapeHelper {
      */
     async fetchBook (): Promise<cheerio.CheerioAPI | undefined> {
         const response = await fetch(this.reqUrl)
-        if (!response.ok && response.status !== 404) {
+        if (!response.ok) {
             const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
-            console.log(message)
+            if (response.status !== 404) {
+                console.log(message)
+            }
             return undefined
         } else {
             const text = await response.text()
