@@ -252,3 +252,43 @@ describe('When parsing a book with a series but no position', () => {
         expect(response.seriesSecondary?.position).toBeUndefined()
     })
 })
+
+describe('When fetching a book with no genres', () => {
+    let response: any
+    beforeAll((done) => {
+        asinBad = 'B007NMU87I'
+        htmlBad = new ScrapeHelper(asinBad)
+        htmlBad.fetchBook().then(result => {
+            htmlBad.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
+        })
+    })
+
+    it('returned no genres', () => {
+        expect(response.genres).toBeUndefined()
+    })
+})
+
+describe('When fetching a book with only 1 genre', () => {
+    let response: any
+    beforeAll((done) => {
+        asinBad = 'B017JDRBUW'
+        htmlBad = new ScrapeHelper(asinBad)
+        htmlBad.fetchBook().then(result => {
+            htmlBad.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
+        })
+    })
+
+    it('returned 1st genre', () => {
+        expect(response.genres[0]).toBeTruthy()
+    })
+
+    it('did not return 2nd genre', () => {
+        expect(response.genres[1]).toBeUndefined()
+    })
+})
