@@ -25,7 +25,7 @@
   "license": "GPL-3.0",
   "dependencies": {
     "concurrently": "^6.2.1",
-    "fastify": "^3.21.1",
+    "fastify": "^3.21.3",
     "fastify-plugin": "^3.0.0",
     "html-to-text": "^8.0.0",
     "isomorphic-fetch": "^3.0.0",
