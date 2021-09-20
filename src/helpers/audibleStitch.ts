@@ -14,7 +14,7 @@ class StitchHelper {
      * Sets genres key in returned json if it exists
      */
     includeGenres () {
-        if (this.htmlRes && this.htmlRes.genres) {
+        if (this.htmlRes && this.htmlRes.genres!.length) {
             this.tempJson.genres = this.htmlRes.genres
         }
     }
