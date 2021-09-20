@@ -3,24 +3,17 @@ import { HtmlBookInterface, GenreInterface, SeriesInterface } from '../interface
 import fetch from 'isomorphic-fetch'
 // For HTML scraping
 import * as cheerio from 'cheerio'
+import SharedHelper from './shared'
 
 class ScrapeHelper {
     asin: string;
     reqUrl: string;
-    constructor (asin) {
+    constructor (asin: string) {
         this.asin = asin
-        this.reqUrl = this.buildUrl(asin)
-    }
-
-    /**
-     * Creates URL to use in fetchBook
-     * @param {string} ASIN The Audible ID to base the URL on
-     * @returns {string} full url to fetch.
-     */
-    buildUrl (ASIN: string): string {
-        const baseUrl = 'https://www.audible.com/pd'
-        const reqUrl = `${baseUrl}/${ASIN}`
-        return reqUrl
+        const helper = new SharedHelper()
+        const baseDomain: string = 'https://www.audible.com'
+        const baseUrl: string = 'pd'
+        this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl)
     }
 
     /**

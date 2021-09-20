@@ -20,10 +20,6 @@ describe('When fetching Project Hail Mary from Audible API', () => {
         })
     })
 
-    it('returned built url', () => {
-        expect(apiGood.buildUrl(asinGood)).toBe(`https://api.audible.com/1.0/catalog/products/${asinGood}?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media`)
-    })
-
     it('returned asin', () => {
         expect(response.product.asin).toBe(asinGood)
     })
@@ -91,10 +87,6 @@ describe('When fetching The Coldest Case from Audible API', () => {
             response = result!
             done()
         })
-    })
-
-    it('returned built url', () => {
-        expect(apiGood.buildUrl(asinGood)).toBe(`https://api.audible.com/1.0/catalog/products/${asinGood}?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media`)
     })
 
     it('returned asin', () => {

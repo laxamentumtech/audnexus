@@ -3,6 +3,7 @@ import jsrsasign from 'jsrsasign'
 import moment from 'moment'
 import { ChapterInterface, SingleChapter } from '../interfaces/audible'
 import { ApiChapterInterface, ApiSingleChapterInterface } from '../interfaces/books'
+import SharedHelper from './shared'
 
 class ChapterHelper {
     asin: string;
@@ -10,25 +11,16 @@ class ChapterHelper {
     adpToken: string;
     privateKey: string;
 
-    constructor (asin) {
+    constructor (asin: string) {
         this.asin = asin
-        this.reqUrl = this.buildUrl(asin)
+        const helper = new SharedHelper()
+        const baseDomain: string = 'https://api.audible.com'
+        const baseUrl: string = '1.0/content'
+        const params = 'metadata?response_groups=chapter_info'
+        this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
         this.adpToken = process.env.ADP_TOKEN as string
         this.privateKey = process.env.PRIVATE_KEY as string
         this.privateKey = this.privateKey.replace(/\\n/g, '\n') as string
-    }
-
-    /**
-     * Creates URL to use in fetchBook
-     * @param {string} ASIN The Audible ID to base the URL on
-     * @returns {string} full url to fetch.
-     */
-    buildUrl (ASIN: string): string {
-        const baseDomain = 'https://api.audible.com'
-        const baseUrl = '1.0/content'
-        const params = 'metadata?response_groups=chapter_info'
-        const reqUrl = `${baseDomain}/${baseUrl}/${ASIN}/${params}`
-        return reqUrl
     }
 
     /**

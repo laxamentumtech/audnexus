@@ -1,5 +1,16 @@
 class SharedHelper {
     /**
+     * Creates URL to use in fetchBook
+     * @param {string} ASIN The Audible ID to base the URL on
+     * @returns {string} full url to fetch.
+     */
+    buildUrl (ASIN: string, baseDomain: string, baseUrl: string, params?: string): string {
+        const argArr = [baseDomain, baseUrl, ASIN, params]
+        const reqUrl = argArr.join('/')
+        return reqUrl
+    }
+
+    /**
      * Checks asin length and format to verify it's valid
      * @param {string} asin 10 character identifier
      * @returns {boolean}

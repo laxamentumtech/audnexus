@@ -4,26 +4,18 @@ import { htmlToText } from 'html-to-text'
 import { AudibleInterface } from '../interfaces/audible/index'
 import { ApiBookInterface } from '../interfaces/books/index'
 import { AuthorInterface, NarratorInterface } from '../interfaces/people/index'
+import SharedHelper from './shared'
 
 class ApiHelper {
     asin: string;
     reqUrl: string;
     constructor (asin: string) {
         this.asin = asin
-        this.reqUrl = this.buildUrl(asin)
-    }
-
-    /**
-     * Creates URL to use in fetchBook
-     * @param {string} ASIN The Audible ID to base the URL on
-     * @returns {string} full url to fetch.
-     */
-    buildUrl (ASIN: string): string {
-        const baseUrl = 'https://api.audible.com/1.0/catalog/products'
-        const resGroups =
-            '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media'
-        const reqUrl = `${baseUrl}/${ASIN}${resGroups}`
-        return reqUrl
+        const helper = new SharedHelper()
+        const baseDomain: string = 'https://api.audible.com'
+        const baseUrl: string = '1.0/catalog/products'
+        const params = '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media'
+        this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
     }
 
     /**
