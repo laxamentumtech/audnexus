@@ -153,20 +153,16 @@ class ChapterHelper {
         // Chapters
         key = 'chapters'
         if (key in inputJson) {
-            const chapArr: ApiSingleChapterInterface[] = []
-            // Loop through each person
-            inputJson[key].forEach((chapter: SingleChapter) => {
+            // Loop through each chapter and set keys/fix title
+            finalJson[key] = inputJson[key].map((chapter: SingleChapter) => {
                 const chapJson = <ApiSingleChapterInterface>{}
 
                 chapJson.lengthMs = chapter.length_ms
                 chapJson.startOffsetMs = chapter.start_offset_ms
                 chapJson.startOffsetSec = chapter.start_offset_sec
                 chapJson.title = this.chapterTitleCleanup(chapter.title)
-
-                chapArr.push(chapJson)
+                return chapJson
             })
-            // Use final array as value
-            finalJson[key] = chapArr
         } else {
             missingKeyMsg(key)
         }

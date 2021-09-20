@@ -82,9 +82,8 @@ class ApiHelper {
         // Authors
         key = 'authors'
         if (key in inputJson) {
-            const authorArr: AuthorInterface[] = []
             // Loop through each person
-            inputJson[key].forEach((person: AuthorInterface) => {
+            finalJson[key] = inputJson[key].map((person: AuthorInterface) => {
                 const authorJson = <AuthorInterface>{}
 
                 // Use asin for author if available
@@ -92,10 +91,8 @@ class ApiHelper {
                     authorJson.asin = person.asin
                 }
                 authorJson.name = person.name
-                authorArr.push(authorJson)
+                return authorJson
             })
-            // Use final array as value
-            finalJson[key] = authorArr
         } else {
             missingKeyMsg(key)
         }
@@ -133,15 +130,12 @@ class ApiHelper {
         // Narrators
         key = 'narrators'
         if (key in inputJson) {
-            const narratorArr: NarratorInterface[] = []
             // Loop through each person
-            inputJson[key].forEach((person: NarratorInterface) => {
+            finalJson[key] = inputJson[key].map((person: NarratorInterface) => {
                 const narratorJson = <NarratorInterface>{}
                 narratorJson.name = person.name
-                narratorArr.push(narratorJson)
+                return narratorJson
             })
-            // Use final array as value
-            finalJson[key] = narratorArr
         }
 
         // PublisherName
