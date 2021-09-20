@@ -119,7 +119,7 @@ class ApiHelper {
         // Image
         // Remove _SL500_ and rename to image
         key = 'product_images'
-        if (key in inputJson) {
+        if (key[500] in inputJson) {
             finalJson.image = inputJson[key][500].replace('_SL500_.', '')
         }
 
