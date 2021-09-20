@@ -2,7 +2,7 @@
 import { HtmlBookInterface, GenreInterface, SeriesInterface } from '../interfaces/books/index'
 import fetch from 'isomorphic-fetch'
 // For HTML scraping
-import { JSDOM } from 'jsdom'
+import * as cheerio from 'cheerio'
 
 class ScrapeHelper {
     asin: string;
@@ -28,7 +28,7 @@ class ScrapeHelper {
      * @param {NodeListOf<Element>} genres selected source from categoriesLabel
      * @returns {GenreInterface[]}
      */
-    collectGenres (genres): GenreInterface[] {
+    collectGenres (genres: cheerio.Cheerio<cheerio.Element>[]): GenreInterface[] {
         const genreArr: GenreInterface[] = []
 
         // Check parent genre
@@ -36,13 +36,13 @@ class ScrapeHelper {
             let asin: string
             let href: string
 
-            if (genres[0].getAttribute('href')) {
-                href = genres[0].getAttribute('href')!
+            if (genres[0].attr('href')) {
+                href = genres[0].attr('href')!
                 asin = this.getAsinFromUrl(href)
-                if (genres[0].textContent && asin) {
+                if (genres[0].text() && asin) {
                     genreArr.push({
                         asin: asin,
-                        name: genres[0].textContent,
+                        name: genres[0].text(),
                         type: 'parent'
                     })
                 }
@@ -54,13 +54,13 @@ class ScrapeHelper {
             let asin: string
             let href: string
 
-            if (genres[1].getAttribute('href')) {
-                href = genres[1].getAttribute('href')!
+            if (genres[1].attr('href')) {
+                href = genres[1].attr('href')!
                 asin = this.getAsinFromUrl(href)
-                if (genres[1].textContent && asin) {
+                if (genres[1].text() && asin) {
                     genreArr.push({
                         asin: asin,
-                        name: genres[1].textContent,
+                        name: genres[1].text(),
                         type: 'child'
                     })
                 }
@@ -76,7 +76,7 @@ class ScrapeHelper {
      * @param {string} seriesRaw innerHTML of the series node
      * @returns {SeriesInterface[]}
      */
-    collectSeries (series, seriesRaw: string): SeriesInterface[] {
+    collectSeries (series: cheerio.Cheerio<cheerio.Element>[], seriesRaw: string): SeriesInterface[] {
         const bookPos = this.getBookFromHTML(seriesRaw)
         const seriesArr: SeriesInterface[] = []
 
@@ -85,13 +85,13 @@ class ScrapeHelper {
             let asin: string
             let href: string
 
-            if (series[0].getAttribute('href')) {
-                href = series[0].getAttribute('href')!
+            if (series[0].attr('href')) {
+                href = series[0].attr('href')!
                 asin = this.getAsinFromUrl(href)
 
-                if (series[0].textContent) {
+                if (series[0].text()) {
                     seriesPrimary.asin = asin
-                    seriesPrimary.name = series[0].textContent
+                    seriesPrimary.name = series[0].text()
 
                     if (bookPos && bookPos[0]) {
                         seriesPrimary.position = bookPos[0]
@@ -107,13 +107,13 @@ class ScrapeHelper {
             let asin: string
             let href: string
 
-            if (series[1].getAttribute('href')) {
-                href = series[1].getAttribute('href')!
+            if (series[1].attr('href')) {
+                href = series[1].attr('href')!
                 asin = this.getAsinFromUrl(href)
 
-                if (series[1].textContent) {
+                if (series[1].text()) {
                     seriesSecondary.asin = asin
-                    seriesSecondary.name = series[1].textContent
+                    seriesSecondary.name = series[1].text()
 
                     if (bookPos && bookPos[1]) {
                         seriesSecondary.position = bookPos[1]
@@ -128,9 +128,9 @@ class ScrapeHelper {
 
     /**
      * Fetches the html page and checks it's response
-     * @returns {Promise<JSDOM | undefined>} return text from the html page
+     * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
      */
-    async fetchBook (): Promise<JSDOM | undefined> {
+    async fetchBook (): Promise<cheerio.CheerioAPI | undefined> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
             const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
@@ -138,7 +138,7 @@ class ScrapeHelper {
             return undefined
         } else {
             const text = await response.text()
-            const dom = new JSDOM(text)
+            const dom = cheerio.load(text)
             return dom
         }
     }
@@ -148,16 +148,19 @@ class ScrapeHelper {
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    async parseResponse (dom: JSDOM | undefined): Promise<HtmlBookInterface | undefined> {
+    async parseResponse (dom: cheerio.CheerioAPI | undefined): Promise<HtmlBookInterface | undefined> {
         // Base undefined check
         if (!dom) {
             return undefined
         }
 
-        const genres = dom.window.document.querySelectorAll(
-            'li.categoriesLabel a'
-            )
-        const series = dom.window.document.querySelectorAll('li.seriesLabel a')
+        const genres = dom('li.categoriesLabel a')
+        .toArray()
+        .map(element => dom(element))
+
+        const series = dom('li.seriesLabel a')
+        .toArray()
+        .map(element => dom(element))
 
         const returnJson = {
             genres: Array<GenreInterface>(genres.length),
@@ -170,8 +173,8 @@ class ScrapeHelper {
         }
 
         // Series
-        if (series.length && dom.window.document.querySelector('li.seriesLabel')) {
-            const seriesRaw = dom.window.document.querySelector('li.seriesLabel')!.innerHTML
+        if (series.length) {
+            const seriesRaw = dom('li.seriesLabel').html()!
             returnJson.series = this.collectSeries(series, seriesRaw)
         }
 
