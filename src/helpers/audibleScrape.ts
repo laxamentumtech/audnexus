@@ -46,7 +46,11 @@ class ScrapeHelper {
                         type: 'parent'
                     })
                 }
+            } else {
+                console.log(`Genre 1 asin not available on: ${this.asin}`)
             }
+        } else {
+            console.log(`Genre 1 not available on: ${this.asin}`)
         }
 
         // Check child genre
@@ -64,7 +68,11 @@ class ScrapeHelper {
                         type: 'child'
                     })
                 }
+            } else {
+                console.log(`Genre 2 asin not available on: ${this.asin}`)
             }
+        } else {
+            console.log(`Genre 2 not available on: ${this.asin}`)
         }
 
         return genreArr
@@ -98,7 +106,11 @@ class ScrapeHelper {
                     }
 
                     seriesArr.push(seriesPrimary)
+                } else {
+                    console.log(`Series 1 name not available on: ${this.asin}`)
                 }
+            } else {
+                console.log(`Series 1 asin not available on: ${this.asin}`)
             }
         }
 
@@ -120,7 +132,11 @@ class ScrapeHelper {
                     }
 
                     seriesArr.push(seriesSecondary)
+                } else {
+                    console.log(`Series 2 name not available on: ${this.asin}`)
                 }
+            } else {
+                console.log(`Series 2 asin not available on: ${this.asin}`)
             }
         }
         return seriesArr
@@ -132,7 +148,7 @@ class ScrapeHelper {
      */
     async fetchBook (): Promise<cheerio.CheerioAPI | undefined> {
         const response = await fetch(this.reqUrl)
-        if (!response.ok) {
+        if (!response.ok && response.status !== 404) {
             const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
             console.log(message)
             return undefined
@@ -170,6 +186,8 @@ class ScrapeHelper {
         // Genres
         if (genres.length) {
             returnJson.genres = this.collectGenres(genres)
+        } else {
+            console.log(`Genres not available on: ${this.asin}`)
         }
 
         // Series
