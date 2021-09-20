@@ -31,33 +31,25 @@ class ScrapeHelper {
     collectGenres (genres: cheerio.Cheerio<cheerio.Element>[]): GenreInterface[] {
         const genreArr: GenreInterface[] = []
 
+        let asin: string
+        let href: string
         // Check parent genre
-        if (genres[0]) {
-            let asin: string
-            let href: string
-
-            if (genres[0].attr('href')) {
-                href = genres[0].attr('href')!
-                asin = this.getAsinFromUrl(href)
-                if (genres[0].text() && asin) {
-                    genreArr.push({
-                        asin: asin,
-                        name: genres[0].text(),
-                        type: 'parent'
-                    })
-                }
-            } else {
-                console.log(`Genre 1 asin not available on: ${this.asin}`)
+        if (genres[0].attr('href')) {
+            href = genres[0].attr('href')!
+            asin = this.getAsinFromUrl(href)
+            if (genres[0].text() && asin) {
+                genreArr.push({
+                    asin: asin,
+                    name: genres[0].text(),
+                    type: 'parent'
+                })
             }
         } else {
-            console.log(`Genre 1 not available on: ${this.asin}`)
+            console.log(`Genre 1 asin not available on: ${this.asin}`)
         }
 
         // Check child genre
         if (genres[1]) {
-            let asin: string
-            let href: string
-
             if (genres[1].attr('href')) {
                 href = genres[1].attr('href')!
                 asin = this.getAsinFromUrl(href)
@@ -88,36 +80,34 @@ class ScrapeHelper {
         const bookPos = this.getBookFromHTML(seriesRaw)
         const seriesArr: SeriesInterface[] = []
 
-        if (series[0]) {
-            const seriesPrimary = {} as SeriesInterface
-            let asin: string
-            let href: string
+        const seriesPrimary = {} as SeriesInterface
+        let asin: string
+        let href: string
 
-            if (series[0].attr('href')) {
-                href = series[0].attr('href')!
-                asin = this.getAsinFromUrl(href)
+        // Primary series
+        if (series[0].attr('href')) {
+            href = series[0].attr('href')!
+            asin = this.getAsinFromUrl(href)
 
-                if (series[0].text()) {
-                    seriesPrimary.asin = asin
-                    seriesPrimary.name = series[0].text()
+            if (series[0].text()) {
+                seriesPrimary.asin = asin
+                seriesPrimary.name = series[0].text()
 
-                    if (bookPos && bookPos[0]) {
-                        seriesPrimary.position = bookPos[0]
-                    }
-
-                    seriesArr.push(seriesPrimary)
-                } else {
-                    console.log(`Series 1 name not available on: ${this.asin}`)
+                if (bookPos && bookPos[0]) {
+                    seriesPrimary.position = bookPos[0]
                 }
+
+                seriesArr.push(seriesPrimary)
             } else {
-                console.log(`Series 1 asin not available on: ${this.asin}`)
+                console.log(`Series 1 name not available on: ${this.asin}`)
             }
+        } else {
+            console.log(`Series 1 asin not available on: ${this.asin}`)
         }
 
+        // Secondary series
         if (series[1]) {
             const seriesSecondary = {} as SeriesInterface
-            let asin: string
-            let href: string
 
             if (series[1].attr('href')) {
                 href = series[1].attr('href')!
@@ -139,6 +129,7 @@ class ScrapeHelper {
                 console.log(`Series 2 asin not available on: ${this.asin}`)
             }
         }
+
         return seriesArr
     }
 
