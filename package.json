@@ -44,7 +44,7 @@
     "@types/jsrsasign": "^8.0.13",
     "@types/node": "^16.9.4",
     "@typescript-eslint/eslint-plugin": "^4.31.1",
-    "@typescript-eslint/parser": "^4.31.1",
+    "@typescript-eslint/parser": "^4.31.2",
     "eslint": "^7.32.0",
     "eslint-config-standard": "^16.0.3",
     "eslint-plugin-import": "^2.24.2",
