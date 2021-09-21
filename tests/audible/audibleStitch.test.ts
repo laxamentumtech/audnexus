@@ -28,7 +28,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
             stitch.tempJson.chapterInfo = parseChap
         }
 
-        response = stitch.process()
+        response = await Promise.resolve(stitch.process())
     })
 
     it('returned asin', () => {
@@ -165,7 +165,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
             stitch.tempJson.chapterInfo = parseChap
         }
 
-        response = stitch.process()
+        response = await Promise.resolve(stitch.process())
     })
 
     it('returned asin', () => {
@@ -318,7 +318,7 @@ describe('When fetching an ASIN that has no chapters or HTML from Audible', () =
             stitch.tempJson.chapterInfo = parseChap
         }
 
-        response = stitch.process()
+        response = await Promise.resolve(stitch.process())
     })
 
     it('returned asin', () => {
