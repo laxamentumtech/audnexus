@@ -50,9 +50,9 @@ class StitchHelper {
 
     /**
      * Call functions in the class to parse final JSON
-     * @returns {BookInterface}
+     * @returns {Promise<BookInterface>}
      */
-    process (): BookInterface {
+    async process (): Promise<BookInterface> {
         Promise.all([this.includeGenres(), this.setSeriesOrder()])
         this.bookJson = this.tempJson
         return this.bookJson
