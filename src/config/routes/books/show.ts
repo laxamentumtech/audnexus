@@ -4,6 +4,7 @@ import StitchHelper from '../../../helpers/audibleStitch'
 import ChapterHelper from '../../../helpers/audibleChapter'
 import SharedHelper from '../../../helpers/shared'
 import Book from '../../models/Book'
+import fastJson from 'fast-json-stringify'
 
 async function routes (fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
@@ -13,11 +14,19 @@ async function routes (fastify, options) {
             throw new Error('Bad ASIN')
         }
 
-        // Next, try and find it in DB
-        const result = await Book.findOne({
+        const { redis } = fastify
+        const findInRedis = await redis.get(request.params.asin, (val) => {
+            return JSON.parse(val)
+        })
+        const findInDb = await Book.findOne({
             asin: request.params.asin
         })
-        if (!result) {
+        if (findInRedis) {
+            return findInRedis
+        } else if (findInDb) {
+            redis.set(request.params.asin, fastJson(findInDb))
+            return findInDb
+        } else {
             // Set up helpers
             const api = new ApiHelper(request.params.asin)
             const chap = new ChapterHelper(request.params.asin)
@@ -37,9 +46,9 @@ async function routes (fastify, options) {
                 stitch.tempJson.chapterInfo = parseChap
             }
             const item = await Book.insertOne(stitch.process())
+            redis.set(request.params.asin, fastJson(item))
             return item
         }
-        return result
     })
 }
 
