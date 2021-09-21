@@ -95,7 +95,7 @@ class ApiHelper {
         if (key in inputJson) {
             finalJson.description = htmlToText(inputJson[key], {
                 wordwrap: false
-            })
+            }).trim()
         } else {
             missingKeyMsg(key)
         }
