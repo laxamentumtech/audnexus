@@ -14,7 +14,7 @@ class ApiHelper {
         const helper = new SharedHelper()
         const baseDomain: string = 'https://api.audible.com'
         const baseUrl: string = '1.0/catalog/products'
-        const params = '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media'
+        const params = '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media&image_sizes=500,1024'
         this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
     }
 
@@ -106,10 +106,12 @@ class ApiHelper {
         optionalKeyHandling(key, newKey)
 
         // Image
-        // Remove _SL500_ and rename to image
+        // Try first for higher res art
         key = 'product_images'
         if (key in inputJson) {
-            if (500 in inputJson[key]) {
+            if (1024 in inputJson[key]) {
+                finalJson.image = inputJson[key][1024].replace('_SL1024_.', '')
+            } else if (500 in inputJson[key]) {
                 finalJson.image = inputJson[key][500].replace('_SL500_.', '')
             }
         }

@@ -65,7 +65,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned cover image', () => {
-        expect(response.image).toBe('https://m.media-amazon.com/images/I/51U4p-ir2BL.jpg')
+        expect(response.image).toBe('https://m.media-amazon.com/images/I/91tDBrO2u9L.jpg')
     })
 
     it('returned publisher', () => {
@@ -227,7 +227,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
     })
 
     it('returned cover image', () => {
-        expect(response.image).toBe('https://m.media-amazon.com/images/I/51SteOEMD8L.jpg')
+        expect(response.image).toBe('https://m.media-amazon.com/images/I/91H9ynKGNwL.jpg')
     })
 
     it('returned publisher', () => {
