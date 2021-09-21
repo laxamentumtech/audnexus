@@ -8,12 +8,10 @@ services:
     - ADP_TOKEN=${NODE_ADP_TOKEN}
     - MONGODB_URI=${NODE_MONGODB_URI}
     - PRIVATE_KEY=${NODE_PRIVATE_KEY}
-    - REDIS_URL=${NODE_REDIS_URL}
     ports:
       - "3000:3000"
     depends_on:
       - mongo
-      - redis
       - traefik
     networks:
       - internal
@@ -34,12 +32,6 @@ services:
     restart: always
     volumes:
       - ~/mongo/data:/data/db
-    networks:
-      - internal
-
-  redis:
-    image: redis:alpine
-    restart: always
     networks:
       - internal
 
