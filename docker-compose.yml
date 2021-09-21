@@ -5,9 +5,10 @@ services:
     image: ghcr.io/djdembeck/audnexus:develop
     restart: always
     environment:
-    - MONGODB_URI=${NODE_MONGODB_URI}
     - ADP_TOKEN=${NODE_ADP_TOKEN}
+    - MONGODB_URI=${NODE_MONGODB_URI}
     - PRIVATE_KEY=${NODE_PRIVATE_KEY}
+    - REDIS_URL=${NODE_REDIS_URL}
     ports:
       - "3000:3000"
     depends_on:
