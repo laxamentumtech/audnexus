@@ -57,7 +57,6 @@ describe('When fetching Project Hail Mary from Audible API', () => {
         expect(response.product.product_images['1024']).toBe('https://m.media-amazon.com/images/I/91vS2L5YfEL._SL1024_.jpg')
     })
 
-
     it('returned product_images', () => {
         expect(response.product.product_images['500']).toBe('https://m.media-amazon.com/images/I/51b6fvQr1-L._SL500_.jpg')
     })
