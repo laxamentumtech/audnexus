@@ -214,7 +214,7 @@ describe('When scraping The Martian from Audible', () => {
 })
 
 describe('When fetching a broken ASIN\'s HTML from Audible', () => {
-    let response: any
+    let response: HtmlBookInterface
     beforeAll((done) => {
         asinBad = 'B0036I54I6'
         htmlBad = new ScrapeHelper(asinBad)
@@ -250,5 +250,45 @@ describe('When parsing a book with a series but no position', () => {
 
     it('returned no book position', () => {
         expect(response.seriesSecondary?.position).toBeUndefined()
+    })
+})
+
+describe('When fetching a book with no genres', () => {
+    let response: HtmlBookInterface
+    beforeAll((done) => {
+        asinBad = 'B007NMU87I'
+        htmlBad = new ScrapeHelper(asinBad)
+        htmlBad.fetchBook().then(result => {
+            htmlBad.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
+        })
+    })
+
+    it('returned no genres', () => {
+        expect(response.genres!.length).toBeFalsy()
+    })
+})
+
+describe('When fetching a book with only 1 genre', () => {
+    let response: HtmlBookInterface
+    beforeAll((done) => {
+        asinBad = 'B017JDRBUW'
+        htmlBad = new ScrapeHelper(asinBad)
+        htmlBad.fetchBook().then(result => {
+            htmlBad.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
+        })
+    })
+
+    it('returned 1st genre', () => {
+        expect(response.genres![0]).toBeTruthy()
+    })
+
+    it('did not return 2nd genre', () => {
+        expect(response.genres![1]).toBeUndefined()
     })
 })

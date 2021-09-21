@@ -13,8 +13,8 @@ class StitchHelper {
     /**
      * Sets genres key in returned json if it exists
      */
-    includeGenres () {
-        if (this.htmlRes && this.htmlRes.genres) {
+    async includeGenres () {
+        if (this.htmlRes && this.htmlRes.genres!.length) {
             this.tempJson.genres = this.htmlRes.genres
         }
     }
@@ -22,7 +22,7 @@ class StitchHelper {
     /**
      * Sets series' keys if they exist
      */
-    setSeriesOrder () {
+    async setSeriesOrder () {
         if (this.apiRes.publicationName) {
             if (this.htmlRes) {
                 const htmlSeries = this.htmlRes.series
@@ -50,12 +50,10 @@ class StitchHelper {
 
     /**
      * Call functions in the class to parse final JSON
-     * @returns {BookInterface}
+     * @returns {Promise<BookInterface>}
      */
-    process (): BookInterface {
-        this.includeGenres()
-        this.setSeriesOrder()
-        // console.log(this.tempJson)
+    async process (): Promise<BookInterface> {
+        Promise.all([this.includeGenres(), this.setSeriesOrder()])
         this.bookJson = this.tempJson
         return this.bookJson
     }

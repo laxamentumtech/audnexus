@@ -3,6 +3,7 @@ import jsrsasign from 'jsrsasign'
 import moment from 'moment'
 import { ChapterInterface, SingleChapter } from '../interfaces/audible'
 import { ApiChapterInterface, ApiSingleChapterInterface } from '../interfaces/books'
+import SharedHelper from './shared'
 
 class ChapterHelper {
     asin: string;
@@ -10,25 +11,19 @@ class ChapterHelper {
     adpToken: string;
     privateKey: string;
 
-    constructor (asin) {
+    constructor (asin: string) {
         this.asin = asin
-        this.reqUrl = this.buildUrl(asin)
+        const helper = new SharedHelper()
+        const baseDomain: string = 'https://api.audible.com'
+        const baseUrl: string = '1.0/content'
+        const params = 'metadata?response_groups=chapter_info'
+        this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
+        if (!process.env.ADP_TOKEN && !process.env.PRIVATE_KEY) {
+            throw new Error('Missing environment vars for chapters')
+        }
         this.adpToken = process.env.ADP_TOKEN as string
         this.privateKey = process.env.PRIVATE_KEY as string
         this.privateKey = this.privateKey.replace(/\\n/g, '\n') as string
-    }
-
-    /**
-     * Creates URL to use in fetchBook
-     * @param {string} ASIN The Audible ID to base the URL on
-     * @returns {string} full url to fetch.
-     */
-    buildUrl (ASIN: string): string {
-        const baseDomain = 'https://api.audible.com'
-        const baseUrl = '1.0/content'
-        const params = 'metadata?response_groups=chapter_info'
-        const reqUrl = `${baseDomain}/${baseUrl}/${ASIN}/${params}`
-        return reqUrl
     }
 
     /**
@@ -153,20 +148,16 @@ class ChapterHelper {
         // Chapters
         key = 'chapters'
         if (key in inputJson) {
-            const chapArr: ApiSingleChapterInterface[] = []
-            // Loop through each person
-            inputJson[key].forEach((chapter: SingleChapter) => {
+            // Loop through each chapter and set keys/fix title
+            finalJson[key] = inputJson[key].map((chapter: SingleChapter) => {
                 const chapJson = <ApiSingleChapterInterface>{}
 
                 chapJson.lengthMs = chapter.length_ms
                 chapJson.startOffsetMs = chapter.start_offset_ms
                 chapJson.startOffsetSec = chapter.start_offset_sec
                 chapJson.title = this.chapterTitleCleanup(chapter.title)
-
-                chapArr.push(chapJson)
+                return chapJson
             })
-            // Use final array as value
-            finalJson[key] = chapArr
         } else {
             missingKeyMsg(key)
         }

@@ -4,26 +4,18 @@ import { htmlToText } from 'html-to-text'
 import { AudibleInterface } from '../interfaces/audible/index'
 import { ApiBookInterface } from '../interfaces/books/index'
 import { AuthorInterface, NarratorInterface } from '../interfaces/people/index'
+import SharedHelper from './shared'
 
 class ApiHelper {
     asin: string;
     reqUrl: string;
     constructor (asin: string) {
         this.asin = asin
-        this.reqUrl = this.buildUrl(asin)
-    }
-
-    /**
-     * Creates URL to use in fetchBook
-     * @param {string} ASIN The Audible ID to base the URL on
-     * @returns {string} full url to fetch.
-     */
-    buildUrl (ASIN: string): string {
-        const baseUrl = 'https://api.audible.com/1.0/catalog/products'
-        const resGroups =
-            '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media'
-        const reqUrl = `${baseUrl}/${ASIN}${resGroups}`
-        return reqUrl
+        const helper = new SharedHelper()
+        const baseDomain: string = 'https://api.audible.com'
+        const baseUrl: string = '1.0/catalog/products'
+        const params = '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media&image_sizes=500,1024'
+        this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
     }
 
     /**
@@ -82,9 +74,8 @@ class ApiHelper {
         // Authors
         key = 'authors'
         if (key in inputJson) {
-            const authorArr: AuthorInterface[] = []
             // Loop through each person
-            inputJson[key].forEach((person: AuthorInterface) => {
+            finalJson[key] = inputJson[key].map((person: AuthorInterface) => {
                 const authorJson = <AuthorInterface>{}
 
                 // Use asin for author if available
@@ -92,10 +83,8 @@ class ApiHelper {
                     authorJson.asin = person.asin
                 }
                 authorJson.name = person.name
-                authorArr.push(authorJson)
+                return authorJson
             })
-            // Use final array as value
-            finalJson[key] = authorArr
         } else {
             missingKeyMsg(key)
         }
@@ -106,7 +95,7 @@ class ApiHelper {
         if (key in inputJson) {
             finalJson.description = htmlToText(inputJson[key], {
                 wordwrap: false
-            })
+            }).trim()
         } else {
             missingKeyMsg(key)
         }
@@ -117,10 +106,14 @@ class ApiHelper {
         optionalKeyHandling(key, newKey)
 
         // Image
-        // Remove _SL500_ and rename to image
+        // Try first for higher res art
         key = 'product_images'
         if (key in inputJson) {
-            finalJson.image = inputJson[key][500].replace('_SL500_.', '')
+            if (1024 in inputJson[key]) {
+                finalJson.image = inputJson[key][1024].replace('_SL1024_.', '')
+            } else if (500 in inputJson[key]) {
+                finalJson.image = inputJson[key][500].replace('_SL500_.', '')
+            }
         }
 
         // Language
@@ -131,15 +124,12 @@ class ApiHelper {
         // Narrators
         key = 'narrators'
         if (key in inputJson) {
-            const narratorArr: NarratorInterface[] = []
             // Loop through each person
-            inputJson[key].forEach((person: NarratorInterface) => {
+            finalJson[key] = inputJson[key].map((person: NarratorInterface) => {
                 const narratorJson = <NarratorInterface>{}
                 narratorJson.name = person.name
-                narratorArr.push(narratorJson)
+                return narratorJson
             })
-            // Use final array as value
-            finalJson[key] = narratorArr
         }
 
         // PublisherName

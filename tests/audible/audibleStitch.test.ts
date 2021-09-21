@@ -28,7 +28,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
             stitch.tempJson.chapterInfo = parseChap
         }
 
-        response = stitch.process()
+        response = await Promise.resolve(stitch.process())
     })
 
     it('returned asin', () => {
@@ -65,7 +65,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned cover image', () => {
-        expect(response.image).toBe('https://m.media-amazon.com/images/I/51U4p-ir2BL.jpg')
+        expect(response.image).toBe('https://m.media-amazon.com/images/I/91tDBrO2u9L.jpg')
     })
 
     it('returned publisher', () => {
@@ -165,7 +165,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
             stitch.tempJson.chapterInfo = parseChap
         }
 
-        response = stitch.process()
+        response = await Promise.resolve(stitch.process())
     })
 
     it('returned asin', () => {
@@ -191,7 +191,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
     })
 
     it('returned description', () => {
-        expect(response.description).toBe('James Patterson\'s Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies....   ')
+        expect(response.description).toBe('James Patterson\'s Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies....')
     })
 
     it('returned format_type', () => {
@@ -227,7 +227,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
     })
 
     it('returned cover image', () => {
-        expect(response.image).toBe('https://m.media-amazon.com/images/I/51SteOEMD8L.jpg')
+        expect(response.image).toBe('https://m.media-amazon.com/images/I/91H9ynKGNwL.jpg')
     })
 
     it('returned publisher', () => {
@@ -318,7 +318,7 @@ describe('When fetching an ASIN that has no chapters or HTML from Audible', () =
             stitch.tempJson.chapterInfo = parseChap
         }
 
-        response = stitch.process()
+        response = await Promise.resolve(stitch.process())
     })
 
     it('returned asin', () => {

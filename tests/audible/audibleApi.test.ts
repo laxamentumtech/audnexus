@@ -20,10 +20,6 @@ describe('When fetching Project Hail Mary from Audible API', () => {
         })
     })
 
-    it('returned built url', () => {
-        expect(apiGood.buildUrl(asinGood)).toBe(`https://api.audible.com/1.0/catalog/products/${asinGood}?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media`)
-    })
-
     it('returned asin', () => {
         expect(response.product.asin).toBe(asinGood)
     })
@@ -55,6 +51,10 @@ describe('When fetching Project Hail Mary from Audible API', () => {
 
     it('returned narrator #1', () => {
         expect(response.product.narrators![0].name).toBe('Ray Porter')
+    })
+
+    it('returned product_images', () => {
+        expect(response.product.product_images['1024']).toBe('https://m.media-amazon.com/images/I/91vS2L5YfEL._SL1024_.jpg')
     })
 
     it('returned product_images', () => {
@@ -91,10 +91,6 @@ describe('When fetching The Coldest Case from Audible API', () => {
             response = result!
             done()
         })
-    })
-
-    it('returned built url', () => {
-        expect(apiGood.buildUrl(asinGood)).toBe(`https://api.audible.com/1.0/catalog/products/${asinGood}?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media`)
     })
 
     it('returned asin', () => {
@@ -153,6 +149,10 @@ describe('When fetching The Coldest Case from Audible API', () => {
 
     it('returned narrator #5', () => {
         expect(response.product.narrators![4].name).toBe('full cast')
+    })
+
+    it('returned cover image', () => {
+        expect(response.product.product_images['1024']).toBe('https://m.media-amazon.com/images/I/91H9ynKGNwL._SL1024_.jpg')
     })
 
     it('returned cover image', () => {
@@ -220,7 +220,7 @@ describe('When parsing The Coldest Case', () => {
     })
 
     it('returned description', () => {
-        expect(response.description).toBe('James Patterson\'s Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies....   ')
+        expect(response.description).toBe('James Patterson\'s Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies....')
     })
 
     it('returned format_type', () => {
@@ -256,7 +256,7 @@ describe('When parsing The Coldest Case', () => {
     })
 
     it('returned cover image', () => {
-        expect(response.image).toBe('https://m.media-amazon.com/images/I/51SteOEMD8L.jpg')
+        expect(response.image).toBe('https://m.media-amazon.com/images/I/91H9ynKGNwL.jpg')
     })
 
     it('returned series name', () => {
@@ -328,5 +328,27 @@ describe('When parsing a book with no title from Audible API', () => {
         await expect(apiBad.parseResponse(response))
         .rejects
         .toThrowError('Required key: title, does not exist on: B07BS4RKGH')
+    })
+})
+
+describe('When fetching a book with no image from Audible API', () => {
+    let response: AudibleInterface
+    beforeAll((done) => {
+        asinBad = 'B008D2SJRS'
+        apiBad = new ApiHelper(asinBad)
+        apiBad.fetchBook().then(result => {
+            response = result!
+            done()
+        })
+    })
+
+    it('returned no product_images', async () => {
+        expect(response.product.product_images).toMatchObject({})
+    })
+
+    it('returned no image when parsing', async () => {
+        apiBad.parseResponse(response).then(result => {
+            expect(result.image).toBeUndefined()
+        })
     })
 })

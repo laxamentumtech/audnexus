@@ -13,11 +13,13 @@ async function routes (fastify, options) {
             throw new Error('Bad ASIN')
         }
 
-        // Next, try and find it in DB
-        const result = await Book.findOne({
+        const findInDb = await Promise.resolve(Book.findOne({
             asin: request.params.asin
-        })
-        if (!result) {
+        }))
+
+        if (findInDb) {
+            return findInDb
+        } else {
             // Set up helpers
             const api = new ApiHelper(request.params.asin)
             const chap = new ChapterHelper(request.params.asin)
@@ -36,10 +38,10 @@ async function routes (fastify, options) {
             if (parseChap !== undefined) {
                 stitch.tempJson.chapterInfo = parseChap
             }
-            const item = await Book.insertOne(stitch.process())
-            return item
+            const stichedData = await Promise.resolve(stitch.process())
+            const newDbItem = await Promise.resolve(Book.insertOne(stichedData))
+            return newDbItem
         }
-        return result
     })
 }
 

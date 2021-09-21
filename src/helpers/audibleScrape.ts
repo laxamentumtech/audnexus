@@ -3,24 +3,17 @@ import { HtmlBookInterface, GenreInterface, SeriesInterface } from '../interface
 import fetch from 'isomorphic-fetch'
 // For HTML scraping
 import * as cheerio from 'cheerio'
+import SharedHelper from './shared'
 
 class ScrapeHelper {
     asin: string;
     reqUrl: string;
-    constructor (asin) {
+    constructor (asin: string) {
         this.asin = asin
-        this.reqUrl = this.buildUrl(asin)
-    }
-
-    /**
-     * Creates URL to use in fetchBook
-     * @param {string} ASIN The Audible ID to base the URL on
-     * @returns {string} full url to fetch.
-     */
-    buildUrl (ASIN: string): string {
-        const baseUrl = 'https://www.audible.com/pd'
-        const reqUrl = `${baseUrl}/${ASIN}`
-        return reqUrl
+        const helper = new SharedHelper()
+        const baseDomain: string = 'https://www.audible.com'
+        const baseUrl: string = 'pd'
+        this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl)
     }
 
     /**
@@ -28,52 +21,29 @@ class ScrapeHelper {
      * @param {NodeListOf<Element>} genres selected source from categoriesLabel
      * @returns {GenreInterface[]}
      */
-    collectGenres (genres: cheerio.Cheerio<cheerio.Element>[]): GenreInterface[] {
-        const genreArr: GenreInterface[] = []
-
-        // Check parent genre
-        if (genres[0]) {
+    collectGenres (genres: cheerio.Cheerio<cheerio.Element>[]): GenreInterface[] | undefined {
+        // Check and label each genre
+        const genreArr: GenreInterface[] | undefined = genres.map((genre, index): any => {
+            let thisGenre = {} as GenreInterface
             let asin: string
             let href: string
-
-            if (genres[0].attr('href')) {
-                href = genres[0].attr('href')!
+            const types: Array<string> = ['parent', 'child']
+            if (genre.attr('href')) {
+                href = genre.attr('href')!
                 asin = this.getAsinFromUrl(href)
-                if (genres[0].text() && asin) {
-                    genreArr.push({
+                if (genre.text() && asin) {
+                    thisGenre = {
                         asin: asin,
-                        name: genres[0].text(),
-                        type: 'parent'
-                    })
+                        name: genre.text(),
+                        type: types[index]
+                    }
                 }
+                return thisGenre
             } else {
-                console.log(`Genre 1 asin not available on: ${this.asin}`)
+                console.log(`Genre ${index} asin not available on: ${this.asin}`)
             }
-        } else {
-            console.log(`Genre 1 not available on: ${this.asin}`)
-        }
-
-        // Check child genre
-        if (genres[1]) {
-            let asin: string
-            let href: string
-
-            if (genres[1].attr('href')) {
-                href = genres[1].attr('href')!
-                asin = this.getAsinFromUrl(href)
-                if (genres[1].text() && asin) {
-                    genreArr.push({
-                        asin: asin,
-                        name: genres[1].text(),
-                        type: 'child'
-                    })
-                }
-            } else {
-                console.log(`Genre 2 asin not available on: ${this.asin}`)
-            }
-        } else {
-            console.log(`Genre 2 not available on: ${this.asin}`)
-        }
+            return undefined
+        }) as GenreInterface[]
 
         return genreArr
     }
@@ -84,61 +54,36 @@ class ScrapeHelper {
      * @param {string} seriesRaw innerHTML of the series node
      * @returns {SeriesInterface[]}
      */
-    collectSeries (series: cheerio.Cheerio<cheerio.Element>[], seriesRaw: string): SeriesInterface[] {
+    collectSeries (series: cheerio.Cheerio<cheerio.Element>[], seriesRaw: string): SeriesInterface[] | undefined {
         const bookPos = this.getBookFromHTML(seriesRaw)
-        const seriesArr: SeriesInterface[] = []
 
-        if (series[0]) {
-            const seriesPrimary = {} as SeriesInterface
+        // What is the singular of series? Who knows
+        const seriesArr: SeriesInterface[] | undefined = series.map((serie, index): any => {
+            const thisSeries = {} as SeriesInterface
             let asin: string
             let href: string
-
-            if (series[0].attr('href')) {
-                href = series[0].attr('href')!
+            if (serie.attr('href')) {
+                href = serie.attr('href')!
                 asin = this.getAsinFromUrl(href)
 
-                if (series[0].text()) {
-                    seriesPrimary.asin = asin
-                    seriesPrimary.name = series[0].text()
+                if (serie.text()) {
+                    thisSeries.asin = asin
+                    thisSeries.name = serie.text()
 
                     if (bookPos && bookPos[0]) {
-                        seriesPrimary.position = bookPos[0]
+                        thisSeries.position = bookPos[0]
                     }
 
-                    seriesArr.push(seriesPrimary)
+                    return thisSeries
                 } else {
-                    console.log(`Series 1 name not available on: ${this.asin}`)
+                    console.log(`Series ${index} name not available on: ${this.asin}`)
                 }
             } else {
-                console.log(`Series 1 asin not available on: ${this.asin}`)
+                console.log(`Series ${index} asin not available on: ${this.asin}`)
             }
-        }
+            return undefined
+        }) as SeriesInterface[]
 
-        if (series[1]) {
-            const seriesSecondary = {} as SeriesInterface
-            let asin: string
-            let href: string
-
-            if (series[1].attr('href')) {
-                href = series[1].attr('href')!
-                asin = this.getAsinFromUrl(href)
-
-                if (series[1].text()) {
-                    seriesSecondary.asin = asin
-                    seriesSecondary.name = series[1].text()
-
-                    if (bookPos && bookPos[1]) {
-                        seriesSecondary.position = bookPos[1]
-                    }
-
-                    seriesArr.push(seriesSecondary)
-                } else {
-                    console.log(`Series 2 name not available on: ${this.asin}`)
-                }
-            } else {
-                console.log(`Series 2 asin not available on: ${this.asin}`)
-            }
-        }
         return seriesArr
     }
 
@@ -183,7 +128,7 @@ class ScrapeHelper {
         const returnJson = {
             genres: Array<GenreInterface>(genres.length),
             series: Array<SeriesInterface>(series.length)
-        }
+        } as HtmlBookInterface
 
         // Genres
         if (genres.length) {
