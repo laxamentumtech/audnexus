@@ -4,7 +4,6 @@ import ChapterHelper from '../../../helpers/audibleChapter'
 import ScrapeHelper from '../../../helpers/audibleScrape'
 import SharedHelper from '../../../helpers/shared'
 import StitchHelper from '../../../helpers/audibleStitch'
-import fastJson from 'fast-json-stringify'
 
 async function routes (fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
@@ -16,7 +15,7 @@ async function routes (fastify, options) {
 
         const { redis } = fastify
         const findInRedis = await redis.get(request.params.asin, (val: string) => {
-            return JSON.parse(val)
+            return val
         })
 
         const findInDb = await Promise.resolve(Book.findOne({
@@ -24,9 +23,9 @@ async function routes (fastify, options) {
         }))
 
         if (findInRedis) {
-            return findInRedis
+            return JSON.parse(findInRedis)
         } else if (findInDb) {
-            redis.set(request.params.asin, fastJson(findInDb))
+            redis.set(request.params.asin, JSON.stringify(findInDb, null, 2))
             return findInDb
         } else {
             // Set up helpers
@@ -49,7 +48,7 @@ async function routes (fastify, options) {
             }
             const stichedData = await Promise.resolve(stitch.process())
             const newDbItem = await Promise.resolve(Book.insertOne(stichedData))
-            redis.set(request.params.asin, fastJson(newDbItem))
+            redis.set(request.params.asin, JSON.stringify(newDbItem, null, 2))
             return newDbItem
         }
     })

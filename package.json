@@ -26,7 +26,6 @@
   "dependencies": {
     "cheerio": "^1.0.0-rc.10",
     "concurrently": "^6.2.1",
-    "fast-json-stringify": "^2.7.10",
     "fastify": "^3.21.6",
     "fastify-plugin": "^3.0.0",
     "fastify-redis": "^4.3.1",
