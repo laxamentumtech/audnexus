@@ -1,6 +1,5 @@
 import ApiHelper from '../../../helpers/audibleApi'
 import Book from '../../models/Book'
-import ChapterHelper from '../../../helpers/audibleChapter'
 import ScrapeHelper from '../../../helpers/audibleScrape'
 import SharedHelper from '../../../helpers/shared'
 import StitchHelper from '../../../helpers/audibleStitch'
@@ -14,10 +13,9 @@ async function routes (fastify, options) {
         }
 
         const { redis } = fastify
-        const findInRedis = await redis.get(request.params.asin, (val: string) => {
-            return val
+        const findInRedis = await redis.get(`book-${request.params.asin}`, (val: string) => {
+            return JSON.parse(val)
         })
-
         const findInDb = await Promise.resolve(Book.findOne({
             asin: request.params.asin
         }))
@@ -25,30 +23,27 @@ async function routes (fastify, options) {
         if (findInRedis) {
             return JSON.parse(findInRedis)
         } else if (findInDb) {
-            redis.set(request.params.asin, JSON.stringify(findInDb, null, 2))
+            redis.set(`book-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
             return findInDb
         } else {
             // Set up helpers
             const api = new ApiHelper(request.params.asin)
-            const chap = new ChapterHelper(request.params.asin)
             const scraper = new ScrapeHelper(request.params.asin)
 
             // Run fetch tasks in parallel/resolve promises
-            const [apiRes, scraperRes, chapRes] = await Promise.all([api.fetchBook(), scraper.fetchBook(), chap.fetchBook()])
+            const [apiRes, scraperRes] = await Promise.all([api.fetchBook(), scraper.fetchBook()])
 
             // Run parse tasks in parallel/resolve promises
-            const [parseApi, parseScraper, parseChap] = await Promise.all([api.parseResponse(apiRes), scraper.parseResponse(scraperRes), chap.parseResponse(chapRes)])
+            const [parseApi, parseScraper] = await Promise.all([api.parseResponse(apiRes), scraper.parseResponse(scraperRes)])
 
             const stitch = new StitchHelper(parseApi)
             if (parseScraper !== undefined) {
                 stitch.htmlRes = parseScraper
             }
-            if (parseChap !== undefined) {
-                stitch.tempJson.chapterInfo = parseChap
-            }
+
             const stichedData = await Promise.resolve(stitch.process())
             const newDbItem = await Promise.resolve(Book.insertOne(stichedData))
-            redis.set(request.params.asin, JSON.stringify(newDbItem, null, 2))
+            redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
             return newDbItem
         }
     })

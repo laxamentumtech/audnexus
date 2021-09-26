@@ -1,4 +1,5 @@
 import ChapterHelper from '../../../../helpers/audibleChapter'
+import Chapter from '../../../models/Chapter'
 import SharedHelper from '../../../../helpers/shared'
 
 async function routes (fastify, options) {
@@ -8,8 +9,37 @@ async function routes (fastify, options) {
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
             throw new Error('Bad ASIN')
         }
-        const chapApi = new ChapterHelper(request.params.asin)
-        return chapApi.fetchBook()
+
+        const { redis } = fastify
+        const findInRedis = await redis.get(`chapters-${request.params.asin}`, (val: string) => {
+            return JSON.parse(val)
+        })
+        const findInDb = await Promise.resolve(Chapter.findOne({
+            asin: request.params.asin
+        }))
+
+        if (findInRedis) {
+            return JSON.parse(findInRedis)
+        } else if (findInDb) {
+            redis.set(`chapters-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
+            return findInDb
+        } else {
+            const chapApi = new ChapterHelper(request.params.asin)
+
+            // Run fetch tasks in parallel/resolve promises
+            const [chapRes] = await Promise.all([chapApi.fetchBook()])
+
+            // Run parse tasks in parallel/resolve promises
+            const [parseChap] = await Promise.all([chapApi.parseResponse(chapRes)])
+
+            if (parseChap !== undefined) {
+                const newDbItem = await Promise.resolve(Chapter.insertOne(parseChap))
+                redis.set(`chapters-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                return newDbItem
+            } else {
+                throw new Error('No Chapters')
+            }
+        }
     })
 }
 
