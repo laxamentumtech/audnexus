@@ -2,7 +2,7 @@ import { fastify } from 'fastify'
 import showBook from './config/routes/books/show'
 import deleteBook from './config/routes/books/delete'
 import showChapter from './config/routes/books/chapters/show'
-import { connect } from './config/papr'
+import { connect, disconnect } from './config/papr'
 
 // Heroku or local port
 const host = '0.0.0.0'
@@ -27,3 +27,18 @@ server.listen(port, host, async (err, address) => {
     await connect()
     console.log(`Server listening at ${address}`)
 })
+
+const startGracefulShutdown = () => {
+    console.log('Closing http server.')
+    server.close(() => {
+        console.log('Http server closed.')
+        //   Close Papr/mongo connection
+        disconnect().then(() => {
+            console.log('DB connection closed')
+            process.exit(0)
+        })
+    })
+}
+
+process.on('SIGTERM', startGracefulShutdown)
+process.on('SIGINT', startGracefulShutdown)
