@@ -33,6 +33,7 @@ const bookSchema = schema({
         )
     ),
     publisherName: types.string({ required: true }),
+    rating: types.string(),
     releaseDate: types.date({ required: true }),
     runtimeLengthMin: types.number(),
     seriesPrimary: types.object(
