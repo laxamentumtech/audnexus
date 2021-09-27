@@ -14,7 +14,7 @@ class ApiHelper {
         const helper = new SharedHelper()
         const baseDomain: string = 'https://api.audible.com'
         const baseUrl: string = '1.0/catalog/products'
-        const params = '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media&image_sizes=500,1024'
+        const params = '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating&image_sizes=500,1024'
         this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
     }
 
@@ -136,6 +136,14 @@ class ApiHelper {
         key = 'publisher_name'
         newKey = 'publisherName'
         standardKeyHandling(key, newKey)
+
+        // Rating
+        // TODO if/when papr supports decimal, add it here
+        // https://github.com/plexinc/papr/issues/94
+        key = 'rating'
+        if (key in inputJson) {
+            finalJson[key] = inputJson[key].overall_distribution.display_average_rating.toString()
+        }
 
         // ReleaseDate
         // Make it into a date object

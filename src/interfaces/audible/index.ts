@@ -8,6 +8,25 @@ interface Codecs {
     name: string
 }
 
+interface RatingItems {
+    average_rating: number;
+    display_average_rating: string;
+    display_stars: number;
+    num_five_star_ratings: number;
+    num_four_star_ratings: number;
+    num_one_star_ratings: number;
+    num_ratings: number;
+    num_three_star_ratings: number;
+    num_two_star_ratings: number;
+}
+
+interface Ratings {
+    num_reviews: number;
+    overall_distribution: RatingItems;
+    performance_distribution: RatingItems;
+    story_distribution: RatingItems;
+}
+
 export interface AudibleInterface {
     product: {
         asin: string;
@@ -28,6 +47,7 @@ export interface AudibleInterface {
         publication_name?: string;
         publisher_name: string;
         publisher_summary: string;
+        rating: Ratings;
         release_date: string;
         runtime_length_min: number;
         social_media_images: any;
