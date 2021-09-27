@@ -1,6 +1,6 @@
 {
   "name": "audnexus",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "An API for aggregating audiobook data",
   "repository": {
     "type": "git",
@@ -11,6 +11,7 @@
     "build": "npm run build-ts",
     "debug": "npm run build && npm run watch-debug",
     "lint": "tsc --noEmit && eslint \"**/*.{js,ts}\" --quiet --fix",
+    "release": "standard-version",
     "serve-debug": "nodemon --inspect dist/server.js",
     "serve": "node dist/server.js",
     "start": "npm run build && npm run serve",
@@ -53,6 +54,7 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^5.1.0",
     "jest": "^27.2.2",
+    "standard-version": "^9.3.1",
     "ts-jest": "^27.0.5"
   }
 }
