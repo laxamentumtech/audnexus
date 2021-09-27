@@ -11,25 +11,6 @@ const bookSchema = schema({
             }
         )
     ),
-    chapterInfo: types.object(
-        {
-            brandIntroDurationMs: types.number({ required: true }),
-            brandOutroDurationMs: types.number({ required: true }),
-            chapters: types.array(
-                types.object(
-                    {
-                        lengthMs: types.number({ required: true }),
-                        startOffsetMs: types.number({ required: true }),
-                        startOffsetSec: types.number({ required: true }),
-                        title: types.string({ required: true })
-                    }
-                ), { required: true }
-            ),
-            isAccurate: types.boolean({ required: true }),
-            runtimeLengthMs: types.number({ required: true }),
-            runtimeLengthSec: types.number({ required: true })
-        }
-    ),
     description: types.string({ required: true }),
     formatType: types.string(),
     genres: types.array(

@@ -135,6 +135,9 @@ class ChapterHelper {
             }
         }
 
+        // Set asin
+        finalJson.asin = this.asin
+
         // Audible intro duration
         key = 'brandIntroDurationMs'
         newKey = key

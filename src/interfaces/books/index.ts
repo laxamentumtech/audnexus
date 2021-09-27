@@ -8,6 +8,7 @@ export interface ApiSingleChapterInterface {
 }
 
 export interface ApiChapterInterface {
+    asin: string,
     brandIntroDurationMs: number,
     brandOutroDurationMs: number,
     chapters: ApiSingleChapterInterface[],
