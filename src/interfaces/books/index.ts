@@ -38,7 +38,7 @@ interface CoreBook {
     language: string;
     narrators?: NarratorInterface[];
     publisherName: string;
-    rating: number;
+    rating: string;
     releaseDate: Date;
     runtimeLengthMin: number;
     subtitle?: string;
