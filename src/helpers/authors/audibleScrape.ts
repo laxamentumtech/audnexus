@@ -1,10 +1,11 @@
 // Import interfaces
-import { HtmlBookInterface, SeriesInterface } from '../interfaces/books/index'
-import { GenreInterface } from '../interfaces/audible'
+import { AuthorInterface } from '../../interfaces/people/index'
+import { GenreInterface } from '../../interfaces/audible'
 import fetch from 'isomorphic-fetch'
 // For HTML scraping
 import * as cheerio from 'cheerio'
-import SharedHelper from './shared'
+import SharedHelper from '../shared'
+import { htmlToText } from 'html-to-text'
 
 class ScrapeHelper {
     asin: string;
@@ -13,7 +14,7 @@ class ScrapeHelper {
         this.asin = asin
         const helper = new SharedHelper()
         const baseDomain: string = 'https://www.audible.com'
-        const baseUrl: string = 'pd'
+        const baseUrl: string = 'author'
         this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl)
     }
 
@@ -28,14 +29,14 @@ class ScrapeHelper {
             let thisGenre = {} as GenreInterface
             let asin: string
             let href: string
-            const types: Array<string> = ['parent', 'child']
+            const types: Array<string> = ['1st', '2nd', '3rd']
             if (genre.attr('href')) {
                 href = genre.attr('href')!
                 asin = this.getAsinFromUrl(href)
                 if (genre.text() && asin) {
                     thisGenre = {
                         asin: asin,
-                        name: genre.text(),
+                        name: genre.children().text(),
                         type: types[index]
                     }
                 }
@@ -47,45 +48,6 @@ class ScrapeHelper {
         }) as GenreInterface[]
 
         return genreArr
-    }
-
-    /**
-     * Checks the presence of series' on html page and formats them into JSON
-     * @param {NodeListOf<Element>} series selected source from seriesLabel
-     * @param {string} seriesRaw innerHTML of the series node
-     * @returns {SeriesInterface[]}
-     */
-    collectSeries (series: cheerio.Cheerio<cheerio.Element>[], seriesRaw: string): SeriesInterface[] | undefined {
-        const bookPos = this.getBookFromHTML(seriesRaw)
-
-        // What is the singular of series? Who knows
-        const seriesArr: SeriesInterface[] | undefined = series.map((serie, index): any => {
-            const thisSeries = {} as SeriesInterface
-            let asin: string
-            let href: string
-            if (serie.attr('href')) {
-                href = serie.attr('href')!
-                asin = this.getAsinFromUrl(href)
-
-                if (serie.text()) {
-                    thisSeries.asin = asin
-                    thisSeries.name = serie.text()
-
-                    if (bookPos && bookPos[0]) {
-                        thisSeries.position = bookPos[0]
-                    }
-
-                    return thisSeries
-                } else {
-                    console.log(`Series ${index} name not available on: ${this.asin}`)
-                }
-            } else {
-                console.log(`Series ${index} asin not available on: ${this.asin}`)
-            }
-            return undefined
-        }) as SeriesInterface[]
-
-        return seriesArr
     }
 
     /**
@@ -112,38 +74,54 @@ class ScrapeHelper {
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    async parseResponse (dom: cheerio.CheerioAPI | undefined): Promise<HtmlBookInterface | undefined> {
+    async parseResponse ($: cheerio.CheerioAPI | undefined): Promise<AuthorInterface | undefined> {
         // Base undefined check
-        if (!dom) {
+        if (!$) {
             return undefined
         }
 
-        const genres = dom('li.categoriesLabel a')
-        .toArray()
-        .map(element => dom(element))
+        const returnJson = {} as AuthorInterface
 
-        const series = dom('li.seriesLabel a')
-        .toArray()
-        .map(element => dom(element))
+        // ID
+        returnJson.asin = this.asin
 
-        const returnJson = {
-            genres: Array<GenreInterface>(genres.length),
-            series: Array<SeriesInterface>(series.length)
-        } as HtmlBookInterface
+        // Bio.
+        try {
+            returnJson.description = htmlToText(
+                $('div.bc-expander-content').children().text(),
+                { wordwrap: false }
+            )
+        } catch (err) {
+            console.log(`Bio not available on: ${this.asin}`)
+        }
 
-        // Genres
-        if (genres.length) {
+        // Genres.
+        try {
+            const genres = $('div.contentPositionClass div.bc-box a.bc-color-link')
+            .toArray()
+            .map(element => $(element))
             returnJson.genres = this.collectGenres(genres)
-        } else {
+        } catch (err) {
             console.log(`Genres not available on: ${this.asin}`)
         }
 
-        // Series
-        if (series.length) {
-            const seriesRaw = dom('li.seriesLabel').html()!
-            returnJson.series = this.collectSeries(series, seriesRaw)
+        // Image.
+        try {
+            // We'll ask for a *slightly* larger than postage-stamp-sized pic...
+            returnJson.image = $('img.author-image-outline')[0].attribs.src.replace('__01_SX120_CR0,0,120,120__.', '')
+        } catch (err) {
+            console.log(`Image not available on: ${this.asin}`)
         }
 
+        // Name.
+        try {
+            // Workaround data error: https://github.com/cheeriojs/cheerio/issues/1854
+            returnJson.name = ($('h1.bc-text-bold')[0].children[0] as any).data
+        } catch (err) {
+            console.error(err)
+        }
+
+        console.log(returnJson)
         return returnJson
     }
 

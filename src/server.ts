@@ -1,7 +1,11 @@
-import { fastify } from 'fastify'
+// Book routes
 import showBook from './config/routes/books/show'
 import deleteBook from './config/routes/books/delete'
 import showChapter from './config/routes/books/chapters/show'
+// Author routes
+import showAuthor from './config/routes/authors/show'
+// System imports
+import { fastify } from 'fastify'
 import { connect, disconnect } from './config/papr'
 
 // Heroku or local port
@@ -14,9 +18,13 @@ const server = fastify({
     }
 })
 
+// Register book routes
 server.register(showBook)
 server.register(showChapter)
 server.register(deleteBook)
+// Register author routes
+server.register(showAuthor)
+
 server.register(require('fastify-redis'), { url: REDIS_URL })
 
 server.listen(port, host, async (err, address) => {
