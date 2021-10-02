@@ -5,6 +5,7 @@ import fetch from 'isomorphic-fetch'
 // For HTML scraping
 import * as cheerio from 'cheerio'
 import SharedHelper from '.././shared'
+import { htmlToText } from 'html-to-text'
 
 class ScrapeHelper {
     asin: string;
@@ -22,21 +23,24 @@ class ScrapeHelper {
      * @param {NodeListOf<Element>} genres selected source from categoriesLabel
      * @returns {GenreInterface[]}
      */
-    collectGenres (genres: cheerio.Cheerio<cheerio.Element>[]): GenreInterface[] | undefined {
+    collectGenres (genres: cheerio.Cheerio<cheerio.Element>[], type: string): GenreInterface[] | undefined {
         // Check and label each genre
         const genreArr: GenreInterface[] | undefined = genres.map((genre, index): any => {
             let thisGenre = {} as GenreInterface
-            let asin: string
-            let href: string
-            const types: Array<string> = ['parent', 'child']
+            // Only proceed if there's an ID to use
             if (genre.attr('href')) {
-                href = genre.attr('href')!
-                asin = this.getAsinFromUrl(href)
+                const href = genre.attr('href')!
+                const asin = this.getAsinFromUrl(href)
+                // Verify existence of name and valid ID
                 if (genre.text() && asin) {
+                    const cleanedName = htmlToText(
+                        genre.text(),
+                        { wordwrap: false }
+                    )
                     thisGenre = {
                         asin: asin,
-                        name: genre.text(),
-                        type: types[index]
+                        name: cleanedName,
+                        type: type
                     }
                 }
                 return thisGenre
@@ -126,16 +130,27 @@ class ScrapeHelper {
         .toArray()
         .map(element => dom(element))
 
+        const tags = dom('div.bc-chip-group a')
+        .toArray()
+        .map(element => dom(element))
+
         const returnJson = {
-            genres: Array<GenreInterface>(genres.length),
+            genres: Array<GenreInterface>(genres.length + tags.length),
             series: Array<SeriesInterface>(series.length)
         } as HtmlBookInterface
 
-        // Genres
+        // Combine genres and tags
         if (genres.length) {
-            returnJson.genres = this.collectGenres(genres)
-        } else {
-            console.log(`Genres not available on: ${this.asin}`)
+            let genreArr = this.collectGenres(
+                genres,
+                'genre'
+            ) as any
+            // Tags.
+            if (tags.length) {
+                const tagArr = this.collectGenres(tags, 'tag')
+                genreArr = genreArr.concat(tagArr)
+            }
+            returnJson.genres = genreArr as GenreInterface[]
         }
 
         // Series

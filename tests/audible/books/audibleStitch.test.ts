@@ -101,7 +101,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('parent')
+        expect(response.genres![0].type).toBe('genre')
     })
 
     it('returned genre 2 asin', () => {
@@ -113,7 +113,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned genre 2 type', () => {
-        expect(response.genres![1].type).toBe('child')
+        expect(response.genres![1].type).toBe('genre')
     })
 
     it('returned a primary series asin', () => {
@@ -263,7 +263,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('parent')
+        expect(response.genres![0].type).toBe('genre')
     })
 
     it('returned genre 2 asin', () => {
@@ -275,7 +275,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
     })
 
     it('returned genre 2 type', () => {
-        expect(response.genres![1].type).toBe('child')
+        expect(response.genres![1].type).toBe('genre')
     })
 
     it('returned a primary series asin', () => {

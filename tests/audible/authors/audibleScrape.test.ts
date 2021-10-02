@@ -43,7 +43,7 @@ describe('When scraping Andy Weir from Audible', () => {
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('1st')
+        expect(response.genres![0].type).toBe('genre')
     })
 
     it('returned genre 2 asin', () => {
@@ -55,7 +55,7 @@ describe('When scraping Andy Weir from Audible', () => {
     })
 
     it('returned genre 2 type', () => {
-        expect(response.genres![1].type).toBe('2nd')
+        expect(response.genres![1].type).toBe('genre')
     })
 
     it('returned genre 3 asin', () => {
@@ -67,6 +67,6 @@ describe('When scraping Andy Weir from Audible', () => {
     })
 
     it('returned genre 3 type', () => {
-        expect(response.genres![2].type).toBe('3rd')
+        expect(response.genres![2].type).toBe('genre')
     })
 })

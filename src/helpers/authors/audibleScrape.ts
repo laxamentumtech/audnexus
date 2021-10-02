@@ -23,13 +23,12 @@ class ScrapeHelper {
      * @param {NodeListOf<Element>} genres selected source from categoriesLabel
      * @returns {GenreInterface[]}
      */
-    collectGenres (genres: cheerio.Cheerio<cheerio.Element>[]): GenreInterface[] | undefined {
+    collectGenres (genres: cheerio.Cheerio<cheerio.Element>[], type: string): GenreInterface[] | undefined {
         // Check and label each genre
         const genreArr: GenreInterface[] | undefined = genres.map((genre, index): any => {
             let thisGenre = {} as GenreInterface
             let asin: string
             let href: string
-            const types: Array<string> = ['1st', '2nd', '3rd']
             if (genre.attr('href')) {
                 href = genre.attr('href')!
                 asin = this.getAsinFromUrl(href)
@@ -37,7 +36,7 @@ class ScrapeHelper {
                     thisGenre = {
                         asin: asin,
                         name: genre.children().text(),
-                        type: types[index]
+                        type: type
                     }
                 }
                 return thisGenre
@@ -100,7 +99,7 @@ class ScrapeHelper {
             const genres = $('div.contentPositionClass div.bc-box a.bc-color-link')
             .toArray()
             .map(element => $(element))
-            returnJson.genres = this.collectGenres(genres)
+            returnJson.genres = this.collectGenres(genres, 'genre')
         } catch (err) {
             console.log(`Genres not available on: ${this.asin}`)
         }
