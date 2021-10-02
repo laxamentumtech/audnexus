@@ -60,7 +60,10 @@ async function routes (fastify, options) {
             if (request.query.seedAuthors !== '0' && newDbItem.authors) {
                 try {
                     newDbItem.authors.map((author, index): any => {
-                        return seedAuthors(author!.asin!)
+                        if (author && author.asin) {
+                            return seedAuthors(author.asin)
+                        }
+                        return undefined
                     })
                 } catch (err) {
                     console.error(err)
