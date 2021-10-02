@@ -105,9 +105,7 @@ class ScrapeHelper {
         try {
             // We'll ask for a *slightly* larger than postage-stamp-sized pic...
             returnJson.image = $('img.author-image-outline')[0].attribs.src.replace('__01_SX120_CR0,0,120,120__.', '')
-        } catch (err) {
-            console.debug(`Image not available on: ${this.asin}`)
-        }
+        } catch (err) {}
 
         // Name.
         try {
