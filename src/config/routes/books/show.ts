@@ -1,8 +1,8 @@
-import ApiHelper from '../../../helpers/audibleApi'
+import ApiHelper from '../../../helpers/books/audibleApi'
 import Book from '../../models/Book'
-import ScrapeHelper from '../../../helpers/audibleScrape'
+import ScrapeHelper from '../../../helpers/books/audibleScrape'
 import SharedHelper from '../../../helpers/shared'
-import StitchHelper from '../../../helpers/audibleStitch'
+import StitchHelper from '../../../helpers/books/audibleStitch'
 
 async function routes (fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
