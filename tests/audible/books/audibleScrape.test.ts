@@ -1,5 +1,5 @@
-import ScrapeHelper from '../../src/helpers/audibleScrape'
-import { HtmlBookInterface } from '../../src/interfaces/books'
+import ScrapeHelper from '../../../src/helpers/books/audibleScrape'
+import { HtmlBookInterface } from '../../../src/interfaces/books'
 
 let asinBad: string
 let htmlBad: ScrapeHelper

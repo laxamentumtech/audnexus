@@ -1,4 +1,4 @@
-import ChapterHelper from '../../../../helpers/audibleChapter'
+import ChapterHelper from '../../../../helpers/books/audibleChapter'
 import Chapter from '../../../models/Chapter'
 import SharedHelper from '../../../../helpers/shared'
 
