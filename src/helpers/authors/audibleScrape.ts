@@ -53,14 +53,11 @@ class ScrapeHelper {
      * Fetches the html page and checks it's response
      * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
      */
-    async fetchBook (): Promise<cheerio.CheerioAPI | undefined> {
+    async fetchBook (): Promise<cheerio.CheerioAPI> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
-            const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
-            if (response.status !== 404) {
-                console.log(message)
-            }
-            return undefined
+            const message = `An error occured while fetching Audible HTML. Response: ${response.status}, ASIN: ${this.asin}`
+            throw new Error(message)
         } else {
             const text = await response.text()
             const dom = cheerio.load(text)
@@ -73,10 +70,10 @@ class ScrapeHelper {
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    async parseResponse ($: cheerio.CheerioAPI | undefined): Promise<AuthorInterface | undefined> {
+    async parseResponse ($: cheerio.CheerioAPI | undefined): Promise<AuthorInterface> {
         // Base undefined check
         if (!$) {
-            return undefined
+            throw new Error('No response from HTML')
         }
 
         const returnJson = {} as AuthorInterface
@@ -116,6 +113,9 @@ class ScrapeHelper {
         try {
             // Workaround data error: https://github.com/cheeriojs/cheerio/issues/1854
             returnJson.name = ($('h1.bc-text-bold')[0].children[0] as any).data
+            if (!returnJson.name) {
+                throw new Error('Author name not available')
+            }
         } catch (err) {
             console.error(err)
         }

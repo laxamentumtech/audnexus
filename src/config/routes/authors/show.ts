@@ -34,11 +34,6 @@ async function routes (fastify, options) {
             // Run parse tasks in parallel/resolve promises
             const [parseScraper] = await Promise.all([scraper.parseResponse(scraperRes)])
 
-            // const stitch = new StitchHelper(parseApi)
-            if (parseScraper === undefined) {
-                return undefined
-            }
-
             const newDbItem = await Promise.resolve(Author.insertOne(parseScraper))
             redis.set(`author-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
             return parseScraper
