@@ -41,7 +41,7 @@ class ScrapeHelper {
                 }
                 return thisGenre
             } else {
-                console.log(`Genre ${index} asin not available on: ${this.asin}`)
+                console.debug(`Genre ${index} asin not available on: ${this.asin}`)
             }
             return undefined
         }) as GenreInterface[]
@@ -88,7 +88,7 @@ class ScrapeHelper {
                 { wordwrap: false }
             )
         } catch (err) {
-            console.log(`Bio not available on: ${this.asin}`)
+            console.debug(`Bio not available on: ${this.asin}`)
         }
 
         // Genres.
@@ -98,7 +98,7 @@ class ScrapeHelper {
             .map(element => $(element))
             returnJson.genres = this.collectGenres(genres, 'genre')
         } catch (err) {
-            console.log(`Genres not available on: ${this.asin}`)
+            console.debug(`Genres not available on: ${this.asin}`)
         }
 
         // Image.
@@ -106,7 +106,7 @@ class ScrapeHelper {
             // We'll ask for a *slightly* larger than postage-stamp-sized pic...
             returnJson.image = $('img.author-image-outline')[0].attribs.src.replace('__01_SX120_CR0,0,120,120__.', '')
         } catch (err) {
-            console.log(`Image not available on: ${this.asin}`)
+            console.debug(`Image not available on: ${this.asin}`)
         }
 
         // Name.
