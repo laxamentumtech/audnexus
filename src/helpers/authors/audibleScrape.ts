@@ -120,7 +120,6 @@ class ScrapeHelper {
             console.error(err)
         }
 
-        console.log(returnJson)
         return returnJson
     }
 
