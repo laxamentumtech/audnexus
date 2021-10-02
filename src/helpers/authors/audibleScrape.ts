@@ -134,17 +134,6 @@ class ScrapeHelper {
         const ASIN = url.match(asinRegex)![0]
         return ASIN
     }
-
-    /**
-     * Regex to return just the book position from HTML input
-     * @param {JSDOM} html block/object to retrieve book number from.
-     * @returns {string} Cleaned book position string, like "Book 3"
-     */
-    getBookFromHTML (html): string {
-        const bookRegex = /(Book ?(\d*\.)?\d+[+-]?[\d]?)/gm
-        const matches = html.match(bookRegex)
-        return matches
-    }
 }
 
 export default ScrapeHelper
