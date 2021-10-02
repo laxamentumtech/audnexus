@@ -1,10 +1,13 @@
 import ScrapeHelper from '../../../src/helpers/authors/audibleScrape'
 import { AuthorInterface } from '../../../src/interfaces/people'
 
+let asinBad: string
+let htmlBad: ScrapeHelper
+
 let asinGood: string
 let htmlGood: ScrapeHelper
 
-// Run through known book data to test responses
+// Run through known author data to test responses
 describe('When scraping Andy Weir from Audible', () => {
     let response: AuthorInterface
     beforeAll((done) => {
@@ -68,5 +71,18 @@ describe('When scraping Andy Weir from Audible', () => {
 
     it('returned genre 3 type', () => {
         expect(response.genres![2].type).toBe('genre')
+    })
+})
+
+describe('When fetching a book as an author from Audible', () => {
+    beforeAll(() => {
+        asinBad = '103940202X'
+        htmlBad = new ScrapeHelper(asinBad)
+    })
+
+    it('threw an error', () => {
+        htmlBad.fetchBook().then(result => {
+            expect(result).toThrowError()
+        })
     })
 })
