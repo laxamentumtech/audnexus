@@ -74,15 +74,57 @@ describe('When scraping Andy Weir from Audible', () => {
     })
 })
 
+describe('When scraping an author with no description or image from Audible', () => {
+    let response: AuthorInterface
+    beforeAll((done) => {
+        asinGood = 'B0034NFIOI'
+        htmlGood = new ScrapeHelper(asinGood)
+        htmlGood.fetchBook().then(result => {
+            htmlGood.parseResponse(result).then(result => {
+                response = result!
+                done()
+            })
+        })
+    })
+
+    it('returned NO description', () => {
+        expect(response.description).toBeFalsy()
+    })
+
+    it('returned a name', () => {
+        expect(response.name).toBe('Simon Pegg')
+    })
+
+    it('returned NO image', () => {
+        expect(response.image).toBeFalsy()
+    })
+
+    it('returned 1 genre', () => {
+        expect(response.genres?.length).toBe(1)
+    })
+
+    it('returned genre 1 asin', () => {
+        expect(response.genres![0].asin).toBe('18571910011')
+    })
+
+    it('returned genre 1 name', () => {
+        expect(response.genres![0].name).toBe('Arts & Entertainment')
+    })
+
+    it('returned genre 1 type', () => {
+        expect(response.genres![0].type).toBe('genre')
+    })
+})
+
 describe('When fetching a book as an author from Audible', () => {
     beforeAll(() => {
         asinBad = '103940202X'
         htmlBad = new ScrapeHelper(asinBad)
     })
 
-    it('threw an error', () => {
-        htmlBad.fetchBook().then(result => {
-            expect(result).toThrowError()
-        })
+    it('threw an error', async () => {
+        await expect(htmlBad.fetchBook())
+        .rejects
+        .toThrowError('An error occured while fetching Audible HTML. Response: 404, ASIN: 103940202X')
     })
 })
