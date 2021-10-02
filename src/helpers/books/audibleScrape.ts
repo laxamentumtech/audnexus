@@ -117,7 +117,7 @@ class ScrapeHelper {
      * @returns {HtmlBookInterface} genre and series.
      */
     async parseResponse (dom: cheerio.CheerioAPI | undefined): Promise<HtmlBookInterface | undefined> {
-        // Base undefined check
+        // If there's no dom, don't interrupt the other module cycles
         if (!dom) {
             return undefined
         }
