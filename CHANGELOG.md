@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file. See [standa
 
 ## [0.3.0-0](https://github.com/djdembeck/audnexus/compare/v0.2.0...v0.3.0-0) (2021-10-03)
 
+### ⚠ BREAKING CHANGES
+
+* **feat(scraper):** add 'tag' support: types have been reworked to be either 'genre' or 'tag' - removing any parent/child usage since those are no longer relevant
+
+* **refactor(author-search):** set db name properly
 
 ### Features
 
