@@ -19,9 +19,15 @@ async function routes (fastify, options) {
             return Promise.resolve(Author.findOne({ asin: asin }))
         }
 
+        // Use regular text search until weighted available:
+        // https://github.com/plexinc/papr/issues/98
         if (name) {
-            const searchObject = { name: { $regex: name, $options: 'i' } }
-            return Promise.resolve(Author.find(searchObject, { limit: 25 }))
+            return Promise.resolve(
+                Author.find(
+                    { $text: { $search: name } },
+                    { limit: 25 }
+                )
+            )
         }
     })
 }
