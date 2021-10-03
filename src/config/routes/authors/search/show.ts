@@ -24,7 +24,7 @@ async function routes (fastify, options) {
         if (name) {
             return Promise.resolve(
                 Author.find(
-                    { $text: { $search: name } },
+                    { $text: { $search: `"${name}"` } },
                     { limit: 25 }
                 )
             )
