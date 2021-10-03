@@ -21,7 +21,7 @@ async function routes (fastify, options) {
 
         if (name) {
             const searchObject = { name: { $regex: name, $options: 'i' } }
-            return Promise.resolve(Author.find(searchObject))
+            return Promise.resolve(Author.find(searchObject, { limit: 25 }))
         }
     })
 }

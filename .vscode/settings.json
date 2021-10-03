@@ -10,6 +10,7 @@
         "schema",
         "book-audible-api",
         "book-scraper",
-        "book-stitcher"
+        "book-stitcher",
+        "author-search"
     ]
 }
