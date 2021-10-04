@@ -1,10 +1,10 @@
 import fetch from 'isomorphic-fetch'
 // For merchandising_summary
 import { htmlToText } from 'html-to-text'
-import { AudibleInterface } from '../interfaces/audible/index'
-import { ApiBookInterface } from '../interfaces/books/index'
-import { AuthorInterface, NarratorInterface } from '../interfaces/people/index'
-import SharedHelper from './shared'
+import { AudibleInterface } from '../../interfaces/audible/index'
+import { ApiBookInterface } from '../../interfaces/books/index'
+import { AuthorInterface, NarratorInterface } from '../../interfaces/people/index'
+import SharedHelper from '.././shared'
 
 class ApiHelper {
     asin: string;
@@ -26,7 +26,7 @@ class ApiHelper {
     async fetchBook (): Promise<AudibleInterface | undefined> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
-            const message = `An error has occured while fetching from Audible API ${response.status}: ${this.asin}`
+            const message = `An error has occured while fetching from Audible API. Response: ${response.status}, ASIN: ${this.asin}`
             throw new Error(message)
         } else {
             const json: AudibleInterface = await response.json()

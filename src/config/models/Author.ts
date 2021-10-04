@@ -11,7 +11,6 @@ const authorSchema = schema({
         types.objectId()
     ),
     description: types.string({ required: true }),
-    formatType: types.string(),
     genres: types.array(
         types.object(
             {

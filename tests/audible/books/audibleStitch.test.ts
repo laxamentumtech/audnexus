@@ -1,8 +1,8 @@
-import ApiHelper from '../../src/helpers/audibleApi'
-import ScrapeHelper from '../../src/helpers/audibleScrape'
-import StitchHelper from '../../src/helpers/audibleStitch'
-import { BookInterface } from '../../src/interfaces/books'
-import ChapterHelper from '../../src/helpers/audibleChapter'
+import ApiHelper from '../../../src/helpers/books/audibleApi'
+import ScrapeHelper from '../../../src/helpers/books/audibleScrape'
+import StitchHelper from '../../../src/helpers/books/audibleStitch'
+import { BookInterface } from '../../../src/interfaces/books'
+import ChapterHelper from '../../../src/helpers/books/audibleChapter'
 
 // Run through known book data to test responses
 const asinSorcerersStone: string = 'B017V4IM1G'
@@ -101,7 +101,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('parent')
+        expect(response.genres![0].type).toBe('genre')
     })
 
     it('returned genre 2 asin', () => {
@@ -113,7 +113,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned genre 2 type', () => {
-        expect(response.genres![1].type).toBe('child')
+        expect(response.genres![1].type).toBe('genre')
     })
 
     it('returned a primary series asin', () => {
@@ -263,7 +263,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('parent')
+        expect(response.genres![0].type).toBe('genre')
     })
 
     it('returned genre 2 asin', () => {
@@ -275,7 +275,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
     })
 
     it('returned genre 2 type', () => {
-        expect(response.genres![1].type).toBe('child')
+        expect(response.genres![1].type).toBe('genre')
     })
 
     it('returned a primary series asin', () => {

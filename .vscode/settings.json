@@ -1,13 +1,16 @@
 {
     "conventionalCommits.scopes": [
-        "log",
-        "stitcher",
-        "schema",
-        "audible-api",
-        "docker",
         "actions",
+        "author-scraper",
+        "chapters",
+        "docker",
+        "log",
         "parser",
-        "scraper",
-        "chapters"
+        "route",
+        "schema",
+        "book-audible-api",
+        "book-scraper",
+        "book-stitcher",
+        "author-search"
     ]
 }

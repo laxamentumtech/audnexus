@@ -1,3 +1,4 @@
+import { GenreInterface } from '../audible'
 import { AuthorInterface, NarratorInterface } from '../people/index'
 
 export interface ApiSingleChapterInterface {
@@ -15,12 +16,6 @@ export interface ApiChapterInterface {
     isAccurate: boolean,
     runtimeLengthMs: number,
     runtimeLengthSec: number
-}
-
-export interface GenreInterface {
-    asin: string,
-    name: string,
-    type: string
 }
 
 export interface SeriesInterface {

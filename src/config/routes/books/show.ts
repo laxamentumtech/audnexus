@@ -1,8 +1,17 @@
-import ApiHelper from '../../../helpers/audibleApi'
+import ApiHelper from '../../../helpers/books/audibleApi'
 import Book from '../../models/Book'
-import ScrapeHelper from '../../../helpers/audibleScrape'
+import ScrapeHelper from '../../../helpers/books/audibleScrape'
 import SharedHelper from '../../../helpers/shared'
-import StitchHelper from '../../../helpers/audibleStitch'
+import StitchHelper from '../../../helpers/books/audibleStitch'
+import fetch from 'isomorphic-fetch'
+
+/**
+ * Calls authors endpoint in the background with ASIN supplied
+ * @param {string} ASIN
+ */
+async function seedAuthors (ASIN: string) {
+    fetch('http://localhost:3000/authors/' + ASIN)
+}
 
 async function routes (fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
@@ -41,9 +50,25 @@ async function routes (fastify, options) {
                 stitch.htmlRes = parseScraper
             }
 
+            // Run stitcher and wait for promise to resolve
             const stichedData = await Promise.resolve(stitch.process())
+            // Insert stitched data into DB
             const newDbItem = await Promise.resolve(Book.insertOne(stichedData))
             redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+
+            // Seed authors in the background
+            if (request.query.seedAuthors !== '0' && newDbItem.authors) {
+                try {
+                    newDbItem.authors.map((author, index): any => {
+                        if (author && author.asin) {
+                            return seedAuthors(author.asin)
+                        }
+                        return undefined
+                    })
+                } catch (err) {
+                    console.error(err)
+                }
+            }
             return newDbItem
         }
     })
