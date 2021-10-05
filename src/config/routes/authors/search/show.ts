@@ -26,13 +26,13 @@ async function routes (fastify, options) {
         // https://github.com/plexinc/papr/issues/98
         if (name) {
             // Find all results of name
-            const searchdDbByName = await Promise.resolve(
+            const searchDbByName = await Promise.resolve(
                 Author.find(
                     { $text: { $search: name } }
                 )
             )
             // Add results to FlexSearch index
-            searchdDbByName.forEach(result => {
+            searchDbByName.forEach(result => {
                 document.add(result)
             })
             // Resulting search
