@@ -2,10 +2,14 @@ import Author from '../../../models/Author'
 // Search
 import { Document } from 'flexsearch'
 
-const index = new Document({
+const document = new Document({
     document: {
         id: 'asin',
-        index: ['name']
+        index: [{
+            charset: 'latin:simple',
+            field: 'name',
+            tokenize: 'full'
+        }]
     },
     preset: 'score'
 })
@@ -22,24 +26,30 @@ async function routes (fastify, options) {
         // https://github.com/plexinc/papr/issues/98
         if (name) {
             // Find all results of name
-            const seardDbByName = await Promise.resolve(
+            const searchdDbByName = await Promise.resolve(
                 Author.find(
                     { $text: { $search: name } }
                 )
             )
             // Add results to FlexSearch index
-            seardDbByName.forEach(result => {
-                index.add(result)
+            searchdDbByName.forEach(result => {
+                document.add(result)
             })
             // Resulting search
-            const matchedResults = index.search(name)[0].result as string[]
-            // Search documents matched by FlexSearch
-            const found = await Promise.resolve(
-                Author.find(
-                    { asin: { $in: matchedResults } }
+            const runFlexSearch = document.search(name)
+            if (runFlexSearch.length) {
+                const matchedResults = runFlexSearch[0].result as string[]
+                // Search documents matched by FlexSearch
+                const found = await Promise.resolve(
+                    Author.find(
+                        { asin: { $in: matchedResults } }
+                    )
                 )
-            )
-            return found
+                if (found) {
+                    return found
+                }
+            }
+            return []
         }
     })
 }
