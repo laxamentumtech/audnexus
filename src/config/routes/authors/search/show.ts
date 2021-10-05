@@ -1,4 +1,3 @@
-import SharedHelper from '../../../../helpers/shared'
 import Author from '../../../models/Author'
 // Search
 import { Document } from 'flexsearch'
