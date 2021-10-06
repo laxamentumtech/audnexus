@@ -23,17 +23,13 @@ services:
       - "traefik.docker.network=audnexus_web"
       - "traefik.http.routers.node-server.rule=Host(`api.audnex.us`)"
       - "traefik.http.routers.node-server.entrypoints=websecure"
-      - "traefik.http.routers.node-server.tls.certresolver=cloudflare"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      - "traefik.http.routers.redirs.rule=hostregexp(`{host:.+}`)"
-      - "traefik.http.routers.redirs.entrypoints=web"
-      - "traefik.http.routers.redirs.middlewares=redirect-to-https"
+      - "traefik.http.routers.node-server.tls.certresolver=myresolver"
 
   mongo:
-    image: mongo:5
+    image: mongo:4
     restart: always
     volumes:
-      - ~/mongo/data:/data/db
+      - /mnt/docker/mongo/data:/data/db
     networks:
       - internal
 
@@ -46,30 +42,18 @@ services:
   traefik:
     image: traefik:v2.5
     restart: always
-    environment:
-    - CLOUDFLARE_EMAIL=${CLOUDFLARE_EMAIL}
-    - CLOUDFLARE_API_KEY=${CLOUDFLARE_API_KEY}
     command:
       - "--providers.docker=true"
-      - "--entryPoints.web.address=:80"
       - "--entryPoints.websecure.address=:443"
       - "--providers.docker.exposedbydefault=false"
-      - "--certificatesresolvers.cloudflare.acme.email=${TRAEFIK_ACME_EMAIL}"
-      - "--certificatesresolvers.cloudflare.acme.caServer=${TRAEFIK_ACME_CASERVER}"
-      - "--entrypoints.websecure.http.tls.domains[0].main=${TRAEFIK_BASE_DNS}"
-      - "--entrypoints.websecure.http.tls.domains[0].sans=*.${TRAEFIK_BASE_DNS}"
-      - "--certificatesresolvers.cloudflare.acme.dnschallenge=true"
-      - "--certificatesresolvers.cloudflare.acme.dnschallenge.delaybeforecheck=0"
-      - "--certificatesresolvers.cloudflare.acme.dnschallenge.provider=cloudflare"
-      - "--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers[0]=1.1.1.1:53"
-      - "--certificatesresolvers.cloudflare.acme.dnschallenge.resolvers[1]=8.8.8.8:53"
-      - "--certificatesresolvers.cloudflare.acme.storage=/letsencrypt/acme.json"
+      - "--entrypoints.websecure.http.tls=true"
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=${TRAEFIK_EMAIL}"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
     ports:
       - "443:443"
-      - "80:80"
-      - "8080:8080"
     volumes:
-      - "./letsencrypt:/letsencrypt"
+      - /mnt/docker/letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - web
