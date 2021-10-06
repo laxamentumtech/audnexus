@@ -33,7 +33,7 @@ services:
     image: mongo:5
     restart: always
     volumes:
-      - ~/mongo/data:/data/db
+      - ${HOME}/.docker/mongo/data:/data/db
     networks:
       - internal
 
@@ -69,7 +69,7 @@ services:
       - "80:80"
       - "8080:8080"
     volumes:
-      - "./letsencrypt:/letsencrypt"
+      - ${HOME}/.docker/letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - web
