@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.3.0-1](https://github.com/djdembeck/audnexus/compare/v0.3.0-0...v0.3.0-1) (2021-10-06)
+
+
+### Features
+
+* **author-search:** :recycle: use FlexSearch to return author results ([92dec92](https://github.com/djdembeck/audnexus/commit/92dec9208cded2776860673de0c15bbdc073c1ce))
+
 ## [0.3.0-0](https://github.com/djdembeck/audnexus/compare/v0.2.0...v0.3.0-0) (2021-10-03)
 
 ### ⚠ BREAKING CHANGES
