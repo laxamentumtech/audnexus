@@ -14,16 +14,18 @@ services:
     depends_on:
       - mongo
       - redis
-      - traefik
     networks:
+      - traefik-overlay
       - internal
-      - web
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=audnexus_web"
-      - "traefik.http.routers.node-server.rule=Host(`api.audnex.us`)"
-      - "traefik.http.routers.node-server.entrypoints=websecure"
-      - "traefik.http.routers.node-server.tls.certresolver=myresolver"
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.docker.network=traefik-overlay"
+        - "traefik.http.routers.node-server.rule=Host(`${TRAEFIK_DOMAIN}`)"
+        - "traefik.http.routers.node-server.entrypoints=websecure"
+        - "traefik.http.routers.redirs.entrypoints=websecure"
+        - "traefik.http.services.node-server.loadbalancer.server.port=3000"
+      replicas: 15
 
   mongo:
     image: mongo:4
@@ -56,8 +58,10 @@ services:
       - /mnt/docker/letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - web
+      - traefik-overlay
+    deploy:
+      replicas: 1
 
 networks:
+  traefik-overlay:
   internal:
-  web:
