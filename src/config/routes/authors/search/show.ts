@@ -22,13 +22,14 @@ async function routes (fastify, options) {
             throw new Error('No search params provided')
         }
 
-        // Use regular text search until weighted available:
+        // Use projection search from mongo until papr implements it natively.
         // https://github.com/plexinc/papr/issues/98
         if (name) {
             // Find all results of name
             const searchDbByName = await Promise.resolve(
                 Author.find(
-                    { $text: { $search: name } }
+                    { $text: { $search: name } },
+                    { projection: { _id: false, asin: true, name: true }, limit: 25, sort: { score: { $meta: 'textScore' } } },
                 )
             )
             // Add results to FlexSearch index
