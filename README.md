@@ -37,7 +37,7 @@
 
 *Nexus - noun: a connection or series of connections linking two or more things.*
 
-Looking around for audiobook metadata, I and other realized there's no solid (or open) single source of truth. Further, some solutions had community curated data, only to close their API. As such, this project has been created to enable development to include multiple sources of audiobook content in one response.
+Looking around for audiobook metadata, we realized there's no solid (or open) single source of truth. Further, some solutions had community curated data, only to close their API. As such, this project has been created to enable development to include multiple sources of audiobook content in one response.
 
 This project also makes integration into existing media servers very streamlined. Since all data can be returned with 1-2 API calls, there's little to no overhead processing on the client side. This enables rapid development of stable client plugins. Audnexus serves as a provider during the interim of waiting for a community driven audiobook database, at which time audnexus will be a seeder for such a database.
 
@@ -114,6 +114,6 @@ https://${TRAEFIK_DOMAIN}/books/${ASIN}
 ## 🎉 Acknowledgements <a name = "acknowledgement"></a>
 
 - Huge thanks to [mkb79](https://github.com/mkb79) and their [audible](https://github.com/mkb79/Audible) project for a great starting point.
-- [macr0dev](https://github.com/macr0dev) for introducing me to scraping.
+- [macr0dev](https://github.com/macr0dev) for introducing us to scraping.
 - [seanap](https://github.com/seanap) for passionately standardizing audiobook organization.
-- [Bookcamp](https://www.bookcamp.app/) for giving me a reason to have awesome audiobook data.
+- [Bookcamp](https://www.bookcamp.app/) for giving us a reason to have awesome audiobook data.
