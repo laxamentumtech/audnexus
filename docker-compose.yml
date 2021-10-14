@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   node-server:
-    image: ghcr.io/djdembeck/audnexus:develop
+    image: ghcr.io/laxamentumtech/audnexus:develop
     restart: always
     environment:
     - ADP_TOKEN=${NODE_ADP_TOKEN}
