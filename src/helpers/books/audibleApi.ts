@@ -181,6 +181,7 @@ class ApiHelper {
                 if ('sequence' in series) {
                     seriesJson.position = series.sequence
                 }
+                // Check and set primary series
                 if (series.title === inputJson.publication_name!) {
                     finalJson.seriesPrimary = seriesJson
                 } else if (inputJson.series.length > 1 && series.title !== inputJson.publication_name) {

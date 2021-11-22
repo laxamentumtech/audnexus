@@ -51,7 +51,8 @@ export interface BookInterface extends CoreBook {
 
 // What we expect to keep from Audible's API
 export interface ApiBookInterface extends CoreBook {
-    publicationName?: string;
+    seriesPrimary?: SeriesInterface;
+    seriesSecondary?: SeriesInterface;
 }
 
 // What we expect to keep from Audible's HTML pages
