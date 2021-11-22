@@ -57,7 +57,4 @@ export interface ApiBookInterface extends CoreBook {
 // What we expect to keep from Audible's HTML pages
 export interface HtmlBookInterface {
     genres?: GenreInterface[];
-    series?: SeriesInterface[];
-    seriesPrimary?: SeriesInterface;
-    seriesSecondary?: SeriesInterface;
 }

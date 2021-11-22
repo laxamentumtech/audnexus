@@ -2,7 +2,7 @@ import fetch from 'isomorphic-fetch'
 // For merchandising_summary
 import { htmlToText } from 'html-to-text'
 import { AudibleInterface } from '../../interfaces/audible/index'
-import { ApiBookInterface } from '../../interfaces/books/index'
+import { ApiBookInterface, SeriesInterface } from '../../interfaces/books/index'
 import { AuthorInterface, NarratorInterface } from '../../interfaces/people/index'
 import SharedHelper from '.././shared'
 
@@ -14,7 +14,7 @@ class ApiHelper {
         const helper = new SharedHelper()
         const baseDomain: string = 'https://api.audible.com'
         const baseUrl: string = '1.0/catalog/products'
-        const params = '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating&image_sizes=500,1024'
+        const params = '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
         this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
     }
 
@@ -164,10 +164,30 @@ class ApiHelper {
         newKey = 'runtimeLengthMin'
         optionalKeyHandling(key, newKey)
 
-        // SeriesPrimary
-        key = 'publication_name'
-        newKey = 'publicationName'
-        optionalKeyHandling(key, newKey)
+        // Series
+        key = 'series'
+        if (key in inputJson) {
+            inputJson[key].forEach((series: { asin: string | undefined; title: string; sequence: string | undefined }) => {
+                const seriesJson = <SeriesInterface>{}
+                if ('asin' in series) {
+                    seriesJson.asin = series.asin
+                }
+                if ('name' in series) {
+                    seriesJson.name = series.title
+                } else {
+                    console.log(`Series name not available on: ${inputJson.asin}`)
+                    return undefined
+                }
+                if ('sequence' in series) {
+                    seriesJson.position = series.sequence
+                }
+                if (series.title === inputJson.publication_name!) {
+                    finalJson.seriesPrimary = seriesJson
+                } else if (inputJson.series.length > 1 && series.title !== inputJson.publication_name) {
+                    finalJson.seriesSecondary = seriesJson
+                }
+            })
+        }
 
         // Subtitle
         key = 'subtitle'
