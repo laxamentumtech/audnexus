@@ -32,7 +32,7 @@
     "fastify-redis": "^4.3.3",
     "html-to-text": "^8.1.0",
     "isomorphic-fetch": "^3.0.0",
-    "jsrsasign": "^10.4.1",
+    "jsrsasign": "^10.5.0",
     "moment": "^2.29.1",
     "mongodb": "^4.2.0",
     "nodemon": "^2.0.15",
