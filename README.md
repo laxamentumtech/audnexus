@@ -51,7 +51,7 @@ These instructions will get you a copy of the project up and running on your loc
   - [Docker Swarm](https://docs.docker.com/engine/swarm/swarm-tutorial/)
   - Directly, via `npm run` or `pm2`
     - Mongo 4 or greater
-    - Node/NPM 14 or greater
+    - Node/NPM 16 or greater
     - Redis
 - Registered Audible device keys, `ADP_TOKEN` and `PRIVATE_KEY`, for chapters. You will need Python and `audible` for this. [More on that here](https://audible.readthedocs.io/en/latest/auth/register.html)
 
