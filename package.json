@@ -37,7 +37,7 @@
     "mongodb": "^4.1.4",
     "nodemon": "^2.0.15",
     "papr": "^2.1.1",
-    "typescript": "^4.4.4"
+    "typescript": "^4.5.2"
   },
   "devDependencies": {
     "@types/html-to-text": "^8.0.1",
