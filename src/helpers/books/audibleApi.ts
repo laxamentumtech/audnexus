@@ -172,7 +172,7 @@ class ApiHelper {
                 if ('asin' in series) {
                     seriesJson.asin = series.asin
                 }
-                if ('name' in series) {
+                if ('title' in series) {
                     seriesJson.name = series.title
                 } else {
                     console.log(`Series name not available on: ${inputJson.asin}`)
