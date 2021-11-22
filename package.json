@@ -42,7 +42,7 @@
   "devDependencies": {
     "@types/html-to-text": "^8.0.1",
     "@types/isomorphic-fetch": "^0.0.35",
-    "@types/jest": "^27.0.2",
+    "@types/jest": "^27.0.3",
     "@types/jsrsasign": "^8.0.13",
     "@types/node": "^16.11.7",
     "@typescript-eslint/eslint-plugin": "^5.4.0",
