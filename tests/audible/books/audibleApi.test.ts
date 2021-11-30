@@ -259,8 +259,16 @@ describe('When parsing The Coldest Case', () => {
         expect(response.image).toBe('https://m.media-amazon.com/images/I/91H9ynKGNwL.jpg')
     })
 
+    it('returned series ASIN', () => {
+        expect(response.seriesPrimary!.asin).toBe('B08RLSPY4J')
+    })
+
     it('returned series name', () => {
-        expect(response.publicationName).toBe('A Billy Harney Thriller')
+        expect(response.seriesPrimary!.name).toBe('A Billy Harney Thriller')
+    })
+
+    it('returned series position', () => {
+        expect(response.seriesPrimary!.position).toBe('0.5')
     })
 
     it('returned publisher', () => {
@@ -281,6 +289,44 @@ describe('When parsing The Coldest Case', () => {
 
     it('returned title', () => {
         expect(response.title).toBe('The Coldest Case: A Black Book Audio Drama')
+    })
+})
+
+describe('When parsing Scorcerers Stone', () => {
+    let response: ApiBookInterface
+    beforeAll((done) => {
+        asinGood = 'B017V4IM1G'
+        apiGood = new ApiHelper(asinGood)
+        apiGood.fetchBook().then(result => {
+            apiGood.parseResponse(result).then(result => {
+                response = result
+                done()
+            })
+        })
+    })
+
+    it('returned a primary series asin', () => {
+        expect(response.seriesPrimary!.asin).toBe('B0182NWM9I')
+    })
+
+    it('returned a primary series name', () => {
+        expect(response.seriesPrimary!.name).toBe('Harry Potter')
+    })
+
+    it('returned a primary series position', () => {
+        expect(response.seriesPrimary!.position).toBe('1')
+    })
+
+    it('returned a secondary series asin', () => {
+        expect(response.seriesSecondary!.asin).toBe('B07CM5ZDJL')
+    })
+
+    it('returned a secondary series name', () => {
+        expect(response.seriesSecondary!.name).toBe('Wizarding World')
+    })
+
+    it('returned a secondary series position', () => {
+        expect(response.seriesSecondary!.position).toBe('1')
     })
 })
 
@@ -350,5 +396,27 @@ describe('When fetching a book with no image from Audible API', () => {
         apiBad.parseResponse(response).then(result => {
             expect(result.image).toBeUndefined()
         })
+    })
+})
+
+describe('When parsing a book with a series but no position', () => {
+    let response: ApiBookInterface
+    beforeAll((done) => {
+        asinBad = '059345586X'
+        apiBad = new ApiHelper(asinBad)
+        apiBad.fetchBook().then(result => {
+            apiBad.parseResponse(result).then(result => {
+                response = result
+                done()
+            })
+        })
+    })
+
+    it('returned no book position', () => {
+        expect(response.seriesPrimary?.position).toBeFalsy()
+    })
+
+    it('returned no book position', () => {
+        expect(response.seriesSecondary?.position).toBeFalsy()
     })
 })

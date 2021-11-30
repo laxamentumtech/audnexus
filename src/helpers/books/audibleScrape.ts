@@ -1,5 +1,5 @@
 // Import interfaces
-import { HtmlBookInterface, SeriesInterface } from '../../interfaces/books/index'
+import { HtmlBookInterface } from '../../interfaces/books/index'
 import { GenreInterface } from '../../interfaces/audible'
 import fetch from 'isomorphic-fetch'
 // For HTML scraping
@@ -54,45 +54,6 @@ class ScrapeHelper {
     }
 
     /**
-     * Checks the presence of series' on html page and formats them into JSON
-     * @param {NodeListOf<Element>} series selected source from seriesLabel
-     * @param {string} seriesRaw innerHTML of the series node
-     * @returns {SeriesInterface[]}
-     */
-    collectSeries (series: cheerio.Cheerio<cheerio.Element>[], seriesRaw: string): SeriesInterface[] | undefined {
-        const bookPos = this.getBookFromHTML(seriesRaw)
-
-        // What is the singular of series? Who knows
-        const seriesArr: SeriesInterface[] | undefined = series.map((serie, index): any => {
-            const thisSeries = {} as SeriesInterface
-            let asin: string
-            let href: string
-            if (serie.attr('href')) {
-                href = serie.attr('href')!
-                asin = this.getAsinFromUrl(href)
-
-                if (serie.text()) {
-                    thisSeries.asin = asin
-                    thisSeries.name = serie.text()
-
-                    if (bookPos && bookPos[0]) {
-                        thisSeries.position = bookPos[0]
-                    }
-
-                    return thisSeries
-                } else {
-                    console.log(`Series ${index} name not available on: ${this.asin}`)
-                }
-            } else {
-                console.log(`Series ${index} asin not available on: ${this.asin}`)
-            }
-            return undefined
-        }) as SeriesInterface[]
-
-        return seriesArr
-    }
-
-    /**
      * Fetches the html page and checks it's response
      * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
      */
@@ -126,17 +87,12 @@ class ScrapeHelper {
         .toArray()
         .map(element => dom(element))
 
-        const series = dom('li.seriesLabel a')
-        .toArray()
-        .map(element => dom(element))
-
         const tags = dom('div.bc-chip-group a')
         .toArray()
         .map(element => dom(element))
 
         const returnJson = {
-            genres: Array<GenreInterface>(genres.length + tags.length),
-            series: Array<SeriesInterface>(series.length)
+            genres: Array<GenreInterface>(genres.length + tags.length)
         } as HtmlBookInterface
 
         // Combine genres and tags
@@ -153,12 +109,6 @@ class ScrapeHelper {
             returnJson.genres = genreArr as GenreInterface[]
         }
 
-        // Series
-        if (series.length) {
-            const seriesRaw = dom('li.seriesLabel').html()!
-            returnJson.series = this.collectSeries(series, seriesRaw)
-        }
-
         return returnJson
     }
 
@@ -172,17 +122,6 @@ class ScrapeHelper {
         const asinRegex = /[0-9A-Z]{9}.+?(?=\?)/gm
         const ASIN = url.match(asinRegex)![0]
         return ASIN
-    }
-
-    /**
-     * Regex to return just the book position from HTML input
-     * @param {JSDOM} html block/object to retrieve book number from.
-     * @returns {string} Cleaned book position string, like "Book 3"
-     */
-    getBookFromHTML (html): string {
-        const bookRegex = /(Book ?(\d*\.)?\d+[+-]?[\d]?)/gm
-        const matches = html.match(bookRegex)
-        return matches
     }
 }
 

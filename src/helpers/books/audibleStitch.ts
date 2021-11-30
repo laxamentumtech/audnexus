@@ -1,4 +1,4 @@
-import { ApiBookInterface, BookInterface, HtmlBookInterface, SeriesInterface } from '../../interfaces/books/index'
+import { ApiBookInterface, BookInterface, HtmlBookInterface } from '../../interfaces/books/index'
 
 class StitchHelper {
     apiRes: ApiBookInterface;
@@ -20,40 +20,11 @@ class StitchHelper {
     }
 
     /**
-     * Sets series' keys if they exist
-     */
-    async setSeriesOrder () {
-        if (this.apiRes.publicationName) {
-            if (this.htmlRes) {
-                const htmlSeries = this.htmlRes.series
-
-                // If multiple series, set one with seriesPrimary as primary
-                if (htmlSeries) {
-                    if (htmlSeries.length > 1) {
-                        htmlSeries.forEach((item) => {
-                            if (item.name === this.apiRes.publicationName) {
-                                this.tempJson.seriesPrimary = item
-                            } else {
-                                this.tempJson.seriesSecondary = item
-                            }
-                        })
-                    } else {
-                        this.tempJson.seriesPrimary = htmlSeries[0]
-                    }
-                }
-            } else {
-                this.tempJson.seriesPrimary = { name: this.tempJson.publicationName } as SeriesInterface
-            }
-            delete this.tempJson.publicationName
-        }
-    }
-
-    /**
      * Call functions in the class to parse final JSON
      * @returns {Promise<BookInterface>}
      */
     async process (): Promise<BookInterface> {
-        Promise.all([this.includeGenres(), this.setSeriesOrder()])
+        Promise.all([this.includeGenres()])
         this.bookJson = this.tempJson
         return this.bookJson
     }

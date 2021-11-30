@@ -125,7 +125,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned a primary series position', () => {
-        expect(response.seriesPrimary!.position).toBe('Book 1')
+        expect(response.seriesPrimary!.position).toBe('1')
     })
 
     it('returned a secondary series asin', () => {
@@ -137,7 +137,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned a secondary series position', () => {
-        expect(response.seriesSecondary!.position).toBe('Book 1')
+        expect(response.seriesSecondary!.position).toBe('1')
     })
 })
 
@@ -287,7 +287,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
     })
 
     it('returned a primary series position', () => {
-        expect(response.seriesPrimary!.position).toBe('Book 0.5')
+        expect(response.seriesPrimary!.position).toBe('0.5')
     })
 
     it('returned a secondary series asin', () => {
