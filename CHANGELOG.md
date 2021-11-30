@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.2](https://github.com/djdembeck/audnexus/compare/v0.3.1...v0.3.2) (2021-11-30)
+
+
+### Features
+
+* **book-audible-api:** :recycle: use audible API for series data instead of scraping ([0c7c7db](https://github.com/djdembeck/audnexus/commit/0c7c7db2e6972ab5a534412397a1859996f5063f))
+
+
+### Bug Fixes
+
+* **book-audible-api:** :pencil2: fix key typo ([611113b](https://github.com/djdembeck/audnexus/commit/611113b6d2cd160b2baa587b36d1f2fa17644a68))
+
 ### [0.3.1](https://github.com/djdembeck/audnexus/compare/v0.3.0...v0.3.1) (2021-11-09)
 
 
