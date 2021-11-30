@@ -1,0 +1,384 @@
+openapi: 3.0.0
+info:
+  title: Audnexus
+  description: |
+    Aggegate audiobook data
+  contact:
+    url: https://github.com/djdembeck/Audnexus.bundle/issues
+  license:
+    name: GPL v3
+    url: https://www.gnu.org/licenses/gpl-3.0.en.html
+  version: 0.3.3
+externalDocs:
+  description: Find out more about Audnexus
+  url: https://github.com/djdembeck/audnexus
+servers:
+  - url: https://api.audnex.us
+paths:
+  /books/{ASIN}:
+    get:
+      tags:
+        - book
+      summary: Find book by ID
+      description: Returns a single book
+      operationId: getBookById
+      parameters:
+        - name: ASIN
+          in: path
+          description: ID of book to return
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+        - name: seedAuthors
+          in: query
+          description: Whether to seed authors of book
+          required: false
+          explode: false
+          schema:
+            type: number
+            enum: [0, 1]
+        - name: update
+          in: query
+          description: Have server check for updated data upstream
+          required: false
+          explode: false
+          schema:
+            type: number
+            enum: [0, 1]
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Book not found
+    delete:
+      tags:
+        - book
+      summary: Deletes a book
+      operationId: deleteBook
+      parameters:
+        - name: api_key
+          in: header
+          required: false
+          style: simple
+          explode: false
+          schema:
+            type: string
+        - name: ASIN
+          in: path
+          description: Book id to delete
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+      responses:
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Book not found
+  /books/{ASIN}/chapters:
+    get:
+      tags:
+        - book
+      summary: Find chapters by ASIN
+      description: Returns a single book's chapters
+      operationId: getChapterById
+      parameters:
+        - name: ASIN
+          in: path
+          description: ID of book to return
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Chapters not found
+  /authors:
+    get:
+      tags:
+        - author
+      summary: Find authors by name
+      description: Returns a list of authors
+      operationId: searchAuthorByName
+      parameters:
+        - name: name
+          in: query
+          description: Name to search with
+          required: true
+          explode: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Author'
+            application/xml:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Author'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Author not found
+  /authors/{ASIN}:
+    get:
+      tags:
+        - author
+      summary: Find author by ID
+      description: Returns a single author
+      operationId: getAuthorById
+      parameters:
+        - name: ASIN
+          in: path
+          description: ID of author to return
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Author'
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Author'
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Author not found
+    delete:
+      tags:
+        - author
+      summary: Deletes a author
+      operationId: deleteAuthor
+      parameters:
+        - name: api_key
+          in: header
+          required: false
+          style: simple
+          explode: false
+          schema:
+            type: string
+        - name: ASIN
+          in: path
+          description: Author id to delete
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+      responses:
+        '400':
+          description: Invalid ID supplied
+        '404':
+          description: Author not found
+components:
+  schemas:
+    Author:
+      required:
+        - asin
+        - description
+        - name
+      type: object
+      properties:
+        aliases:
+          type: array
+          items:
+            type: string
+        asin:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        books:
+          type: array
+          items:
+            $ref: '#/components/schemas/Book'
+        description:
+          type: string
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/Genre'
+        image:
+          type: string
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/Author_links'
+        location:
+          type: string
+        name:
+          type: string
+        series:
+          type: string
+    Book:
+      required:
+        - asin
+        - description
+        - language
+        - publisherName
+        - releaseDate
+        - summary
+        - title
+      type: object
+      properties:
+        asin:
+          type: string
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+        description:
+          type: string
+        formatType:
+          type: string
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/Genre'
+        image:
+          type: string
+        language:
+          type: string
+        narrators:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+        publisherName:
+          type: string
+        rating:
+          multipleOf: 0.1
+          type: number
+        releaseDate:
+          type: string
+          format: date
+        runtimeLengthMin:
+          type: number
+        seriesPrimary:
+          $ref: '#/components/schemas/Series'
+        seriesSecondary:
+          $ref: '#/components/schemas/Series'
+        subtitle:
+          type: string
+        summary:
+          type: string
+        title:
+          type: string
+      xml:
+        name: Book
+    Chapter:
+      required:
+        - asin
+        - brandIntroDurationMs
+        - brandOutroDurationMs
+        - chapters
+        - isAccurate
+        - runtimeLengthMs
+        - runtimeLengthSec
+      type: object
+      properties:
+        asin:
+          type: string
+        brandIntroDurationMs:
+          type: number
+        brandOutroDurationMs:
+          type: number
+        chapters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chapter_chapters'
+        isAccurate:
+          type: boolean
+        runtimeLengthMs:
+          type: number
+        runtimeLengthSec:
+          type: number
+    Genre:
+      required:
+        - asin
+        - name
+        - type
+      type: object
+      properties:
+        asin:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+      xml:
+        name: Genre
+    Person:
+      type: object
+      properties:
+        asin:
+          type: string
+        name:
+          type: string
+      xml:
+        name: Person
+    Series:
+      required:
+        - name
+      type: object
+      properties:
+        asin:
+          type: string
+        name:
+          type: string
+        position:
+          type: string
+      xml:
+        name: Series
+    Author_links:
+      properties:
+        link:
+          type: string
+        type:
+          type: string
+    Chapter_chapters:
+      type: object
+      properties:
+        lengthMs:
+          type: number
+        startOffsetMs:
+          type: number
+        startOffsetSec:
+          type: number
+        title:
+          type: string
