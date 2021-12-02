@@ -15,6 +15,10 @@ async function seedAuthors (ASIN: string) {
 
 async function routes (fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
+        // Query params
+        const seed = request.query.seedAuthors
+        const updateBook = request.query.update
+
         // First, check ASIN validity
         const commonHelpers = new SharedHelper()
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
@@ -29,9 +33,9 @@ async function routes (fastify, options) {
             asin: request.params.asin
         }))
 
-        if (findInRedis) {
+        if (updateBook !== '0' && findInRedis) {
             return JSON.parse(findInRedis)
-        } else if (findInDb) {
+        } else if (updateBook !== '0' && findInDb) {
             redis.set(`book-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
             return findInDb
         } else {
@@ -52,21 +56,48 @@ async function routes (fastify, options) {
 
             // Run stitcher and wait for promise to resolve
             const stichedData = await Promise.resolve(stitch.process())
-            // Insert stitched data into DB
-            const newDbItem = await Promise.resolve(Book.insertOne(stichedData))
-            redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
 
-            // Seed authors in the background
-            if (request.query.seedAuthors !== '0' && newDbItem.authors) {
-                try {
-                    newDbItem.authors.map((author, index): any => {
-                        if (author && author.asin) {
-                            return seedAuthors(author.asin)
+            let newDbItem: any
+            // Update entry or create one
+            if (updateBook === '0' && findInDb) {
+                // Check state of existing book
+                if (findInDb.genres) {
+                    // Check state of incoming book
+                    if (stichedData.genres) {
+                        // Only update if greater data in incoming book
+                        if (stichedData.genres.length >= findInDb.genres.length) {
+                            console.log(`Updating asin ${request.params.asin}`)
+                            Promise.resolve(Book.updateOne({ asin: request.params.asin }, { $set: stichedData }))
+
+                            newDbItem = await Promise.resolve(Book.findOne({ asin: request.params.asin }))
+                            redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                        } else {
+                            return findInDb
                         }
-                        return undefined
-                    })
-                } catch (err) {
-                    console.error(err)
+                    }
+                } else if (stichedData.genres) {
+                    // If no genres exist on book, but do on incoming, update
+                    Promise.resolve(Book.updateOne({ asin: request.params.asin }, { $set: stichedData }))
+                    newDbItem = await Promise.resolve(Book.findOne({ asin: request.params.asin }))
+                    redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                }
+            } else {
+                // Insert stitched data into DB
+                newDbItem = await Promise.resolve(Book.insertOne(stichedData))
+                redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+
+                // Seed authors in the background
+                if (seed !== '0' && newDbItem.authors) {
+                    try {
+                        newDbItem.authors.map((author, index): any => {
+                            if (author && author.asin) {
+                                return seedAuthors(author.asin)
+                            }
+                            return undefined
+                        })
+                    } catch (err) {
+                        console.error(err)
+                    }
                 }
             }
             return newDbItem

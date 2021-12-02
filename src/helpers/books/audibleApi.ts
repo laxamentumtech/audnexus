@@ -154,6 +154,11 @@ class ApiHelper {
                 key = 'issue_date'
             }
             const releaseDate = new Date(inputJson[key])
+            // Check that release date isn't in the future
+            const now = new Date()
+            if (releaseDate > now) {
+                throw new Error('Release date is in the future')
+            }
             finalJson.releaseDate = releaseDate
         } else {
             missingKeyMsg(key)
