@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.3](https://github.com/djdembeck/audnexus/compare/v0.3.2...v0.3.3) (2021-12-02)
+
+
+### Features
+
+* **schema:** :sparkles: add `update` param on `/books` route to update data in DB ([f2f5d41](https://github.com/djdembeck/audnexus/commit/f2f5d41a7a0b4dfdc029a4fd58aebfcd876a4063))
+
+
+### Bug Fixes
+
+* **book-audible-api:** :adhesive_bandage: throw error if book date is in the future ([ef216dd](https://github.com/djdembeck/audnexus/commit/ef216dd63fe2a7ea3e52d96a8804719db3a0708f))
+
 ### [0.3.2](https://github.com/djdembeck/audnexus/compare/v0.3.1...v0.3.2) (2021-11-30)
 
 
