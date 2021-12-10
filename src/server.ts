@@ -28,6 +28,9 @@ server.register(showAuthor)
 server.register(searchAuthor)
 
 server.register(require('fastify-redis'), { url: REDIS_URL })
+server.register(require('fastify-cors'), {
+    origin: true
+})
 
 server.listen(port, host, async (err, address) => {
     if (err) {
