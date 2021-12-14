@@ -1,6 +1,6 @@
 {
   "name": "audnexus",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "An API for aggregating audiobook data",
   "repository": {
     "type": "git",
@@ -28,6 +28,7 @@
     "cheerio": "^1.0.0-rc.10",
     "concurrently": "^6.4.0",
     "fastify": "^3.24.1",
+    "fastify-cors": "^6.0.2",
     "fastify-plugin": "^3.0.0",
     "fastify-redis": "^4.3.3",
     "html-to-text": "^8.1.0",
@@ -36,25 +37,25 @@
     "moment": "^2.29.1",
     "mongodb": "^4.2.1",
     "nodemon": "^2.0.15",
-    "papr": "^2.1.1",
-    "typescript": "^4.5.2"
+    "papr": "^2.2.0",
+    "typescript": "^4.5.3"
   },
   "devDependencies": {
     "@types/html-to-text": "^8.0.1",
     "@types/isomorphic-fetch": "^0.0.35",
     "@types/jest": "^27.0.3",
     "@types/jsrsasign": "^8.0.13",
-    "@types/node": "^16.11.11",
-    "@typescript-eslint/eslint-plugin": "^5.5.0",
-    "@typescript-eslint/parser": "^5.5.0",
-    "eslint": "^8.3.0",
+    "@types/node": "^16.11.12",
+    "@typescript-eslint/eslint-plugin": "^5.6.0",
+    "@typescript-eslint/parser": "^5.6.0",
+    "eslint": "^8.4.1",
     "eslint-config-standard": "^16.0.3",
     "eslint-plugin-import": "^2.25.3",
     "eslint-plugin-jest": "^25.3.0",
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^5.2.0",
-    "jest": "^27.4.3",
+    "jest": "^27.4.4",
     "standard-version": "^9.3.2",
-    "ts-jest": "^27.0.7"
+    "ts-jest": "^27.1.1"
   }
 }
