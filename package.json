@@ -53,7 +53,7 @@
     "eslint-plugin-import": "^2.25.3",
     "eslint-plugin-jest": "^25.3.0",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-promise": "^5.2.0",
+    "eslint-plugin-promise": "^6.0.0",
     "jest": "^27.4.5",
     "standard-version": "^9.3.2",
     "ts-jest": "^27.1.1"
