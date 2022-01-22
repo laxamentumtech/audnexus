@@ -26,7 +26,7 @@
   "license": "GPL-3.0",
   "dependencies": {
     "cheerio": "^1.0.0-rc.10",
-    "concurrently": "^6.4.0",
+    "concurrently": "^7.0.0",
     "fastify": "^3.27.0",
     "fastify-cors": "^6.0.2",
     "fastify-plugin": "^3.0.0",
