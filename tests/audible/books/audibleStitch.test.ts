@@ -366,7 +366,7 @@ describe('When fetching an ASIN that has no chapters or HTML from Audible', () =
     })
 
     it('returned cover image', () => {
-        expect(response.image).toBe('https://m.media-amazon.com/images/I/51gXD-lb7vL.jpg')
+        expect(response.image).toBe('https://m.media-amazon.com/images/I/41dNQts9Z7L.jpg')
     })
 
     it('returned publisher', () => {
