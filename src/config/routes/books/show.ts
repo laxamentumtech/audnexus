@@ -26,9 +26,13 @@ async function routes (fastify, options) {
         }
 
         const { redis } = fastify
-        const findInRedis = await redis.get(`book-${request.params.asin}`, (val: string) => {
-            return JSON.parse(val)
-        })
+        let findInRedis: string | undefined
+        if (redis) {
+            findInRedis = await redis.get(`book-${request.params.asin}`, (val: string) => {
+                return JSON.parse(val)
+            })
+        }
+
         const findInDb = await Promise.resolve(Book.findOne({
             asin: request.params.asin
         }))
@@ -36,7 +40,9 @@ async function routes (fastify, options) {
         if (updateBook !== '0' && findInRedis) {
             return JSON.parse(findInRedis)
         } else if (updateBook !== '0' && findInDb) {
-            redis.set(`book-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
+            if (redis) {
+                redis.set(`book-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
+            }
             return findInDb
         } else {
             // Set up helpers
@@ -70,7 +76,9 @@ async function routes (fastify, options) {
                             Promise.resolve(Book.updateOne({ asin: request.params.asin }, { $set: stichedData }))
 
                             newDbItem = await Promise.resolve(Book.findOne({ asin: request.params.asin }))
-                            redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                            if (redis) {
+                                redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                            }
                         } else {
                             return findInDb
                         }
@@ -84,7 +92,9 @@ async function routes (fastify, options) {
             } else {
                 // Insert stitched data into DB
                 newDbItem = await Promise.resolve(Book.insertOne(stichedData))
-                redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                if (redis) {
+                    redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                }
 
                 // Seed authors in the background
                 if (seed !== '0' && newDbItem.authors) {

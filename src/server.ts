@@ -12,7 +12,6 @@ import { connect, disconnect } from './config/papr'
 // Heroku or local port
 const host = '0.0.0.0'
 const port = process.env.PORT || 3000
-const REDIS_URL = process.env.REDIS_URL || 'redis://127.0.0.1'
 const server = fastify({
     logger: {
         level: 'warn'
@@ -27,7 +26,12 @@ server.register(deleteBook)
 server.register(showAuthor)
 server.register(searchAuthor)
 
-server.register(require('fastify-redis'), { url: REDIS_URL })
+// Register redis if it's present
+if (process.env.REDIS_URL) {
+    console.log('Using Redis')
+    server.register(require('fastify-redis'), { url: process.env.REDIS_URL })
+}
+// CORS
 server.register(require('fastify-cors'), {
     origin: true
 })
