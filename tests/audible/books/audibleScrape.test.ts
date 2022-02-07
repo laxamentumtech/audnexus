@@ -64,8 +64,8 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
         })
     })
 
-    it('returned 2 genres', () => {
-        expect(response.genres?.length).toBe(2)
+    it('returned 6 genres', () => {
+        expect(response.genres?.length).toBe(6)
     })
 
     it('returned genre 1 asin', () => {
@@ -91,6 +91,54 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     it('returned genre 2 type', () => {
         expect(response.genres![1].type).toBe('genre')
     })
+
+    it('returned tag 1 asin', () => {
+        expect(response.genres![2].asin).toBe('18572091011')
+    })
+
+    it('returned tag 1 name', () => {
+        expect(response.genres![2].name).toBe('Children\'s Audiobooks')
+    })
+
+    it('returned tag 1 type', () => {
+        expect(response.genres![2].type).toBe('tag')
+    })
+
+    it('returned tag 2 asin', () => {
+        expect(response.genres![3].asin).toBe('18572505011')
+    })
+
+    it('returned tag 2 name', () => {
+        expect(response.genres![3].name).toBe('Family Life')
+    })
+
+    it('returned tag 2 type', () => {
+        expect(response.genres![3].type).toBe('tag')
+    })
+
+    it('returned tag 3 asin', () => {
+        expect(response.genres![4].asin).toBe('18572587011')
+    })
+
+    it('returned tag 3 name', () => {
+        expect(response.genres![4].name).toBe('Fantasy & Magic')
+    })
+
+    it('returned tag 3 type', () => {
+        expect(response.genres![4].type).toBe('tag')
+    })
+
+    it('returned tag 4 asin', () => {
+        expect(response.genres![5].asin).toBe('18580607011')
+    })
+
+    it('returned tag 4 name', () => {
+        expect(response.genres![5].name).toBe('Fantasy')
+    })
+
+    it('returned tag 4 type', () => {
+        expect(response.genres![5].type).toBe('tag')
+    })
 })
 
 // Run through single series book
@@ -108,7 +156,7 @@ describe('When fetching The Coldest Case from Audible HTML', () => {
     })
 
     it('returned 2 genres', () => {
-        expect(response.genres?.length).toBe(2)
+        expect(response.genres?.length).toBe(3)
     })
 
     it('returned genre 1 asin', () => {
@@ -133,6 +181,18 @@ describe('When fetching The Coldest Case from Audible HTML', () => {
 
     it('returned genre 2 type', () => {
         expect(response.genres![1].type).toBe('genre')
+    })
+
+    it('returned tag 1 asin', () => {
+        expect(response.genres![2].asin).toBe('18574623011')
+    })
+
+    it('returned tag 1 name', () => {
+        expect(response.genres![2].name).toBe('Crime Thrillers')
+    })
+
+    it('returned tag 1 type', () => {
+        expect(response.genres![2].type).toBe('tag')
     })
 })
 
