@@ -11,9 +11,13 @@ async function routes (fastify, options) {
         }
 
         const { redis } = fastify
-        const findInRedis = await redis.get(`chapters-${request.params.asin}`, (val: string) => {
-            return JSON.parse(val)
-        })
+        let findInRedis: string | undefined
+        if (redis) {
+            findInRedis = await redis.get(`chapters-${request.params.asin}`, (val: string) => {
+                return JSON.parse(val)
+            })
+        }
+
         const findInDb = await Promise.resolve(Chapter.findOne({
             asin: request.params.asin
         }))
@@ -21,7 +25,9 @@ async function routes (fastify, options) {
         if (findInRedis) {
             return JSON.parse(findInRedis)
         } else if (findInDb) {
-            redis.set(`chapters-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
+            if (redis) {
+                redis.set(`chapters-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
+            }
             return findInDb
         } else {
             const chapApi = new ChapterHelper(request.params.asin)
@@ -34,7 +40,9 @@ async function routes (fastify, options) {
 
             if (parseChap !== undefined) {
                 const newDbItem = await Promise.resolve(Chapter.insertOne(parseChap))
-                redis.set(`chapters-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                if (redis) {
+                    redis.set(`chapters-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                }
                 return newDbItem
             } else {
                 throw new Error('No Chapters')

@@ -11,9 +11,14 @@ async function routes (fastify, options) {
         }
 
         const { redis } = fastify
-        const findInRedis = await redis.get(`author-${request.params.asin}`, (val: string) => {
-            return JSON.parse(val)
-        })
+
+        let findInRedis: string | undefined
+        if (redis) {
+            findInRedis = await redis.get(`author-${request.params.asin}`, (val: string) => {
+                return JSON.parse(val)
+            })
+        }
+
         const findInDb = await Promise.resolve(Author.findOne({
             asin: request.params.asin
         }))
@@ -21,7 +26,9 @@ async function routes (fastify, options) {
         if (findInRedis) {
             return JSON.parse(findInRedis)
         } else if (findInDb) {
-            redis.set(`author-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
+            if (redis) {
+                redis.set(`author-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
+            }
             return findInDb
         } else {
             // Set up helpers
@@ -35,7 +42,9 @@ async function routes (fastify, options) {
             const [parseScraper] = await Promise.all([scraper.parseResponse(scraperRes)])
 
             const newDbItem = await Promise.resolve(Author.insertOne(parseScraper))
-            redis.set(`author-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+            if (redis) {
+                redis.set(`author-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+            }
             return parseScraper
         }
     })
