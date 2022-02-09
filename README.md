@@ -99,6 +99,12 @@ Once the stack is up, test an API call with
 https://${TRAEFIK_DOMAIN}/books/${ASIN}
 ```
 
+Be sure to setup an author name index for author search in mongodb. This looks something like:
+```
+db.audnexus.createIndex( { name: "text" } )
+```
+From inside the mongodb container terminal
+
 ## ⛏️ Built Using <a name = "built_using"></a>
 
 - [Fastify](https://www.fastify.io/) - Server Framework
