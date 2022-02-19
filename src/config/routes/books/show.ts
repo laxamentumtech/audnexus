@@ -17,7 +17,7 @@ async function routes (fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
         // Query params
         const seed = request.query.seedAuthors
-        const updateBook = request.query.update
+        const queryUpdateBook = request.query.update
 
         // First, check ASIN validity
         const commonHelpers = new SharedHelper()
@@ -28,20 +28,28 @@ async function routes (fastify, options) {
         const { redis } = fastify
         let findInRedis: string | undefined
         if (redis) {
-            findInRedis = await redis.get(`book-${request.params.asin}`, (val: string) => {
-                return JSON.parse(val)
-            })
+            findInRedis = await redis.get(
+                `book-${request.params.asin}`,
+                (val: string) => {
+                    return JSON.parse(val)
+                }
+            )
         }
 
-        const findInDb = await Promise.resolve(Book.findOne({
-            asin: request.params.asin
-        }))
+        const findInDb = await Promise.resolve(
+            Book.findOne({
+                asin: request.params.asin
+            })
+        )
 
-        if (updateBook !== '0' && findInRedis) {
+        if (queryUpdateBook !== '0' && findInRedis) {
             return JSON.parse(findInRedis)
-        } else if (updateBook !== '0' && findInDb) {
+        } else if (queryUpdateBook !== '0' && findInDb) {
             if (redis) {
-                redis.set(`book-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
+                redis.set(
+                    `book-${request.params.asin}`,
+                    JSON.stringify(findInDb, null, 2)
+                )
             }
             return findInDb
         } else {
@@ -50,10 +58,16 @@ async function routes (fastify, options) {
             const scraper = new ScrapeHelper(request.params.asin)
 
             // Run fetch tasks in parallel/resolve promises
-            const [apiRes, scraperRes] = await Promise.all([api.fetchBook(), scraper.fetchBook()])
+            const [apiRes, scraperRes] = await Promise.all([
+                api.fetchBook(),
+                scraper.fetchBook()
+            ])
 
             // Run parse tasks in parallel/resolve promises
-            const [parseApi, parseScraper] = await Promise.all([api.parseResponse(apiRes), scraper.parseResponse(scraperRes)])
+            const [parseApi, parseScraper] = await Promise.all([
+                api.parseResponse(apiRes),
+                scraper.parseResponse(scraperRes)
+            ])
 
             const stitch = new StitchHelper(parseApi)
             if (parseScraper !== undefined) {
@@ -61,39 +75,55 @@ async function routes (fastify, options) {
             }
 
             // Run stitcher and wait for promise to resolve
-            const stichedData = await Promise.resolve(stitch.process())
+            const stitchedData = await Promise.resolve(stitch.process())
 
             let newDbItem: any
+            const updateBook = async () => {
+                Promise.resolve(
+                    Book.updateOne(
+                        { asin: request.params.asin },
+                        { $set: stitchedData }
+                    )
+                )
+
+                newDbItem = await Promise.resolve(
+                    Book.findOne({ asin: request.params.asin })
+                )
+                if (redis) {
+                    redis.set(
+                        `book-${request.params.asin}`,
+                        JSON.stringify(newDbItem, null, 2)
+                    )
+                }
+            }
             // Update entry or create one
-            if (updateBook === '0' && findInDb) {
+            if (queryUpdateBook === '0' && findInDb) {
                 // Check state of existing book
                 if (findInDb.genres) {
                     // Check state of incoming book
-                    if (stichedData.genres) {
+                    if (stitchedData.genres) {
                         // Only update if greater data in incoming book
-                        if (stichedData.genres.length >= findInDb.genres.length) {
+                        if (
+                            stitchedData.genres.length >= findInDb.genres.length
+                        ) {
                             console.log(`Updating asin ${request.params.asin}`)
-                            Promise.resolve(Book.updateOne({ asin: request.params.asin }, { $set: stichedData }))
-
-                            newDbItem = await Promise.resolve(Book.findOne({ asin: request.params.asin }))
-                            if (redis) {
-                                redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
-                            }
+                            await updateBook()
                         } else {
                             return findInDb
                         }
                     }
-                } else if (stichedData.genres) {
+                } else if (stitchedData.genres) {
                     // If no genres exist on book, but do on incoming, update
-                    Promise.resolve(Book.updateOne({ asin: request.params.asin }, { $set: stichedData }))
-                    newDbItem = await Promise.resolve(Book.findOne({ asin: request.params.asin }))
-                    redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                    await updateBook()
                 }
             } else {
                 // Insert stitched data into DB
-                newDbItem = await Promise.resolve(Book.insertOne(stichedData))
+                newDbItem = await Promise.resolve(Book.insertOne(stitchedData))
                 if (redis) {
-                    redis.set(`book-${request.params.asin}`, JSON.stringify(newDbItem, null, 2))
+                    redis.set(
+                        `book-${request.params.asin}`,
+                        JSON.stringify(newDbItem, null, 2)
+                    )
                 }
 
                 // Seed authors in the background
