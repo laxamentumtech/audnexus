@@ -4,6 +4,7 @@ import ScrapeHelper from '../../../helpers/books/audibleScrape'
 import SharedHelper from '../../../helpers/shared'
 import StitchHelper from '../../../helpers/books/audibleStitch'
 import fetch from 'isomorphic-fetch'
+import lodash from 'lodash'
 
 /**
  * Calls authors endpoint in the background with ASIN supplied
@@ -25,7 +26,37 @@ async function routes (fastify, options) {
             throw new Error('Bad ASIN')
         }
 
+        const dbProjection = {
+            projection: {
+                _id: 0,
+                asin: 1,
+                authors: 1,
+                chapterInfo: 1,
+                description: 1,
+                formatType: 1,
+                genres: 1,
+                image: 1,
+                language: 1,
+                narrators: 1,
+                publisherName: 1,
+                rating: 1,
+                releaseDate: 1,
+                runtimeLengthMin: 1,
+                seriesPrimary: 1,
+                seriesSecondary: 1,
+                subtitle: 1,
+                summary: 1,
+                title: 1
+            }
+        }
+
         const { redis } = fastify
+        const setRedis = (asin: string, newDbItem: any) => {
+            redis.set(
+                `book-${asin}`,
+                JSON.stringify(newDbItem, null, 2)
+            )
+        }
         let findInRedis: string | undefined
         if (redis) {
             findInRedis = await redis.get(
@@ -39,17 +70,14 @@ async function routes (fastify, options) {
         const findInDb = await Promise.resolve(
             Book.findOne({
                 asin: request.params.asin
-            })
+            }, dbProjection)
         )
 
         if (queryUpdateBook !== '0' && findInRedis) {
             return JSON.parse(findInRedis)
         } else if (queryUpdateBook !== '0' && findInDb) {
             if (redis) {
-                redis.set(
-                    `book-${request.params.asin}`,
-                    JSON.stringify(findInDb, null, 2)
-                )
+                setRedis(request.params.asin, findInDb)
             }
             return findInDb
         } else {
@@ -87,17 +115,18 @@ async function routes (fastify, options) {
                 )
 
                 newDbItem = await Promise.resolve(
-                    Book.findOne({ asin: request.params.asin })
+                    Book.findOne({ asin: request.params.asin }, dbProjection)
                 )
                 if (redis) {
-                    redis.set(
-                        `book-${request.params.asin}`,
-                        JSON.stringify(newDbItem, null, 2)
-                    )
+                    setRedis(request.params.asin, newDbItem)
                 }
             }
             // Update entry or create one
             if (queryUpdateBook === '0' && findInDb) {
+                // If the objects are the exact same return right away
+                if (lodash.isEqual(findInDb, stitchedData)) {
+                    return findInDb
+                }
                 // Check state of existing book
                 if (findInDb.genres) {
                     // Check state of incoming book
@@ -120,10 +149,7 @@ async function routes (fastify, options) {
                 // Insert stitched data into DB
                 newDbItem = await Promise.resolve(Book.insertOne(stitchedData))
                 if (redis) {
-                    redis.set(
-                        `book-${request.params.asin}`,
-                        JSON.stringify(newDbItem, null, 2)
-                    )
+                    setRedis(request.params.asin, newDbItem)
                 }
 
                 // Seed authors in the background
