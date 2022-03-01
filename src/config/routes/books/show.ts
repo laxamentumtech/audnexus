@@ -129,20 +129,14 @@ async function routes (fastify, options) {
                 }
                 // Check state of existing book
                 if (findInDb.genres) {
-                    // Check state of incoming book
-                    if (stitchedData.genres) {
-                        // Only update if greater data in incoming book
-                        if (
-                            stitchedData.genres.length >= findInDb.genres.length
-                        ) {
-                            console.log(`Updating asin ${request.params.asin}`)
-                            await updateBook()
-                        } else {
-                            return findInDb
-                        }
+                    // Only update if it's not nuked data
+                    if (stitchedData.genres && stitchedData.genres.length) {
+                        console.log(`Updating asin ${request.params.asin}`)
+                        await updateBook()
                     }
-                } else if (stitchedData.genres) {
+                } else if (stitchedData.genres && stitchedData.genres.length) {
                     // If no genres exist on book, but do on incoming, update
+                    console.log(`Updating asin ${request.params.asin}`)
                     await updateBook()
                 }
             } else {

@@ -97,20 +97,14 @@ async function routes (fastify, options) {
                 }
                 // Check state of existing author
                 if (findInDb.genres) {
-                    // Check state of incoming author
-                    if (parseScraper.genres) {
-                        // Only update if greater data in incoming author
-                        if (
-                            parseScraper.genres.length >= findInDb.genres.length
-                        ) {
-                            console.log(`Updating asin ${request.params.asin}`)
-                            await updateAuthor()
-                        } else {
-                            return findInDb
-                        }
+                    // Only update if it's not nuked data
+                    if (parseScraper.genres && parseScraper.genres.length) {
+                        console.log(`Updating asin ${request.params.asin}`)
+                        await updateAuthor()
                     }
-                } else if (parseScraper.genres) {
+                } else if (parseScraper.genres && parseScraper.genres.length) {
                     // If no genres exist on author, but do on incoming, update
+                    console.log(`Updating asin ${request.params.asin}`)
                     await updateAuthor()
                 }
             } else {
