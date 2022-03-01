@@ -96,7 +96,9 @@ async function routes (fastify, options) {
                     return findInDb
                 }
                 // Check state of existing author
-                if (findInDb.genres) {
+                // Only update if either genres exist and can be checked
+                // -or if genres exist on new item but not old
+                if (findInDb.genres || (!findInDb.genres && parseScraper.genres)) {
                     // Only update if it's not nuked data
                     if (parseScraper.genres && parseScraper.genres.length) {
                         console.log(`Updating asin ${request.params.asin}`)
@@ -107,6 +109,8 @@ async function routes (fastify, options) {
                     console.log(`Updating asin ${request.params.asin}`)
                     await updateAuthor()
                 }
+                // No update performed, return original
+                return findInDb
             } else {
                 // Insert stitched data into DB
                 newDbItem = await Promise.resolve(

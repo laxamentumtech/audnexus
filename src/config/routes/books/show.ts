@@ -128,7 +128,9 @@ async function routes (fastify, options) {
                     return findInDb
                 }
                 // Check state of existing book
-                if (findInDb.genres) {
+                // Only update if either genres exist and can be checked
+                // -or if genres exist on new item but not old
+                if (findInDb.genres || (!findInDb.genres && stitchedData.genres)) {
                     // Only update if it's not nuked data
                     if (stitchedData.genres && stitchedData.genres.length) {
                         console.log(`Updating asin ${request.params.asin}`)
@@ -139,6 +141,8 @@ async function routes (fastify, options) {
                     console.log(`Updating asin ${request.params.asin}`)
                     await updateBook()
                 }
+                // No update performed, return original
+                return findInDb
             } else {
                 // Insert stitched data into DB
                 newDbItem = await Promise.resolve(Book.insertOne(stitchedData))
