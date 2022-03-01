@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.4.0](https://github.com/djdembeck/audnexus/compare/v0.3.8...v0.4.0) (2022-03-01)
+
+
+### Features
+
+* **route:** :sparkles: add `update` query param option to `/authors` endpoint ([1339f57](https://github.com/djdembeck/audnexus/commit/1339f57d575b03058a00ff73db91d32604e542a9))
+
+
+### Bug Fixes
+
+* **route:** :bug: nothing could be returned when no genres existed; fixes [#255](https://github.com/djdembeck/audnexus/issues/255) ([093e2d7](https://github.com/djdembeck/audnexus/commit/093e2d70aa0177bd70a0c8164d7f708f6a3d5cf4))
+
 ### [0.3.8](https://github.com/djdembeck/audnexus/compare/v0.3.7...v0.3.8) (2022-02-19)
 
 ### [0.3.7](https://github.com/djdembeck/audnexus/compare/v0.3.6...v0.3.7) (2022-02-08)
