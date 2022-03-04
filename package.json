@@ -36,7 +36,7 @@
     "jsrsasign": "^10.5.8",
     "lodash": "^4.17.21",
     "moment": "^2.29.1",
-    "mongodb": "^4.4.0",
+    "mongodb": "^4.4.1",
     "nodemon": "^2.0.15",
     "papr": "^2.2.0",
     "typescript": "^4.6.2"
