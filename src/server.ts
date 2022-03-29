@@ -4,6 +4,7 @@ import deleteBook from './config/routes/books/delete'
 import showChapter from './config/routes/books/chapters/show'
 // Author routes
 import showAuthor from './config/routes/authors/show'
+import deleteAuthor from './config/routes/authors/delete'
 import searchAuthor from './config/routes/authors/search/show'
 // System imports
 import { fastify } from 'fastify'
@@ -24,6 +25,7 @@ server.register(showChapter)
 server.register(deleteBook)
 // Register author routes
 server.register(showAuthor)
+server.register(deleteAuthor)
 server.register(searchAuthor)
 
 // Register redis if it's present
