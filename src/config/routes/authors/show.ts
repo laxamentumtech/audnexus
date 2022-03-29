@@ -11,6 +11,7 @@ async function routes (fastify, options) {
         // First, check ASIN validity
         const commonHelpers = new SharedHelper()
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
+            reply.code(400)
             throw new Error('Bad ASIN')
         }
 
