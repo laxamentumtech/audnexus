@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.2](https://github.com/djdembeck/audnexus/compare/v0.4.1...v0.4.2) (2022-03-29)
+
+
+### Bug Fixes
+
+* **route:** :bug: register new delete path ([6254083](https://github.com/djdembeck/audnexus/commit/6254083ea31ef0b712f111976ed18b38c84caa29))
+
 ### [0.4.1](https://github.com/djdembeck/audnexus/compare/v0.4.0...v0.4.1) (2022-03-29)
 
 
