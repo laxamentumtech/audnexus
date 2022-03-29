@@ -1,8 +1,8 @@
 import SharedHelper from '../../../helpers/shared'
-import Book from '../../models/Book'
+import Author from '../../models/Author'
 
 async function routes (fastify, options) {
-    fastify.delete('/books/:asin', async (request, reply) => {
+    fastify.delete('/authors/:asin', async (request, reply) => {
         // First, check ASIN validity
         const commonHelpers = new SharedHelper()
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
@@ -10,16 +10,16 @@ async function routes (fastify, options) {
             throw new Error('Bad ASIN')
         }
 
-        const findBookByAsin = await Book.findOne({
+        const findAuthorByAsin = await Author.findOne({
             asin: request.params.asin
         })
 
-        if (!findBookByAsin) {
+        if (!findAuthorByAsin) {
             reply.code(404)
-            throw new Error('Book not found')
+            throw new Error('Author not found')
         }
 
-        const result = await Book.deleteOne({
+        const result = await Author.deleteOne({
             asin: request.params.asin
         })
         return result
