@@ -5,6 +5,7 @@ async function routes (fastify, options) {
         const name = request.query.name
 
         if (!name) {
+            reply.code(400)
             throw new Error('No search params provided')
         }
 

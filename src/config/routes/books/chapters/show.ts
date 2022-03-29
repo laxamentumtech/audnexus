@@ -7,6 +7,7 @@ async function routes (fastify, options) {
         // First, check ASIN validity
         const commonHelpers = new SharedHelper()
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
+            reply.code(400)
             throw new Error('Bad ASIN')
         }
 
@@ -45,6 +46,7 @@ async function routes (fastify, options) {
                 }
                 return newDbItem
             } else {
+                reply.code(404)
                 throw new Error('No Chapters')
             }
         }

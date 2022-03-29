@@ -4,18 +4,18 @@ info:
   description: |
     Aggegate audiobook data
   contact:
-    url: https://github.com/djdembeck/Audnexus.bundle/issues
+    url: 'https://github.com/djdembeck/Audnexus.bundle/issues'
   license:
     name: GPL v3
-    url: https://www.gnu.org/licenses/gpl-3.0.en.html
-  version: 0.3.3
+    url: 'https://www.gnu.org/licenses/gpl-3.0.en.html'
+  version: 0.4.1
 externalDocs:
   description: Find out more about Audnexus
-  url: https://github.com/djdembeck/audnexus
+  url: 'https://github.com/djdembeck/audnexus'
 servers:
-  - url: https://api.audnex.us
+  - url: 'https://api.audnex.us'
 paths:
-  /books/{ASIN}:
+  '/books/{ASIN}':
     get:
       tags:
         - book
@@ -38,7 +38,9 @@ paths:
           explode: false
           schema:
             type: number
-            enum: [0, 1]
+            enum:
+              - 0
+              - 1
         - name: update
           in: query
           description: Have server check for updated data upstream
@@ -46,7 +48,9 @@ paths:
           explode: false
           schema:
             type: number
-            enum: [0, 1]
+            enum:
+              - 0
+              - 1
       responses:
         '200':
           description: successful operation
@@ -87,7 +91,7 @@ paths:
           description: Invalid ID supplied
         '404':
           description: Book not found
-  /books/{ASIN}/chapters:
+  '/books/{ASIN}/chapters':
     get:
       tags:
         - book
@@ -150,7 +154,7 @@ paths:
           description: Invalid ID supplied
         '404':
           description: Author not found
-  /authors/{ASIN}:
+  '/authors/{ASIN}':
     get:
       tags:
         - author
@@ -166,6 +170,14 @@ paths:
           explode: false
           schema:
             type: string
+        - schema:
+            type: string
+            enum:
+              - '0'
+              - '1'
+          in: query
+          description: Have server check for updated data upstream
+          name: update
       responses:
         '200':
           description: successful operation
