@@ -35,7 +35,7 @@
     "isomorphic-fetch": "^3.0.0",
     "jsrsasign": "^10.5.14",
     "lodash": "^4.17.21",
-    "moment": "^2.29.1",
+    "moment": "^2.29.2",
     "mongodb": "^4.4.1",
     "nodemon": "^2.0.15",
     "papr": "^2.3.0",
