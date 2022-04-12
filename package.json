@@ -31,7 +31,7 @@
     "fastify-cors": "^6.0.3",
     "fastify-plugin": "^3.0.1",
     "fastify-redis": "^4.3.3",
-    "html-to-text": "^8.1.0",
+    "html-to-text": "^8.2.0",
     "isomorphic-fetch": "^3.0.0",
     "jsrsasign": "^10.5.14",
     "lodash": "^4.17.21",
