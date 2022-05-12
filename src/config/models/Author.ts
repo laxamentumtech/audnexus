@@ -10,7 +10,7 @@ const authorSchema = schema({
     books: types.array(
         types.objectId()
     ),
-    description: types.string({ required: true }),
+    description: types.string(),
     genres: types.array(
         types.object(
             {

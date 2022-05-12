@@ -5,7 +5,7 @@ interface Person {
 }
 
 export interface AuthorInterface extends Person {
-    asin?: string;
+    asin: string;
     description?: string;
     genres?: GenreInterface[];
     image?: string;
