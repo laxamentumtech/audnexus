@@ -57,7 +57,7 @@
     "eslint-plugin-node": "^11.1.0",
     "eslint-plugin-promise": "^6.0.0",
     "jest": "^27.5.1",
-    "standard-version": "^9.3.2",
+    "standard-version": "^9.5.0",
     "ts-jest": "^27.1.4"
   }
 }
