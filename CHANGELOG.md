@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.4](https://github.com/djdembeck/audnexus/compare/v0.4.3...v0.4.4) (2022-05-20)
+
+
+### Bug Fixes
+
+* **schema:** :card_file_box: require asin in AuthorInterface; don't require description in model ([0997ad5](https://github.com/djdembeck/audnexus/commit/0997ad5d04963a2bd6073337e34666e667da062f))
+
 ### [0.4.3](https://github.com/djdembeck/audnexus/compare/v0.4.2...v0.4.3) (2022-04-12)
 
 ### [0.4.2](https://github.com/djdembeck/audnexus/compare/v0.4.1...v0.4.2) (2022-03-29)
