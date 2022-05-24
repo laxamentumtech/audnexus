@@ -33,7 +33,7 @@
     "fastify-redis": "^4.4.0",
     "html-to-text": "^8.2.0",
     "isomorphic-fetch": "^3.0.0",
-    "jsrsasign": "^10.5.20",
+    "jsrsasign": "^10.5.22",
     "lodash": "^4.17.21",
     "moment": "^2.29.3",
     "mongodb": "^4.6.0",
