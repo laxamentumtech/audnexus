@@ -21,7 +21,7 @@ class SharedHelper {
             return false
         }
         // Check ASIN structure
-        const asinRegex = /(?=.\d)[A-Z\d]{10}/gm
+        const asinRegex = /(?=.\d)[A-Z\d]{10}/
 
         const match = asin.match(asinRegex)
         if (match) {
