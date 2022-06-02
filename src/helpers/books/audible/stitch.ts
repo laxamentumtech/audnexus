@@ -1,4 +1,4 @@
-import { ApiBookInterface, BookInterface, HtmlBookInterface } from '../../interfaces/books/index'
+import { ApiBookInterface, BookInterface, HtmlBookInterface } from '#interfaces/books/index'
 
 class StitchHelper {
     apiRes: ApiBookInterface;

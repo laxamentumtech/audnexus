@@ -1,10 +1,10 @@
 // Import interfaces
-import { HtmlBookInterface } from '../../interfaces/books/index'
-import { GenreInterface } from '../../interfaces/audible'
+import { HtmlBookInterface } from '#interfaces/books/index'
+import { GenreInterface } from '#interfaces/audible'
 import fetch from 'isomorphic-fetch'
 // For HTML scraping
 import * as cheerio from 'cheerio'
-import SharedHelper from '.././shared'
+import SharedHelper from '#helpers/shared'
 import { htmlToText } from 'html-to-text'
 
 class ScrapeHelper {

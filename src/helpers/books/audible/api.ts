@@ -1,10 +1,10 @@
 import fetch from 'isomorphic-fetch'
 // For merchandising_summary
 import { htmlToText } from 'html-to-text'
-import { AudibleInterface } from '../../interfaces/audible/index'
-import { ApiBookInterface, SeriesInterface } from '../../interfaces/books/index'
-import { AuthorInterface, NarratorInterface } from '../../interfaces/people/index'
-import SharedHelper from '.././shared'
+import { AudibleInterface } from '#interfaces/audible/index'
+import { ApiBookInterface, SeriesInterface } from '#interfaces/books/index'
+import { AuthorInterface, NarratorInterface } from '#interfaces/people/index'
+import SharedHelper from '#helpers/shared'
 
 class ApiHelper {
     asin: string;

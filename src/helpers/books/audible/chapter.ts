@@ -1,9 +1,9 @@
 import fetch from 'isomorphic-fetch'
 import jsrsasign from 'jsrsasign'
 import moment from 'moment'
-import { ChapterInterface, SingleChapter } from '../../interfaces/audible'
-import { ApiChapterInterface, ApiSingleChapterInterface } from '../../interfaces/books'
-import SharedHelper from '../shared'
+import { ChapterInterface, SingleChapter } from '#interfaces/audible'
+import { ApiChapterInterface, ApiSingleChapterInterface } from '#interfaces/books'
+import SharedHelper from '#helpers/shared'
 
 class ChapterHelper {
     asin: string;
