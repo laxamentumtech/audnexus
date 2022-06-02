@@ -1,5 +1,5 @@
-import SharedHelper from '../../../helpers/shared'
-import Author from '../../models/Author'
+import SharedHelper from '#helpers/shared'
+import Author from '#models/Author'
 
 async function routes (fastify, options) {
     fastify.delete('/authors/:asin', async (request, reply) => {

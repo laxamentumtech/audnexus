@@ -1,4 +1,4 @@
-import Author from '../../../models/Author'
+import Author from '#models/Author'
 
 async function routes (fastify, options) {
     fastify.get('/authors', async (request, reply) => {

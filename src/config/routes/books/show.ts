@@ -1,8 +1,8 @@
-import ApiHelper from '../../../helpers/books/audibleApi'
-import Book from '../../models/Book'
-import ScrapeHelper from '../../../helpers/books/audibleScrape'
-import SharedHelper from '../../../helpers/shared'
-import StitchHelper from '../../../helpers/books/audibleStitch'
+import ApiHelper from '#helpers/books/audible/api'
+import Book from '#models/Book'
+import ScrapeHelper from '#helpers/books/audible/scrape'
+import SharedHelper from '#helpers/shared'
+import StitchHelper from '#helpers/books/audible/stitch'
 import fetch from 'isomorphic-fetch'
 import lodash from 'lodash'
 

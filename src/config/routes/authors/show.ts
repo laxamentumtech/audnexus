@@ -1,6 +1,6 @@
-import Author from '../../models/Author'
-import ScrapeHelper from '../../../helpers/authors/audibleScrape'
-import SharedHelper from '../../../helpers/shared'
+import Author from '#models/Author'
+import ScrapeHelper from '#helpers/authors/audible/scrape'
+import SharedHelper from '#helpers/shared'
 import lodash from 'lodash'
 
 async function routes (fastify, options) {

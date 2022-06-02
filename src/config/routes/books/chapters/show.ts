@@ -1,6 +1,6 @@
-import ChapterHelper from '../../../../helpers/books/audibleChapter'
-import Chapter from '../../../models/Chapter'
-import SharedHelper from '../../../../helpers/shared'
+import ChapterHelper from '#helpers/books/audible/chapter'
+import Chapter from '#models/Chapter'
+import SharedHelper from '#helpers/shared'
 
 async function routes (fastify, options) {
     fastify.get('/books/:asin/chapters', async (request, reply) => {

@@ -1,14 +1,14 @@
 // Book routes
-import showBook from './config/routes/books/show'
-import deleteBook from './config/routes/books/delete'
-import showChapter from './config/routes/books/chapters/show'
+import showBook from '#routes/books/show'
+import deleteBook from '#routes/books/delete'
+import showChapter from '#routes/books/chapters/show'
 // Author routes
-import showAuthor from './config/routes/authors/show'
-import deleteAuthor from './config/routes/authors/delete'
-import searchAuthor from './config/routes/authors/search/show'
+import showAuthor from '#routes/authors/show'
+import deleteAuthor from '#routes/authors/delete'
+import searchAuthor from '#routes/authors/search/show'
 // System imports
 import { fastify } from 'fastify'
-import { connect, disconnect } from './config/papr'
+import { connect, disconnect } from '#papr'
 
 // Heroku or local port
 const host = '0.0.0.0'

@@ -1,5 +1,5 @@
 import { types, schema } from 'papr'
-import papr from '../papr'
+import papr from '#papr'
 
 const authorSchema = schema({
     aliases: types.array(
