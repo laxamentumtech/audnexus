@@ -1,6 +1,6 @@
-import ChapterHelper from '../../../src/helpers/books/audibleChapter'
-import { ChapterInterface } from '../../../src/interfaces/audible'
-import { ApiChapterInterface } from '../../../src/interfaces/books'
+import ChapterHelper from '#helpers/books/audible/chapter'
+import { ChapterInterface } from '#interfaces/audible'
+import { ApiChapterInterface } from '#interfaces/books'
 
 // Run through known book data to test responses
 const asinProjectHailMary: string = 'B08G9PRS1K'

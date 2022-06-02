@@ -1,8 +1,8 @@
-import ApiHelper from '../../../src/helpers/books/audibleApi'
-import ScrapeHelper from '../../../src/helpers/books/audibleScrape'
-import StitchHelper from '../../../src/helpers/books/audibleStitch'
-import { BookInterface } from '../../../src/interfaces/books'
-import ChapterHelper from '../../../src/helpers/books/audibleChapter'
+import ApiHelper from '#helpers/books/audible/api'
+import ScrapeHelper from '#helpers/books/audible/scrape'
+import StitchHelper from '#helpers/books/audible/stitch'
+import { BookInterface } from '#interfaces/books'
+import ChapterHelper from '#helpers/books/audible/chapter'
 
 // Run through known book data to test responses
 const asinSorcerersStone: string = 'B017V4IM1G'
