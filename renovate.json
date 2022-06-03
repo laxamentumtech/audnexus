@@ -1,5 +1,31 @@
 {
-  "extends": [
-    "config:base"
-  ]
+    "baseBranches": ["develop"],
+    "branchConcurrentLimit": 10,
+    "commitMessageAction": "Upgrade",
+    "commitMessagePrefix": "chore:",
+    "commitMessageTopic": "{{depName}}",
+    "extends": ["config:base"],
+    "labels": ["dependencies"],
+    "packageRules": [
+        {
+            "enabled": true,
+            "groupName": "Skip major Node.js versions",
+            "matchPackageNames": ["@types/node", "node"],
+            "matchUpdateTypes": ["major"]
+        },
+        {
+            "matchUpdateTypes": ["patch", "pin"],
+            "automerge": true
+        }
+    ],
+    "prCreation": "not-pending",
+    "prConcurrentLimit": 3,
+    "prHourlyLimit": 1,
+    "rebaseWhen": "auto",
+    "reviewers": ["djdembeck"],
+    "stabilityDays": 3,
+    "timezone": "Etc/UTC",
+    "vulnerabilityAlerts": {
+        "labels": ["security"]
+    }
 }
