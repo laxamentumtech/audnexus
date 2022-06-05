@@ -4,7 +4,7 @@ WORKDIR /app
 RUN npm ci --only=production && \
     npm run build
 
-FROM gcr.io/distroless/nodejs:16
+FROM gcr.io/distroless/nodejs:18
 COPY --from=build-env /app /app
 WORKDIR /app
 
