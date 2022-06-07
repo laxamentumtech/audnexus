@@ -7,12 +7,6 @@
 "labels": ["dependencies"],
 "packageRules": [
     {
-        "enabled": true,
-        "groupName": "Skip major Node.js versions",
-        "matchPackageNames": ["@types/node", "node"],
-        "matchUpdateTypes": ["major"]
-    },
-    {
         "matchUpdateTypes": ["patch", "pin"],
         "automerge": true
     }
