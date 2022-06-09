@@ -8,9 +8,9 @@ import SharedHelper from '#helpers/shared'
 import { htmlToText } from 'html-to-text'
 
 class ScrapeHelper {
-    asin: string;
-    reqUrl: string;
-    constructor (asin: string) {
+    asin: string
+    reqUrl: string
+    constructor(asin: string) {
         this.asin = asin
         const helper = new SharedHelper()
         const baseDomain: string = 'https://www.audible.com'
@@ -23,7 +23,10 @@ class ScrapeHelper {
      * @param {NodeListOf<Element>} genres selected source from categoriesLabel
      * @returns {GenreInterface[]}
      */
-    collectGenres (genres: cheerio.Cheerio<cheerio.Element>[], type: string): GenreInterface[] | undefined {
+    collectGenres(
+        genres: cheerio.Cheerio<cheerio.Element>[],
+        type: string
+    ): GenreInterface[] | undefined {
         // Check and label each genre
         const genreArr: GenreInterface[] | undefined = genres.map((genre, index): any => {
             let thisGenre = {} as GenreInterface
@@ -33,10 +36,7 @@ class ScrapeHelper {
                 const asin = this.getAsinFromUrl(href)
                 // Verify existence of name and valid ID
                 if (genre.text() && asin) {
-                    const cleanedName = htmlToText(
-                        genre.text(),
-                        { wordwrap: false }
-                    )
+                    const cleanedName = htmlToText(genre.text(), { wordwrap: false })
                     thisGenre = {
                         asin: asin,
                         name: cleanedName,
@@ -57,7 +57,7 @@ class ScrapeHelper {
      * Fetches the html page and checks it's response
      * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
      */
-    async fetchBook (): Promise<cheerio.CheerioAPI | undefined> {
+    async fetchBook(): Promise<cheerio.CheerioAPI | undefined> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
             const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
@@ -77,19 +77,21 @@ class ScrapeHelper {
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    async parseResponse (dom: cheerio.CheerioAPI | undefined): Promise<HtmlBookInterface | undefined> {
+    async parseResponse(
+        dom: cheerio.CheerioAPI | undefined
+    ): Promise<HtmlBookInterface | undefined> {
         // If there's no dom, don't interrupt the other module cycles
         if (!dom) {
             return undefined
         }
 
         const genres = dom('li.categoriesLabel a')
-        .toArray()
-        .map(element => dom(element))
+            .toArray()
+            .map((element) => dom(element))
 
         const tags = dom('div.bc-chip-group a')
-        .toArray()
-        .map(element => dom(element))
+            .toArray()
+            .map((element) => dom(element))
 
         const returnJson = {
             genres: Array<GenreInterface>(genres.length + tags.length)
@@ -97,10 +99,7 @@ class ScrapeHelper {
 
         // Combine genres and tags
         if (genres.length) {
-            let genreArr = this.collectGenres(
-                genres,
-                'genre'
-            ) as any
+            let genreArr = this.collectGenres(genres, 'genre') as any
             // Tags.
             if (tags.length) {
                 const tagArr = this.collectGenres(tags, 'tag')
@@ -118,7 +117,7 @@ class ScrapeHelper {
      * @param {string} url string to extract ASIN from
      * @returns {string} ASIN.
      */
-    getAsinFromUrl (url: string): string {
+    getAsinFromUrl(url: string): string {
         const asinRegex = /[0-9A-Z]{9}.+?(?=\?)/gm
         const ASIN = url.match(asinRegex)![0]
         return ASIN

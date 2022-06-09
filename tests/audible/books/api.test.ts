@@ -14,7 +14,7 @@ describe('When fetching Project Hail Mary from Audible API', () => {
     beforeAll((done) => {
         asinGood = 'B08G9PRS1K'
         apiGood = new ApiHelper(asinGood)
-        apiGood.fetchBook().then(result => {
+        apiGood.fetchBook().then((result) => {
             response = result!
             done()
         })
@@ -34,7 +34,9 @@ describe('When fetching Project Hail Mary from Audible API', () => {
     })
 
     it('returned description', () => {
-        expect(response.product.merchandising_summary).toBe('<p>Ryland Grace is the sole survivor on a desperate, last-chance mission - and if he fails, humanity and the Earth itself will perish. Except that right now, he doesn\'t know that. He can\'t even remember his own name, let alone the nature of his assignment or how to complete it....</p>')
+        expect(response.product.merchandising_summary).toBe(
+            "<p>Ryland Grace is the sole survivor on a desperate, last-chance mission - and if he fails, humanity and the Earth itself will perish. Except that right now, he doesn't know that. He can't even remember his own name, let alone the nature of his assignment or how to complete it....</p>"
+        )
     })
 
     it('returned format_type', () => {
@@ -54,11 +56,15 @@ describe('When fetching Project Hail Mary from Audible API', () => {
     })
 
     it('returned product_images', () => {
-        expect(response.product.product_images['1024']).toBe('https://m.media-amazon.com/images/I/91vS2L5YfEL._SL1024_.jpg')
+        expect(response.product.product_images['1024']).toBe(
+            'https://m.media-amazon.com/images/I/91vS2L5YfEL._SL1024_.jpg'
+        )
     })
 
     it('returned product_images', () => {
-        expect(response.product.product_images['500']).toBe('https://m.media-amazon.com/images/I/51b6fvQr1-L._SL500_.jpg')
+        expect(response.product.product_images['500']).toBe(
+            'https://m.media-amazon.com/images/I/51b6fvQr1-L._SL500_.jpg'
+        )
     })
 
     it('returned publisher_name', () => {
@@ -66,7 +72,9 @@ describe('When fetching Project Hail Mary from Audible API', () => {
     })
 
     it('returned publisher_summary', () => {
-        expect(response.product.publisher_summary).toBe('<p><b>Winner of the 2022 Audie Awards Audiobook of the Year.</b></p> <p><b>Number-One Audible and</b><b><i> New York Times</i></b><b> Audio Best Seller</b></p> <p><b>A lone astronaut must save the earth from disaster in this incredible new science-based thriller from the number-one </b><b><i>New York Times</i></b><b> best-selling author of </b><b><i>The Martian</i></b><b>.</b></p> <p>Ryland Grace is the sole survivor on a desperate, last-chance mission - and if he fails, humanity and the Earth itself will perish.</p> <p>Except that right now, he doesn\'t know that. He can\'t even remember his own name, let alone the nature of his assignment or how to complete it.</p> <p>All he knows is that he\'s been asleep for a very, very long time. And he\'s just been awakened to find himself millions of miles from home, with nothing but two corpses for company.</p> <p>His crewmates dead, his memories fuzzily returning, he realizes that an impossible task now confronts him. Alone on this tiny ship that\'s been cobbled together by every government and space agency on the planet and hurled into the depths of space, it\'s up to him to conquer an extinction-level threat to our species.</p> <p>And thanks to an unexpected ally, he just might have a chance.</p> <p>Part scientific mystery, part dazzling interstellar journey, <i>Project Hail Mary</i> is a tale of discovery, speculation, and survival to rival <i>The Martian</i> - while taking us to places it never dreamed of going.</p> <p>PLEASE NOTE: To accommodate this audio edition, some changes to the original text have been made with the approval of author Andy Weir.</p>')
+        expect(response.product.publisher_summary).toBe(
+            "<p><b>Winner of the 2022 Audie Awards Audiobook of the Year.</b></p> <p><b>Number-One Audible and</b><b><i> New York Times</i></b><b> Audio Best Seller</b></p> <p><b>A lone astronaut must save the earth from disaster in this incredible new science-based thriller from the number-one </b><b><i>New York Times</i></b><b> best-selling author of </b><b><i>The Martian</i></b><b>.</b></p> <p>Ryland Grace is the sole survivor on a desperate, last-chance mission - and if he fails, humanity and the Earth itself will perish.</p> <p>Except that right now, he doesn't know that. He can't even remember his own name, let alone the nature of his assignment or how to complete it.</p> <p>All he knows is that he's been asleep for a very, very long time. And he's just been awakened to find himself millions of miles from home, with nothing but two corpses for company.</p> <p>His crewmates dead, his memories fuzzily returning, he realizes that an impossible task now confronts him. Alone on this tiny ship that's been cobbled together by every government and space agency on the planet and hurled into the depths of space, it's up to him to conquer an extinction-level threat to our species.</p> <p>And thanks to an unexpected ally, he just might have a chance.</p> <p>Part scientific mystery, part dazzling interstellar journey, <i>Project Hail Mary</i> is a tale of discovery, speculation, and survival to rival <i>The Martian</i> - while taking us to places it never dreamed of going.</p> <p>PLEASE NOTE: To accommodate this audio edition, some changes to the original text have been made with the approval of author Andy Weir.</p>"
+        )
     })
 
     it('returned release_date', () => {
@@ -87,7 +95,7 @@ describe('When fetching The Coldest Case from Audible API', () => {
     beforeAll((done) => {
         asinGood = 'B08C6YJ1LS'
         apiGood = new ApiHelper(asinGood)
-        apiGood.fetchBook().then(result => {
+        apiGood.fetchBook().then((result) => {
             response = result!
             done()
         })
@@ -116,7 +124,9 @@ describe('When fetching The Coldest Case from Audible API', () => {
     })
 
     it('returned description', () => {
-        expect(response.product.merchandising_summary).toBe('<p>James Patterson\'s Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies....   </p>')
+        expect(response.product.merchandising_summary).toBe(
+            "<p>James Patterson's Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies....   </p>"
+        )
     })
 
     it('returned format_type', () => {
@@ -152,11 +162,15 @@ describe('When fetching The Coldest Case from Audible API', () => {
     })
 
     it('returned cover image', () => {
-        expect(response.product.product_images['1024']).toBe('https://m.media-amazon.com/images/I/91H9ynKGNwL._SL1024_.jpg')
+        expect(response.product.product_images['1024']).toBe(
+            'https://m.media-amazon.com/images/I/91H9ynKGNwL._SL1024_.jpg'
+        )
     })
 
     it('returned cover image', () => {
-        expect(response.product.product_images['500']).toBe('https://m.media-amazon.com/images/I/51SteOEMD8L._SL500_.jpg')
+        expect(response.product.product_images['500']).toBe(
+            'https://m.media-amazon.com/images/I/51SteOEMD8L._SL500_.jpg'
+        )
     })
 
     it('returned series name', () => {
@@ -168,7 +182,9 @@ describe('When fetching The Coldest Case from Audible API', () => {
     })
 
     it('returned publisher_summary', () => {
-        expect(response.product.publisher_summary).toBe('<p><b>Please note</b>: This audio drama is for mature audiences only. It contains strong language, violence, and sexual content. Discretion is advised. </p> <p><b>James Patterson\'s Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies. </b></p> <p>In <i>The Coldest Case: A Black Book Audio Drama</i>, homicide detective Billy Harney sends his new partner, Kate, deep undercover in a notorious Chicago drug ring. When several members of the ring soon turn up dead, Billy abruptly pulls Kate out, blowing her cover. Kate’s informant inside the gang quickly disappears. As does the ring’s black book.... </p> <p>When Billy can’t find the informant, he wonders if Kate is secretly harboring her, since the two grew close during Kate\'s weeks undercover. As Billy and Kate investigate the ring’s murders, they’ll be pulled into a dangerous web of corrupt politicians, vengeful billionaires, drugged pro-athletes, and violent, dark web conspiracies, all in search of the missing black book. </p>')
+        expect(response.product.publisher_summary).toBe(
+            "<p><b>Please note</b>: This audio drama is for mature audiences only. It contains strong language, violence, and sexual content. Discretion is advised. </p> <p><b>James Patterson's Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies. </b></p> <p>In <i>The Coldest Case: A Black Book Audio Drama</i>, homicide detective Billy Harney sends his new partner, Kate, deep undercover in a notorious Chicago drug ring. When several members of the ring soon turn up dead, Billy abruptly pulls Kate out, blowing her cover. Kate’s informant inside the gang quickly disappears. As does the ring’s black book.... </p> <p>When Billy can’t find the informant, he wonders if Kate is secretly harboring her, since the two grew close during Kate's weeks undercover. As Billy and Kate investigate the ring’s murders, they’ll be pulled into a dangerous web of corrupt politicians, vengeful billionaires, drugged pro-athletes, and violent, dark web conspiracies, all in search of the missing black book. </p>"
+        )
     })
 
     it('returned release_date', () => {
@@ -189,8 +205,8 @@ describe('When parsing The Coldest Case', () => {
     beforeAll((done) => {
         asinGood = 'B08C6YJ1LS'
         apiGood = new ApiHelper(asinGood)
-        apiGood.fetchBook().then(result => {
-            apiGood.parseResponse(result).then(result => {
+        apiGood.fetchBook().then((result) => {
+            apiGood.parseResponse(result).then((result) => {
                 response = result
                 done()
             })
@@ -220,7 +236,9 @@ describe('When parsing The Coldest Case', () => {
     })
 
     it('returned description', () => {
-        expect(response.description).toBe('James Patterson\'s Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies....')
+        expect(response.description).toBe(
+            "James Patterson's Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies...."
+        )
     })
 
     it('returned format_type', () => {
@@ -276,11 +294,15 @@ describe('When parsing The Coldest Case', () => {
     })
 
     it('returned publisher_summary', () => {
-        expect(response.summary).toBe('<p><b>Please note</b>: This audio drama is for mature audiences only. It contains strong language, violence, and sexual content. Discretion is advised. </p> <p><b>James Patterson\'s Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies. </b></p> <p>In <i>The Coldest Case: A Black Book Audio Drama</i>, homicide detective Billy Harney sends his new partner, Kate, deep undercover in a notorious Chicago drug ring. When several members of the ring soon turn up dead, Billy abruptly pulls Kate out, blowing her cover. Kate’s informant inside the gang quickly disappears. As does the ring’s black book.... </p> <p>When Billy can’t find the informant, he wonders if Kate is secretly harboring her, since the two grew close during Kate\'s weeks undercover. As Billy and Kate investigate the ring’s murders, they’ll be pulled into a dangerous web of corrupt politicians, vengeful billionaires, drugged pro-athletes, and violent, dark web conspiracies, all in search of the missing black book. </p>')
+        expect(response.summary).toBe(
+            "<p><b>Please note</b>: This audio drama is for mature audiences only. It contains strong language, violence, and sexual content. Discretion is advised. </p> <p><b>James Patterson's Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies. </b></p> <p>In <i>The Coldest Case: A Black Book Audio Drama</i>, homicide detective Billy Harney sends his new partner, Kate, deep undercover in a notorious Chicago drug ring. When several members of the ring soon turn up dead, Billy abruptly pulls Kate out, blowing her cover. Kate’s informant inside the gang quickly disappears. As does the ring’s black book.... </p> <p>When Billy can’t find the informant, he wonders if Kate is secretly harboring her, since the two grew close during Kate's weeks undercover. As Billy and Kate investigate the ring’s murders, they’ll be pulled into a dangerous web of corrupt politicians, vengeful billionaires, drugged pro-athletes, and violent, dark web conspiracies, all in search of the missing black book. </p>"
+        )
     })
 
     it('returned release_date', () => {
-        expect(new Date(response.releaseDate).toISOString()).toBe(new Date('2021-03-11T00:00:00.000Z').toISOString())
+        expect(new Date(response.releaseDate).toISOString()).toBe(
+            new Date('2021-03-11T00:00:00.000Z').toISOString()
+        )
     })
 
     it('returned runtime length in minutes', () => {
@@ -297,8 +319,8 @@ describe('When parsing Scorcerers Stone', () => {
     beforeAll((done) => {
         asinGood = 'B017V4IM1G'
         apiGood = new ApiHelper(asinGood)
-        apiGood.fetchBook().then(result => {
-            apiGood.parseResponse(result).then(result => {
+        apiGood.fetchBook().then((result) => {
+            apiGood.parseResponse(result).then((result) => {
                 response = result
                 done()
             })
@@ -336,7 +358,7 @@ describe('When fetching a fake ASIN from Audible API', () => {
     beforeAll((done) => {
         asinBad = '1234567891'
         apiBad = new ApiHelper(asinBad)
-        apiBad.fetchBook().then(result => {
+        apiBad.fetchBook().then((result) => {
             response = result!
             done()
         })
@@ -347,15 +369,15 @@ describe('When fetching a fake ASIN from Audible API', () => {
     })
 
     it('threw no authors key error', async () => {
-        await expect(apiBad.parseResponse(response))
-        .rejects
-        .toThrowError('Required key: authors, does not exist on: 1234567891')
+        await expect(apiBad.parseResponse(response)).rejects.toThrowError(
+            'Required key: authors, does not exist on: 1234567891'
+        )
     })
 
     it('threw error when parsing undefined', async () => {
-        await expect(apiBad.parseResponse(undefined))
-        .rejects
-        .toThrowError('No API response to parse')
+        await expect(apiBad.parseResponse(undefined)).rejects.toThrowError(
+            'No API response to parse'
+        )
     })
 })
 
@@ -364,16 +386,16 @@ describe('When parsing a book with no title from Audible API', () => {
     beforeAll((done) => {
         asinBad = 'B07BS4RKGH'
         apiBad = new ApiHelper(asinBad)
-        apiBad.fetchBook().then(result => {
+        apiBad.fetchBook().then((result) => {
             response = result!
             done()
         })
     })
 
     it('threw an error', async () => {
-        await expect(apiBad.parseResponse(response))
-        .rejects
-        .toThrowError('Required key: title, does not exist on: B07BS4RKGH')
+        await expect(apiBad.parseResponse(response)).rejects.toThrowError(
+            'Required key: title, does not exist on: B07BS4RKGH'
+        )
     })
 })
 
@@ -382,7 +404,7 @@ describe('When fetching a book with no image from Audible API', () => {
     beforeAll((done) => {
         asinBad = 'B008D2SJRS'
         apiBad = new ApiHelper(asinBad)
-        apiBad.fetchBook().then(result => {
+        apiBad.fetchBook().then((result) => {
             response = result!
             done()
         })
@@ -393,7 +415,7 @@ describe('When fetching a book with no image from Audible API', () => {
     })
 
     it('returned no image when parsing', async () => {
-        apiBad.parseResponse(response).then(result => {
+        apiBad.parseResponse(response).then((result) => {
             expect(result.image).toBeUndefined()
         })
     })
@@ -404,8 +426,8 @@ describe('When parsing a book with a series but no position', () => {
     beforeAll((done) => {
         asinBad = '059345586X'
         apiBad = new ApiHelper(asinBad)
-        apiBad.fetchBook().then(result => {
-            apiBad.parseResponse(result).then(result => {
+        apiBad.fetchBook().then((result) => {
+            apiBad.parseResponse(result).then((result) => {
                 response = result
                 done()
             })

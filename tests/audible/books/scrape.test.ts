@@ -13,8 +13,8 @@ describe('When scraping Project Hail Mary genres from Audible', () => {
     beforeAll((done) => {
         asinGood = 'B08G9PRS1K'
         htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchBook().then(result => {
-            htmlGood.parseResponse(result).then(result => {
+        htmlGood.fetchBook().then((result) => {
+            htmlGood.parseResponse(result).then((result) => {
                 response = result!
                 done()
             })
@@ -56,8 +56,8 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     beforeAll((done) => {
         asinGood = 'B017V4IM1G'
         htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchBook().then(result => {
-            htmlGood.parseResponse(result).then(result => {
+        htmlGood.fetchBook().then((result) => {
+            htmlGood.parseResponse(result).then((result) => {
                 response = result!
                 done()
             })
@@ -73,7 +73,7 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     })
 
     it('returned genre 1 name', () => {
-        expect(response.genres![0].name).toBe('Children\'s Audiobooks')
+        expect(response.genres![0].name).toBe("Children's Audiobooks")
     })
 
     it('returned genre 1 type', () => {
@@ -97,7 +97,7 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     })
 
     it('returned tag 1 name', () => {
-        expect(response.genres![2].name).toBe('Children\'s Audiobooks')
+        expect(response.genres![2].name).toBe("Children's Audiobooks")
     })
 
     it('returned tag 1 type', () => {
@@ -147,8 +147,8 @@ describe('When fetching The Coldest Case from Audible HTML', () => {
     beforeAll((done) => {
         asinGood = 'B08C6YJ1LS'
         htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchBook().then(result => {
-            htmlGood.parseResponse(result).then(result => {
+        htmlGood.fetchBook().then((result) => {
+            htmlGood.parseResponse(result).then((result) => {
                 response = result!
                 done()
             })
@@ -202,7 +202,7 @@ describe('When scraping The Martian from Audible', () => {
     beforeAll((done) => {
         asinBad = 'B00B5HZGUG'
         htmlBad = new ScrapeHelper(asinBad)
-        htmlBad.fetchBook().then(result => {
+        htmlBad.fetchBook().then((result) => {
             response = result
             done()
         })
@@ -213,13 +213,13 @@ describe('When scraping The Martian from Audible', () => {
     })
 })
 
-describe('When fetching a broken ASIN\'s HTML from Audible', () => {
+describe("When fetching a broken ASIN's HTML from Audible", () => {
     let response: HtmlBookInterface
     beforeAll((done) => {
         asinBad = 'B0036I54I6'
         htmlBad = new ScrapeHelper(asinBad)
-        htmlBad.fetchBook().then(result => {
-            htmlBad.parseResponse(result).then(result => {
+        htmlBad.fetchBook().then((result) => {
+            htmlBad.parseResponse(result).then((result) => {
                 response = result!
                 done()
             })

@@ -6,12 +6,12 @@ import { ApiChapterInterface, ApiSingleChapterInterface } from '#interfaces/book
 import SharedHelper from '#helpers/shared'
 
 class ChapterHelper {
-    asin: string;
-    reqUrl: string;
-    adpToken: string;
-    privateKey: string;
+    asin: string
+    reqUrl: string
+    adpToken: string
+    privateKey: string
 
-    constructor (asin: string) {
+    constructor(asin: string) {
         this.asin = asin
         const helper = new SharedHelper()
         const baseDomain: string = 'https://api.audible.com'
@@ -30,7 +30,7 @@ class ChapterHelper {
      * Creates path string used by signRequest
      * @returns {string} concat path to be used by signRequest
      */
-    buildPath (): string {
+    buildPath(): string {
         const baseUrl = '1.0/content'
         const params = 'metadata?response_groups=chapter_info'
         const reqUrl = `/${baseUrl}/${this.asin}/${params}`
@@ -42,7 +42,7 @@ class ChapterHelper {
      * @param {string} chapter
      * @returns {string} cleaned chapter
      */
-    chapterTitleCleanup (chapter: string): string {
+    chapterTitleCleanup(chapter: string): string {
         // Starting chapter title data
         const originalTitle: string = chapter
         // Strip trailing periods
@@ -70,7 +70,7 @@ class ChapterHelper {
      * @param {string} privateKey from Audible-api auth file
      * @returns {string} encoded 'x-adp-signature' header
      */
-    signRequest (adpToken: string, privateKey: string): string {
+    signRequest(adpToken: string, privateKey: string): string {
         const method = 'GET'
         const path = this.buildPath()
         const body = ''
@@ -89,7 +89,7 @@ class ChapterHelper {
      * Fetches chapter Audible API JSON
      * @returns {Promise<ChapterInterface>} data from parseResponse() function.
      */
-    async fetchBook (): Promise<ChapterInterface | undefined> {
+    async fetchBook(): Promise<ChapterInterface | undefined> {
         const response = await fetch(this.reqUrl, {
             headers: {
                 'x-adp-token': this.adpToken,
@@ -113,7 +113,9 @@ class ChapterHelper {
      * @param {ChapterInterface} jsonRes fetched json response from api.audible.com
      * @returns {Promise<ApiChapterInterface>} relevant data to keep
      */
-    async parseResponse (jsonRes: ChapterInterface | undefined): Promise<ApiChapterInterface | undefined> {
+    async parseResponse(
+        jsonRes: ChapterInterface | undefined
+    ): Promise<ApiChapterInterface | undefined> {
         // Base undefined check
         if (!jsonRes || !jsonRes.content_metadata.chapter_info) {
             return undefined

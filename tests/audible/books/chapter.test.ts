@@ -9,7 +9,7 @@ const chapProjectHailMary = new ChapterHelper(asinProjectHailMary)
 describe('When fetching Project Hail Mary chapters from Audible API', () => {
     let response: ChapterInterface
     beforeAll((done) => {
-        chapProjectHailMary.fetchBook().then(result => {
+        chapProjectHailMary.fetchBook().then((result) => {
             response = result!
             done()
         })
@@ -79,8 +79,8 @@ const chapTheSeep = new ChapterHelper(asinTheSeep)
 describe('When parsing The Seep', () => {
     let response: ApiChapterInterface
     beforeAll((done) => {
-        chapTheSeep.fetchBook().then(result => {
-            chapTheSeep.parseResponse(result).then(result => {
+        chapTheSeep.fetchBook().then((result) => {
+            chapTheSeep.parseResponse(result).then((result) => {
                 response = result!
                 done()
             })
@@ -148,11 +148,11 @@ describe('When parsing The Seep', () => {
 const asinBad: string = 'B0036I54I6'
 const chapBad = new ChapterHelper(asinBad)
 
-describe('When fetching an broken ASIN\'s chapters from Audible API', () => {
+describe("When fetching an broken ASIN's chapters from Audible API", () => {
     let response: ApiChapterInterface
     beforeAll((done) => {
-        chapBad.fetchBook().then(result => {
-            chapBad.parseResponse(result).then(result => {
+        chapBad.fetchBook().then((result) => {
+            chapBad.parseResponse(result).then((result) => {
                 response = result!
                 done()
             })

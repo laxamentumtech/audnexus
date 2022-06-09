@@ -10,11 +10,11 @@ import lodash from 'lodash'
  * Calls authors endpoint in the background with ASIN supplied
  * @param {string} ASIN
  */
-async function seedAuthors (ASIN: string) {
+async function seedAuthors(ASIN: string) {
     fetch('http://localhost:3000/authors/' + ASIN)
 }
 
-async function routes (fastify, options) {
+async function routes(fastify, options) {
     fastify.get('/books/:asin', async (request, reply) => {
         // Query params
         const seed = request.query.seedAuthors
@@ -53,25 +53,22 @@ async function routes (fastify, options) {
 
         const { redis } = fastify
         const setRedis = (asin: string, newDbItem: any) => {
-            redis.set(
-                `book-${asin}`,
-                JSON.stringify(newDbItem, null, 2)
-            )
+            redis.set(`book-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
         let findInRedis: string | undefined
         if (redis) {
-            findInRedis = await redis.get(
-                `book-${request.params.asin}`,
-                (val: string) => {
-                    return JSON.parse(val)
-                }
-            )
+            findInRedis = await redis.get(`book-${request.params.asin}`, (val: string) => {
+                return JSON.parse(val)
+            })
         }
 
         const findInDb = await Promise.resolve(
-            Book.findOne({
-                asin: request.params.asin
-            }, dbProjection)
+            Book.findOne(
+                {
+                    asin: request.params.asin
+                },
+                dbProjection
+            )
         )
 
         if (queryUpdateBook !== '0' && findInRedis) {
@@ -87,10 +84,7 @@ async function routes (fastify, options) {
             const scraper = new ScrapeHelper(request.params.asin)
 
             // Run fetch tasks in parallel/resolve promises
-            const [apiRes, scraperRes] = await Promise.all([
-                api.fetchBook(),
-                scraper.fetchBook()
-            ])
+            const [apiRes, scraperRes] = await Promise.all([api.fetchBook(), scraper.fetchBook()])
 
             // Run parse tasks in parallel/resolve promises
             const [parseApi, parseScraper] = await Promise.all([
@@ -109,10 +103,7 @@ async function routes (fastify, options) {
             let newDbItem: any
             const updateBook = async () => {
                 Promise.resolve(
-                    Book.updateOne(
-                        { asin: request.params.asin },
-                        { $set: stitchedData }
-                    )
+                    Book.updateOne({ asin: request.params.asin }, { $set: stitchedData })
                 )
 
                 newDbItem = await Promise.resolve(

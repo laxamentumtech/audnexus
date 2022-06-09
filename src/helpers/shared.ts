@@ -4,7 +4,7 @@ class SharedHelper {
      * @param {string} ASIN The Audible ID to base the URL on
      * @returns {string} full url to fetch.
      */
-    buildUrl (ASIN: string, baseDomain: string, baseUrl: string, params?: string): string {
+    buildUrl(ASIN: string, baseDomain: string, baseUrl: string, params?: string): string {
         const argArr = [baseDomain, baseUrl, ASIN, params]
         const reqUrl = argArr.join('/')
         return reqUrl
@@ -15,7 +15,7 @@ class SharedHelper {
      * @param {string} asin 10 character identifier
      * @returns {boolean}
      */
-    checkAsinValidity (asin: string): boolean {
+    checkAsinValidity(asin: string): boolean {
         // First things first, check length
         if (asin.length !== 10) {
             return false

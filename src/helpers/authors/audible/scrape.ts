@@ -8,9 +8,9 @@ import SharedHelper from '#helpers/shared'
 import { htmlToText } from 'html-to-text'
 
 class ScrapeHelper {
-    asin: string;
-    reqUrl: string;
-    constructor (asin: string) {
+    asin: string
+    reqUrl: string
+    constructor(asin: string) {
         this.asin = asin
         const helper = new SharedHelper()
         const baseDomain: string = 'https://www.audible.com'
@@ -23,7 +23,10 @@ class ScrapeHelper {
      * @param {NodeListOf<Element>} genres selected source from categoriesLabel
      * @returns {GenreInterface[]}
      */
-    collectGenres (genres: cheerio.Cheerio<cheerio.Element>[], type: string): GenreInterface[] | undefined {
+    collectGenres(
+        genres: cheerio.Cheerio<cheerio.Element>[],
+        type: string
+    ): GenreInterface[] | undefined {
         // Check and label each genre
         const genreArr: GenreInterface[] | undefined = genres.map((genre, index): any => {
             let thisGenre = {} as GenreInterface
@@ -53,7 +56,7 @@ class ScrapeHelper {
      * Fetches the html page and checks it's response
      * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
      */
-    async fetchBook (): Promise<cheerio.CheerioAPI> {
+    async fetchBook(): Promise<cheerio.CheerioAPI> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
             const message = `An error occured while fetching Audible HTML. Response: ${response.status}, ASIN: ${this.asin}`
@@ -70,7 +73,7 @@ class ScrapeHelper {
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    async parseResponse ($: cheerio.CheerioAPI | undefined): Promise<AuthorInterface> {
+    async parseResponse($: cheerio.CheerioAPI | undefined): Promise<AuthorInterface> {
         // Base undefined check
         if (!$) {
             throw new Error('No response from HTML')
@@ -83,10 +86,9 @@ class ScrapeHelper {
 
         // Bio.
         try {
-            returnJson.description = htmlToText(
-                $('div.bc-expander-content').children().text(),
-                { wordwrap: false }
-            )
+            returnJson.description = htmlToText($('div.bc-expander-content').children().text(), {
+                wordwrap: false
+            })
         } catch (err) {
             console.debug(`Bio not available on: ${this.asin}`)
         }
@@ -94,8 +96,8 @@ class ScrapeHelper {
         // Genres.
         try {
             const genres = $('div.contentPositionClass div.bc-box a.bc-color-link')
-            .toArray()
-            .map(element => $(element))
+                .toArray()
+                .map((element) => $(element))
             returnJson.genres = this.collectGenres(genres, 'genre')
         } catch (err) {
             console.debug(`Genres not available on: ${this.asin}`)
@@ -104,7 +106,10 @@ class ScrapeHelper {
         // Image.
         try {
             // We'll ask for a *slightly* larger than postage-stamp-sized pic...
-            returnJson.image = $('img.author-image-outline')[0].attribs.src.replace('__01_SX120_CR0,0,120,120__.', '')
+            returnJson.image = $('img.author-image-outline')[0].attribs.src.replace(
+                '__01_SX120_CR0,0,120,120__.',
+                ''
+            )
         } catch (err) {}
 
         // Name.
@@ -124,7 +129,7 @@ class ScrapeHelper {
      * @param {string} url string to extract ASIN from
      * @returns {string} ASIN.
      */
-    getAsinFromUrl (url: string): string {
+    getAsinFromUrl(url: string): string {
         const asinRegex = /[0-9A-Z]{9}.+?(?=\?)/gm
         const ASIN = url.match(asinRegex)![0]
         return ASIN

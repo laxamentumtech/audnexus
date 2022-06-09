@@ -1,6 +1,6 @@
 import Author from '#models/Author'
 
-async function routes (fastify, options) {
+async function routes(fastify, options) {
     fastify.get('/authors', async (request, reply) => {
         const name = request.query.name
 
@@ -16,7 +16,11 @@ async function routes (fastify, options) {
             const searchDbByName = await Promise.resolve(
                 Author.find(
                     { $text: { $search: name } },
-                    { projection: { _id: false, asin: true, name: true }, limit: 25, sort: { score: { $meta: 'textScore' } } }
+                    {
+                        projection: { _id: false, asin: true, name: true },
+                        limit: 25,
+                        sort: { score: { $meta: 'textScore' } }
+                    }
                 )
             )
             return searchDbByName

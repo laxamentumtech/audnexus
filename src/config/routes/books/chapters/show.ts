@@ -2,7 +2,7 @@ import ChapterHelper from '#helpers/books/audible/chapter'
 import Chapter from '#models/Chapter'
 import SharedHelper from '#helpers/shared'
 
-async function routes (fastify, options) {
+async function routes(fastify, options) {
     fastify.get('/books/:asin/chapters', async (request, reply) => {
         // First, check ASIN validity
         const commonHelpers = new SharedHelper()
@@ -19,9 +19,11 @@ async function routes (fastify, options) {
             })
         }
 
-        const findInDb = await Promise.resolve(Chapter.findOne({
-            asin: request.params.asin
-        }))
+        const findInDb = await Promise.resolve(
+            Chapter.findOne({
+                asin: request.params.asin
+            })
+        )
 
         if (findInRedis) {
             return JSON.parse(findInRedis)

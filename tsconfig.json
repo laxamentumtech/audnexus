@@ -1,26 +1,24 @@
 {
-  "compilerOptions": {
-    "target": "es2021",
-    "module": "commonjs",
-    "rootDir": "./src",
-    "moduleResolution": "node",
-    "baseUrl": "./src",
-    "paths": {
-        "#config/*": ["config/*"],
-        "#helpers/*": ["helpers/*"],
-        "#interfaces/*": ["interfaces/*"],
-        "#models/*": ["config/models/*"],
-        "#papr": ["config/papr"],
-        "#routes/*": ["config/routes/*"]
+    "compilerOptions": {
+        "target": "es2021",
+        "module": "commonjs",
+        "rootDir": "./src",
+        "moduleResolution": "node",
+        "baseUrl": "./src",
+        "paths": {
+            "#config/*": ["config/*"],
+            "#helpers/*": ["helpers/*"],
+            "#interfaces/*": ["interfaces/*"],
+            "#models/*": ["config/models/*"],
+            "#papr": ["config/papr"],
+            "#routes/*": ["config/routes/*"]
+        },
+        "outDir": "./dist",
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "strict": true,
+        "noImplicitAny": true,
+        "skipLibCheck": true
     },
-    "outDir": "./dist",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "skipLibCheck": true
-  },
-  "exclude": [
-    "**/*.test.ts"
-  ]
+    "exclude": ["**/*.test.ts"]
 }

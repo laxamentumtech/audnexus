@@ -3,7 +3,7 @@ import ScrapeHelper from '#helpers/authors/audible/scrape'
 import SharedHelper from '#helpers/shared'
 import lodash from 'lodash'
 
-async function routes (fastify, options) {
+async function routes(fastify, options) {
     fastify.get('/authors/:asin', async (request, reply) => {
         // Query params
         const queryUpdateAuthor = request.query.update
@@ -28,35 +28,29 @@ async function routes (fastify, options) {
 
         const { redis } = fastify
         const setRedis = (asin: string, newDbItem: any) => {
-            redis.set(
-                `author-${asin}`,
-                JSON.stringify(newDbItem, null, 2)
-            )
+            redis.set(`author-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
         let findInRedis: string | undefined
         if (redis) {
-            findInRedis = await redis.get(
-                `author-${request.params.asin}`,
-                (val: string) => {
-                    return JSON.parse(val)
-                }
-            )
+            findInRedis = await redis.get(`author-${request.params.asin}`, (val: string) => {
+                return JSON.parse(val)
+            })
         }
 
         const findInDb = await Promise.resolve(
-            Author.findOne({
-                asin: request.params.asin
-            }, dbProjection)
+            Author.findOne(
+                {
+                    asin: request.params.asin
+                },
+                dbProjection
+            )
         )
 
         if (queryUpdateAuthor !== '0' && findInRedis) {
             return JSON.parse(findInRedis)
         } else if (queryUpdateAuthor !== '0' && findInDb) {
             if (redis) {
-                redis.set(
-                    `author-${request.params.asin}`,
-                    JSON.stringify(findInDb, null, 2)
-                )
+                redis.set(`author-${request.params.asin}`, JSON.stringify(findInDb, null, 2))
             }
             return findInDb
         } else {
@@ -67,17 +61,12 @@ async function routes (fastify, options) {
             const [scraperRes] = await Promise.all([scraper.fetchBook()])
 
             // Run parse tasks in parallel/resolve promises
-            const [parseScraper] = await Promise.all([
-                scraper.parseResponse(scraperRes)
-            ])
+            const [parseScraper] = await Promise.all([scraper.parseResponse(scraperRes)])
 
             let newDbItem: any
             const updateAuthor = async () => {
                 Promise.resolve(
-                    Author.updateOne(
-                        { asin: request.params.asin },
-                        { $set: parseScraper }
-                    )
+                    Author.updateOne({ asin: request.params.asin }, { $set: parseScraper })
                 )
 
                 // Find the updated item
@@ -114,9 +103,7 @@ async function routes (fastify, options) {
                 return findInDb
             } else {
                 // Insert stitched data into DB
-                newDbItem = await Promise.resolve(
-                    Author.insertOne(parseScraper)
-                )
+                newDbItem = await Promise.resolve(Author.insertOne(parseScraper))
                 if (redis) {
                     setRedis(request.params.asin, newDbItem)
                 }

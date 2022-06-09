@@ -7,14 +7,15 @@ import { AuthorInterface, NarratorInterface } from '#interfaces/people/index'
 import SharedHelper from '#helpers/shared'
 
 class ApiHelper {
-    asin: string;
-    reqUrl: string;
-    constructor (asin: string) {
+    asin: string
+    reqUrl: string
+    constructor(asin: string) {
         this.asin = asin
         const helper = new SharedHelper()
         const baseDomain: string = 'https://api.audible.com'
         const baseUrl: string = '1.0/catalog/products'
-        const params = '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
+        const params =
+            '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
         this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
     }
 
@@ -23,7 +24,7 @@ class ApiHelper {
      * @param {scraperUrl} reqUrl the full url to fetch.
      * @returns {Promise<AudibleInterface>} response from Audible API
      */
-    async fetchBook (): Promise<AudibleInterface | undefined> {
+    async fetchBook(): Promise<AudibleInterface | undefined> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
             const message = `An error has occured while fetching from Audible API. Response: ${response.status}, ASIN: ${this.asin}`
@@ -39,7 +40,7 @@ class ApiHelper {
      * @param {AudibleInterface} jsonRes fetched json response from api.audible.com
      * @returns {Promise<ApiBookInterface>} relevant data to keep
      */
-    async parseResponse (jsonRes: AudibleInterface | undefined): Promise<ApiBookInterface> {
+    async parseResponse(jsonRes: AudibleInterface | undefined): Promise<ApiBookInterface> {
         // Base undefined check
         if (!jsonRes) {
             throw new Error('No API response to parse')
@@ -172,27 +173,36 @@ class ApiHelper {
         // Series
         key = 'series'
         if (key in inputJson) {
-            inputJson[key].forEach((series: { asin: string | undefined; title: string; sequence: string | undefined }) => {
-                const seriesJson = <SeriesInterface>{}
-                if ('asin' in series) {
-                    seriesJson.asin = series.asin
+            inputJson[key].forEach(
+                (series: {
+                    asin: string | undefined
+                    title: string
+                    sequence: string | undefined
+                }) => {
+                    const seriesJson = <SeriesInterface>{}
+                    if ('asin' in series) {
+                        seriesJson.asin = series.asin
+                    }
+                    if ('title' in series) {
+                        seriesJson.name = series.title
+                    } else {
+                        console.log(`Series name not available on: ${inputJson.asin}`)
+                        return undefined
+                    }
+                    if ('sequence' in series) {
+                        seriesJson.position = series.sequence
+                    }
+                    // Check and set primary series
+                    if (series.title === inputJson.publication_name!) {
+                        finalJson.seriesPrimary = seriesJson
+                    } else if (
+                        inputJson.series.length > 1 &&
+                        series.title !== inputJson.publication_name
+                    ) {
+                        finalJson.seriesSecondary = seriesJson
+                    }
                 }
-                if ('title' in series) {
-                    seriesJson.name = series.title
-                } else {
-                    console.log(`Series name not available on: ${inputJson.asin}`)
-                    return undefined
-                }
-                if ('sequence' in series) {
-                    seriesJson.position = series.sequence
-                }
-                // Check and set primary series
-                if (series.title === inputJson.publication_name!) {
-                    finalJson.seriesPrimary = seriesJson
-                } else if (inputJson.series.length > 1 && series.title !== inputJson.publication_name) {
-                    finalJson.seriesSecondary = seriesJson
-                }
-            })
+            )
         }
 
         // Subtitle
