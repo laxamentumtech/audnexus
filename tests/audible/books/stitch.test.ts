@@ -75,7 +75,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned cover image', () => {
-        expect(response.image).toBe('https://m.media-amazon.com/images/I/91tDBrO2u9L.jpg')
+        expect(response.image).toBe('https://m.media-amazon.com/images/I/91eopoUCjLL.jpg')
     })
 
     it('returned publisher', () => {
@@ -102,8 +102,8 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
         expect(response.title).toBe("Harry Potter and the Sorcerer's Stone, Book 1")
     })
 
-    it('returned 2 genres', () => {
-        expect(response.genres?.length).toBe(6)
+    it('returned 5 genres', () => {
+        expect(response.genres?.length).toBe(5)
     })
 
     it('returned genre 1 asin', () => {
@@ -118,64 +118,52 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
         expect(response.genres![0].type).toBe('genre')
     })
 
-    it('returned genre 2 asin', () => {
-        expect(response.genres![1].asin).toBe('18572491011')
-    })
-
-    it('returned genre 2 name', () => {
-        expect(response.genres![1].name).toBe('Literature & Fiction')
-    })
-
-    it('returned genre 2 type', () => {
-        expect(response.genres![1].type).toBe('genre')
-    })
-
     it('returned tag 1 asin', () => {
-        expect(response.genres![2].asin).toBe('18572091011')
+        expect(response.genres![1].asin).toBe('18572091011')
     })
 
     it('returned tag 1 name', () => {
-        expect(response.genres![2].name).toBe("Children's Audiobooks")
+        expect(response.genres![1].name).toBe('Children\'s Audiobooks')
     })
 
     it('returned tag 1 type', () => {
-        expect(response.genres![2].type).toBe('tag')
+        expect(response.genres![1].type).toBe('tag')
     })
 
     it('returned tag 2 asin', () => {
-        expect(response.genres![3].asin).toBe('18572505011')
+        expect(response.genres![2].asin).toBe('18572505011')
     })
 
     it('returned tag 2 name', () => {
-        expect(response.genres![3].name).toBe('Family Life')
+        expect(response.genres![2].name).toBe("Family Life")
     })
 
     it('returned tag 2 type', () => {
-        expect(response.genres![3].type).toBe('tag')
+        expect(response.genres![2].type).toBe('tag')
     })
 
     it('returned tag 3 asin', () => {
-        expect(response.genres![4].asin).toBe('18572587011')
+        expect(response.genres![3].asin).toBe('18572587011')
     })
 
     it('returned tag 3 name', () => {
-        expect(response.genres![4].name).toBe('Fantasy & Magic')
+        expect(response.genres![3].name).toBe('Fantasy & Magic')
     })
 
     it('returned tag 3 type', () => {
-        expect(response.genres![4].type).toBe('tag')
+        expect(response.genres![3].type).toBe('tag')
     })
 
     it('returned tag 4 asin', () => {
-        expect(response.genres![5].asin).toBe('18580607011')
+        expect(response.genres![4].asin).toBe('18580607011')
     })
 
     it('returned tag 4 name', () => {
-        expect(response.genres![5].name).toBe('Fantasy')
+        expect(response.genres![4].name).toBe('Fantasy')
     })
 
     it('returned tag 4 type', () => {
-        expect(response.genres![5].type).toBe('tag')
+        expect(response.genres![4].type).toBe('tag')
     })
 
     it('returned a primary series asin', () => {
@@ -327,7 +315,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
     })
 
     it('returned 2 genres', () => {
-        expect(response.genres?.length).toBe(3)
+        expect(response.genres?.length).toBe(2)
     })
 
     it('returned genre 1 asin', () => {
@@ -342,28 +330,16 @@ describe('When stitching together The Coldest Case from Audible', () => {
         expect(response.genres![0].type).toBe('genre')
     })
 
-    it('returned genre 2 asin', () => {
-        expect(response.genres![1].asin).toBe('18574621011')
-    })
-
-    it('returned genre 2 name', () => {
-        expect(response.genres![1].name).toBe('Thriller & Suspense')
-    })
-
-    it('returned genre 2 type', () => {
-        expect(response.genres![1].type).toBe('genre')
-    })
-
     it('returned tag 1 asin', () => {
-        expect(response.genres![2].asin).toBe('18574623011')
+        expect(response.genres![1].asin).toBe('18574623011')
     })
 
     it('returned tag 1 name', () => {
-        expect(response.genres![2].name).toBe('Crime Thrillers')
+        expect(response.genres![1].name).toBe('Crime Thrillers')
     })
 
     it('returned tag 1 type', () => {
-        expect(response.genres![2].type).toBe('tag')
+        expect(response.genres![1].type).toBe('tag')
     })
 
     it('returned a primary series asin', () => {
