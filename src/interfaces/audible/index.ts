@@ -1,5 +1,4 @@
 /* eslint-disable camelcase */
-import { SeriesInterface } from '../books'
 import { AuthorInterface, NarratorInterface } from '../people/index'
 
 interface Codecs {
@@ -34,6 +33,12 @@ interface Ratings {
     story_distribution: RatingItems
 }
 
+interface Series {
+    asin: string | undefined
+    title: string
+    sequence: string | undefined
+}
+
 export interface AudibleInterface {
     product: {
         asin: string
@@ -57,7 +62,7 @@ export interface AudibleInterface {
         rating: Ratings
         release_date: string
         runtime_length_min: number
-        series: SeriesInterface[]
+        series: Series[]
         social_media_images: any
         subtitle?: string
         thesaurus_subject_keywords: [string]
