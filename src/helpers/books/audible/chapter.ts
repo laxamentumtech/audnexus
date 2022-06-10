@@ -131,7 +131,7 @@ class ChapterHelper {
         }
         const standardKeyHandling = (oldKey: string, newKey: string) => {
             if (oldKey in inputJson) {
-                finalJson[newKey] = inputJson[oldKey]
+                finalJson[newKey] = inputJson[oldKey as keyof typeof inputJson]
             } else {
                 missingKeyMsg(key)
             }
@@ -154,7 +154,7 @@ class ChapterHelper {
         key = 'chapters'
         if (key in inputJson) {
             // Loop through each chapter and set keys/fix title
-            finalJson[key] = inputJson[key].map((chapter: SingleChapter) => {
+            finalJson[key] = inputJson['chapters'].map((chapter: SingleChapter) => {
                 const chapJson = <ApiSingleChapterInterface>{}
 
                 chapJson.lengthMs = chapter.length_ms

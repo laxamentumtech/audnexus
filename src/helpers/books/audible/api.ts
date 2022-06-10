@@ -56,14 +56,14 @@ class ApiHelper {
         }
         const standardKeyHandling = (oldKey: string, newKey: string) => {
             if (oldKey in inputJson) {
-                finalJson[newKey] = inputJson[oldKey]
+                finalJson[newKey] = inputJson[oldKey as keyof typeof inputJson]
             } else {
                 missingKeyMsg(key)
             }
         }
         const optionalKeyHandling = (oldKey: string, newKey: string) => {
             if (oldKey in inputJson) {
-                finalJson[newKey] = inputJson[oldKey]
+                finalJson[newKey] = inputJson[oldKey as keyof typeof inputJson]
             }
         }
 
@@ -76,7 +76,7 @@ class ApiHelper {
         key = 'authors'
         if (key in inputJson) {
             // Loop through each person
-            finalJson[key] = inputJson[key].map((person: AuthorInterface) => {
+            finalJson[key] = inputJson['authors']?.map((person: AuthorInterface) => {
                 const authorJson = <AuthorInterface>{}
 
                 // Use asin for author if available
@@ -94,7 +94,7 @@ class ApiHelper {
         // Clean description of html tags
         key = 'merchandising_summary'
         if (key in inputJson) {
-            finalJson.description = htmlToText(inputJson[key], {
+            finalJson.description = htmlToText(inputJson['merchandising_summary'], {
                 wordwrap: false
             }).trim()
         } else {
@@ -110,10 +110,10 @@ class ApiHelper {
         // Try first for higher res art
         key = 'product_images'
         if (key in inputJson) {
-            if (1024 in inputJson[key]) {
-                finalJson.image = inputJson[key][1024].replace('_SL1024_.', '')
-            } else if (500 in inputJson[key]) {
-                finalJson.image = inputJson[key][500].replace('_SL500_.', '')
+            if (1024 in inputJson['product_images']) {
+                finalJson.image = inputJson['product_images'][1024].replace('_SL1024_.', '')
+            } else if (500 in inputJson['product_images']) {
+                finalJson.image = inputJson['product_images'][500].replace('_SL500_.', '')
             }
         }
 
@@ -126,7 +126,7 @@ class ApiHelper {
         key = 'narrators'
         if (key in inputJson) {
             // Loop through each person
-            finalJson[key] = inputJson[key].map((person: NarratorInterface) => {
+            finalJson[key] = inputJson['narrators']?.map((person: NarratorInterface) => {
                 const narratorJson = <NarratorInterface>{}
                 narratorJson.name = person.name
                 return narratorJson
@@ -143,7 +143,7 @@ class ApiHelper {
         // https://github.com/plexinc/papr/issues/94
         key = 'rating'
         if (key in inputJson) {
-            finalJson[key] = inputJson[key].overall_distribution.display_average_rating.toString()
+            finalJson[key] = inputJson['rating'].overall_distribution.display_average_rating.toString()
         }
 
         // ReleaseDate
@@ -151,10 +151,10 @@ class ApiHelper {
         key = 'release_date'
         if (key in inputJson) {
             // Some releases use issue_date, try that if this fails
-            if (!inputJson[key] && inputJson.issue_date) {
+            if (!inputJson['release_date'] && inputJson.issue_date) {
                 key = 'issue_date'
             }
-            const releaseDate = new Date(inputJson[key])
+            const releaseDate = new Date(inputJson['release_date'])
             // Check that release date isn't in the future
             const now = new Date()
             if (releaseDate > now) {
@@ -173,7 +173,7 @@ class ApiHelper {
         // Series
         key = 'series'
         if (key in inputJson) {
-            inputJson[key].forEach(
+            inputJson['series'].forEach(
                 (series: {
                     asin: string | undefined
                     title: string
