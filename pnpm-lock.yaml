@@ -16,7 +16,7 @@ specifiers:
   eslint: 8.17.0
   eslint-config-standard: 17.0.0
   eslint-plugin-import: 2.26.0
-  eslint-plugin-jest: 26.4.6
+  eslint-plugin-jest: 26.5.3
   eslint-plugin-n: ^15.2.2
   eslint-plugin-node: 11.1.0
   eslint-plugin-promise: 6.0.0
@@ -63,7 +63,7 @@ devDependencies:
   eslint: 8.17.0
   eslint-config-standard: 17.0.0_2vzjc6wa644febnedshovlwyla
   eslint-plugin-import: 2.26.0_er3f6f6cekbq4lwnvn7afiwhn4
-  eslint-plugin-jest: 26.4.6_hskg2r2ndwagfrtpqqunqsvssm
+  eslint-plugin-jest: 26.5.3_hskg2r2ndwagfrtpqqunqsvssm
   eslint-plugin-node: 11.1.0_eslint@8.17.0
   eslint-plugin-promise: 6.0.0_eslint@8.17.0
   jest: 27.5.1
@@ -2272,8 +2272,8 @@ packages:
       - supports-color
     dev: true
 
-  /eslint-plugin-jest/26.4.6_hskg2r2ndwagfrtpqqunqsvssm:
-    resolution: {integrity: sha512-R3mq1IepnhtsukHQsWxdyKra3OVwYB+N4k8i45ndqSfr8p9KZV6G+EIUt1Z7hzAh4KlsbXG+nCTlNeGFLFLNvA==}
+  /eslint-plugin-jest/26.5.3_hskg2r2ndwagfrtpqqunqsvssm:
+    resolution: {integrity: sha512-sICclUqJQnR1bFRZGLN2jnSVsYOsmPYYnroGCIMVSvTS3y8XR3yjzy1EcTQmk6typ5pRgyIWzbjqxK6cZHEZuQ==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
     peerDependencies:
       '@typescript-eslint/eslint-plugin': ^5.0.0
