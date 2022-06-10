@@ -7,8 +7,10 @@ import showAuthor from '#routes/authors/show'
 import deleteAuthor from '#routes/authors/delete'
 import searchAuthor from '#routes/authors/search/show'
 // System imports
-import { fastify } from 'fastify'
+import cors from '@fastify/cors'
+import redis from '@fastify/redis'
 import { connect, disconnect } from '#papr'
+import { fastify } from 'fastify'
 
 // Heroku or local port
 const host = '0.0.0.0'
@@ -31,10 +33,10 @@ server.register(searchAuthor)
 // Register redis if it's present
 if (process.env.REDIS_URL) {
     console.log('Using Redis')
-    server.register(require('fastify-redis'), { url: process.env.REDIS_URL })
+    server.register(redis, { url: process.env.REDIS_URL })
 }
 // CORS
-server.register(require('fastify-cors'), {
+server.register(cors, {
     origin: true
 })
 
