@@ -1,4 +1,4 @@
-# https://github.com/actions/setup-node
+# https://github.com/pnpm/action-setup
 
 name: Node.js CI
 
@@ -22,9 +22,17 @@ jobs:
     name: Node ${{ matrix.node }} sample
     steps:
       - uses: actions/checkout@v3
-      - name: Setup node
+      - uses: pnpm/action-setup@v2.2.2
+        with:
+          version: latest
+      - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v3
         with:
-          node-version: ${{ matrix.node }}
-      - run: npm install
-      - run: npm test
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run linter
+        run: pnpm lint
+      - name: Run tests
+        run: pnpm test
