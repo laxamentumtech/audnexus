@@ -110,7 +110,9 @@ class ScrapeHelper {
                 '__01_SX120_CR0,0,120,120__.',
                 ''
             )
-        } catch (err) {}
+        } catch (err) {
+            // continue regardless of error
+        }
 
         // Name.
         try {
