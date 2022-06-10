@@ -2,8 +2,11 @@ import ChapterHelper from '#helpers/books/audible/chapter'
 import Chapter from '#models/Chapter'
 import SharedHelper from '#helpers/shared'
 
-async function routes(fastify, options) {
-    fastify.get('/books/:asin/chapters', async (request, reply) => {
+import { FastifyInstance } from 'fastify'
+import { requestGeneric } from '#typing/requests'
+
+async function routes(fastify: FastifyInstance) {
+    fastify.get<requestGeneric>('/books/:asin/chapters', async (request, reply) => {
         // First, check ASIN validity
         const commonHelpers = new SharedHelper()
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
@@ -12,9 +15,10 @@ async function routes(fastify, options) {
         }
 
         const { redis } = fastify
-        let findInRedis: string | undefined
+        let findInRedis: string | null | undefined = undefined
         if (redis) {
-            findInRedis = await redis.get(`chapters-${request.params.asin}`, (val: string) => {
+            findInRedis = await redis.get(`chapters-${request.params.asin}`, (_err, val) => {
+                if (!val) return undefined
                 return JSON.parse(val)
             })
         }

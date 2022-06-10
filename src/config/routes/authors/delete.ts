@@ -1,8 +1,10 @@
 import SharedHelper from '#helpers/shared'
 import Author from '#models/Author'
+import { FastifyInstance } from 'fastify'
+import { requestGeneric } from '#typing/requests'
 
-async function routes(fastify, options) {
-    fastify.delete('/authors/:asin', async (request, reply) => {
+async function routes(fastify: FastifyInstance) {
+    fastify.delete<requestGeneric>('/authors/:asin', async (request, reply) => {
         // First, check ASIN validity
         const commonHelpers = new SharedHelper()
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {

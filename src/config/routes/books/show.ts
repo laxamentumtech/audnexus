@@ -5,6 +5,8 @@ import SharedHelper from '#helpers/shared'
 import StitchHelper from '#helpers/books/audible/stitch'
 import fetch from 'isomorphic-fetch'
 import lodash from 'lodash'
+import { FastifyInstance } from 'fastify'
+import { requestGenericWithSeed } from '#typing/requests'
 
 /**
  * Calls authors endpoint in the background with ASIN supplied
@@ -14,8 +16,8 @@ async function seedAuthors(ASIN: string) {
     fetch('http://localhost:3000/authors/' + ASIN)
 }
 
-async function routes(fastify, options) {
-    fastify.get('/books/:asin', async (request, reply) => {
+async function routes(fastify: FastifyInstance) {
+    fastify.get<requestGenericWithSeed>('/books/:asin', async (request, reply) => {
         // Query params
         const seed = request.query.seedAuthors
         const queryUpdateBook = request.query.update
@@ -55,9 +57,10 @@ async function routes(fastify, options) {
         const setRedis = (asin: string, newDbItem: any) => {
             redis.set(`book-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
-        let findInRedis: string | undefined
+        let findInRedis: string | null | undefined = undefined
         if (redis) {
-            findInRedis = await redis.get(`book-${request.params.asin}`, (val: string) => {
+            findInRedis = await redis.get(`book-${request.params.asin}`, (_err, val) => {
+                if (!val) return undefined
                 return JSON.parse(val)
             })
         }
@@ -145,7 +148,7 @@ async function routes(fastify, options) {
                 // Seed authors in the background
                 if (seed !== '0' && newDbItem.authors) {
                     try {
-                        newDbItem.authors.map((author, index): any => {
+                        newDbItem.authors.map((author: { asin: string }): any => {
                             if (author && author.asin) {
                                 return seedAuthors(author.asin)
                             }

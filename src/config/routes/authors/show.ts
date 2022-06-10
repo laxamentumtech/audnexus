@@ -2,9 +2,11 @@ import Author from '#models/Author'
 import ScrapeHelper from '#helpers/authors/audible/scrape'
 import SharedHelper from '#helpers/shared'
 import lodash from 'lodash'
+import { FastifyInstance } from 'fastify'
+import { requestGeneric } from '#typing/requests'
 
-async function routes(fastify, options) {
-    fastify.get('/authors/:asin', async (request, reply) => {
+async function routes(fastify: FastifyInstance) {
+    fastify.get<requestGeneric>('/authors/:asin', async (request, reply) => {
         // Query params
         const queryUpdateAuthor = request.query.update
 
@@ -30,9 +32,10 @@ async function routes(fastify, options) {
         const setRedis = (asin: string, newDbItem: any) => {
             redis.set(`author-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
-        let findInRedis: string | undefined
+        let findInRedis: string | null | undefined = undefined
         if (redis) {
-            findInRedis = await redis.get(`author-${request.params.asin}`, (val: string) => {
+            findInRedis = await redis.get(`author-${request.params.asin}`, (_err, val) => {
+                if (!val) return undefined
                 return JSON.parse(val)
             })
         }
