@@ -1,7 +1,7 @@
 import fetch from 'isomorphic-fetch'
 // For merchandising_summary
 import { htmlToText } from 'html-to-text'
-import { AudibleInterface } from '#interfaces/audible/index'
+import { AudibleSeries, AudibleInterface } from '#interfaces/audible/index'
 import { ApiBookInterface, SeriesInterface } from '#interfaces/books/index'
 import { AuthorInterface, NarratorInterface } from '#interfaces/people/index'
 import SharedHelper from '#helpers/shared'
@@ -174,11 +174,7 @@ class ApiHelper {
         key = 'series'
         if (key in inputJson) {
             inputJson['series'].forEach(
-                (series: {
-                    asin: string | undefined
-                    title: string
-                    sequence: string | undefined
-                }) => {
+                (series: AudibleSeries) => {
                     const seriesJson = <SeriesInterface>{}
                     if ('asin' in series) {
                         seriesJson.asin = series.asin

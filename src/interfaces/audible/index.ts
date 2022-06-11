@@ -33,7 +33,7 @@ interface Ratings {
     story_distribution: RatingItems
 }
 
-interface Series {
+export interface AudibleSeries {
     asin: string | undefined
     title: string
     sequence: string | undefined
@@ -62,7 +62,7 @@ export interface AudibleInterface {
         rating: Ratings
         release_date: string
         runtime_length_min: number
-        series: Series[]
+        series: AudibleSeries[]
         social_media_images: any
         subtitle?: string
         thesaurus_subject_keywords: [string]
