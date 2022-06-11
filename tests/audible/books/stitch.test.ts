@@ -123,7 +123,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned tag 1 name', () => {
-        expect(response.genres![1].name).toBe('Children\'s Audiobooks')
+        expect(response.genres![1].name).toBe("Children's Audiobooks")
     })
 
     it('returned tag 1 type', () => {
@@ -135,7 +135,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     })
 
     it('returned tag 2 name', () => {
-        expect(response.genres![2].name).toBe("Family Life")
+        expect(response.genres![2].name).toBe('Family Life')
     })
 
     it('returned tag 2 type', () => {

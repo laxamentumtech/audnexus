@@ -143,7 +143,8 @@ class ApiHelper {
         // https://github.com/plexinc/papr/issues/94
         key = 'rating'
         if (key in inputJson) {
-            finalJson[key] = inputJson['rating'].overall_distribution.display_average_rating.toString()
+            finalJson[key] =
+                inputJson['rating'].overall_distribution.display_average_rating.toString()
         }
 
         // ReleaseDate
@@ -173,32 +174,30 @@ class ApiHelper {
         // Series
         key = 'series'
         if (key in inputJson) {
-            inputJson['series'].forEach(
-                (series: AudibleSeries) => {
-                    const seriesJson = <SeriesInterface>{}
-                    if ('asin' in series) {
-                        seriesJson.asin = series.asin
-                    }
-                    if ('title' in series) {
-                        seriesJson.name = series.title
-                    } else {
-                        console.log(`Series name not available on: ${inputJson.asin}`)
-                        return undefined
-                    }
-                    if ('sequence' in series) {
-                        seriesJson.position = series.sequence
-                    }
-                    // Check and set primary series
-                    if (series.title === inputJson.publication_name!) {
-                        finalJson.seriesPrimary = seriesJson
-                    } else if (
-                        inputJson.series.length > 1 &&
-                        series.title !== inputJson.publication_name
-                    ) {
-                        finalJson.seriesSecondary = seriesJson
-                    }
+            inputJson['series'].forEach((series: AudibleSeries) => {
+                const seriesJson = <SeriesInterface>{}
+                if ('asin' in series) {
+                    seriesJson.asin = series.asin
                 }
-            )
+                if ('title' in series) {
+                    seriesJson.name = series.title
+                } else {
+                    console.log(`Series name not available on: ${inputJson.asin}`)
+                    return undefined
+                }
+                if ('sequence' in series) {
+                    seriesJson.position = series.sequence
+                }
+                // Check and set primary series
+                if (series.title === inputJson.publication_name!) {
+                    finalJson.seriesPrimary = seriesJson
+                } else if (
+                    inputJson.series.length > 1 &&
+                    series.title !== inputJson.publication_name
+                ) {
+                    finalJson.seriesSecondary = seriesJson
+                }
+            })
         }
 
         // Subtitle
