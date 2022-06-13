@@ -43,7 +43,7 @@ interface CoreBook {
 
 // Final format of data stored
 export interface BookInterface extends CoreBook {
-    chapterInfo: ApiChapterInterface
+    chapterInfo?: ApiChapterInterface
     genres?: GenreInterface[]
     seriesPrimary?: SeriesInterface
     seriesSecondary?: SeriesInterface
