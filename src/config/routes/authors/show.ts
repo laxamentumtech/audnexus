@@ -30,7 +30,7 @@ async function routes(fastify: FastifyInstance) {
         }
 
         const { redis } = fastify
-        const setRedis = (asin: string, newDbItem: any) => {
+        const setRedis = (asin: string, newDbItem: AuthorDocument) => {
             redis.set(`author-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
         let findInRedis: string | null | undefined = undefined
@@ -67,7 +67,7 @@ async function routes(fastify: FastifyInstance) {
             // Run parse tasks in parallel/resolve promises
             const [parseScraper] = await Promise.all([scraper.parseResponse(scraperRes)])
 
-            let newDbItem: any
+            let newDbItem: AuthorDocument | null
             const updateAuthor = async () => {
                 Promise.resolve(
                     Author.updateOne({ asin: request.params.asin }, { $set: parseScraper })
@@ -78,7 +78,7 @@ async function routes(fastify: FastifyInstance) {
                     Author.findOne({ asin: request.params.asin }, dbProjection)
                 )
 
-                if (redis) {
+                if (redis && newDbItem) {
                     setRedis(request.params.asin, newDbItem)
                 }
             }

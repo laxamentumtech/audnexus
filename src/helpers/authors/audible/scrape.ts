@@ -26,7 +26,7 @@ class ScrapeHelper {
         type: string
     ): GenreInterface[] | undefined {
         // Check and label each genre
-        const genreArr: GenreInterface[] | undefined = genres.map((genre, index): any => {
+        const genreArr: GenreInterface[] | undefined = genres.map((genre, index) => {
             let thisGenre = {} as GenreInterface
             let asin: string
             let href: string

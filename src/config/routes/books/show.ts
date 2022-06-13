@@ -55,7 +55,7 @@ async function routes(fastify: FastifyInstance) {
         }
 
         const { redis } = fastify
-        const setRedis = (asin: string, newDbItem: any) => {
+        const setRedis = (asin: string, newDbItem: BookDocument) => {
             redis.set(`book-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
         let findInRedis: string | null | undefined = undefined
@@ -104,7 +104,7 @@ async function routes(fastify: FastifyInstance) {
             // Run stitcher and wait for promise to resolve
             const stitchedData = await Promise.resolve(stitch.process())
 
-            let newDbItem: any
+            let newDbItem: BookDocument | null
             const updateBook = async () => {
                 Promise.resolve(
                     Book.updateOne({ asin: request.params.asin }, { $set: stitchedData })
@@ -113,7 +113,7 @@ async function routes(fastify: FastifyInstance) {
                 newDbItem = await Promise.resolve(
                     Book.findOne({ asin: request.params.asin }, dbProjection)
                 )
-                if (redis) {
+                if (redis && newDbItem) {
                     setRedis(request.params.asin, newDbItem)
                 }
             }
@@ -142,14 +142,14 @@ async function routes(fastify: FastifyInstance) {
             } else {
                 // Insert stitched data into DB
                 newDbItem = await Promise.resolve(Book.insertOne(stitchedData))
-                if (redis) {
+                if (redis && newDbItem) {
                     setRedis(request.params.asin, newDbItem)
                 }
 
                 // Seed authors in the background
                 if (seed !== '0' && newDbItem.authors) {
                     try {
-                        newDbItem.authors.map((author: { asin: string }): any => {
+                        newDbItem.authors.map((author) => {
                             if (author && author.asin) {
                                 return seedAuthors(author.asin)
                             }

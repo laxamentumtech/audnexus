@@ -3,8 +3,7 @@ import { ApiBookInterface, BookInterface, HtmlBookInterface } from '#interfaces/
 class StitchHelper {
     apiRes: ApiBookInterface
     htmlRes: HtmlBookInterface | undefined
-    tempJson: any
-    bookJson!: BookInterface
+    tempJson: Partial<BookInterface>
     constructor(apiRes: ApiBookInterface) {
         this.apiRes = apiRes
         this.tempJson = apiRes
@@ -13,10 +12,11 @@ class StitchHelper {
     /**
      * Sets genres key in returned json if it exists
      */
-    async includeGenres() {
+    async includeGenres(): Promise<BookInterface> {
         if (this.htmlRes && this.htmlRes.genres!.length) {
             this.tempJson.genres = this.htmlRes.genres
         }
+        return this.tempJson as BookInterface
     }
 
     /**
@@ -24,9 +24,9 @@ class StitchHelper {
      * @returns {Promise<BookInterface>}
      */
     async process(): Promise<BookInterface> {
-        Promise.all([this.includeGenres()])
-        this.bookJson = this.tempJson
-        return this.bookJson
+        const stitchedGenres = await this.includeGenres()
+        const bookJson: BookInterface = stitchedGenres
+        return bookJson
     }
 }
 
