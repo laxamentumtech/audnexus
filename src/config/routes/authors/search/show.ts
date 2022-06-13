@@ -1,6 +1,6 @@
 import Author from '#models/Author'
-import { FastifyInstance } from 'fastify'
 import { requestGenericSearch } from '#typing/requests'
+import { FastifyInstance } from 'fastify'
 
 async function routes(fastify: FastifyInstance) {
     fastify.get<requestGenericSearch>('/authors', async (request, reply) => {

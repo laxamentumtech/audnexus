@@ -1,7 +1,7 @@
 import SharedHelper from '#helpers/shared'
 import Book from '#models/Book'
-import { FastifyInstance } from 'fastify'
 import { requestGeneric } from '#typing/requests'
+import { FastifyInstance } from 'fastify'
 
 async function routes(fastify: FastifyInstance) {
     fastify.delete<requestGeneric>('/books/:asin', async (request, reply) => {

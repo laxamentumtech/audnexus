@@ -1,12 +1,13 @@
 import ApiHelper from '#helpers/books/audible/api'
-import Book from '#models/Book'
 import ScrapeHelper from '#helpers/books/audible/scrape'
-import SharedHelper from '#helpers/shared'
 import StitchHelper from '#helpers/books/audible/stitch'
+import SharedHelper from '#helpers/shared'
+import type { BookDocument } from '#models/Book'
+import Book from '#models/Book'
+import { requestGenericWithSeed } from '#typing/requests'
+import { FastifyInstance } from 'fastify'
 import fetch from 'isomorphic-fetch'
 import lodash from 'lodash'
-import { FastifyInstance } from 'fastify'
-import { requestGenericWithSeed } from '#typing/requests'
 
 /**
  * Calls authors endpoint in the background with ASIN supplied

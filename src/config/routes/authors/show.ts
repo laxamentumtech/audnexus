@@ -1,9 +1,10 @@
-import Author from '#models/Author'
 import ScrapeHelper from '#helpers/authors/audible/scrape'
 import SharedHelper from '#helpers/shared'
-import lodash from 'lodash'
-import { FastifyInstance } from 'fastify'
+import type { AuthorDocument } from '#models/Author'
+import Author from '#models/Author'
 import { requestGeneric } from '#typing/requests'
+import { FastifyInstance } from 'fastify'
+import lodash from 'lodash'
 
 async function routes(fastify: FastifyInstance) {
     fastify.get<requestGeneric>('/authors/:asin', async (request, reply) => {

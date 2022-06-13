@@ -1,9 +1,8 @@
 import ChapterHelper from '#helpers/books/audible/chapter'
-import Chapter from '#models/Chapter'
 import SharedHelper from '#helpers/shared'
-
-import { FastifyInstance } from 'fastify'
+import Chapter from '#models/Chapter'
 import { requestGeneric } from '#typing/requests'
+import { FastifyInstance } from 'fastify'
 
 async function routes(fastify: FastifyInstance) {
     fastify.get<requestGeneric>('/books/:asin/chapters', async (request, reply) => {

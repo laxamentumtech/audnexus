@@ -1,11 +1,9 @@
-// Import interfaces
-import { AuthorInterface } from '#interfaces/people/index'
-import { GenreInterface } from '#interfaces/audible'
-import fetch from 'isomorphic-fetch'
-// For HTML scraping
-import * as cheerio from 'cheerio'
 import SharedHelper from '#helpers/shared'
+import { GenreInterface } from '#interfaces/audible'
+import { AuthorInterface } from '#interfaces/people/index'
+import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
+import fetch from 'isomorphic-fetch'
 
 class ScrapeHelper {
     asin: string
