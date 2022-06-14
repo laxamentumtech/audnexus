@@ -46,22 +46,26 @@ class ApiHelper {
         }
         const inputJson = jsonRes.product
 
-        const missingKeyMsg = (key: string) => {
-            throw new Error(`Required key: ${key}, does not exist on: ${inputJson.asin}`)
-        }
-
         // Check all required keys present
-        if (!inputJson.asin) missingKeyMsg('asin')
-        if (!inputJson.authors) missingKeyMsg('authors')
-        if (!inputJson.format_type) missingKeyMsg('format_type')
-        if (!inputJson.language) missingKeyMsg('language')
-        if (!inputJson.merchandising_summary) missingKeyMsg('merchandising_summary')
-        if (!inputJson.product_images) missingKeyMsg('product_images')
-        if (!inputJson.publisher_name) missingKeyMsg('publisher_name')
-        if (!inputJson.release_date) missingKeyMsg('release_date')
-        if (!inputJson.runtime_length_min) missingKeyMsg('runtime_length_min')
-        if (!inputJson.publisher_summary) missingKeyMsg('publisher_summary')
-        if (!inputJson.title) missingKeyMsg('title')
+        const requiredKeys = [
+            'asin',
+            'authors',
+            'format_type',
+            'language',
+            'merchandising_summary',
+            'product_images',
+            'publisher_name',
+            'publisher_summary',
+            'release_date',
+            'runtime_length_min',
+            'title'
+        ]
+
+        requiredKeys.map((key) => {
+            if (!Object.prototype.hasOwnProperty.call(inputJson, key)) {
+                throw new Error(`Required key: ${key}, does not exist on: ${inputJson.asin}`)
+            }
+        })
 
         // Image
         const getHighResImage = () => {

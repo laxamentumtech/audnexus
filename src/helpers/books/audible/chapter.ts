@@ -122,17 +122,21 @@ class ChapterHelper {
         }
         const inputJson = jsonRes.content_metadata.chapter_info
 
-        const missingKeyMsg = (key: string) => {
-            throw new Error(`Required key: ${key}, does not exist on: ${finalJson.asin}`)
-        }
-
         // Check all required keys present
-        if (!inputJson.brandIntroDurationMs) missingKeyMsg('brandIntroDurationMs')
-        if (!inputJson.brandOutroDurationMs) missingKeyMsg('brandOutroDurationMs')
-        if (!inputJson.chapters) missingKeyMsg('chapters')
-        if (!inputJson.is_accurate) missingKeyMsg('is_accurate')
-        if (!inputJson.runtime_length_ms) missingKeyMsg('runtime_length_ms')
-        if (!inputJson.runtime_length_sec) missingKeyMsg('runtime_length_sec')
+        const requiredKeys = [
+            'brandIntroDurationMs',
+            'brandOutroDurationMs',
+            'chapters',
+            'is_accurate',
+            'runtime_length_ms',
+            'runtime_length_sec'
+        ]
+
+        requiredKeys.map((key) => {
+            if (!Object.prototype.hasOwnProperty.call(inputJson, key)) {
+                throw new Error(`Required key: ${key}, does not exist on: ${finalJson.asin}`)
+            }
+        })
 
         const finalJson: ApiChapterInterface = {
             asin: this.asin,
