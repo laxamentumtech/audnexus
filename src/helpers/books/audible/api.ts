@@ -44,38 +44,105 @@ class ApiHelper {
         if (!jsonRes) {
             throw new Error('No API response to parse')
         }
-
         const inputJson = jsonRes.product
-        const finalJson: any = {}
 
-        let key: string
-        let newKey: string
         const missingKeyMsg = (key: string) => {
-            throw new Error(`Required key: ${key}, does not exist on: ${finalJson.asin}`)
+            throw new Error(`Required key: ${key}, does not exist on: ${inputJson.asin}`)
         }
-        const standardKeyHandling = (oldKey: string, newKey: string) => {
-            if (oldKey in inputJson) {
-                finalJson[newKey] = inputJson[oldKey as keyof typeof inputJson]
+
+        // Check all required keys present
+        if (!inputJson.asin) missingKeyMsg('asin')
+        if (!inputJson.authors) missingKeyMsg('authors')
+        if (!inputJson.format_type) missingKeyMsg('format_type')
+        if (!inputJson.language) missingKeyMsg('language')
+        if (!inputJson.merchandising_summary) missingKeyMsg('merchandising_summary')
+        if (!inputJson.product_images) missingKeyMsg('product_images')
+        if (!inputJson.publisher_name) missingKeyMsg('publisher_name')
+        if (!inputJson.release_date) missingKeyMsg('release_date')
+        if (!inputJson.runtime_length_min) missingKeyMsg('runtime_length_min')
+        if (!inputJson.publisher_summary) missingKeyMsg('publisher_summary')
+        if (!inputJson.title) missingKeyMsg('title')
+
+        // Image
+        const getHighResImage = () => {
+            // Sanity check
+            if (!inputJson.product_images || inputJson.product_images.length) return ''
+
+            // Try for higher res first
+            if (1024 in inputJson.product_images) {
+                return inputJson.product_images[1024].replace('_SL1024_.', '')
+            }
+            if (500 in inputJson.product_images) {
+                return inputJson.product_images[500].replace('_SL1024_.', '')
+            }
+            return ''
+        }
+        // Release date
+        const getReleaseDate = () => {
+            let releaseDate: Date
+            // Some releases use issue_date, try that if this fails
+            if (!inputJson.release_date && inputJson.issue_date) {
+                releaseDate = new Date(inputJson.issue_date)
             } else {
-                missingKeyMsg(key)
+                releaseDate = new Date(inputJson.release_date)
             }
-        }
-        const optionalKeyHandling = (oldKey: string, newKey: string) => {
-            if (oldKey in inputJson) {
-                finalJson[newKey] = inputJson[oldKey as keyof typeof inputJson]
+            // Check that release date isn't in the future
+            const now = new Date()
+            if (releaseDate > now) {
+                throw new Error('Release date is in the future')
             }
+            return releaseDate
         }
+        // Series
+        const getSeries = (series: AudibleSeries) => {
+            const seriesJson = <SeriesInterface>{}
+            // ASIN
+            seriesJson.asin = series.asin ? series.asin : undefined
+            // Title
+            if (!series.title) return undefined
+            seriesJson.name = series.title
+            // Position
+            seriesJson.position = series.sequence ? series.sequence : undefined
+            return seriesJson
+        }
+        // Find primary series
+        const getSeriesPrimary = (allSeries: AudibleSeries[]) => {
+            if (!allSeries) return undefined
+            let seriesPrimary = <SeriesInterface>{}
+            allSeries.forEach((series: AudibleSeries) => {
+                const seriesJson = getSeries(series)
+                // Check and set primary series
+                if (seriesJson && seriesJson.name === inputJson.publication_name!) {
+                    seriesPrimary = seriesJson
+                }
+            })
+            if (!seriesPrimary.name) return undefined
+            return seriesPrimary
+        }
+        // Find secondary series if available
+        const getSeriesSecondary = (allSeries: AudibleSeries[]) => {
+            if (!allSeries) return undefined
+            let seriesSecondary = <SeriesInterface>{}
+            allSeries.forEach((series: AudibleSeries) => {
+                const seriesJson = getSeries(series)
+                // Check and set secondary series
+                if (
+                    allSeries.length > 1 &&
+                    seriesJson &&
+                    seriesJson.name !== inputJson.publication_name
+                ) {
+                    seriesSecondary = seriesJson
+                }
+            })
+            if (!seriesSecondary.name) return undefined
+            return seriesSecondary
+        }
+        const series1 = getSeriesPrimary(inputJson.series)
+        const series2 = getSeriesSecondary(inputJson.series)
 
-        // Asin
-        key = 'asin'
-        newKey = key
-        standardKeyHandling(key, newKey)
-
-        // Authors
-        key = 'authors'
-        if (key in inputJson) {
-            // Loop through each person
-            finalJson[key] = inputJson['authors']?.map((person: AuthorInterface) => {
+        const finalJson: ApiBookInterface = {
+            asin: inputJson.asin,
+            authors: inputJson.authors!.map((person: AuthorInterface) => {
                 const authorJson = <AuthorInterface>{}
 
                 // Use asin for author if available
@@ -84,136 +151,38 @@ class ApiHelper {
                 }
                 authorJson.name = person.name
                 return authorJson
-            })
-        } else {
-            missingKeyMsg(key)
-        }
-
-        // Description
-        // Clean description of html tags
-        key = 'merchandising_summary'
-        if (key in inputJson) {
-            finalJson.description = htmlToText(inputJson['merchandising_summary'], {
+            }),
+            description: htmlToText(inputJson['merchandising_summary'], {
                 wordwrap: false
-            }).trim()
-        } else {
-            missingKeyMsg(key)
+            }).trim(),
+            formatType: inputJson.format_type,
+            image: getHighResImage(),
+            language: inputJson.language,
+            ...(inputJson.narrators && {
+                narrators: inputJson.narrators?.map((person: NarratorInterface) => {
+                    const narratorJson = <NarratorInterface>{}
+                    narratorJson.name = person.name
+                    return narratorJson
+                })
+            }),
+            publisherName: inputJson.publisher_name,
+            ...(inputJson.rating && {
+                rating: inputJson.rating.overall_distribution.display_average_rating.toString()
+            }),
+            releaseDate: getReleaseDate(),
+            runtimeLengthMin: inputJson.runtime_length_min,
+            ...(inputJson.series && {
+                seriesPrimary: series1,
+                ...(series2 && {
+                    seriesSecondary: series2
+                })
+            }),
+            ...(inputJson.subtitle && {
+                subtitle: inputJson.subtitle
+            }),
+            summary: inputJson.publisher_summary,
+            title: inputJson.title
         }
-
-        // FormatType
-        key = 'format_type'
-        newKey = 'formatType'
-        optionalKeyHandling(key, newKey)
-
-        // Image
-        // Try first for higher res art
-        key = 'product_images'
-        if (key in inputJson) {
-            if (1024 in inputJson['product_images']) {
-                finalJson.image = inputJson['product_images'][1024].replace('_SL1024_.', '')
-            } else if (500 in inputJson['product_images']) {
-                finalJson.image = inputJson['product_images'][500].replace('_SL500_.', '')
-            }
-        }
-
-        // Language
-        key = 'language'
-        newKey = key
-        standardKeyHandling(key, newKey)
-
-        // Narrators
-        key = 'narrators'
-        if (key in inputJson) {
-            // Loop through each person
-            finalJson[key] = inputJson['narrators']?.map((person: NarratorInterface) => {
-                const narratorJson = <NarratorInterface>{}
-                narratorJson.name = person.name
-                return narratorJson
-            })
-        }
-
-        // PublisherName
-        key = 'publisher_name'
-        newKey = 'publisherName'
-        standardKeyHandling(key, newKey)
-
-        // Rating
-        // TODO if/when papr supports decimal, add it here
-        // https://github.com/plexinc/papr/issues/94
-        key = 'rating'
-        if (key in inputJson) {
-            finalJson[key] =
-                inputJson['rating'].overall_distribution.display_average_rating.toString()
-        }
-
-        // ReleaseDate
-        // Make it into a date object
-        key = 'release_date'
-        if (key in inputJson) {
-            // Some releases use issue_date, try that if this fails
-            if (!inputJson['release_date'] && inputJson.issue_date) {
-                key = 'issue_date'
-            }
-            const releaseDate = new Date(inputJson['release_date'])
-            // Check that release date isn't in the future
-            const now = new Date()
-            if (releaseDate > now) {
-                throw new Error('Release date is in the future')
-            }
-            finalJson.releaseDate = releaseDate
-        } else {
-            missingKeyMsg(key)
-        }
-
-        // RuntimeLengthMin
-        key = 'runtime_length_min'
-        newKey = 'runtimeLengthMin'
-        optionalKeyHandling(key, newKey)
-
-        // Series
-        key = 'series'
-        if (key in inputJson) {
-            inputJson['series'].forEach((series: AudibleSeries) => {
-                const seriesJson = <SeriesInterface>{}
-                if ('asin' in series) {
-                    seriesJson.asin = series.asin
-                }
-                if ('title' in series) {
-                    seriesJson.name = series.title
-                } else {
-                    console.log(`Series name not available on: ${inputJson.asin}`)
-                    return undefined
-                }
-                if ('sequence' in series) {
-                    seriesJson.position = series.sequence
-                }
-                // Check and set primary series
-                if (series.title === inputJson.publication_name!) {
-                    finalJson.seriesPrimary = seriesJson
-                } else if (
-                    inputJson.series.length > 1 &&
-                    series.title !== inputJson.publication_name
-                ) {
-                    finalJson.seriesSecondary = seriesJson
-                }
-            })
-        }
-
-        // Subtitle
-        key = 'subtitle'
-        newKey = key
-        optionalKeyHandling(key, newKey)
-
-        // Summary
-        // Rename to summary
-        key = 'publisher_summary'
-        newKey = 'summary'
-        standardKeyHandling(key, newKey)
-
-        // Title
-        key = 'title'
-        newKey = key
-        standardKeyHandling(key, newKey)
 
         return finalJson
     }
