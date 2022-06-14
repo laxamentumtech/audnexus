@@ -416,7 +416,7 @@ describe('When fetching a book with no image from Audible API', () => {
 
     it('returned no image when parsing', async () => {
         apiBad.parseResponse(response).then((result) => {
-            expect(result.image).toBeUndefined()
+            expect(result.image).toBeFalsy()
         })
     })
 })

@@ -1,5 +1,6 @@
 import ScrapeHelper from '#helpers/books/audible/scrape'
 import { HtmlBookInterface } from '#interfaces/books'
+import { CheerioAPI } from 'cheerio'
 
 let asinBad: string
 let htmlBad: ScrapeHelper
@@ -174,11 +175,11 @@ describe('When fetching The Coldest Case from Audible HTML', () => {
 
 // Run through known book data to test responses
 describe('When scraping The Martian from Audible', () => {
-    let response: any
+    let response: CheerioAPI | undefined
     beforeAll((done) => {
         asinBad = 'B00B5HZGUG'
         htmlBad = new ScrapeHelper(asinBad)
-        htmlBad.fetchBook().then((result) => {
+        htmlBad.fetchBook().then((result: CheerioAPI | undefined) => {
             response = result
             done()
         })
@@ -190,12 +191,12 @@ describe('When scraping The Martian from Audible', () => {
 })
 
 describe("When fetching a broken ASIN's HTML from Audible", () => {
-    let response: HtmlBookInterface
+    let response: HtmlBookInterface | undefined
     beforeAll((done) => {
         asinBad = 'B0036I54I6'
         htmlBad = new ScrapeHelper(asinBad)
-        htmlBad.fetchBook().then((result) => {
-            htmlBad.parseResponse(result).then((result) => {
+        htmlBad.fetchBook().then((result: CheerioAPI | undefined) => {
+            htmlBad.parseResponse(result).then((result: HtmlBookInterface | undefined) => {
                 response = result!
                 done()
             })

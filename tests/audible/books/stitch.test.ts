@@ -354,7 +354,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
         expect(response.seriesPrimary!.position).toBe('0.5')
     })
 
-    it('returned a secondary series asin', () => {
+    it('returned no secondary series', () => {
         expect(response.seriesSecondary!).toBeUndefined()
     })
 })
