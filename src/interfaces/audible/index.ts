@@ -55,7 +55,7 @@ export interface AudibleInterface {
         language: string
         merchandising_summary: string
         narrators?: NarratorInterface[]
-        product_images: {[key: string]: string}
+        product_images: { [key: string]: string }
         publication_name?: string
         publisher_name: string
         publisher_summary: string
@@ -63,7 +63,7 @@ export interface AudibleInterface {
         release_date: string
         runtime_length_min: number
         series: AudibleSeries[]
-        social_media_images: {[key: string]: string}
+        social_media_images: { [key: string]: string }
         subtitle?: string
         thesaurus_subject_keywords: [string]
         title: string
