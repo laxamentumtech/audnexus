@@ -1,7 +1,5 @@
-import ApiHelper from '#helpers/books/audible/api'
-import ScrapeHelper from '#helpers/books/audible/scrape'
 import StitchHelper from '#helpers/books/audible/stitch'
-import { BookInterface } from '#interfaces/books'
+import { ApiSingleChapterInterface, BookInterface } from '#interfaces/books'
 import ChapterHelper from '#helpers/books/audible/chapter'
 
 // Run through known book data to test responses
@@ -9,34 +7,19 @@ const asinSorcerersStone: string = 'B017V4IM1G'
 
 describe('When stitching together Scorcerers Stone from Audible', () => {
     let response: BookInterface
+    let chapters: ApiSingleChapterInterface[] | undefined
     beforeAll(async () => {
-        const api = new ApiHelper(asinSorcerersStone)
-        const chap = new ChapterHelper(asinSorcerersStone)
-        const scraper = new ScrapeHelper(asinSorcerersStone)
-
-        // Run fetch tasks in parallel/resolve promises
-        const [apiRes, scraperRes, chapRes] = await Promise.all([
-            api.fetchBook(),
-            scraper.fetchBook(),
-            chap.fetchBook()
-        ])
-
-        // Run parse tasks in parallel/resolve promises
-        const [parseApi, parseScraper, parseChap] = await Promise.all([
-            api.parseResponse(apiRes),
-            scraper.parseResponse(scraperRes),
-            chap.parseResponse(chapRes)
-        ])
-
-        const stitch = new StitchHelper(parseApi)
-        if (parseScraper !== undefined) {
-            stitch.htmlRes = parseScraper
-        }
-        if (parseChap !== undefined) {
-            stitch.tempJson.chapterInfo = parseChap
-        }
-
-        response = await Promise.resolve(stitch.process())
+        // Setup helpers
+        const chapterHelper = new ChapterHelper(asinSorcerersStone)
+        const stitchHelper = new StitchHelper(asinSorcerersStone)
+        // Run helpers
+        const chaptersResponse = await chapterHelper.fetchBook()
+        const chaptersParsed = chapterHelper.parseResponse(chaptersResponse)
+        const newBook = await stitchHelper.process()
+        // Set variables
+        const chapterInfo = await chaptersParsed
+        chapters = chapterInfo?.chapters
+        response = newBook
     })
 
     it('returned asin', () => {
@@ -189,6 +172,10 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
     it('returned a secondary series position', () => {
         expect(response.seriesSecondary!.position).toBe('1')
     })
+
+    it('returned 20 chapters', () => {
+        expect(chapters?.length).toBe(20)
+    })
 })
 
 // Run through known book data to test responses
@@ -196,34 +183,19 @@ const asinColdestCase: string = 'B08C6YJ1LS'
 
 describe('When stitching together The Coldest Case from Audible', () => {
     let response: BookInterface
+    let chapters: ApiSingleChapterInterface[] | undefined
     beforeAll(async () => {
-        const api = new ApiHelper(asinColdestCase)
-        const chap = new ChapterHelper(asinColdestCase)
-        const scraper = new ScrapeHelper(asinColdestCase)
-
-        // Run fetch tasks in parallel/resolve promises
-        const [apiRes, scraperRes, chapRes] = await Promise.all([
-            api.fetchBook(),
-            scraper.fetchBook(),
-            chap.fetchBook()
-        ])
-
-        // Run parse tasks in parallel/resolve promises
-        const [parseApi, parseScraper, parseChap] = await Promise.all([
-            api.parseResponse(apiRes),
-            scraper.parseResponse(scraperRes),
-            chap.parseResponse(chapRes)
-        ])
-
-        const stitch = new StitchHelper(parseApi)
-        if (parseScraper !== undefined) {
-            stitch.htmlRes = parseScraper
-        }
-        if (parseChap !== undefined) {
-            stitch.tempJson.chapterInfo = parseChap
-        }
-
-        response = await Promise.resolve(stitch.process())
+        // Setup helpers
+        const chapterHelper = new ChapterHelper(asinColdestCase)
+        const stitchHelper = new StitchHelper(asinColdestCase)
+        // Run helpers
+        const chaptersResponse = await chapterHelper.fetchBook()
+        const chaptersParsed = chapterHelper.parseResponse(chaptersResponse)
+        const newBook = await stitchHelper.process()
+        // Set variables
+        const chapterInfo = await chaptersParsed
+        chapters = chapterInfo?.chapters
+        response = newBook
     })
 
     it('returned asin', () => {
@@ -357,40 +329,29 @@ describe('When stitching together The Coldest Case from Audible', () => {
     it('returned no secondary series', () => {
         expect(response.seriesSecondary!).toBeUndefined()
     })
+
+    it('returned 11 chapters', () => {
+        expect(chapters?.length).toBe(11)
+    })
 })
 
 const asinBad: string = 'B0036I54I6'
 
 describe('When fetching an ASIN that has no chapters or HTML from Audible', () => {
     let response: BookInterface
+    let chapters: ApiSingleChapterInterface[] | undefined
     beforeAll(async () => {
-        const api = new ApiHelper(asinBad)
-        const chap = new ChapterHelper(asinBad)
-        const scraper = new ScrapeHelper(asinBad)
-
-        // Run fetch tasks in parallel/resolve promises
-        const [apiRes, scraperRes, chapRes] = await Promise.all([
-            api.fetchBook(),
-            scraper.fetchBook(),
-            chap.fetchBook()
-        ])
-
-        // Run parse tasks in parallel/resolve promises
-        const [parseApi, parseScraper, parseChap] = await Promise.all([
-            api.parseResponse(apiRes),
-            scraper.parseResponse(scraperRes),
-            chap.parseResponse(chapRes)
-        ])
-
-        const stitch = new StitchHelper(parseApi)
-        if (parseScraper !== undefined) {
-            stitch.htmlRes = parseScraper
-        }
-        if (parseChap !== undefined) {
-            stitch.tempJson.chapterInfo = parseChap
-        }
-
-        response = await Promise.resolve(stitch.process())
+        // Setup helpers
+        const chapterHelper = new ChapterHelper(asinBad)
+        const stitchHelper = new StitchHelper(asinBad)
+        // Run helpers
+        const chaptersResponse = await chapterHelper.fetchBook()
+        const chaptersParsed = chapterHelper.parseResponse(chaptersResponse)
+        const newBook = await stitchHelper.process()
+        // Set variables
+        const chapterInfo = await chaptersParsed
+        chapters = chapterInfo?.chapters
+        response = newBook
     })
 
     it('returned asin', () => {
@@ -482,6 +443,6 @@ describe('When fetching an ASIN that has no chapters or HTML from Audible', () =
     })
 
     it('returned no chapters', () => {
-        expect(response.chapterInfo).toBeUndefined()
+        expect(chapters).toBeUndefined()
     })
 })

@@ -1,5 +1,3 @@
-import ApiHelper from '#helpers/books/audible/api'
-import ScrapeHelper from '#helpers/books/audible/scrape'
 import StitchHelper from '#helpers/books/audible/stitch'
 import SharedHelper from '#helpers/shared'
 import type { BookDocument } from '#models/Book'
@@ -83,32 +81,13 @@ async function routes(fastify: FastifyInstance) {
             }
             return findInDb
         } else {
-            // Set up helpers
-            const api = new ApiHelper(request.params.asin)
-            const scraper = new ScrapeHelper(request.params.asin)
+            const stitchHelper = new StitchHelper(request.params.asin)
+            const newBook = await stitchHelper.process()
 
-            // Run fetch tasks in parallel/resolve promises
-            const [apiRes, scraperRes] = await Promise.all([api.fetchBook(), scraper.fetchBook()])
-
-            // Run parse tasks in parallel/resolve promises
-            const [parseApi, parseScraper] = await Promise.all([
-                api.parseResponse(apiRes),
-                scraper.parseResponse(scraperRes)
-            ])
-
-            const stitch = new StitchHelper(parseApi)
-            if (parseScraper !== undefined) {
-                stitch.htmlRes = parseScraper
-            }
-
-            // Run stitcher and wait for promise to resolve
-            const stitchedData = await Promise.resolve(stitch.process())
-
+            // paprCreateBook(newBook)
             let newDbItem: BookDocument | null
             const updateBook = async () => {
-                Promise.resolve(
-                    Book.updateOne({ asin: request.params.asin }, { $set: stitchedData })
-                )
+                Promise.resolve(Book.updateOne({ asin: request.params.asin }, { $set: newBook }))
 
                 newDbItem = await Promise.resolve(
                     Book.findOne({ asin: request.params.asin }, dbProjection)
@@ -120,19 +99,19 @@ async function routes(fastify: FastifyInstance) {
             // Update entry or create one
             if (queryUpdateBook === '0' && findInDb) {
                 // If the objects are the exact same return right away
-                if (lodash.isEqual(findInDb, stitchedData)) {
+                if (lodash.isEqual(findInDb, newBook)) {
                     return findInDb
                 }
                 // Check state of existing book
                 // Only update if either genres exist and can be checked
                 // -or if genres exist on new item but not old
-                if (findInDb.genres || (!findInDb.genres && stitchedData.genres)) {
+                if (findInDb.genres || (!findInDb.genres && newBook.genres)) {
                     // Only update if it's not nuked data
-                    if (stitchedData.genres && stitchedData.genres.length) {
+                    if (newBook.genres && newBook.genres.length) {
                         console.log(`Updating asin ${request.params.asin}`)
                         await updateBook()
                     }
-                } else if (stitchedData.genres && stitchedData.genres.length) {
+                } else if (newBook.genres && newBook.genres.length) {
                     // If no genres exist on book, but do on incoming, update
                     console.log(`Updating asin ${request.params.asin}`)
                     await updateBook()
@@ -141,7 +120,7 @@ async function routes(fastify: FastifyInstance) {
                 return findInDb
             } else {
                 // Insert stitched data into DB
-                newDbItem = await Promise.resolve(Book.insertOne(stitchedData))
+                newDbItem = await Promise.resolve(Book.insertOne(newBook))
                 if (redis && newDbItem) {
                     setRedis(request.params.asin, newDbItem)
                 }
