@@ -120,41 +120,25 @@ class ChapterHelper {
         if (!jsonRes || !jsonRes.content_metadata.chapter_info) {
             return undefined
         }
-
         const inputJson = jsonRes.content_metadata.chapter_info
-        const finalJson: any = {}
 
-        let key: string
-        let newKey: string
         const missingKeyMsg = (key: string) => {
             throw new Error(`Required key: ${key}, does not exist on: ${finalJson.asin}`)
         }
-        const standardKeyHandling = (oldKey: string, newKey: string) => {
-            if (oldKey in inputJson) {
-                finalJson[newKey] = inputJson[oldKey as keyof typeof inputJson]
-            } else {
-                missingKeyMsg(key)
-            }
-        }
 
-        // Set asin
-        finalJson.asin = this.asin
+        // Check all required keys present
+        if (!inputJson.brandIntroDurationMs) missingKeyMsg('brandIntroDurationMs')
+        if (!inputJson.brandOutroDurationMs) missingKeyMsg('brandOutroDurationMs')
+        if (!inputJson.chapters) missingKeyMsg('chapters')
+        if (!inputJson.is_accurate) missingKeyMsg('is_accurate')
+        if (!inputJson.runtime_length_ms) missingKeyMsg('runtime_length_ms')
+        if (!inputJson.runtime_length_sec) missingKeyMsg('runtime_length_sec')
 
-        // Audible intro duration
-        key = 'brandIntroDurationMs'
-        newKey = key
-        standardKeyHandling(key, newKey)
-
-        // Audible outro duration
-        key = 'brandOutroDurationMs'
-        newKey = key
-        standardKeyHandling(key, newKey)
-
-        // Chapters
-        key = 'chapters'
-        if (key in inputJson) {
-            // Loop through each chapter and set keys/fix title
-            finalJson[key] = inputJson['chapters'].map((chapter: SingleChapter) => {
+        const finalJson: ApiChapterInterface = {
+            asin: this.asin,
+            brandIntroDurationMs: inputJson.brandIntroDurationMs,
+            brandOutroDurationMs: inputJson.brandOutroDurationMs,
+            chapters: inputJson.chapters.map((chapter: SingleChapter) => {
                 const chapJson = <ApiSingleChapterInterface>{}
 
                 chapJson.lengthMs = chapter.length_ms
@@ -162,25 +146,11 @@ class ChapterHelper {
                 chapJson.startOffsetSec = chapter.start_offset_sec
                 chapJson.title = this.chapterTitleCleanup(chapter.title)
                 return chapJson
-            })
-        } else {
-            missingKeyMsg(key)
+            }),
+            isAccurate: inputJson.is_accurate,
+            runtimeLengthMs: inputJson.runtime_length_ms,
+            runtimeLengthSec: inputJson.runtime_length_sec
         }
-
-        // Are chapter times accurate
-        key = 'is_accurate'
-        newKey = 'isAccurate'
-        standardKeyHandling(key, newKey)
-
-        // Runtime in milliseconds
-        key = 'runtime_length_ms'
-        newKey = 'runtimeLengthMs'
-        standardKeyHandling(key, newKey)
-
-        // Runtime in seconds
-        key = 'runtime_length_sec'
-        newKey = 'runtimeLengthSec'
-        standardKeyHandling(key, newKey)
 
         return finalJson
     }
