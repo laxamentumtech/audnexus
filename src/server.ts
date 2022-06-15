@@ -1,3 +1,4 @@
+import 'module-alias/register'
 // Book routes
 import showBook from '#routes/books/show'
 import deleteBook from '#routes/books/delete'

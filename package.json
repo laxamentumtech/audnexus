@@ -36,6 +36,7 @@
         "isomorphic-fetch": "3.0.0",
         "jsrsasign": "10.5.24",
         "lodash": "4.17.21",
+        "module-alias": "^2.2.2",
         "moment": "2.29.3",
         "mongodb": "4.6.0",
         "nodemon": "2.0.16",
@@ -60,5 +61,14 @@
         "jest": "27.5.1",
         "standard-version": "9.5.0",
         "ts-jest": "27.1.5"
+    },
+    "_moduleAliases": {
+        "#config": "dist/config",
+        "#helpers": "dist/helpers",
+        "#interfaces": "dist/interfaces",
+        "#models": "dist/config/models",
+        "#papr": "dist/config/papr",
+        "#routes": "dist/config/routes",
+        "#typing": "dist/config/typing"
     }
 }
