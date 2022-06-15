@@ -22,9 +22,9 @@ RUN \
 FROM base as prod
 
 # copy built SvelteKit app to /app
-COPY --from=build /app/dist ./
+COPY --from=build /app ./
 COPY --from=build /app/node_modules /app/node_modules
 COPY . .
 
 EXPOSE 3000
-CMD ["node", "./server.js"]
+CMD ["node", "./dist/server.js"]
