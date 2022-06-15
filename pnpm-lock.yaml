@@ -30,7 +30,7 @@ specifiers:
   moment: 2.29.3
   mongodb: 4.7.0
   nodemon: 2.0.16
-  papr: 5.0.0
+  papr: 6.0.0
   standard-version: 9.5.0
   ts-jest: 27.1.5
   typescript: 4.7.3
@@ -50,7 +50,7 @@ dependencies:
   moment: 2.29.3
   mongodb: 4.7.0
   nodemon: 2.0.16
-  papr: 5.0.0_mongodb@4.7.0
+  papr: 6.0.0_mongodb@4.7.0
   typescript: 4.7.3
 
 devDependencies:
@@ -4498,8 +4498,8 @@ packages:
       semver: 6.3.0
     dev: false
 
-  /papr/5.0.0_mongodb@4.7.0:
-    resolution: {integrity: sha512-esAcqfaIDMAfESQA/wQ3ypiJFJxRSuCOArrQPqF7fIlnyRMpgVcei0SaerJYUQyH4P+KM78QBIHYz5auWS1U3w==}
+  /papr/6.0.0_mongodb@4.7.0:
+    resolution: {integrity: sha512-q8THWekvIqbWyGm5CtoIM8+OlmnXopvPW8ve4QEVeWj59GD2+KrTmE1s8gZQdDNNQnuQpza0+PPDkM4WjgehXg==}
     engines: {node: ^14.0.0 || >=15.0.0}
     peerDependencies:
       mongodb: '>=4.4.0'
