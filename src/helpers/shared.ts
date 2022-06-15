@@ -1,3 +1,5 @@
+import lodash from 'lodash'
+
 class SharedHelper {
     /**
      * Creates URL to use in fetchBook
@@ -28,6 +30,12 @@ class SharedHelper {
             return true
         }
         return false
+    }
+
+    checkDataEquality(original: any, updated: any) {
+        if (lodash.isEqual(original, updated)) {
+            return original
+        }
     }
 }
 
