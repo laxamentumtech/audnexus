@@ -8,7 +8,7 @@
     "labels": ["dependencies"],
     "packageRules": [
         {
-            "matchUpdateTypes": ["patch", "pin"],
+            "matchUpdateTypes": ["digest", "patch", "pin"],
             "automerge": true
         }
     ],
@@ -16,7 +16,6 @@
     "prConcurrentLimit": 3,
     "prHourlyLimit": 1,
     "rebaseWhen": "auto",
-    "reviewers": ["djdembeck"],
     "stabilityDays": 3,
     "timezone": "Etc/UTC",
     "vulnerabilityAlerts": {
