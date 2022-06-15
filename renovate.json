@@ -12,11 +12,8 @@
             "automerge": true
         }
     ],
-    "prCreation": "not-pending",
-    "prConcurrentLimit": 3,
-    "prHourlyLimit": 1,
     "rebaseWhen": "auto",
-    "stabilityDays": 3,
+    "stabilityDays": 5,
     "timezone": "Etc/UTC",
     "vulnerabilityAlerts": {
         "labels": ["security"]
