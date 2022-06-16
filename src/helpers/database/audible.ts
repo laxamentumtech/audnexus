@@ -6,9 +6,9 @@ class PaprAudibleHelper {
     asin: string
     dbProjection: {}
     bookData!: BookInterface
-    options: { seed: string | undefined; update: string | undefined }
+    options: { seed?: string; update?: string }
 
-    constructor(asin: string, options: { seed: string | undefined; update: string | undefined }) {
+    constructor(asin: string, options: { seed?: string; update?: string }) {
         this.asin = asin
         this.options = options
         this.dbProjection = {
