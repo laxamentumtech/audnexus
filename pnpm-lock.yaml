@@ -1,8 +1,8 @@
 lockfileVersion: 5.4
 
 specifiers:
-  '@fastify/cors': ^8.0.0
-  '@fastify/redis': ^6.0.0
+  '@fastify/cors': 8.0.0
+  '@fastify/redis': 6.0.0
   '@types/html-to-text': 8.1.0
   '@types/isomorphic-fetch': 0.0.36
   '@types/jest': 28.1.1
@@ -17,7 +17,7 @@ specifiers:
   eslint-config-standard: 17.0.0
   eslint-plugin-import: 2.26.0
   eslint-plugin-jest: 26.5.3
-  eslint-plugin-n: ^15.2.2
+  eslint-plugin-n: 15.2.3
   eslint-plugin-node: 11.1.0
   eslint-plugin-promise: 6.0.0
   fastify: 4.0.3
@@ -26,7 +26,7 @@ specifiers:
   jest: 28.1.1
   jsrsasign: 10.5.24
   lodash: 4.17.21
-  module-alias: ^2.2.2
+  module-alias: 2.2.2
   moment: 2.29.3
   mongodb: 4.7.0
   nodemon: 2.0.16
@@ -40,7 +40,7 @@ dependencies:
   '@fastify/redis': 6.0.0
   cheerio: 1.0.0-rc.11
   concurrently: 7.2.1
-  eslint-plugin-n: 15.2.2_eslint@8.17.0
+  eslint-plugin-n: 15.2.3_eslint@8.17.0
   fastify: 4.0.3
   html-to-text: 8.2.0
   isomorphic-fetch: 3.0.0
@@ -63,7 +63,7 @@ devDependencies:
   '@typescript-eslint/eslint-plugin': 5.28.0_7yumg2qjgbp7maccqlfhx2vudu
   '@typescript-eslint/parser': 5.28.0_ud6rd4xtew5bv4yhvkvu24pzm4
   eslint: 8.17.0
-  eslint-config-standard: 17.0.0_2vzjc6wa644febnedshovlwyla
+  eslint-config-standard: 17.0.0_6pyynqgudywpgf6ecxqave4k3q
   eslint-plugin-import: 2.26.0_wyrfqmvemfacbroyi3ypviy7f4
   eslint-plugin-jest: 26.5.3_oz4ycpzrmxmlq5y7rhoguz2kgu
   eslint-plugin-node: 11.1.0_eslint@8.17.0
@@ -1636,7 +1636,7 @@ packages:
     dev: true
 
   /concat-map/0.0.1:
-    resolution: {integrity: sha1-2Klr13/Wjfd5OnMDajug1UBdR3s=}
+    resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
 
   /concat-stream/2.0.0:
     resolution: {integrity: sha512-MWufYdFw53ccGjCA+Ol7XJYpAlW6/prSMzuPOTRnJGcGzuhLn4Scrz7qf6o8bROZ514ltazcIFJZevcfbo0x7A==}
@@ -2211,7 +2211,7 @@ packages:
     resolution: {integrity: sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==}
     engines: {node: '>=10'}
 
-  /eslint-config-standard/17.0.0_2vzjc6wa644febnedshovlwyla:
+  /eslint-config-standard/17.0.0_6pyynqgudywpgf6ecxqave4k3q:
     resolution: {integrity: sha512-/2ks1GKyqSOkH7JFvXJicu0iMpoojkwB+f5Du/1SC0PtBL+s8v30k9njRZ21pm2drKYm2342jFnGWzttxPmZVg==}
     peerDependencies:
       eslint: ^8.0.1
@@ -2221,7 +2221,7 @@ packages:
     dependencies:
       eslint: 8.17.0
       eslint-plugin-import: 2.26.0_wyrfqmvemfacbroyi3ypviy7f4
-      eslint-plugin-n: 15.2.2_eslint@8.17.0
+      eslint-plugin-n: 15.2.3_eslint@8.17.0
       eslint-plugin-promise: 6.0.0_eslint@8.17.0
     dev: true
 
@@ -2334,8 +2334,8 @@ packages:
       - typescript
     dev: true
 
-  /eslint-plugin-n/15.2.2_eslint@8.17.0:
-    resolution: {integrity: sha512-MLjZVAv4TiCIoXqjibNqCJjLkGHfrOY3XZ0ZBLoW0OnS3o98PUBnzB/kfp8dCz/4A4Y18jjX50PRnqI4ACFY1Q==}
+  /eslint-plugin-n/15.2.3_eslint@8.17.0:
+    resolution: {integrity: sha512-H+KC7U5R+3IWTeRnACm/4wlqLvS1Q7M6t7BGhn89qXDkZan8HTAEv3ouIONA0ifDwc2YzPFmyPzHuNLddNK4jw==}
     engines: {node: '>=12.22.0'}
     peerDependencies:
       eslint: '>=7.0.0'
@@ -3115,6 +3115,7 @@ packages:
     resolution: {integrity: sha512-SdNCUs284hr40hFTFP6l0IfZ/RSrMXF3qgoRHd3/79unUTvrFO/JoXwkGm+5J/Oe3E/b5GsnG330uUNgRpu1PA==}
     dependencies:
       has: 1.0.3
+    dev: true
 
   /is-core-module/2.9.0:
     resolution: {integrity: sha512-+5FPy5PnwmO3lvfMb0AsoPaBG+5KHUI0wYFXOtYPnVVVspTFUuMZNfNaNVRt3FZadstu2c8x23vykRW/NBoU6A==}
@@ -4715,7 +4716,7 @@ packages:
     resolution: {integrity: sha512-Hhtrw0nLeSrFQ7phPp4OOcVjLPIeMnRlr5mcnVuMe7M/7eBn98A3hmFRLoFo3DLZkivSYwhRUJTyPyWAk56WLw==}
     hasBin: true
     dependencies:
-      is-core-module: 2.8.1
+      is-core-module: 2.9.0
       path-parse: 1.0.7
       supports-preserve-symlinks-flag: 1.0.0
 
@@ -5411,7 +5412,7 @@ packages:
     dev: true
 
   /vary/1.1.2:
-    resolution: {integrity: sha1-IpnwLG3tMNSllhsLn3RSShj2NPw=}
+    resolution: {integrity: sha512-BNGbWLfd0eUPabhkXUVm0j8uuvREyTh5ovRa/dyow/BqAbZJyC+5fU+IzQOzmAKzYqYRAISoRhdQr3eIZ/PXqg==}
     engines: {node: '>= 0.8'}
     dev: false
 
