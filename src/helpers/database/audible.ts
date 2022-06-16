@@ -48,6 +48,18 @@ class PaprAudibleHelper {
         }
     }
 
+    async delete() {
+        try {
+            const deletedBook = await Book.deleteOne({asin: this.asin})
+            return {
+                data: deletedBook,
+                modified: true
+            }
+        } catch (err) {
+            throw new Error(err as string)
+        }
+    }
+
     async find() {}
 
     async findOne() {
