@@ -57,9 +57,7 @@ async function routes(fastify: FastifyInstance) {
 
             // Throw error on null return data
             if (!bookToReturn.data) {
-                // TODO write error message
-                reply.code(500)
-                throw new Error('')
+                throw new Error(`No data returned from database for book ${request.params.asin}`)
             }
 
             // Update Redis if the item is modified

@@ -44,8 +44,7 @@ class PaprAudibleHelper {
                 modified: true
             }
         } catch (err) {
-            // TODO write errors
-            throw new Error(``)
+            throw new Error(err as string)
         }
     }
 
@@ -80,21 +79,36 @@ class PaprAudibleHelper {
                 if (this.bookData.genres && this.bookData.genres.length) {
                     console.log(`Updating asin ${this.asin}`)
                     // Update
-                    return this.update()
+                    try {
+                        const updatedBook = await this.update()
+                        return updatedBook
+                    } catch (err) {
+                        throw new Error(err as string)
+                    }
                 }
             } else if (this.bookData.genres && this.bookData.genres.length) {
                 // If no genres exist on book, but do on incoming, update
                 console.log(`Updating asin ${this.asin}`)
                 // Update
-                return this.update()
+                try {
+                    const updatedBook = await this.update()
+                    return updatedBook
+                } catch (err) {
+                    throw new Error(err as string)
+                }
             }
             // No update performed, return original
             return findInDb
         }
 
         // Create
-        const createdBook = await this.create()
-        return createdBook
+        try {
+            const createdBook = await this.create()
+            return createdBook
+        } catch (err) {
+            console.error(err)
+            throw new Error(`An error occurred while creating ${this.asin} in the DB`)
+        }
     }
 
     async update() {
@@ -104,8 +118,8 @@ class PaprAudibleHelper {
             const bookToReturn = await this.findOne()
             return bookToReturn
         } catch (err) {
-            // TODO write errors
-            throw new Error()
+            console.error(err)
+            throw new Error(`An error occurred while updating ${this.asin} in the DB`)
         }
     }
 }
