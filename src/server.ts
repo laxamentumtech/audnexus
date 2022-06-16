@@ -15,7 +15,7 @@ import { fastify } from 'fastify'
 
 // Heroku or local port
 const host = '0.0.0.0'
-const port = process.env.PORT || 3000
+const port = Number(process.env.PORT) || 3000
 const server = fastify({
     logger: {
         level: 'warn'
@@ -41,7 +41,7 @@ server.register(cors, {
     origin: true
 })
 
-server.listen(port, host, async (err, address) => {
+server.listen({ port: port, host: host }, async (err, address) => {
     if (err) {
         console.error(err)
         process.exit(1)
