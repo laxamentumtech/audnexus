@@ -1,6 +1,7 @@
 import Author from '#config/models/Author'
+import Chapter from '#config/models/Chapter'
 import SharedHelper from '#helpers/shared'
-import { BookInterface } from '#interfaces/books'
+import { ApiChapterInterface, BookInterface } from '#interfaces/books'
 import { AuthorInterface } from '#interfaces/people'
 import Book from '#models/Book'
 
@@ -256,6 +257,110 @@ export class PaprAudibleBookHelper {
             console.error(err)
             throw new Error(`An error occurred while updating book ${this.asin} in the DB`)
         }
+    }
+}
+
+export class PaprAudibleChapterHelper {
+    asin: string
+    dbProjection: {}
+    chapterData!: ApiChapterInterface
+    options: { update?: string }
+
+    constructor(asin: string, options: { update?: string }) {
+        this.asin = asin
+        this.options = options
+        this.dbProjection = {
+            projection: {
+                _id: 0,
+                asin: 1,
+                description: 1,
+                genres: 1,
+                image: 1,
+                name: 1
+            }
+        }
+    }
+
+    async create() {
+        try {
+            const chapterToReturn = await Chapter.insertOne(this.chapterData)
+            return {
+                data: chapterToReturn,
+                modified: true
+            }
+        } catch (err) {
+            throw new Error(err as string)
+        }
+    }
+
+    async delete() {
+        try {
+            const deletedChapter = await Chapter.deleteOne({ asin: this.asin })
+            return {
+                data: deletedChapter,
+                modified: true
+            }
+        } catch (err) {
+            throw new Error(err as string)
+        }
+    }
+
+    async find() {}
+
+    async findOne() {
+        const findOneChapter = await Chapter.findOne(
+            {
+                asin: this.asin
+            },
+            this.dbProjection
+        )
+        return {
+            data: findOneChapter,
+            modified: false
+        }
+    }
+
+    async createOrUpdate() {
+        const commonHelpers = new SharedHelper()
+        const findInDb = await this.findOne()
+
+        // Update
+        if (this.options.update === '0' && findInDb.data) {
+            // If the objects are the exact same return right away
+            commonHelpers.checkDataEquality(findInDb.data, this.chapterData)
+            if (this.chapterData.chapters && this.chapterData.chapters.length) {
+                console.log(`Updating chapters for asin ${this.asin}`)
+                // Update
+                try {
+                    const updatedChapter = await this.update()
+                    return updatedChapter
+                } catch (err) {
+                    throw new Error(err as string)
+                }
+            }
+            // No update performed, return original
+            return findInDb
+        }
+
+        // Create
+        try {
+            const createdChapter = await this.create()
+            return createdChapter
+        } catch (err) {
+            console.error(err)
+            throw new Error(`An error occurred while creating chapter ${this.asin} in the DB`)
+        }
+    }
+
+    async update() {
+        try {
+            await Chapter.updateOne({ asin: this.asin }, { $set: this.chapterData })
+            // After updating, return with specific projection
+            const chapterToReturn = await this.findOne()
+            return chapterToReturn
+        } catch (err) {
+            console.error(err)
+            throw new Error(`An error occurred while updating chapter ${this.asin} in the DB`)
         }
     }
 }

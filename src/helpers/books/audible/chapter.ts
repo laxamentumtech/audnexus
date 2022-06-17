@@ -89,7 +89,7 @@ class ChapterHelper {
      * Fetches chapter Audible API JSON
      * @returns {Promise<ChapterInterface>} data from parseResponse() function.
      */
-    async fetchBook(): Promise<ChapterInterface | undefined> {
+    async fetchChapter(): Promise<ChapterInterface | undefined> {
         const response = await fetch(this.reqUrl, {
             headers: {
                 'x-adp-token': this.adpToken,
@@ -157,6 +157,18 @@ class ChapterHelper {
         }
 
         return finalJson
+    }
+
+    /**
+     * Call functions in the class to parse final book JSON
+     * @returns {Promise<ApiChapterInterface>}
+     */
+    async process(): Promise<ApiChapterInterface | undefined> {
+        // Wait in order
+        const chapterResponse = await this.fetchChapter()
+        const chapterParsed = await this.parseResponse(chapterResponse)
+
+        return chapterParsed
     }
 }
 

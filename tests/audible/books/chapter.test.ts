@@ -9,7 +9,7 @@ const chapProjectHailMary = new ChapterHelper(asinProjectHailMary)
 describe('When fetching Project Hail Mary chapters from Audible API', () => {
     let response: ChapterInterface
     beforeAll((done) => {
-        chapProjectHailMary.fetchBook().then((result) => {
+        chapProjectHailMary.fetchChapter().then((result) => {
             response = result!
             done()
         })
@@ -79,7 +79,7 @@ const chapTheSeep = new ChapterHelper(asinTheSeep)
 describe('When parsing The Seep', () => {
     let response: ApiChapterInterface
     beforeAll((done) => {
-        chapTheSeep.fetchBook().then((result) => {
+        chapTheSeep.fetchChapter().then((result) => {
             chapTheSeep.parseResponse(result).then((result) => {
                 response = result!
                 done()
@@ -151,7 +151,7 @@ const chapBad = new ChapterHelper(asinBad)
 describe("When fetching an broken ASIN's chapters from Audible API", () => {
     let response: ApiChapterInterface
     beforeAll((done) => {
-        chapBad.fetchBook().then((result) => {
+        chapBad.fetchChapter().then((result) => {
             chapBad.parseResponse(result).then((result) => {
                 response = result!
                 done()
