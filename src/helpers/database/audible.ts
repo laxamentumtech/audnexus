@@ -8,7 +8,7 @@ export class PaprAudibleAuthorHelper {
     asin: string
     dbProjection: {}
     authorData!: AuthorInterface
-    options: { seed?: string; update?: string }
+    options: { update?: string }
 
     constructor(asin: string, options: { update?: string }) {
         this.asin = asin
