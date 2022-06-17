@@ -1,8 +1,131 @@
+import Author from '#config/models/Author'
 import SharedHelper from '#helpers/shared'
 import { BookInterface } from '#interfaces/books'
+import { AuthorInterface } from '#interfaces/people'
 import Book from '#models/Book'
 
-class PaprAudibleHelper {
+export class PaprAudibleAuthorHelper {
+    asin: string
+    dbProjection: {}
+    authorData!: AuthorInterface
+    options: { seed?: string; update?: string }
+
+    constructor(asin: string, options: { update?: string }) {
+        this.asin = asin
+        this.options = options
+        this.dbProjection = {
+            projection: {
+                _id: 0,
+                asin: 1,
+                description: 1,
+                genres: 1,
+                image: 1,
+                name: 1
+            }
+        }
+    }
+
+    async create() {
+        try {
+            const authorToReturn = await Author.insertOne(this.authorData)
+            return {
+                data: authorToReturn,
+                modified: true
+            }
+        } catch (err) {
+            throw new Error(err as string)
+        }
+    }
+
+    async delete() {
+        try {
+            const deletedAuthor = await Author.deleteOne({ asin: this.asin })
+            return {
+                data: deletedAuthor,
+                modified: true
+            }
+        } catch (err) {
+            throw new Error(err as string)
+        }
+    }
+
+    async find() {}
+
+    async findOne() {
+        const findOneAuthor = await Author.findOne(
+            {
+                asin: this.asin
+            },
+            this.dbProjection
+        )
+        return {
+            data: findOneAuthor,
+            modified: false
+        }
+    }
+
+    async createOrUpdate() {
+        const commonHelpers = new SharedHelper()
+        const findInDb = await this.findOne()
+
+        // Update
+        if (this.options.update === '0' && findInDb.data) {
+            // If the objects are the exact same return right away
+            commonHelpers.checkDataEquality(findInDb.data, this.authorData)
+            // Check state of existing author
+            // Only update if either genres exist and can be checked
+            // -or if genres exist on new item but not old
+            if (findInDb.data.genres || (!findInDb.data.genres && this.authorData.genres)) {
+                // Only update if it's not nuked data
+                if (this.authorData.genres && this.authorData.genres.length) {
+                    console.log(`Updating asin ${this.asin}`)
+                    // Update
+                    try {
+                        const updatedAuthor = await this.update()
+                        return updatedAuthor
+                    } catch (err) {
+                        throw new Error(err as string)
+                    }
+                }
+            } else if (this.authorData.genres && this.authorData.genres.length) {
+                // If no genres exist on book, but do on incoming, update
+                console.log(`Updating asin ${this.asin}`)
+                // Update
+                try {
+                    const updatedAuthor = await this.update()
+                    return updatedAuthor
+                } catch (err) {
+                    throw new Error(err as string)
+                }
+            }
+            // No update performed, return original
+            return findInDb
+        }
+
+        // Create
+        try {
+            const createdAuthor = await this.create()
+            return createdAuthor
+        } catch (err) {
+            console.error(err)
+            throw new Error(`An error occurred while creating ${this.asin} in the DB`)
+        }
+    }
+
+    async update() {
+        try {
+            await Author.updateOne({ asin: this.asin }, { $set: this.authorData })
+            // After updating, return with specific projection
+            const authorToReturn = await this.findOne()
+            return authorToReturn
+        } catch (err) {
+            console.error(err)
+            throw new Error(`An error occurred while updating ${this.asin} in the DB`)
+        }
+    }
+}
+
+export class PaprAudibleBookHelper {
     asin: string
     dbProjection: {}
     bookData!: BookInterface
@@ -50,7 +173,7 @@ class PaprAudibleHelper {
 
     async delete() {
         try {
-            const deletedBook = await Book.deleteOne({asin: this.asin})
+            const deletedBook = await Book.deleteOne({ asin: this.asin })
             return {
                 data: deletedBook,
                 modified: true
@@ -135,5 +258,3 @@ class PaprAudibleHelper {
         }
     }
 }
-
-export default PaprAudibleHelper

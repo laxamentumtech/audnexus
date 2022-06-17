@@ -54,7 +54,7 @@ class ScrapeHelper {
      * Fetches the html page and checks it's response
      * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
      */
-    async fetchBook(): Promise<cheerio.CheerioAPI> {
+    async fetchAuthor(): Promise<cheerio.CheerioAPI> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
             const message = `An error occured while fetching Audible HTML. Response: ${response.status}, ASIN: ${this.asin}`
@@ -121,6 +121,18 @@ class ScrapeHelper {
         }
 
         return returnJson
+    }
+
+    /**
+     * Call functions in the class to parse final book JSON
+     * @returns {Promise<AuthorInterface>}
+     */
+    async process(): Promise<AuthorInterface> {
+        // Wait in order
+        const authorResponse = await this.fetchAuthor()
+        const authorParsed = await this.parseResponse(authorResponse)
+
+        return authorParsed
     }
 
     // Helpers

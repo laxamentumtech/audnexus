@@ -13,7 +13,7 @@ describe('When scraping Andy Weir from Audible', () => {
     beforeAll((done) => {
         asinGood = 'B00G0WYW92'
         htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchBook().then((result) => {
+        htmlGood.fetchAuthor().then((result) => {
             htmlGood.parseResponse(result).then((result) => {
                 response = result!
                 done()
@@ -83,7 +83,7 @@ describe('When scraping an author with no description or image from Audible', ()
     beforeAll((done) => {
         asinGood = 'B0034NFIOI'
         htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchBook().then((result) => {
+        htmlGood.fetchAuthor().then((result) => {
             htmlGood.parseResponse(result).then((result) => {
                 response = result!
                 done()
@@ -127,7 +127,7 @@ describe('When fetching a book as an author from Audible', () => {
     })
 
     it('threw an error', async () => {
-        await expect(htmlBad.fetchBook()).rejects.toThrowError(
+        await expect(htmlBad.fetchAuthor()).rejects.toThrowError(
             'An error occured while fetching Audible HTML. Response: 404, ASIN: 103940202X'
         )
     })

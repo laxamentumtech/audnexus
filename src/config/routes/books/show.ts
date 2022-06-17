@@ -3,7 +3,7 @@ import SharedHelper from '#helpers/shared'
 import type { BookDocument } from '#models/Book'
 import { requestGenericWithSeed } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
-import PaprAudibleHelper from '#helpers/database/audible'
+import { PaprAudibleBookHelper } from '#helpers/database/audible'
 import AuthorSeedHelper from '#helpers/authors/audible/seed'
 
 async function routes(fastify: FastifyInstance) {
@@ -16,7 +16,7 @@ async function routes(fastify: FastifyInstance) {
 
         // Setup Helpers
         const commonHelpers = new SharedHelper()
-        const DbHelper = new PaprAudibleHelper(request.params.asin, options)
+        const DbHelper = new PaprAudibleBookHelper(request.params.asin, options)
 
         // First, check ASIN validity
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
