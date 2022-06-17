@@ -1,4 +1,4 @@
-import PaprAudibleHelper from '#helpers/database/audible'
+import { PaprAudibleBookHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
 import { requestGeneric } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
@@ -7,7 +7,7 @@ async function routes(fastify: FastifyInstance) {
     fastify.delete<requestGeneric>('/books/:asin', async (request, reply) => {
         // Setup Helpers
         const commonHelpers = new SharedHelper()
-        const DbHelper = new PaprAudibleHelper(request.params.asin, {})
+        const DbHelper = new PaprAudibleBookHelper(request.params.asin, {})
 
         // First, check ASIN validity
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
