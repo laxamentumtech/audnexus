@@ -13,12 +13,10 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
         const chapterHelper = new ChapterHelper(asinSorcerersStone)
         const stitchHelper = new StitchHelper(asinSorcerersStone)
         // Run helpers
-        const chaptersResponse = await chapterHelper.fetchBook()
-        const chaptersParsed = chapterHelper.parseResponse(chaptersResponse)
+        const chapterData = await chapterHelper.process()
         const newBook = await stitchHelper.process()
         // Set variables
-        const chapterInfo = await chaptersParsed
-        chapters = chapterInfo?.chapters
+        chapters = chapterData?.chapters
         response = newBook
     })
 
@@ -189,12 +187,10 @@ describe('When stitching together The Coldest Case from Audible', () => {
         const chapterHelper = new ChapterHelper(asinColdestCase)
         const stitchHelper = new StitchHelper(asinColdestCase)
         // Run helpers
-        const chaptersResponse = await chapterHelper.fetchBook()
-        const chaptersParsed = chapterHelper.parseResponse(chaptersResponse)
+        const chapterData = await chapterHelper.process()
         const newBook = await stitchHelper.process()
         // Set variables
-        const chapterInfo = await chaptersParsed
-        chapters = chapterInfo?.chapters
+        chapters = chapterData?.chapters
         response = newBook
     })
 
@@ -345,12 +341,10 @@ describe('When fetching an ASIN that has no chapters or HTML from Audible', () =
         const chapterHelper = new ChapterHelper(asinBad)
         const stitchHelper = new StitchHelper(asinBad)
         // Run helpers
-        const chaptersResponse = await chapterHelper.fetchBook()
-        const chaptersParsed = chapterHelper.parseResponse(chaptersResponse)
+        const chapterData = await chapterHelper.process()
         const newBook = await stitchHelper.process()
         // Set variables
-        const chapterInfo = await chaptersParsed
-        chapters = chapterInfo?.chapters
+        chapters = chapterData?.chapters
         response = newBook
     })
 

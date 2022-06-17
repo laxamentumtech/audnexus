@@ -1,24 +1,18 @@
 import ScrapeHelper from '#helpers/authors/audible/scrape'
 import { AuthorInterface } from '#interfaces/people'
 
-let asinBad: string
-let htmlBad: ScrapeHelper
-
-let asinGood: string
-let htmlGood: ScrapeHelper
+const asinAndyWeir = 'B00G0WYW92'
+const asinMissing = '103940202X'
+const asinSimonPegg = 'B0034NFIOI'
 
 // Run through known author data to test responses
 describe('When scraping Andy Weir from Audible', () => {
     let response: AuthorInterface
-    beforeAll((done) => {
-        asinGood = 'B00G0WYW92'
-        htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchAuthor().then((result) => {
-            htmlGood.parseResponse(result).then((result) => {
-                response = result!
-                done()
-            })
-        })
+    beforeAll(async () => {
+        // Setup helpers
+        const authorHelper = new ScrapeHelper(asinAndyWeir)
+        // Setup variables
+        response = await authorHelper.process()
     })
 
     it('returned a description', () => {
@@ -80,15 +74,11 @@ describe('When scraping Andy Weir from Audible', () => {
 
 describe('When scraping an author with no description or image from Audible', () => {
     let response: AuthorInterface
-    beforeAll((done) => {
-        asinGood = 'B0034NFIOI'
-        htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchAuthor().then((result) => {
-            htmlGood.parseResponse(result).then((result) => {
-                response = result!
-                done()
-            })
-        })
+    beforeAll(async () => {
+        // Setup helpers
+        const authorHelper = new ScrapeHelper(asinSimonPegg)
+        // Setup variables
+        response = await authorHelper.process()
     })
 
     it('returned NO description', () => {
@@ -121,13 +111,14 @@ describe('When scraping an author with no description or image from Audible', ()
 })
 
 describe('When fetching a book as an author from Audible', () => {
+    let authorHelper: ScrapeHelper
     beforeAll(() => {
-        asinBad = '103940202X'
-        htmlBad = new ScrapeHelper(asinBad)
+        // Setup helpers
+        authorHelper = new ScrapeHelper(asinMissing)
     })
 
     it('threw an error', async () => {
-        await expect(htmlBad.fetchAuthor()).rejects.toThrowError(
+        await expect(authorHelper.fetchAuthor()).rejects.toThrowError(
             'An error occured while fetching Audible HTML. Response: 404, ASIN: 103940202X'
         )
     })
