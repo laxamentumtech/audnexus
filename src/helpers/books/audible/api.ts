@@ -61,7 +61,7 @@ class ApiHelper {
             'title'
         ]
 
-        requiredKeys.map((key) => {
+        requiredKeys.forEach((key) => {
             if (!Object.prototype.hasOwnProperty.call(inputJson, key)) {
                 throw new Error(`Required key: ${key}, does not exist on: ${inputJson.asin}`)
             }
