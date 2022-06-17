@@ -78,7 +78,7 @@ export class PaprAudibleAuthorHelper {
             if (findInDb.data.genres || (!findInDb.data.genres && this.authorData.genres)) {
                 // Only update if it's not nuked data
                 if (this.authorData.genres && this.authorData.genres.length) {
-                    console.log(`Updating asin ${this.asin}`)
+                    console.log(`Updating author asin ${this.asin}`)
                     // Update
                     try {
                         const updatedAuthor = await this.update()
@@ -88,8 +88,8 @@ export class PaprAudibleAuthorHelper {
                     }
                 }
             } else if (this.authorData.genres && this.authorData.genres.length) {
-                // If no genres exist on book, but do on incoming, update
-                console.log(`Updating asin ${this.asin}`)
+                // If no genres exist on author, but do on incoming, update
+                console.log(`Updating author asin ${this.asin}`)
                 // Update
                 try {
                     const updatedAuthor = await this.update()
@@ -108,7 +108,7 @@ export class PaprAudibleAuthorHelper {
             return createdAuthor
         } catch (err) {
             console.error(err)
-            throw new Error(`An error occurred while creating ${this.asin} in the DB`)
+            throw new Error(`An error occurred while creating author ${this.asin} in the DB`)
         }
     }
 
@@ -120,7 +120,7 @@ export class PaprAudibleAuthorHelper {
             return authorToReturn
         } catch (err) {
             console.error(err)
-            throw new Error(`An error occurred while updating ${this.asin} in the DB`)
+            throw new Error(`An error occurred while updating author ${this.asin} in the DB`)
         }
     }
 }
@@ -212,7 +212,7 @@ export class PaprAudibleBookHelper {
             if (findInDb.data.genres || (!findInDb.data.genres && this.bookData.genres)) {
                 // Only update if it's not nuked data
                 if (this.bookData.genres && this.bookData.genres.length) {
-                    console.log(`Updating asin ${this.asin}`)
+                    console.log(`Updating book asin ${this.asin}`)
                     // Update
                     try {
                         const updatedBook = await this.update()
@@ -223,7 +223,7 @@ export class PaprAudibleBookHelper {
                 }
             } else if (this.bookData.genres && this.bookData.genres.length) {
                 // If no genres exist on book, but do on incoming, update
-                console.log(`Updating asin ${this.asin}`)
+                console.log(`Updating book asin ${this.asin}`)
                 // Update
                 try {
                     const updatedBook = await this.update()
@@ -242,7 +242,7 @@ export class PaprAudibleBookHelper {
             return createdBook
         } catch (err) {
             console.error(err)
-            throw new Error(`An error occurred while creating ${this.asin} in the DB`)
+            throw new Error(`An error occurred while creating book ${this.asin} in the DB`)
         }
     }
 
@@ -254,7 +254,8 @@ export class PaprAudibleBookHelper {
             return bookToReturn
         } catch (err) {
             console.error(err)
-            throw new Error(`An error occurred while updating ${this.asin} in the DB`)
+            throw new Error(`An error occurred while updating book ${this.asin} in the DB`)
+        }
         }
     }
 }
