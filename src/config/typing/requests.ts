@@ -1,6 +1,6 @@
 import { RequestGenericInterface } from 'fastify'
 
-export interface requestGeneric extends RequestGenericInterface {
+export interface RequestGeneric extends RequestGenericInterface {
     Querystring: {
         update: string | undefined
     }
@@ -9,14 +9,14 @@ export interface requestGeneric extends RequestGenericInterface {
     }
 }
 
-export interface requestGenericWithSeed extends requestGeneric {
+export interface RequestGenericWithSeed extends RequestGeneric {
     Querystring: {
         seedAuthors: string | undefined
         update: string | undefined
     }
 }
 
-export interface requestGenericSearch extends RequestGenericInterface {
+export interface RequestGenericSearch extends RequestGenericInterface {
     Querystring: {
         name: string | undefined
     }

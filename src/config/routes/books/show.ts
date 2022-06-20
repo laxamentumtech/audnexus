@@ -1,13 +1,13 @@
 import StitchHelper from '#helpers/books/audible/stitch'
 import SharedHelper from '#helpers/shared'
 import type { BookDocument } from '#models/Book'
-import { requestGenericWithSeed } from '#typing/requests'
+import { RequestGenericWithSeed } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 import { PaprAudibleBookHelper } from '#helpers/database/audible'
 import AuthorSeedHelper from '#helpers/authors/audible/seed'
 
 async function routes(fastify: FastifyInstance) {
-    fastify.get<requestGenericWithSeed>('/books/:asin', async (request, reply) => {
+    fastify.get<RequestGenericWithSeed>('/books/:asin', async (request, reply) => {
         // Query params
         const options: { seed: string | undefined; update: string | undefined } = {
             seed: request.query.seedAuthors,

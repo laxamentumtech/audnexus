@@ -90,15 +90,15 @@ class ChapterHelper {
      * @returns {Promise<ChapterInterface>} data from parseResponse() function.
      */
     async fetchChapter(): Promise<ChapterInterface | undefined> {
-        const response = await fetch(this.reqUrl, {
+        const signedResponse = await fetch(this.reqUrl, {
             headers: {
                 'x-adp-token': this.adpToken,
                 'x-adp-alg': 'SHA256withRSA:1.0',
                 'x-adp-signature': this.signRequest(this.adpToken, this.privateKey)
             }
         })
-        if (!response.ok) {
-            const message = `An error has occured while fetching chapters ${response.status}: ${this.reqUrl}`
+        if (!signedResponse.ok) {
+            const message = `An error has occured while fetching chapters ${signedResponse.status}: ${this.reqUrl}`
             console.log(message)
             return undefined
         } else {

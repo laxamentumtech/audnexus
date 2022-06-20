@@ -2,11 +2,11 @@ import ChapterHelper from '#helpers/books/audible/chapter'
 import { PaprAudibleChapterHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
 import { ApiChapterInterface } from '#interfaces/books'
-import { requestGeneric } from '#typing/requests'
+import { RequestGeneric } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 
 async function routes(fastify: FastifyInstance) {
-    fastify.get<requestGeneric>('/books/:asin/chapters', async (request, reply) => {
+    fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
         // Query params
         const options: { update: string | undefined } = {
             update: request.query.update

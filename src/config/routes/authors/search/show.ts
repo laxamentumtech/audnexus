@@ -1,9 +1,9 @@
 import Author from '#models/Author'
-import { requestGenericSearch } from '#typing/requests'
+import { RequestGenericSearch } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 
 async function routes(fastify: FastifyInstance) {
-    fastify.get<requestGenericSearch>('/authors', async (request, reply) => {
+    fastify.get<RequestGenericSearch>('/authors', async (request, reply) => {
         const name = request.query.name
 
         if (!name) {

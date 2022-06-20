@@ -2,11 +2,11 @@ import ScrapeHelper from '#helpers/authors/audible/scrape'
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
 import type { AuthorDocument } from '#models/Author'
-import { requestGeneric } from '#typing/requests'
+import { RequestGeneric } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 
 async function routes(fastify: FastifyInstance) {
-    fastify.get<requestGeneric>('/authors/:asin', async (request, reply) => {
+    fastify.get<RequestGeneric>('/authors/:asin', async (request, reply) => {
         // Query params
         const options: { update: string | undefined } = {
             update: request.query.update

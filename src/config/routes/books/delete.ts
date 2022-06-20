@@ -1,10 +1,10 @@
 import { PaprAudibleBookHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import { requestGeneric } from '#typing/requests'
+import { RequestGeneric } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 
 async function routes(fastify: FastifyInstance) {
-    fastify.delete<requestGeneric>('/books/:asin', async (request, reply) => {
+    fastify.delete<RequestGeneric>('/books/:asin', async (request, reply) => {
         // Setup Helpers
         const commonHelpers = new SharedHelper()
         const DbHelper = new PaprAudibleBookHelper(request.params.asin, {})
@@ -22,8 +22,7 @@ async function routes(fastify: FastifyInstance) {
             throw new Error(`${request.params.asin} not found in the database`)
         }
 
-        const deletedBook = await DbHelper.delete()
-        return deletedBook
+        return DbHelper.delete()
     })
 }
 
