@@ -258,23 +258,12 @@ export class PaprAudibleBookHelper {
 
 export class PaprAudibleChapterHelper {
     asin: string
-    dbProjection: {}
     chapterData!: ApiChapterInterface
     options: { update?: string }
 
     constructor(asin: string, options: { update?: string }) {
         this.asin = asin
         this.options = options
-        this.dbProjection = {
-            projection: {
-                _id: 0,
-                asin: 1,
-                description: 1,
-                genres: 1,
-                image: 1,
-                name: 1
-            }
-        }
     }
 
     async create() {
@@ -302,12 +291,9 @@ export class PaprAudibleChapterHelper {
     }
 
     async findOne() {
-        const findOneChapter = await Chapter.findOne(
-            {
-                asin: this.asin
-            },
-            this.dbProjection
-        )
+        const findOneChapter = await Chapter.findOne({
+            asin: this.asin
+        })
         return {
             data: findOneChapter,
             modified: false
