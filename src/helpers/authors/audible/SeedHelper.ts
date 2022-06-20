@@ -1,7 +1,7 @@
 import { BookDocument } from '#config/models/Book'
 import fetch from 'isomorphic-fetch'
 
-class AuthorSeedHelper {
+class SeedHelper {
     book: BookDocument
 
     constructor(book: BookDocument) {
@@ -27,4 +27,4 @@ class AuthorSeedHelper {
     }
 }
 
-export default AuthorSeedHelper
+export default SeedHelper

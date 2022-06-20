@@ -1,4 +1,4 @@
-import ScrapeHelper from '#helpers/authors/audible/scrape'
+import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import { AuthorInterface } from '#interfaces/people'
 
 const asinAndyWeir = 'B00G0WYW92'

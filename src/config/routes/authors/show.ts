@@ -1,4 +1,4 @@
-import ScrapeHelper from '#helpers/authors/audible/scrape'
+import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
 import type { AuthorDocument } from '#models/Author'

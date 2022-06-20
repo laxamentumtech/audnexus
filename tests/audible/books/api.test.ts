@@ -1,4 +1,4 @@
-import ApiHelper from '#helpers/books/audible/api'
+import ApiHelper from '#helpers/books/audible/ApiHelper'
 import { AudibleInterface } from '#interfaces/audible'
 import { ApiBookInterface } from '#interfaces/books'
 

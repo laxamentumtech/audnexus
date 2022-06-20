@@ -1,10 +1,10 @@
-import StitchHelper from '#helpers/books/audible/stitch'
+import SeedHelper from '#helpers/authors/audible/SeedHelper'
+import StitchHelper from '#helpers/books/audible/StitchHelper'
+import { PaprAudibleBookHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
 import type { BookDocument } from '#models/Book'
 import { RequestGenericWithSeed } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
-import { PaprAudibleBookHelper } from '#helpers/database/audible'
-import AuthorSeedHelper from '#helpers/authors/audible/seed'
 
 async function routes(fastify: FastifyInstance) {
     fastify.get<RequestGenericWithSeed>('/books/:asin', async (request, reply) => {
@@ -67,7 +67,7 @@ async function routes(fastify: FastifyInstance) {
 
             // Seed authors in the background if it's a new/updated book
             if (options.seed !== '0' && bookToReturn.modified) {
-                const authorSeeder = new AuthorSeedHelper(bookToReturn.data)
+                const authorSeeder = new SeedHelper(bookToReturn.data)
                 authorSeeder.seedAll()
             }
 

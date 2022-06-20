@@ -1,4 +1,4 @@
-import ChapterHelper from '#helpers/books/audible/chapter'
+import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { ChapterInterface } from '#interfaces/audible'
 import { ApiChapterInterface } from '#interfaces/books'
 

@@ -1,6 +1,6 @@
-import StitchHelper from '#helpers/books/audible/stitch'
+import StitchHelper from '#helpers/books/audible/StitchHelper'
 import { ApiSingleChapterInterface, BookInterface } from '#interfaces/books'
-import ChapterHelper from '#helpers/books/audible/chapter'
+import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 
 // Run through known book data to test responses
 const asinSorcerersStone: string = 'B017V4IM1G'
