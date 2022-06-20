@@ -50,8 +50,6 @@ export class PaprAudibleAuthorHelper {
         }
     }
 
-    async find() {}
-
     async findOne() {
         const findOneAuthor = await Author.findOne(
             {
@@ -184,8 +182,6 @@ export class PaprAudibleBookHelper {
         }
     }
 
-    async find() {}
-
     async findOne() {
         const findOneBook = await Book.findOne(
             {
@@ -304,8 +300,6 @@ export class PaprAudibleChapterHelper {
             throw new Error(err as string)
         }
     }
-
-    async find() {}
 
     async findOne() {
         const findOneChapter = await Chapter.findOne(
