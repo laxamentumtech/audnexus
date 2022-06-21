@@ -18,12 +18,13 @@ class ChapterHelper {
         const baseUrl: string = '1.0/content'
         const params = 'metadata?response_groups=chapter_info'
         this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
-        if (!process.env.ADP_TOKEN && !process.env.PRIVATE_KEY) {
+        if (process.env.ADP_TOKEN && process.env.PRIVATE_KEY) {
+            this.adpToken = process.env.ADP_TOKEN
+            this.privateKey = process.env.PRIVATE_KEY
+            this.privateKey = this.privateKey.replace(/\\n/g, '\n')
+        } else {
             throw new Error('Missing environment vars for chapters')
         }
-        this.adpToken = process.env.ADP_TOKEN as string
-        this.privateKey = process.env.PRIVATE_KEY as string
-        this.privateKey = this.privateKey.replace(/\\n/g, '\n') as string
     }
 
     /**
@@ -33,8 +34,7 @@ class ChapterHelper {
     buildPath(): string {
         const baseUrl = '1.0/content'
         const params = 'metadata?response_groups=chapter_info'
-        const reqUrl = `/${baseUrl}/${this.asin}/${params}`
-        return reqUrl
+        return `/${baseUrl}/${this.asin}/${params}`
     }
 
     /**
@@ -164,11 +164,9 @@ class ChapterHelper {
      * @returns {Promise<ApiChapterInterface>}
      */
     async process(): Promise<ApiChapterInterface | undefined> {
-        // Wait in order
         const chapterResponse = await this.fetchChapter()
-        const chapterParsed = await this.parseResponse(chapterResponse)
 
-        return chapterParsed
+        return this.parseResponse(chapterResponse)
     }
 }
 

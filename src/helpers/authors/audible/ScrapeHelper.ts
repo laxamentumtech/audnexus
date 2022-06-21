@@ -61,8 +61,7 @@ class ScrapeHelper {
             throw new Error(message)
         } else {
             const text = await response.text()
-            const dom = cheerio.load(text)
-            return dom
+            return cheerio.load(text)
         }
     }
 
@@ -131,11 +130,9 @@ class ScrapeHelper {
      * @returns {Promise<AuthorInterface>}
      */
     async process(): Promise<AuthorInterface> {
-        // Wait in order
         const authorResponse = await this.fetchAuthor()
-        const authorParsed = await this.parseResponse(authorResponse)
 
-        return authorParsed
+        return this.parseResponse(authorResponse)
     }
 
     // Helpers
@@ -146,8 +143,7 @@ class ScrapeHelper {
      */
     getAsinFromUrl(url: string): string {
         const asinRegex = /[0-9A-Z]{9}.+?(?=\?)/gm
-        const ASIN = url.match(asinRegex)![0]
-        return ASIN
+        return url.match(asinRegex)![0]
     }
 }
 

@@ -65,8 +65,7 @@ class ScrapeHelper {
             return undefined
         } else {
             const text = await response.text()
-            const dom = cheerio.load(text)
-            return dom
+            return cheerio.load(text)
         }
     }
 
@@ -117,8 +116,7 @@ class ScrapeHelper {
      */
     getAsinFromUrl(url: string): string {
         const asinRegex = /[0-9A-Z]{9}.+?(?=\?)/gm
-        const ASIN = url.match(asinRegex)![0]
-        return ASIN
+        return url.match(asinRegex)![0]
     }
 }
 
