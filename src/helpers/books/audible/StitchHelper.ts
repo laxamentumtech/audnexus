@@ -34,7 +34,7 @@ class StitchHelper {
             this.scraperResponse = await scraperResponse
         } catch (err) {
             throw new Error(
-                `Error occured while fetching data from API or scraper on ASIN: ${this.asin}`
+                `Error occured while fetching data from API or scraper: ${err}`
             )
         }
     }
@@ -54,7 +54,7 @@ class StitchHelper {
             this.scraperParsed = await scraperParsed
         } catch (err) {
             throw new Error(
-                `Error occured while parsing data from API or scraper on ASIN: ${this.asin}`
+                `Error occured while parsing data from API or scraper: ${err}`
             )
         }
     }
