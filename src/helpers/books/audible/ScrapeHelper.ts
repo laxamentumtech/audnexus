@@ -97,13 +97,13 @@ class ScrapeHelper {
 
         // Combine genres and tags
         if (genres.length) {
-            let genreArr = this.collectGenres(genres, 'genre') as any
+            let genreArr = this.collectGenres(genres, 'genre')
             // Tags.
             if (tags.length) {
                 const tagArr = this.collectGenres(tags, 'tag')
-                genreArr = genreArr.concat(tagArr)
+                genreArr = tagArr?.length ? genreArr?.concat(tagArr) : genreArr
             }
-            returnJson.genres = genreArr as GenreInterface[]
+            returnJson.genres = genreArr
         }
 
         return returnJson

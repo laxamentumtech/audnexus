@@ -115,7 +115,10 @@ class ScrapeHelper {
         // Name.
         try {
             // Workaround data error: https://github.com/cheeriojs/cheerio/issues/1854
-            returnJson.name = ($('h1.bc-text-bold')[0].children[0] as any).data
+            let name = $('h1.bc-text-bold')[0].children[0] as any
+            if (typeof name.data === "string") {
+                returnJson.name = name.data
+            }
         } catch (err) {
             throw new Error('Author name not available')
         }
