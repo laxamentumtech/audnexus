@@ -80,7 +80,7 @@ export class PaprAudibleAuthorHelper {
                     console.log(`Updating author asin ${this.asin}`)
                     // Update
                     try {
-                        return this.update()
+                        return await this.update()
                     } catch (err) {
                         throw new Error(err as string)
                     }
@@ -90,7 +90,7 @@ export class PaprAudibleAuthorHelper {
                 console.log(`Updating author asin ${this.asin}`)
                 // Update
                 try {
-                    return this.update()
+                    return await this.update()
                 } catch (err) {
                     throw new Error(err as string)
                 }
@@ -101,7 +101,7 @@ export class PaprAudibleAuthorHelper {
 
         // Create
         try {
-            return this.create()
+            return await this.create()
         } catch (err) {
             console.error(err)
             throw new Error(`An error occurred while creating author ${this.asin} in the DB`)
@@ -112,7 +112,7 @@ export class PaprAudibleAuthorHelper {
         try {
             await Author.updateOne({ asin: this.asin }, { $set: this.authorData })
             // After updating, return with specific projection
-            return this.findOne()
+            return await this.findOne()
         } catch (err) {
             console.error(err)
             throw new Error(`An error occurred while updating author ${this.asin} in the DB`)
@@ -208,7 +208,7 @@ export class PaprAudibleBookHelper {
                     console.log(`Updating book asin ${this.asin}`)
                     // Update
                     try {
-                        return this.update()
+                        return await this.update()
                     } catch (err) {
                         throw new Error(err as string)
                     }
@@ -218,7 +218,7 @@ export class PaprAudibleBookHelper {
                 console.log(`Updating book asin ${this.asin}`)
                 // Update
                 try {
-                    return this.update()
+                    return await this.update()
                 } catch (err) {
                     throw new Error(err as string)
                 }
@@ -229,7 +229,7 @@ export class PaprAudibleBookHelper {
 
         // Create
         try {
-            return this.create()
+            return await this.create()
         } catch (err) {
             console.error(err)
             throw new Error(`An error occurred while creating book ${this.asin} in the DB`)
@@ -240,7 +240,7 @@ export class PaprAudibleBookHelper {
         try {
             await Book.updateOne({ asin: this.asin }, { $set: this.bookData })
             // After updating, return with specific projection
-            return this.findOne()
+            return await this.findOne()
         } catch (err) {
             console.error(err)
             throw new Error(`An error occurred while updating book ${this.asin} in the DB`)
@@ -304,7 +304,7 @@ export class PaprAudibleChapterHelper {
                 console.log(`Updating chapters for asin ${this.asin}`)
                 // Update
                 try {
-                    return this.update()
+                    return await this.update()
                 } catch (err) {
                     throw new Error(err as string)
                 }
@@ -315,7 +315,7 @@ export class PaprAudibleChapterHelper {
 
         // Create
         try {
-            return this.create()
+            return await this.create()
         } catch (err) {
             console.error(err)
             throw new Error(`An error occurred while creating chapter ${this.asin} in the DB`)
@@ -326,7 +326,7 @@ export class PaprAudibleChapterHelper {
         try {
             await Chapter.updateOne({ asin: this.asin }, { $set: this.chapterData })
             // After updating, return with specific projection
-            return this.findOne()
+            return await this.findOne()
         } catch (err) {
             console.error(err)
             throw new Error(`An error occurred while updating chapter ${this.asin} in the DB`)
