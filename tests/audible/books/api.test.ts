@@ -25,12 +25,12 @@ describe('When fetching Project Hail Mary from Audible API', () => {
     })
 
     it('returned 1 author', () => {
-        expect(response.product.authors!.length).toBe(1)
+        expect(response.product.authors?.length).toBe(1)
     })
 
     it('returned author #1', () => {
-        expect(response.product.authors![0].asin).toBe('B00G0WYW92')
-        expect(response.product.authors![0].name).toBe('Andy Weir')
+        expect(response.product.authors?.[0].asin).toBe('B00G0WYW92')
+        expect(response.product.authors?.[0].name).toBe('Andy Weir')
     })
 
     it('returned description', () => {
@@ -48,11 +48,11 @@ describe('When fetching Project Hail Mary from Audible API', () => {
     })
 
     it('returned 1 narrators', () => {
-        expect(response.product.narrators!.length).toBe(1)
+        expect(response.product.narrators?.length).toBe(1)
     })
 
     it('returned narrator #1', () => {
-        expect(response.product.narrators![0].name).toBe('Ray Porter')
+        expect(response.product.narrators?.[0].name).toBe('Ray Porter')
     })
 
     it('returned product_images', () => {
@@ -106,21 +106,21 @@ describe('When fetching The Coldest Case from Audible API', () => {
     })
 
     it('returned 3 authors', () => {
-        expect(response.product.authors!.length).toBe(3)
+        expect(response.product.authors?.length).toBe(3)
     })
 
     it('returned author #1', () => {
-        expect(response.product.authors![0].asin).toBe('B000APZGGS')
-        expect(response.product.authors![0].name).toBe('James Patterson')
+        expect(response.product.authors?.[0].asin).toBe('B000APZGGS')
+        expect(response.product.authors?.[0].name).toBe('James Patterson')
     })
 
     it('returned author #2', () => {
-        expect(response.product.authors![1].name).toBe('Aaron Tracy')
+        expect(response.product.authors?.[1].name).toBe('Aaron Tracy')
     })
 
     it('returned author #3', () => {
-        expect(response.product.authors![2].asin).toBe('B07R2F2DXH')
-        expect(response.product.authors![2].name).toBe('Ryan Silbert')
+        expect(response.product.authors?.[2].asin).toBe('B07R2F2DXH')
+        expect(response.product.authors?.[2].name).toBe('Ryan Silbert')
     })
 
     it('returned description', () => {
@@ -138,27 +138,27 @@ describe('When fetching The Coldest Case from Audible API', () => {
     })
 
     it('returned 5 narrators', () => {
-        expect(response.product.narrators!.length).toBe(5)
+        expect(response.product.narrators?.length).toBe(5)
     })
 
     it('returned narrator #1', () => {
-        expect(response.product.narrators![0].name).toBe('Aaron Paul')
+        expect(response.product.narrators?.[0].name).toBe('Aaron Paul')
     })
 
     it('returned narrator #2', () => {
-        expect(response.product.narrators![1].name).toBe('Krysten Ritter')
+        expect(response.product.narrators?.[1].name).toBe('Krysten Ritter')
     })
 
     it('returned narrator #3', () => {
-        expect(response.product.narrators![2].name).toBe('Nathalie Emmanuel')
+        expect(response.product.narrators?.[2].name).toBe('Nathalie Emmanuel')
     })
 
     it('returned narrator #4', () => {
-        expect(response.product.narrators![3].name).toBe('Beau Bridges')
+        expect(response.product.narrators?.[3].name).toBe('Beau Bridges')
     })
 
     it('returned narrator #5', () => {
-        expect(response.product.narrators![4].name).toBe('full cast')
+        expect(response.product.narrators?.[4].name).toBe('full cast')
     })
 
     it('returned cover image', () => {
@@ -205,9 +205,9 @@ describe('When parsing The Coldest Case', () => {
     beforeAll((done) => {
         asinGood = 'B08C6YJ1LS'
         apiGood = new ApiHelper(asinGood)
-        apiGood.fetchBook().then((result) => {
-            apiGood.parseResponse(result).then((result) => {
-                response = result
+        apiGood.fetchBook().then((fetchResult) => {
+            apiGood.parseResponse(fetchResult).then((parseResult) => {
+                response = parseResult
                 done()
             })
         })
@@ -218,21 +218,21 @@ describe('When parsing The Coldest Case', () => {
     })
 
     it('returned 3 authors', () => {
-        expect(response.authors!.length).toBe(3)
+        expect(response.authors?.length).toBe(3)
     })
 
     it('returned author #1', () => {
-        expect(response.authors![0].asin).toBe('B000APZGGS')
-        expect(response.authors![0].name).toBe('James Patterson')
+        expect(response.authors?.[0].asin).toBe('B000APZGGS')
+        expect(response.authors?.[0].name).toBe('James Patterson')
     })
 
     it('returned author #2', () => {
-        expect(response.authors![1].name).toBe('Aaron Tracy')
+        expect(response.authors?.[1].name).toBe('Aaron Tracy')
     })
 
     it('returned author #3', () => {
-        expect(response.authors![2].asin).toBe('B07R2F2DXH')
-        expect(response.authors![2].name).toBe('Ryan Silbert')
+        expect(response.authors?.[2].asin).toBe('B07R2F2DXH')
+        expect(response.authors?.[2].name).toBe('Ryan Silbert')
     })
 
     it('returned description', () => {
@@ -250,27 +250,27 @@ describe('When parsing The Coldest Case', () => {
     })
 
     it('returned 5 narrators', () => {
-        expect(response.narrators!.length).toBe(5)
+        expect(response.narrators?.length).toBe(5)
     })
 
     it('returned narrator #1', () => {
-        expect(response.narrators![0].name).toBe('Aaron Paul')
+        expect(response.narrators?.[0].name).toBe('Aaron Paul')
     })
 
     it('returned narrator #2', () => {
-        expect(response.narrators![1].name).toBe('Krysten Ritter')
+        expect(response.narrators?.[1].name).toBe('Krysten Ritter')
     })
 
     it('returned narrator #3', () => {
-        expect(response.narrators![2].name).toBe('Nathalie Emmanuel')
+        expect(response.narrators?.[2].name).toBe('Nathalie Emmanuel')
     })
 
     it('returned narrator #4', () => {
-        expect(response.narrators![3].name).toBe('Beau Bridges')
+        expect(response.narrators?.[3].name).toBe('Beau Bridges')
     })
 
     it('returned narrator #5', () => {
-        expect(response.narrators![4].name).toBe('full cast')
+        expect(response.narrators?.[4].name).toBe('full cast')
     })
 
     it('returned cover image', () => {
@@ -278,15 +278,15 @@ describe('When parsing The Coldest Case', () => {
     })
 
     it('returned series ASIN', () => {
-        expect(response.seriesPrimary!.asin).toBe('B08RLSPY4J')
+        expect(response.seriesPrimary?.asin).toBe('B08RLSPY4J')
     })
 
     it('returned series name', () => {
-        expect(response.seriesPrimary!.name).toBe('A Billy Harney Thriller')
+        expect(response.seriesPrimary?.name).toBe('A Billy Harney Thriller')
     })
 
     it('returned series position', () => {
-        expect(response.seriesPrimary!.position).toBe('0.5')
+        expect(response.seriesPrimary?.position).toBe('0.5')
     })
 
     it('returned publisher', () => {
@@ -319,36 +319,36 @@ describe('When parsing Scorcerers Stone', () => {
     beforeAll((done) => {
         asinGood = 'B017V4IM1G'
         apiGood = new ApiHelper(asinGood)
-        apiGood.fetchBook().then((result) => {
-            apiGood.parseResponse(result).then((result) => {
-                response = result
+        apiGood.fetchBook().then((fetchResult) => {
+            apiGood.parseResponse(fetchResult).then((parseResult) => {
+                response = parseResult
                 done()
             })
         })
     })
 
     it('returned a primary series asin', () => {
-        expect(response.seriesPrimary!.asin).toBe('B0182NWM9I')
+        expect(response.seriesPrimary?.asin).toBe('B0182NWM9I')
     })
 
     it('returned a primary series name', () => {
-        expect(response.seriesPrimary!.name).toBe('Harry Potter')
+        expect(response.seriesPrimary?.name).toBe('Harry Potter')
     })
 
     it('returned a primary series position', () => {
-        expect(response.seriesPrimary!.position).toBe('1')
+        expect(response.seriesPrimary?.position).toBe('1')
     })
 
     it('returned a secondary series asin', () => {
-        expect(response.seriesSecondary!.asin).toBe('B07CM5ZDJL')
+        expect(response.seriesSecondary?.asin).toBe('B07CM5ZDJL')
     })
 
     it('returned a secondary series name', () => {
-        expect(response.seriesSecondary!.name).toBe('Wizarding World')
+        expect(response.seriesSecondary?.name).toBe('Wizarding World')
     })
 
     it('returned a secondary series position', () => {
-        expect(response.seriesSecondary!.position).toBe('1')
+        expect(response.seriesSecondary?.position).toBe('1')
     })
 })
 
@@ -426,9 +426,9 @@ describe('When parsing a book with a series but no position', () => {
     beforeAll((done) => {
         asinBad = '059345586X'
         apiBad = new ApiHelper(asinBad)
-        apiBad.fetchBook().then((result) => {
-            apiBad.parseResponse(result).then((result) => {
-                response = result
+        apiBad.fetchBook().then((fetchResult) => {
+            apiBad.parseResponse(fetchResult).then((parseResult) => {
+                response = parseResult
                 done()
             })
         })

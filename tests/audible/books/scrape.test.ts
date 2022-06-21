@@ -14,9 +14,9 @@ describe('When scraping Project Hail Mary genres from Audible', () => {
     beforeAll((done) => {
         asinGood = 'B08G9PRS1K'
         htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchBook().then((result) => {
-            htmlGood.parseResponse(result).then((result) => {
-                response = result!
+        htmlGood.fetchBook().then((fetchResult) => {
+            htmlGood.parseResponse(fetchResult).then((parseResult) => {
+                response = parseResult!
                 done()
             })
         })
@@ -27,27 +27,27 @@ describe('When scraping Project Hail Mary genres from Audible', () => {
     })
 
     it('returned genre 1 asin', () => {
-        expect(response.genres![0].asin).toBe('18580606011')
+        expect(response.genres?.[0].asin).toBe('18580606011')
     })
 
     it('returned genre 1 name', () => {
-        expect(response.genres![0].name).toBe('Science Fiction & Fantasy')
+        expect(response.genres?.[0].name).toBe('Science Fiction & Fantasy')
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('genre')
+        expect(response.genres?.[0].type).toBe('genre')
     })
 
     it('returned tag 1 asin', () => {
-        expect(response.genres![1].asin).toBe('18580629011')
+        expect(response.genres?.[1].asin).toBe('18580629011')
     })
 
     it('returned tag 1 name', () => {
-        expect(response.genres![1].name).toBe('Adventure')
+        expect(response.genres?.[1].name).toBe('Adventure')
     })
 
     it('returned tag 1 type', () => {
-        expect(response.genres![1].type).toBe('tag')
+        expect(response.genres?.[1].type).toBe('tag')
     })
 })
 
@@ -57,9 +57,9 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     beforeAll((done) => {
         asinGood = 'B017V4IM1G'
         htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchBook().then((result) => {
-            htmlGood.parseResponse(result).then((result) => {
-                response = result!
+        htmlGood.fetchBook().then((fetchResult) => {
+            htmlGood.parseResponse(fetchResult).then((parseResult) => {
+                response = parseResult!
                 done()
             })
         })
@@ -70,63 +70,63 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
     })
 
     it('returned genre 1 asin', () => {
-        expect(response.genres![0].asin).toBe('18572091011')
+        expect(response.genres?.[0].asin).toBe('18572091011')
     })
 
     it('returned genre 1 name', () => {
-        expect(response.genres![0].name).toBe("Children's Audiobooks")
+        expect(response.genres?.[0].name).toBe("Children's Audiobooks")
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('genre')
+        expect(response.genres?.[0].type).toBe('genre')
     })
 
     it('returned tag 1 asin', () => {
-        expect(response.genres![1].asin).toBe('18572091011')
+        expect(response.genres?.[1].asin).toBe('18572091011')
     })
 
     it('returned tag 1 name', () => {
-        expect(response.genres![1].name).toBe("Children's Audiobooks")
+        expect(response.genres?.[1].name).toBe("Children's Audiobooks")
     })
 
     it('returned tag 1 type', () => {
-        expect(response.genres![1].type).toBe('tag')
+        expect(response.genres?.[1].type).toBe('tag')
     })
 
     it('returned tag 2 asin', () => {
-        expect(response.genres![2].asin).toBe('18572505011')
+        expect(response.genres?.[2].asin).toBe('18572505011')
     })
 
     it('returned tag 2 name', () => {
-        expect(response.genres![2].name).toBe('Family Life')
+        expect(response.genres?.[2].name).toBe('Family Life')
     })
 
     it('returned tag 2 type', () => {
-        expect(response.genres![2].type).toBe('tag')
+        expect(response.genres?.[2].type).toBe('tag')
     })
 
     it('returned tag 3 asin', () => {
-        expect(response.genres![3].asin).toBe('18572587011')
+        expect(response.genres?.[3].asin).toBe('18572587011')
     })
 
     it('returned tag 3 name', () => {
-        expect(response.genres![3].name).toBe('Fantasy & Magic')
+        expect(response.genres?.[3].name).toBe('Fantasy & Magic')
     })
 
     it('returned tag 3 type', () => {
-        expect(response.genres![3].type).toBe('tag')
+        expect(response.genres?.[3].type).toBe('tag')
     })
 
     it('returned tag 4 asin', () => {
-        expect(response.genres![4].asin).toBe('18580607011')
+        expect(response.genres?.[4].asin).toBe('18580607011')
     })
 
     it('returned tag 4 name', () => {
-        expect(response.genres![4].name).toBe('Fantasy')
+        expect(response.genres?.[4].name).toBe('Fantasy')
     })
 
     it('returned tag 4 type', () => {
-        expect(response.genres![4].type).toBe('tag')
+        expect(response.genres?.[4].type).toBe('tag')
     })
 })
 
@@ -136,9 +136,9 @@ describe('When fetching The Coldest Case from Audible HTML', () => {
     beforeAll((done) => {
         asinGood = 'B08C6YJ1LS'
         htmlGood = new ScrapeHelper(asinGood)
-        htmlGood.fetchBook().then((result) => {
-            htmlGood.parseResponse(result).then((result) => {
-                response = result!
+        htmlGood.fetchBook().then((fetchResult) => {
+            htmlGood.parseResponse(fetchResult).then((parseResult) => {
+                response = parseResult!
                 done()
             })
         })
@@ -149,27 +149,27 @@ describe('When fetching The Coldest Case from Audible HTML', () => {
     })
 
     it('returned genre 1 asin', () => {
-        expect(response.genres![0].asin).toBe('18574597011')
+        expect(response.genres?.[0].asin).toBe('18574597011')
     })
 
     it('returned genre 1 name', () => {
-        expect(response.genres![0].name).toBe('Mystery, Thriller & Suspense')
+        expect(response.genres?.[0].name).toBe('Mystery, Thriller & Suspense')
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('genre')
+        expect(response.genres?.[0].type).toBe('genre')
     })
 
     it('returned tag 1 asin', () => {
-        expect(response.genres![1].asin).toBe('18574623011')
+        expect(response.genres?.[1].asin).toBe('18574623011')
     })
 
     it('returned tag 1 name', () => {
-        expect(response.genres![1].name).toBe('Crime Thrillers')
+        expect(response.genres?.[1].name).toBe('Crime Thrillers')
     })
 
     it('returned tag 1 type', () => {
-        expect(response.genres![1].type).toBe('tag')
+        expect(response.genres?.[1].type).toBe('tag')
     })
 })
 
@@ -195,11 +195,13 @@ describe("When fetching a broken ASIN's HTML from Audible", () => {
     beforeAll((done) => {
         asinBad = 'B0036I54I6'
         htmlBad = new ScrapeHelper(asinBad)
-        htmlBad.fetchBook().then((result: CheerioAPI | undefined) => {
-            htmlBad.parseResponse(result).then((result: HtmlBookInterface | undefined) => {
-                response = result!
-                done()
-            })
+        htmlBad.fetchBook().then((fetchResult: CheerioAPI | undefined) => {
+            htmlBad
+                .parseResponse(fetchResult)
+                .then((parseResult: HtmlBookInterface | undefined) => {
+                    response = parseResult!
+                    done()
+                })
         })
     })
 
@@ -223,7 +225,7 @@ describe("When fetching a broken ASIN's HTML from Audible", () => {
 //     })
 
 //     it('returned no genres', () => {
-//         expect(response.genres!.length).toBeFalsy()
+//         expect(response.genres.length).toBeFalsy()
 //     })
 // })
 
@@ -242,10 +244,10 @@ describe("When fetching a broken ASIN's HTML from Audible", () => {
 //     })
 
 //     it('returned 1st genre', () => {
-//         expect(response.genres![0]).toBeTruthy()
+//         expect(response.genres[0]?).toBeTruthy()
 //     })
 
 //     it('did not return 2nd genre', () => {
-//         expect(response.genres![1]).toBeUndefined()
+//         expect(response.genres[1]?).toBeUndefined()
 //     })
 // })

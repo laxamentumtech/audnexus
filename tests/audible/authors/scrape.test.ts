@@ -36,39 +36,39 @@ describe('When scraping Andy Weir from Audible', () => {
     })
 
     it('returned genre 1 asin', () => {
-        expect(response.genres![0].asin).toBe('18580606011')
+        expect(response.genres?.[0].asin).toBe('18580606011')
     })
 
     it('returned genre 1 name', () => {
-        expect(response.genres![0].name).toBe('Science Fiction & Fantasy')
+        expect(response.genres?.[0].name).toBe('Science Fiction & Fantasy')
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('genre')
+        expect(response.genres?.[0].type).toBe('genre')
     })
 
     it('returned genre 2 asin', () => {
-        expect(response.genres![1].asin).toBe('18574597011')
+        expect(response.genres?.[1].asin).toBe('18574597011')
     })
 
     it('returned genre 2 name', () => {
-        expect(response.genres![1].name).toBe('Mystery, Thriller & Suspense')
+        expect(response.genres?.[1].name).toBe('Mystery, Thriller & Suspense')
     })
 
     it('returned genre 2 type', () => {
-        expect(response.genres![1].type).toBe('genre')
+        expect(response.genres?.[1].type).toBe('genre')
     })
 
     it('returned genre 3 asin', () => {
-        expect(response.genres![2].asin).toBe('18574426011')
+        expect(response.genres?.[2].asin).toBe('18574426011')
     })
 
     it('returned genre 3 name', () => {
-        expect(response.genres![2].name).toBe('Literature & Fiction')
+        expect(response.genres?.[2].name).toBe('Literature & Fiction')
     })
 
     it('returned genre 3 type', () => {
-        expect(response.genres![2].type).toBe('genre')
+        expect(response.genres?.[2].type).toBe('genre')
     })
 })
 
@@ -98,15 +98,15 @@ describe('When scraping an author with no description or image from Audible', ()
     })
 
     it('returned genre 1 asin', () => {
-        expect(response.genres![0].asin).toBe('18571910011')
+        expect(response.genres?.[0].asin).toBe('18571910011')
     })
 
     it('returned genre 1 name', () => {
-        expect(response.genres![0].name).toBe('Arts & Entertainment')
+        expect(response.genres?.[0].name).toBe('Arts & Entertainment')
     })
 
     it('returned genre 1 type', () => {
-        expect(response.genres![0].type).toBe('genre')
+        expect(response.genres?.[0].type).toBe('genre')
     })
 })
 
