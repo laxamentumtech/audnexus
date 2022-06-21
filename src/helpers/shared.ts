@@ -1,6 +1,8 @@
 import lodash from 'lodash'
 
 class SharedHelper {
+    asin10Regex = /(?=.\d)[A-Z\d]{10}/
+    asin11Regex = /(?=.\d)[A-Z\d]{11}/
     /**
      * Creates URL to use in fetchBook
      * @param {string} ASIN The Audible ID to base the URL on
@@ -22,11 +24,8 @@ class SharedHelper {
         if (asin.length !== 10) {
             return false
         }
-        // Check ASIN structure
-        const asinRegex = /(?=.\d)[A-Z\d]{10}/
 
-        const match = asin.match(asinRegex)
-        if (match) {
+        if (asin.match(this.asin10Regex)) {
             return true
         }
         return false
@@ -36,6 +35,15 @@ class SharedHelper {
         if (lodash.isEqual(original, updated)) {
             return original
         }
+    }
+
+    /**
+     * Regex to return just the ASIN from the given URL
+     * @param {string} url string to extract ASIN from
+     * @returns {string} ASIN.
+     */
+    getAsinFromUrl(url: string): string | undefined {
+        return url.match(this.asin11Regex)?.[0]
     }
 }
 

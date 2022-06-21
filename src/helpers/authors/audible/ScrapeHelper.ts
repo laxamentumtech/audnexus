@@ -7,13 +7,14 @@ import fetch from 'isomorphic-fetch'
 
 class ScrapeHelper {
     asin: string
+    helper: SharedHelper
     reqUrl: string
     constructor(asin: string) {
         this.asin = asin
-        const helper = new SharedHelper()
+        this.helper = new SharedHelper()
         const baseDomain: string = 'https://www.audible.com'
         const baseUrl: string = 'author'
-        this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl)
+        this.reqUrl = this.helper.buildUrl(asin, baseDomain, baseUrl)
     }
 
     /**
@@ -28,11 +29,9 @@ class ScrapeHelper {
         // Check and label each genre
         const genreArr: GenreInterface[] | undefined = genres.map((genre, index) => {
             let thisGenre = {} as GenreInterface
-            let asin: string
-            let href: string
             if (genre.attr('href')) {
-                href = genre.attr('href')!
-                asin = this.getAsinFromUrl(href)
+                const href = genre.attr('href')
+                const asin = href ? this.helper.getAsinFromUrl(href) : undefined
                 if (genre.text() && asin) {
                     thisGenre = {
                         asin: asin,
@@ -133,17 +132,6 @@ class ScrapeHelper {
         const authorResponse = await this.fetchAuthor()
 
         return this.parseResponse(authorResponse)
-    }
-
-    // Helpers
-    /**
-     * Regex to return just the ASIN from the given URL
-     * @param {string} url string to extract ASIN from
-     * @returns {string} ASIN.
-     */
-    getAsinFromUrl(url: string): string {
-        const asinRegex = /[0-9A-Z]{9}.+?(?=\?)/gm
-        return url.match(asinRegex)![0]
     }
 }
 
