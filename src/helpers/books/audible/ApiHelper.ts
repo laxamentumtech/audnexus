@@ -77,7 +77,7 @@ class ApiHelper {
                 return inputJson.product_images[1024].replace('_SL1024_.', '')
             }
             if (500 in inputJson.product_images) {
-                return inputJson.product_images[500].replace('_SL1024_.', '')
+                return inputJson.product_images[500].replace('_SL500_.', '')
             }
             return ''
         }
