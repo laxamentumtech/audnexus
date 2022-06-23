@@ -80,21 +80,21 @@ export class PaprAudibleAuthorHelper {
                 if (this.authorData.genres && this.authorData.genres.length) {
                     console.log(`Updating author asin ${this.asin}`)
                     // Update
-                    return await this.update()
+                    return this.update()
                 }
             } else if (this.authorData.genres && this.authorData.genres.length) {
                 // If no genres exist on author, but do on incoming, update
                 console.log(`Updating author asin ${this.asin}`)
                 // Update
 
-                return await this.update()
+                return this.update()
             }
             // No update performed, return original
             return findInDb
         }
 
         // Create
-        return await this.create()
+        return this.create()
     }
 
     async update() {
@@ -197,20 +197,20 @@ export class PaprAudibleBookHelper {
                 if (this.bookData.genres && this.bookData.genres.length) {
                     console.log(`Updating book asin ${this.asin}`)
                     // Update
-                    return await this.update()
+                    return this.update()
                 }
             } else if (this.bookData.genres && this.bookData.genres.length) {
                 // If no genres exist on book, but do on incoming, update
                 console.log(`Updating book asin ${this.asin}`)
                 // Update
-                return await this.update()
+                return this.update()
             }
             // No update performed, return original
             return findInDb
         }
 
         // Create
-        return await this.create()
+        return this.create()
     }
 
     async update() {
@@ -281,14 +281,14 @@ export class PaprAudibleChapterHelper {
             if (this.chapterData.chapters && this.chapterData.chapters.length) {
                 console.log(`Updating chapters for asin ${this.asin}`)
                 // Update
-                return await this.update()
+                return this.update()
             }
             // No update performed, return original
             return findInDb
         }
 
         // Create
-        return await this.create()
+        return this.create()
     }
 
     async update() {
