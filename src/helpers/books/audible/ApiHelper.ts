@@ -69,32 +69,19 @@ class ApiHelper {
 
         // Image
         const getHighResImage = () => {
-            // Sanity check
-            if (!inputJson.product_images || inputJson.product_images.length) return ''
-
-            // Try for higher res first
-            if (1024 in inputJson.product_images) {
-                return inputJson.product_images[1024].replace('_SL1024_.', '')
-            }
-            if (500 in inputJson.product_images) {
-                return inputJson.product_images[500].replace('_SL500_.', '')
-            }
-            return ''
+            const image = inputJson.product_images?.[1024]
+                ? inputJson.product_images?.[1024]?.replace('_SL1024_.', '')
+                : inputJson.product_images?.[500]?.replace('_SL500_.', '')
+            return image
         }
         // Release date
         const getReleaseDate = () => {
-            let releaseDate: Date
-            // Some releases use issue_date, try that if this fails
-            if (!inputJson.release_date && inputJson.issue_date) {
-                releaseDate = new Date(inputJson.issue_date)
-            } else {
-                releaseDate = new Date(inputJson.release_date)
-            }
+            const releaseDate = inputJson.release_date
+                ? new Date(inputJson.release_date)
+                : new Date(inputJson.issue_date)
+
             // Check that release date isn't in the future
-            const now = new Date()
-            if (releaseDate > now) {
-                throw new Error('Release date is in the future')
-            }
+            if (releaseDate > new Date()) throw new Error('Release date is in the future')
             return releaseDate
         }
         // Series
@@ -111,12 +98,11 @@ class ApiHelper {
         }
         // Find primary series
         const getSeriesPrimary = (allSeries: AudibleSeries[]) => {
-            if (!allSeries) return undefined
             let seriesPrimary = <SeriesInterface>{}
-            allSeries.forEach((series: AudibleSeries) => {
+            allSeries?.forEach((series: AudibleSeries) => {
                 const seriesJson = getSeries(series)
                 // Check and set primary series
-                if (seriesJson && seriesJson.name === inputJson.publication_name!) {
+                if (seriesJson?.name === inputJson.publication_name!) {
                     seriesPrimary = seriesJson
                 }
             })
@@ -125,17 +111,15 @@ class ApiHelper {
         }
         // Find secondary series if available
         const getSeriesSecondary = (allSeries: AudibleSeries[]) => {
-            if (!allSeries) return undefined
             let seriesSecondary = <SeriesInterface>{}
-            allSeries.forEach((series: AudibleSeries) => {
+            allSeries?.forEach((series: AudibleSeries) => {
                 const seriesJson = getSeries(series)
                 // Check and set secondary series
                 if (
                     allSeries.length > 1 &&
-                    seriesJson &&
-                    seriesJson.name !== inputJson.publication_name
+                    seriesJson?.name !== inputJson.publication_name
                 ) {
-                    seriesSecondary = seriesJson
+                    seriesSecondary = seriesJson!
                 }
             })
             if (!seriesSecondary.name) return undefined
@@ -149,10 +133,7 @@ class ApiHelper {
             authors: inputJson.authors!.map((person: AuthorInterface) => {
                 const authorJson = <AuthorInterface>{}
 
-                // Use asin for author if available
-                if (person.asin) {
-                    authorJson.asin = person.asin
-                }
+                authorJson.asin = person.asin
                 authorJson.name = person.name
                 return authorJson
             }),
