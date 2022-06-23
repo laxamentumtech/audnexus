@@ -8,6 +8,7 @@ import fetch from 'isomorphic-fetch'
 class ApiHelper {
     asin: string
     reqUrl: string
+    inputJson: AudibleInterface['product'] | undefined
     constructor(asin: string) {
         this.asin = asin
         const helper = new SharedHelper()
@@ -16,6 +17,134 @@ class ApiHelper {
         const params =
             '?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
         this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
+    }
+
+    checkRequiredKeys() {
+        const requiredKeys = [
+            'asin',
+            'authors',
+            'format_type',
+            'language',
+            'merchandising_summary',
+            'product_images',
+            'publisher_name',
+            'publisher_summary',
+            'release_date',
+            'runtime_length_min',
+            'title'
+        ]
+
+        requiredKeys.forEach((key) => {
+            if (!Object.prototype.hasOwnProperty.call(this.inputJson, key)) {
+                throw new Error(`Required key: ${key}, does not exist on: ${this.inputJson?.asin}`)
+            }
+        })
+    }
+
+    getHighResImage() {
+        if (!this.inputJson) throw new Error(`No input data`)
+        const image = this.inputJson.product_images?.[1024]
+            ? this.inputJson.product_images?.[1024]?.replace('_SL1024_.', '')
+            : this.inputJson.product_images?.[500]?.replace('_SL500_.', '')
+        return image
+    }
+
+    getReleaseDate() {
+        if (!this.inputJson) throw new Error(`No input data`)
+        const releaseDate = this.inputJson.release_date
+            ? new Date(this.inputJson.release_date)
+            : new Date(this.inputJson.issue_date)
+
+        // Check that release date isn't in the future
+        if (releaseDate > new Date()) throw new Error('Release date is in the future')
+        return releaseDate
+    }
+
+    getSeries(series: AudibleSeries) {
+        const seriesJson = <SeriesInterface>{}
+        // ASIN
+        seriesJson.asin = series.asin ? series.asin : undefined
+        // Title
+        if (!series.title) return undefined
+        seriesJson.name = series.title
+        // Position
+        seriesJson.position = series.sequence ? series.sequence : undefined
+        return seriesJson
+    }
+
+    getSeriesPrimary(allSeries: AudibleSeries[]) {
+        let seriesPrimary = <SeriesInterface>{}
+        allSeries?.forEach((series: AudibleSeries) => {
+            if (!this.inputJson) throw new Error(`No input data`)
+            const seriesJson = this.getSeries(series)
+            // Check and set primary series
+            if (seriesJson?.name === this.inputJson.publication_name!) {
+                seriesPrimary = seriesJson
+            }
+        })
+        if (!seriesPrimary.name) return undefined
+        return seriesPrimary
+    }
+
+    getSeriesSecondary(allSeries: AudibleSeries[]) {
+        let seriesSecondary = <SeriesInterface>{}
+        allSeries?.forEach((series: AudibleSeries) => {
+            if (!this.inputJson) throw new Error(`No input data`)
+            const seriesJson = this.getSeries(series)
+            // Check and set secondary series
+            if (allSeries.length > 1 && seriesJson?.name !== this.inputJson.publication_name) {
+                seriesSecondary = seriesJson!
+            }
+        })
+        if (!seriesSecondary.name) return undefined
+        return seriesSecondary
+    }
+
+    getFinalData(): ApiBookInterface {
+        if (!this.inputJson) throw new Error(`No input data`)
+        // Find secondary series if available
+        const series1 = this.getSeriesPrimary(this.inputJson.series)
+        const series2 = this.getSeriesSecondary(this.inputJson.series)
+        return {
+            asin: this.inputJson.asin,
+            authors: this.inputJson.authors!.map((person: AuthorInterface) => {
+                const authorJson = <AuthorInterface>{}
+
+                authorJson.asin = person.asin
+                authorJson.name = person.name
+                return authorJson
+            }),
+            description: htmlToText(this.inputJson['merchandising_summary'], {
+                wordwrap: false
+            }).trim(),
+            formatType: this.inputJson.format_type,
+            image: this.getHighResImage(),
+            language: this.inputJson.language,
+            ...(this.inputJson.narrators && {
+                narrators: this.inputJson.narrators?.map((person: NarratorInterface) => {
+                    const narratorJson = <NarratorInterface>{}
+                    narratorJson.name = person.name
+                    return narratorJson
+                })
+            }),
+            publisherName: this.inputJson.publisher_name,
+            ...(this.inputJson.rating && {
+                rating: this.inputJson.rating.overall_distribution.display_average_rating.toString()
+            }),
+            releaseDate: this.getReleaseDate(),
+            runtimeLengthMin: this.inputJson.runtime_length_min,
+            ...(this.inputJson.series && {
+                seriesPrimary: series1,
+                ...(series2 && {
+                    seriesSecondary: series2
+                })
+            }),
+            ...(this.inputJson.subtitle && {
+                subtitle: this.inputJson.subtitle
+            }),
+            summary: this.inputJson.publisher_summary,
+            title: this.inputJson.title
+        }
     }
 
     /**
@@ -44,132 +173,12 @@ class ApiHelper {
         if (!jsonRes) {
             throw new Error('No API response to parse')
         }
-        const inputJson = jsonRes.product
+        this.inputJson = jsonRes.product
 
         // Check all required keys present
-        const requiredKeys = [
-            'asin',
-            'authors',
-            'format_type',
-            'language',
-            'merchandising_summary',
-            'product_images',
-            'publisher_name',
-            'publisher_summary',
-            'release_date',
-            'runtime_length_min',
-            'title'
-        ]
+        this.checkRequiredKeys()
 
-        requiredKeys.forEach((key) => {
-            if (!Object.prototype.hasOwnProperty.call(inputJson, key)) {
-                throw new Error(`Required key: ${key}, does not exist on: ${inputJson.asin}`)
-            }
-        })
-
-        // Image
-        const getHighResImage = () => {
-            const image = inputJson.product_images?.[1024]
-                ? inputJson.product_images?.[1024]?.replace('_SL1024_.', '')
-                : inputJson.product_images?.[500]?.replace('_SL500_.', '')
-            return image
-        }
-        // Release date
-        const getReleaseDate = () => {
-            const releaseDate = inputJson.release_date
-                ? new Date(inputJson.release_date)
-                : new Date(inputJson.issue_date)
-
-            // Check that release date isn't in the future
-            if (releaseDate > new Date()) throw new Error('Release date is in the future')
-            return releaseDate
-        }
-        // Series
-        const getSeries = (series: AudibleSeries) => {
-            const seriesJson = <SeriesInterface>{}
-            // ASIN
-            seriesJson.asin = series.asin ? series.asin : undefined
-            // Title
-            if (!series.title) return undefined
-            seriesJson.name = series.title
-            // Position
-            seriesJson.position = series.sequence ? series.sequence : undefined
-            return seriesJson
-        }
-        // Find primary series
-        const getSeriesPrimary = (allSeries: AudibleSeries[]) => {
-            let seriesPrimary = <SeriesInterface>{}
-            allSeries?.forEach((series: AudibleSeries) => {
-                const seriesJson = getSeries(series)
-                // Check and set primary series
-                if (seriesJson?.name === inputJson.publication_name!) {
-                    seriesPrimary = seriesJson
-                }
-            })
-            if (!seriesPrimary.name) return undefined
-            return seriesPrimary
-        }
-        // Find secondary series if available
-        const getSeriesSecondary = (allSeries: AudibleSeries[]) => {
-            let seriesSecondary = <SeriesInterface>{}
-            allSeries?.forEach((series: AudibleSeries) => {
-                const seriesJson = getSeries(series)
-                // Check and set secondary series
-                if (
-                    allSeries.length > 1 &&
-                    seriesJson?.name !== inputJson.publication_name
-                ) {
-                    seriesSecondary = seriesJson!
-                }
-            })
-            if (!seriesSecondary.name) return undefined
-            return seriesSecondary
-        }
-        const series1 = getSeriesPrimary(inputJson.series)
-        const series2 = getSeriesSecondary(inputJson.series)
-
-        const finalJson: ApiBookInterface = {
-            asin: inputJson.asin,
-            authors: inputJson.authors!.map((person: AuthorInterface) => {
-                const authorJson = <AuthorInterface>{}
-
-                authorJson.asin = person.asin
-                authorJson.name = person.name
-                return authorJson
-            }),
-            description: htmlToText(inputJson['merchandising_summary'], {
-                wordwrap: false
-            }).trim(),
-            formatType: inputJson.format_type,
-            image: getHighResImage(),
-            language: inputJson.language,
-            ...(inputJson.narrators && {
-                narrators: inputJson.narrators?.map((person: NarratorInterface) => {
-                    const narratorJson = <NarratorInterface>{}
-                    narratorJson.name = person.name
-                    return narratorJson
-                })
-            }),
-            publisherName: inputJson.publisher_name,
-            ...(inputJson.rating && {
-                rating: inputJson.rating.overall_distribution.display_average_rating.toString()
-            }),
-            releaseDate: getReleaseDate(),
-            runtimeLengthMin: inputJson.runtime_length_min,
-            ...(inputJson.series && {
-                seriesPrimary: series1,
-                ...(series2 && {
-                    seriesSecondary: series2
-                })
-            }),
-            ...(inputJson.subtitle && {
-                subtitle: inputJson.subtitle
-            }),
-            summary: inputJson.publisher_summary,
-            title: inputJson.title
-        }
-
-        return finalJson
+        return this.getFinalData()
     }
 }
 
