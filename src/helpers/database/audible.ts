@@ -34,7 +34,8 @@ export class PaprAudibleAuthorHelper {
                 modified: true
             }
         } catch (err) {
-            throw new Error(err as string)
+            console.error(err)
+            throw new Error(`An error occurred while creating author ${this.asin} in the DB`)
         }
     }
 
@@ -79,33 +80,21 @@ export class PaprAudibleAuthorHelper {
                 if (this.authorData.genres && this.authorData.genres.length) {
                     console.log(`Updating author asin ${this.asin}`)
                     // Update
-                    try {
-                        return await this.update()
-                    } catch (err) {
-                        throw new Error(err as string)
-                    }
+                    return await this.update()
                 }
             } else if (this.authorData.genres && this.authorData.genres.length) {
                 // If no genres exist on author, but do on incoming, update
                 console.log(`Updating author asin ${this.asin}`)
                 // Update
-                try {
-                    return await this.update()
-                } catch (err) {
-                    throw new Error(err as string)
-                }
+
+                return await this.update()
             }
             // No update performed, return original
             return findInDb
         }
 
         // Create
-        try {
-            return await this.create()
-        } catch (err) {
-            console.error(err)
-            throw new Error(`An error occurred while creating author ${this.asin} in the DB`)
-        }
+        return await this.create()
     }
 
     async update() {
@@ -162,7 +151,8 @@ export class PaprAudibleBookHelper {
                 modified: true
             }
         } catch (err) {
-            throw new Error(err as string)
+            console.error(err)
+            throw new Error(`An error occurred while creating book ${this.asin} in the DB`)
         }
     }
 
@@ -207,33 +197,20 @@ export class PaprAudibleBookHelper {
                 if (this.bookData.genres && this.bookData.genres.length) {
                     console.log(`Updating book asin ${this.asin}`)
                     // Update
-                    try {
-                        return await this.update()
-                    } catch (err) {
-                        throw new Error(err as string)
-                    }
+                    return await this.update()
                 }
             } else if (this.bookData.genres && this.bookData.genres.length) {
                 // If no genres exist on book, but do on incoming, update
                 console.log(`Updating book asin ${this.asin}`)
                 // Update
-                try {
-                    return await this.update()
-                } catch (err) {
-                    throw new Error(err as string)
-                }
+                return await this.update()
             }
             // No update performed, return original
             return findInDb
         }
 
         // Create
-        try {
-            return await this.create()
-        } catch (err) {
-            console.error(err)
-            throw new Error(`An error occurred while creating book ${this.asin} in the DB`)
-        }
+        return await this.create()
     }
 
     async update() {
@@ -266,7 +243,8 @@ export class PaprAudibleChapterHelper {
                 modified: true
             }
         } catch (err) {
-            throw new Error(err as string)
+            console.error(err)
+            throw new Error(`An error occurred while creating chapter ${this.asin} in the DB`)
         }
     }
 
@@ -303,23 +281,14 @@ export class PaprAudibleChapterHelper {
             if (this.chapterData.chapters && this.chapterData.chapters.length) {
                 console.log(`Updating chapters for asin ${this.asin}`)
                 // Update
-                try {
-                    return await this.update()
-                } catch (err) {
-                    throw new Error(err as string)
-                }
+                return await this.update()
             }
             // No update performed, return original
             return findInDb
         }
 
         // Create
-        try {
-            return await this.create()
-        } catch (err) {
-            console.error(err)
-            throw new Error(`An error occurred while creating chapter ${this.asin} in the DB`)
-        }
+        return await this.create()
     }
 
     async update() {
