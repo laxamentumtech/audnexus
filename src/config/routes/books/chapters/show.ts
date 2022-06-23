@@ -25,8 +25,7 @@ async function routes(fastify: FastifyInstance) {
         const { redis } = fastify
         // Set redis k,v function
         const setRedis = (asin: string, newDbItem: ApiChapterInterface) => {
-            if (!redis) return
-            redis.set(`chapters-${asin}`, JSON.stringify(newDbItem, null, 2))
+            redis?.set(`chapters-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
         // Search redis if available
         const findInRedis = redis
@@ -38,37 +37,38 @@ async function routes(fastify: FastifyInstance) {
 
         const existingChapter = await DbHelper.findOne()
 
+        // Check for existing or cached data
         if (options.update !== '0' && findInRedis) {
             return JSON.parse(findInRedis)
         } else if (options.update !== '0' && existingChapter.data) {
             setRedis(request.params.asin, existingChapter.data)
             return existingChapter.data
-        } else {
-            // Set up helper
-            const chapterHelper = new ChapterHelper(request.params.asin)
-            // Request data to be processed by helper
-            const chapterData = await chapterHelper.process()
-            // Continue only if chapters exist
-            if (!chapterData) {
-                reply.code(404)
-                throw new Error(`No Chapters for ${request.params.asin}`)
-            }
-            DbHelper.chapterData = chapterData
-            // Let CRUD helper decide how to handle the data
-            const chapterToReturn = await DbHelper.createOrUpdate()
-
-            // Throw error on null return data
-            if (!chapterToReturn.data) {
-                throw new Error(`No data returned from database for chapter ${request.params.asin}`)
-            }
-
-            // Update Redis if the item is modified
-            if (chapterToReturn.modified) {
-                setRedis(request.params.asin, chapterToReturn.data)
-            }
-
-            return chapterToReturn.data
         }
+
+        // Set up helper
+        const chapterHelper = new ChapterHelper(request.params.asin)
+        // Request data to be processed by helper
+        const chapterData = await chapterHelper.process()
+        // Continue only if chapters exist
+        if (!chapterData) {
+            reply.code(404)
+            throw new Error(`No Chapters for ${request.params.asin}`)
+        }
+        DbHelper.chapterData = chapterData
+        // Let CRUD helper decide how to handle the data
+        const chapterToReturn = await DbHelper.createOrUpdate()
+
+        // Throw error on null return data
+        if (!chapterToReturn.data) {
+            throw new Error(`No data returned from database for chapter ${request.params.asin}`)
+        }
+
+        // Update Redis if the item is modified
+        if (chapterToReturn.modified) {
+            setRedis(request.params.asin, chapterToReturn.data)
+        }
+
+        return chapterToReturn.data
     })
 }
 

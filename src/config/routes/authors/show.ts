@@ -25,8 +25,7 @@ async function routes(fastify: FastifyInstance) {
         const { redis } = fastify
         // Set redis k,v function
         const setRedis = (asin: string, newDbItem: AuthorDocument) => {
-            if (!redis) return
-            redis.set(`author-${asin}`, JSON.stringify(newDbItem, null, 2))
+            redis?.set(`author-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
         // Search redis if available
         const findInRedis = redis
@@ -38,33 +37,34 @@ async function routes(fastify: FastifyInstance) {
 
         const existingAuthor = await DbHelper.findOne()
 
+        // Check for existing or cached data
         if (options.update !== '0' && findInRedis) {
             return JSON.parse(findInRedis)
         } else if (options.update !== '0' && existingAuthor.data) {
             setRedis(request.params.asin, existingAuthor.data)
             return existingAuthor.data
-        } else {
-            // Set up helper
-            const scrapeHelper = new ScrapeHelper(request.params.asin)
-            // Request data to be processed by helper
-            const authorData = await scrapeHelper.process()
-            // Pass requested data to the CRUD helper
-            DbHelper.authorData = authorData
-            // Let CRUD helper decide how to handle the data
-            const authorToReturn = await DbHelper.createOrUpdate()
-
-            // Throw error on null return data
-            if (!authorToReturn.data) {
-                throw new Error(`No data returned from database for author ${request.params.asin}`)
-            }
-
-            // Update Redis if the item is modified
-            if (authorToReturn.modified) {
-                setRedis(request.params.asin, authorToReturn.data)
-            }
-
-            return authorToReturn.data
         }
+
+        // Set up helper
+        const scrapeHelper = new ScrapeHelper(request.params.asin)
+        // Request data to be processed by helper
+        const authorData = await scrapeHelper.process()
+        // Pass requested data to the CRUD helper
+        DbHelper.authorData = authorData
+        // Let CRUD helper decide how to handle the data
+        const authorToReturn = await DbHelper.createOrUpdate()
+
+        // Throw error on null return data
+        if (!authorToReturn.data) {
+            throw new Error(`No data returned from database for author ${request.params.asin}`)
+        }
+
+        // Update Redis if the item is modified
+        if (authorToReturn.modified) {
+            setRedis(request.params.asin, authorToReturn.data)
+        }
+
+        return authorToReturn.data
     })
 }
 
