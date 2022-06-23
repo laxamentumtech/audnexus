@@ -43,10 +43,9 @@ class ApiHelper {
 
     getHighResImage() {
         if (!this.inputJson) throw new Error(`No input data`)
-        const image = this.inputJson.product_images?.[1024]
+        return this.inputJson.product_images?.[1024]
             ? this.inputJson.product_images?.[1024]?.replace('_SL1024_.', '')
             : this.inputJson.product_images?.[500]?.replace('_SL500_.', '')
-        return image
     }
 
     getReleaseDate() {
