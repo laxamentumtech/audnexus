@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [ '16', '17' ]
+        node: ['lts/*', 'current']
     name: Node ${{ matrix.node }} sample
     steps:
       - uses: actions/checkout@v3
