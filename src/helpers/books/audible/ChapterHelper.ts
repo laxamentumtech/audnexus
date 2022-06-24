@@ -1,7 +1,8 @@
 import SharedHelper from '#helpers/shared'
 import { ChapterInterface, SingleChapter } from '#interfaces/audible'
 import { ApiChapterInterface, ApiSingleChapterInterface } from '#interfaces/books'
-import fetch from 'isomorphic-fetch'
+import originalFetch from 'isomorphic-fetch'
+const fetch = require('fetch-retry')(originalFetch)
 import jsrsasign from 'jsrsasign'
 import moment from 'moment'
 

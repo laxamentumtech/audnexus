@@ -3,7 +3,8 @@ import { AudibleInterface, AudibleSeries } from '#interfaces/audible/index'
 import { ApiBookInterface, SeriesInterface } from '#interfaces/books/index'
 import { AuthorInterface, NarratorInterface } from '#interfaces/people/index'
 import { htmlToText } from 'html-to-text'
-import fetch from 'isomorphic-fetch'
+import originalFetch from 'isomorphic-fetch'
+const fetch = require('fetch-retry')(originalFetch)
 
 class ApiHelper {
     asin: string

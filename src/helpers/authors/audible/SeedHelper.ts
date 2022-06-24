@@ -1,5 +1,6 @@
 import { BookDocument } from '#config/models/Book'
-import fetch from 'isomorphic-fetch'
+import originalFetch from 'isomorphic-fetch'
+const fetch = require('fetch-retry')(originalFetch)
 
 class SeedHelper {
     book: BookDocument

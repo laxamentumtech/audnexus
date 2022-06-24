@@ -3,7 +3,8 @@ import { GenreInterface } from '#interfaces/audible'
 import { AuthorInterface } from '#interfaces/people/index'
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
-import fetch from 'isomorphic-fetch'
+import originalFetch from 'isomorphic-fetch'
+const fetch = require('fetch-retry')(originalFetch)
 
 class ScrapeHelper {
     asin: string
@@ -114,7 +115,7 @@ class ScrapeHelper {
         try {
             // Workaround data error: https://github.com/cheeriojs/cheerio/issues/1854
             let name = $('h1.bc-text-bold')[0].children[0] as any
-            if (typeof name.data === "string") {
+            if (typeof name.data === 'string') {
                 returnJson.name = name.data
             }
         } catch (err) {

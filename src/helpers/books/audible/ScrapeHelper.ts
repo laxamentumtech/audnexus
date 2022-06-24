@@ -3,7 +3,8 @@ import { GenreInterface } from '#interfaces/audible'
 import { HtmlBookInterface } from '#interfaces/books/index'
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
-import fetch from 'isomorphic-fetch'
+import originalFetch from 'isomorphic-fetch'
+const fetch = require('fetch-retry')(originalFetch)
 
 class ScrapeHelper {
     asin: string
