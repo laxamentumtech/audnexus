@@ -25,7 +25,7 @@ specifiers:
   html-to-text: 8.2.0
   isomorphic-fetch: 3.0.0
   jest: 28.1.1
-  jsrsasign: 10.5.24
+  jsrsasign: 10.5.25
   lodash: 4.17.21
   module-alias: 2.2.2
   moment: 2.29.3
@@ -46,7 +46,7 @@ dependencies:
   fetch-retry: 5.0.2
   html-to-text: 8.2.0
   isomorphic-fetch: 3.0.0
-  jsrsasign: 10.5.24
+  jsrsasign: 10.5.25
   lodash: 4.17.21
   module-alias: 2.2.2
   moment: 2.29.3
@@ -3776,8 +3776,8 @@ packages:
     engines: {'0': node >= 0.2.0}
     dev: true
 
-  /jsrsasign/10.5.24:
-    resolution: {integrity: sha512-0i/UHRgJZifp/YmoXHyNQXUY4eKWiSd7YxuD7oKEw9mlqgr51hg9lZQw2nlEDvwHDh7pyj6ZjYlxldlW27xb/Q==}
+  /jsrsasign/10.5.25:
+    resolution: {integrity: sha512-N7zxHaCwYvFlXsybq4p4RxRwn4AbEq3cEiyjbCrWmwA7g8aS4LTKDJ9AJmsXxwtYesYx0imJ+ITtkyyxLCgeIg==}
     dev: false
 
   /keyv/3.1.0:
