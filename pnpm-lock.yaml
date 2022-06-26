@@ -30,7 +30,7 @@ specifiers:
   module-alias: 2.2.2
   moment: 2.29.3
   mongodb: 4.7.0
-  nodemon: 2.0.16
+  nodemon: 2.0.18
   papr: 6.0.0
   standard-version: 9.5.0
   ts-jest: 28.0.5
@@ -51,7 +51,7 @@ dependencies:
   module-alias: 2.2.2
   moment: 2.29.3
   mongodb: 4.7.0
-  nodemon: 2.0.16
+  nodemon: 2.0.18
   papr: 6.0.0_mongodb@4.7.0
   typescript: 4.7.4
 
@@ -4083,8 +4083,8 @@ packages:
     resolution: {integrity: sha512-Qe5OUajvqrqDSy6wrWFmMwfJ0jVgwiw4T3KqmbTcZ62qW0gQkheXYhcFM1+lOVcGUoRxcEcfyvFMAnDgaF1VWw==}
     dev: true
 
-  /nodemon/2.0.16:
-    resolution: {integrity: sha512-zsrcaOfTWRuUzBn3P44RDliLlp263Z/76FPoHFr3cFFkOz0lTPAcIw8dCzfdVIx/t3AtDYCZRCDkoCojJqaG3w==}
+  /nodemon/2.0.18:
+    resolution: {integrity: sha512-uAvrKipi2zAz8E7nkSz4qW4F4zd5fs2wNGsTx+xXlP8KXqd9ucE0vY9wankOsPboeDyuUGN9vsXGV1pLn80l/A==}
     engines: {node: '>=8.10.0'}
     hasBin: true
     requiresBuild: true
@@ -5337,7 +5337,7 @@ packages:
       punycode: 2.1.1
 
   /url-parse-lax/3.0.0:
-    resolution: {integrity: sha1-FrXK/Afb42dsGxmZF3gj1lA6yww=}
+    resolution: {integrity: sha512-NjFKA0DidqPa5ciFcSrXnAltTtzz84ogy+NebPvfEgAck0+TNg4UJ4IN+fB7zRZfbgUf0syOo9MDxFkDSMuFaQ==}
     engines: {node: '>=4'}
     dependencies:
       prepend-http: 2.0.0
