@@ -11,7 +11,7 @@ specifiers:
   '@types/node': 17.0.36
   '@typescript-eslint/eslint-plugin': 5.28.0
   '@typescript-eslint/parser': 5.28.0
-  cheerio: 1.0.0-rc.11
+  cheerio: 1.0.0-rc.12
   concurrently: 7.2.2
   eslint: 8.18.0
   eslint-config-standard: 17.0.0
@@ -39,7 +39,7 @@ specifiers:
 dependencies:
   '@fastify/cors': 8.0.0
   '@fastify/redis': 6.0.0
-  cheerio: 1.0.0-rc.11
+  cheerio: 1.0.0-rc.12
   concurrently: 7.2.2
   eslint-plugin-n: 15.2.3_eslint@8.18.0
   fastify: 4.0.3
@@ -1521,8 +1521,8 @@ packages:
       domutils: 3.0.1
     dev: false
 
-  /cheerio/1.0.0-rc.11:
-    resolution: {integrity: sha512-bQwNaDIBKID5ts/DsdhxrjqFXYfLw4ste+wMKqWA8DyKcS4qwsPP4Bk8ZNaTJjvpiX/qW3BT4sU7d6Bh5i+dag==}
+  /cheerio/1.0.0-rc.12:
+    resolution: {integrity: sha512-VqR8m68vM46BNnuZ5NtnGBKIE/DfN0cRIzg9n40EIq9NOv90ayxLBXA8fXC5gquFRGJSTRqBq25Jt2ECLR431Q==}
     engines: {node: '>= 6'}
     dependencies:
       cheerio-select: 2.1.0
@@ -1532,7 +1532,6 @@ packages:
       htmlparser2: 8.0.1
       parse5: 7.0.0
       parse5-htmlparser2-tree-adapter: 7.0.0
-      tslib: 2.4.0
     dev: false
 
   /chokidar/3.5.2:
