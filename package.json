@@ -32,7 +32,7 @@
         "concurrently": "7.2.2",
         "eslint-plugin-n": "15.2.3",
         "fastify": "4.0.3",
-        "fetch-retry": "5.0.2",
+        "fetch-retry": "5.0.3",
         "html-to-text": "8.2.0",
         "isomorphic-fetch": "3.0.0",
         "jsrsasign": "10.5.25",
