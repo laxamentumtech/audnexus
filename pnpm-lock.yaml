@@ -17,7 +17,7 @@ specifiers:
   eslint-config-standard: 17.0.0
   eslint-plugin-import: 2.26.0
   eslint-plugin-jest: 26.5.3
-  eslint-plugin-n: 15.2.3
+  eslint-plugin-n: 15.2.4
   eslint-plugin-node: 11.1.0
   eslint-plugin-promise: 6.0.0
   fastify: 4.0.3
@@ -41,7 +41,7 @@ dependencies:
   '@fastify/redis': 6.0.0
   cheerio: 1.0.0-rc.12
   concurrently: 7.2.2
-  eslint-plugin-n: 15.2.3_eslint@8.19.0
+  eslint-plugin-n: 15.2.4_eslint@8.19.0
   fastify: 4.0.3
   fetch-retry: 5.0.3
   html-to-text: 8.2.0
@@ -65,7 +65,7 @@ devDependencies:
   '@typescript-eslint/eslint-plugin': 5.28.0_p4umo4cnigbmbgqvevwtwkdwka
   '@typescript-eslint/parser': 5.28.0_4x5o4skxv6sl53vpwefgt23khm
   eslint: 8.19.0
-  eslint-config-standard: 17.0.0_hdjgyjfddk24c3hejjnnjnmpga
+  eslint-config-standard: 17.0.0_3y77imf4oat3akor274t4exgn4
   eslint-plugin-import: 2.26.0_7wzgmhin5acnz3bzupkjqe6chq
   eslint-plugin-jest: 26.5.3_nuiumljqm6ootjwslmqsvbraaq
   eslint-plugin-node: 11.1.0_eslint@8.19.0
@@ -2198,7 +2198,7 @@ packages:
     resolution: {integrity: sha512-TtpcNJ3XAzx3Gq8sWRzJaVajRs0uVxA2YAkdb1jm2YkPz4G6egUFAyA3n5vtEIZefPk5Wa4UXbKuS5fKkJWdgA==}
     engines: {node: '>=10'}
 
-  /eslint-config-standard/17.0.0_hdjgyjfddk24c3hejjnnjnmpga:
+  /eslint-config-standard/17.0.0_3y77imf4oat3akor274t4exgn4:
     resolution: {integrity: sha512-/2ks1GKyqSOkH7JFvXJicu0iMpoojkwB+f5Du/1SC0PtBL+s8v30k9njRZ21pm2drKYm2342jFnGWzttxPmZVg==}
     peerDependencies:
       eslint: ^8.0.1
@@ -2208,7 +2208,7 @@ packages:
     dependencies:
       eslint: 8.19.0
       eslint-plugin-import: 2.26.0_7wzgmhin5acnz3bzupkjqe6chq
-      eslint-plugin-n: 15.2.3_eslint@8.19.0
+      eslint-plugin-n: 15.2.4_eslint@8.19.0
       eslint-plugin-promise: 6.0.0_eslint@8.19.0
     dev: true
 
@@ -2321,8 +2321,8 @@ packages:
       - typescript
     dev: true
 
-  /eslint-plugin-n/15.2.3_eslint@8.19.0:
-    resolution: {integrity: sha512-H+KC7U5R+3IWTeRnACm/4wlqLvS1Q7M6t7BGhn89qXDkZan8HTAEv3ouIONA0ifDwc2YzPFmyPzHuNLddNK4jw==}
+  /eslint-plugin-n/15.2.4_eslint@8.19.0:
+    resolution: {integrity: sha512-tjnVMv2fiXYMnuiIFI8QMtyUFI42SckEEWvi8h68SWGWshfqO6SSCASy24dGMGAiy7NUk6DZt90DM0iNUsmQ5w==}
     engines: {node: '>=12.22.0'}
     peerDependencies:
       eslint: '>=7.0.0'
