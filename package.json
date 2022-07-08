@@ -41,7 +41,7 @@
         "moment": "2.29.3",
         "mongodb": "4.7.0",
         "nodemon": "2.0.18",
-        "papr": "6.0.0",
+        "papr": "7.0.1",
         "typescript": "4.7.4"
     },
     "devDependencies": {
