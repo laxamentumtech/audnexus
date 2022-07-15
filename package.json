@@ -31,7 +31,7 @@
         "cheerio": "1.0.0-rc.12",
         "concurrently": "7.2.2",
         "eslint-plugin-n": "15.2.4",
-        "fastify": "4.2.0",
+        "fastify": "4.2.1",
         "fetch-retry": "5.0.3",
         "html-to-text": "8.2.0",
         "isomorphic-fetch": "3.0.0",
