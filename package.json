@@ -35,7 +35,7 @@
         "fetch-retry": "5.0.3",
         "html-to-text": "8.2.0",
         "isomorphic-fetch": "3.0.0",
-        "jsrsasign": "10.5.25",
+        "jsrsasign": "10.5.26",
         "lodash": "4.17.21",
         "module-alias": "2.2.2",
         "moment": "2.29.4",
