@@ -3,7 +3,7 @@ import SharedHelper from '#helpers/shared'
 import { RequestGeneric } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 
-async function routes(fastify: FastifyInstance) {
+async function _delete(fastify: FastifyInstance) {
     fastify.delete<RequestGeneric>('/books/:asin', async (request, reply) => {
         // Setup Helpers
         const commonHelpers = new SharedHelper()
@@ -26,4 +26,4 @@ async function routes(fastify: FastifyInstance) {
     })
 }
 
-export default routes
+export default _delete

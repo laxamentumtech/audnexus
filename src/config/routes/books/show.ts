@@ -6,7 +6,7 @@ import type { BookDocument } from '#models/Book'
 import { RequestGenericWithSeed } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 
-async function routes(fastify: FastifyInstance) {
+async function _show(fastify: FastifyInstance) {
     fastify.get<RequestGenericWithSeed>('/books/:asin', async (request, reply) => {
         // Query params
         const options: { seed: string | undefined; update: string | undefined } = {
@@ -76,4 +76,4 @@ async function routes(fastify: FastifyInstance) {
     })
 }
 
-export default routes
+export default _show

@@ -5,7 +5,7 @@ import { ApiChapterInterface } from '#interfaces/books'
 import { RequestGeneric } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 
-async function routes(fastify: FastifyInstance) {
+async function _show(fastify: FastifyInstance) {
     fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
         // Query params
         const options: { update: string | undefined } = {
@@ -72,4 +72,4 @@ async function routes(fastify: FastifyInstance) {
     })
 }
 
-export default routes
+export default _show

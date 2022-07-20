@@ -2,7 +2,7 @@ import Author from '#models/Author'
 import { RequestGenericSearch } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 
-async function routes(fastify: FastifyInstance) {
+async function _show(fastify: FastifyInstance) {
     fastify.get<RequestGenericSearch>('/authors', async (request, reply) => {
         const name = request.query.name
 
@@ -30,4 +30,4 @@ async function routes(fastify: FastifyInstance) {
     })
 }
 
-export default routes
+export default _show
