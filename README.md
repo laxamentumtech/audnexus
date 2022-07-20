@@ -50,7 +50,7 @@ These instructions will get you a copy of the project up and running on your loc
 
 - There are 2 ways to deploy this project - for the purposes of this project, this guide will only cover Docker deployment:
   - [Docker Swarm](https://docs.docker.com/engine/swarm/swarm-tutorial/)
-  - Directly, via `npm run` or `pm2`
+  - Directly, via `pnpm run` or `pm2`
     - Mongo 4 or greater
     - Node/NPM 16 or greater
     - Redis
@@ -59,9 +59,9 @@ These instructions will get you a copy of the project up and running on your loc
 ### Installing locally
 
 - Install Mongo, Node and Redis on your system
-- `npm install` from project directory to get dependencies
+- `pnpm install` from project directory to get dependencies
 - Set `ADP_TOKEN` and `PRIVATE_KEY` environment variables as mentioned above if you are using the chapters endpoint.
-- `npm run watch-debug` to start the server
+- `pnpm run watch-debug` to start the server
 
 Test an API call with
 
@@ -72,7 +72,7 @@ http://localhost:3000/books/${ASIN}
 ## 🔧 Running the tests <a name = "tests"></a>
 
 Tests for this project use the Jest framework. Tests can be done locally in a dev environment:
-- `npm test`
+- `pnpm test`
 
 After the tests have run, you may also browse the test coverage. This is generated in `coverage/lcov-report/index.html` under the project directory.
 
