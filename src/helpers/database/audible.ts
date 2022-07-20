@@ -99,7 +99,7 @@ export class PaprAudibleAuthorHelper {
 
     async update() {
         try {
-            await Author.updateOne({ asin: this.asin }, { $set: this.authorData })
+            await Author.updateOne({ asin: this.asin }, { $set: { ...this.authorData } })
             // After updating, return with specific projection
             return await this.findOne()
         } catch (err) {
@@ -215,7 +215,7 @@ export class PaprAudibleBookHelper {
 
     async update() {
         try {
-            await Book.updateOne({ asin: this.asin }, { $set: this.bookData })
+            await Book.updateOne({ asin: this.asin }, { $set: { ...this.bookData } })
             // After updating, return with specific projection
             return await this.findOne()
         } catch (err) {
@@ -293,7 +293,7 @@ export class PaprAudibleChapterHelper {
 
     async update() {
         try {
-            await Chapter.updateOne({ asin: this.asin }, { $set: this.chapterData })
+            await Chapter.updateOne({ asin: this.asin }, { $set: { ...this.chapterData } })
             // After updating, return with specific projection
             return await this.findOne()
         } catch (err) {
