@@ -2,7 +2,7 @@ import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { PaprAudibleChapterHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
 import { ApiChapterInterface } from '#interfaces/books'
-import { RequestGeneric } from '#typing/requests'
+import { RequestGeneric } from '#config/typing/requests'
 import { FastifyInstance } from 'fastify'
 
 async function _show(fastify: FastifyInstance) {

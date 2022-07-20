@@ -1,5 +1,5 @@
 import { types, schema } from 'papr'
-import papr from '#papr'
+import papr from '#config/papr'
 
 const chapterSchema = schema({
     asin: types.string({ required: true }),

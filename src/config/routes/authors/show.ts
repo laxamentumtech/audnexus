@@ -1,8 +1,8 @@
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import type { AuthorDocument } from '#models/Author'
-import { RequestGeneric } from '#typing/requests'
+import type { AuthorDocument } from '#config/models/Author'
+import { RequestGeneric } from '#config/typing/requests'
 import { FastifyInstance } from 'fastify'
 
 async function _show(fastify: FastifyInstance) {

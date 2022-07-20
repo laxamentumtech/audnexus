@@ -1,6 +1,6 @@
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import { RequestGeneric } from '#typing/requests'
+import { RequestGeneric } from '#config/typing/requests'
 import { FastifyInstance } from 'fastify'
 
 async function _delete(fastify: FastifyInstance) {

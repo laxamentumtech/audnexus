@@ -9,10 +9,6 @@
             "#config/*": ["config/*"],
             "#helpers/*": ["helpers/*"],
             "#interfaces/*": ["interfaces/*"],
-            "#models/*": ["config/models/*"],
-            "#papr": ["config/papr"],
-            "#routes/*": ["config/routes/*"],
-            "#typing/*": ["config/typing/*"]
         },
         "outDir": "./dist",
         "esModuleInterop": true,

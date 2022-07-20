@@ -2,8 +2,8 @@ import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import { PaprAudibleBookHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import type { BookDocument } from '#models/Book'
-import { RequestGenericWithSeed } from '#typing/requests'
+import type { BookDocument } from '#config/models/Book'
+import { RequestGenericWithSeed } from '#config/typing/requests'
 import { FastifyInstance } from 'fastify'
 
 async function _show(fastify: FastifyInstance) {

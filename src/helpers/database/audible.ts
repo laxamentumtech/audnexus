@@ -3,7 +3,7 @@ import Chapter from '#config/models/Chapter'
 import SharedHelper from '#helpers/shared'
 import { ApiChapterInterface, BookInterface } from '#interfaces/books'
 import { AuthorInterface } from '#interfaces/people'
-import Book from '#models/Book'
+import Book from '#config/models/Book'
 
 export class PaprAudibleAuthorHelper {
     asin: string

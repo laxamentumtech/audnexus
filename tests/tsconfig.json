@@ -4,11 +4,7 @@
         "paths": {
             "#config/*": ["config/*"],
             "#helpers/*": ["helpers/*"],
-            "#interfaces/*": ["interfaces/*"],
-            "#models/*": ["config/models/*"],
-            "#papr": ["config/papr"],
-            "#routes/*": ["config/routes/*"],
-            "#typing/*": ["config/typing/*"]
+            "#interfaces/*": ["interfaces/*"]
         },
     },
     "include": ["**/*.test.ts"],
