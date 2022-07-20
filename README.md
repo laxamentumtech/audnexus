@@ -102,7 +102,7 @@ https://${TRAEFIK_DOMAIN}/books/${ASIN}
 
 Be sure to setup an author name index for author search in mongodb. This looks something like:
 ```
-db.audnexus.createIndex( { name: "text" } )
+db.authors.createIndex( { name: "text" } )
 ```
 From inside the mongodb container terminal
 
