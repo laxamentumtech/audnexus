@@ -1,18 +1,21 @@
+import 'module-alias/register'
 // Book routes
-import showBook from './config/routes/books/show'
-import deleteBook from './config/routes/books/delete'
-import showChapter from './config/routes/books/chapters/show'
+import showBook from '#routes/books/show'
+import deleteBook from '#routes/books/delete'
+import showChapter from '#routes/books/chapters/show'
 // Author routes
-import showAuthor from './config/routes/authors/show'
-import deleteAuthor from './config/routes/authors/delete'
-import searchAuthor from './config/routes/authors/search/show'
+import showAuthor from '#routes/authors/show'
+import deleteAuthor from '#routes/authors/delete'
+import searchAuthor from '#routes/authors/search/show'
 // System imports
+import cors from '@fastify/cors'
+import redis from '@fastify/redis'
+import { connect, disconnect } from '#papr'
 import { fastify } from 'fastify'
-import { connect, disconnect } from './config/papr'
 
 // Heroku or local port
 const host = '0.0.0.0'
-const port = process.env.PORT || 3000
+const port = Number(process.env.PORT) || 3000
 const server = fastify({
     logger: {
         level: 'warn'
@@ -31,14 +34,14 @@ server.register(searchAuthor)
 // Register redis if it's present
 if (process.env.REDIS_URL) {
     console.log('Using Redis')
-    server.register(require('fastify-redis'), { url: process.env.REDIS_URL })
+    server.register(redis, { url: process.env.REDIS_URL })
 }
 // CORS
-server.register(require('fastify-cors'), {
+server.register(cors, {
     origin: true
 })
 
-server.listen(port, host, async (err, address) => {
+server.listen({ port: port, host: host }, async (err, address) => {
     if (err) {
         console.error(err)
         process.exit(1)

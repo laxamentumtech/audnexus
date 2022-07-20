@@ -1,6 +1,6 @@
-import ChapterHelper from '../../../src/helpers/books/audibleChapter'
-import { ChapterInterface } from '../../../src/interfaces/audible'
-import { ApiChapterInterface } from '../../../src/interfaces/books'
+import ChapterHelper from '#helpers/books/audible/ChapterHelper'
+import { ChapterInterface } from '#interfaces/audible'
+import { ApiChapterInterface } from '#interfaces/books'
 
 // Run through known book data to test responses
 const asinProjectHailMary: string = 'B08G9PRS1K'
@@ -9,7 +9,7 @@ const chapProjectHailMary = new ChapterHelper(asinProjectHailMary)
 describe('When fetching Project Hail Mary chapters from Audible API', () => {
     let response: ChapterInterface
     beforeAll((done) => {
-        chapProjectHailMary.fetchBook().then(result => {
+        chapProjectHailMary.fetchChapter().then((result) => {
             response = result!
             done()
         })
@@ -74,17 +74,17 @@ describe('When fetching Project Hail Mary chapters from Audible API', () => {
 
 // Run through chapter parsing of a book with bad names
 const asinTheSeep: string = '1721358595'
-const chapTheSeep = new ChapterHelper(asinTheSeep)
 
 describe('When parsing The Seep', () => {
     let response: ApiChapterInterface
-    beforeAll((done) => {
-        chapTheSeep.fetchBook().then(result => {
-            chapTheSeep.parseResponse(result).then(result => {
-                response = result!
-                done()
-            })
-        })
+    beforeAll(async () => {
+        // Setup helpers
+        const chapterHelper = new ChapterHelper(asinTheSeep)
+        // Run helpers
+        const chapterData = await chapterHelper.process()
+        // Set variables
+        if (!chapterData) throw new Error('No chapter data')
+        response = chapterData
     })
 
     it('returned 32 chapters', () => {
@@ -146,17 +146,16 @@ describe('When parsing The Seep', () => {
 
 // Test known BAD returns
 const asinBad: string = 'B0036I54I6'
-const chapBad = new ChapterHelper(asinBad)
 
-describe('When fetching an broken ASIN\'s chapters from Audible API', () => {
-    let response: ApiChapterInterface
-    beforeAll((done) => {
-        chapBad.fetchBook().then(result => {
-            chapBad.parseResponse(result).then(result => {
-                response = result!
-                done()
-            })
-        })
+describe("When fetching an broken ASIN's chapters from Audible API", () => {
+    let response: ApiChapterInterface | undefined
+    beforeAll(async () => {
+        // Setup helpers
+        const chapterHelper = new ChapterHelper(asinBad)
+        // Run helpers
+        const chapterData = await chapterHelper.process()
+        // Set variables
+        response = chapterData
     })
 
     it('returned undefined', () => {

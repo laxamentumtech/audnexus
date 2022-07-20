@@ -28,7 +28,7 @@ services:
       replicas: 15
 
   mongo:
-    image: mongo:4
+    image: mongo:5
     restart: always
     volumes:
       - /mnt/docker/mongo/data:/data/db
@@ -42,7 +42,7 @@ services:
       - internal
 
   traefik:
-    image: traefik:v2.5
+    image: traefik:v2.8
     restart: always
     command:
       - "--providers.docker=true"

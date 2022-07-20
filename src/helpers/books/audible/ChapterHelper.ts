@@ -1,40 +1,41 @@
-import fetch from 'isomorphic-fetch'
+import SharedHelper from '#helpers/shared'
+import { ChapterInterface, SingleChapter } from '#interfaces/audible'
+import { ApiChapterInterface, ApiSingleChapterInterface } from '#interfaces/books'
+import originalFetch from 'isomorphic-fetch'
+const fetch = require('fetch-retry')(originalFetch)
 import jsrsasign from 'jsrsasign'
 import moment from 'moment'
-import { ChapterInterface, SingleChapter } from '../../interfaces/audible'
-import { ApiChapterInterface, ApiSingleChapterInterface } from '../../interfaces/books'
-import SharedHelper from '../shared'
 
 class ChapterHelper {
-    asin: string;
-    reqUrl: string;
-    adpToken: string;
-    privateKey: string;
+    asin: string
+    reqUrl: string
+    adpToken: string
+    privateKey: string
 
-    constructor (asin: string) {
+    constructor(asin: string) {
         this.asin = asin
         const helper = new SharedHelper()
         const baseDomain: string = 'https://api.audible.com'
         const baseUrl: string = '1.0/content'
         const params = 'metadata?response_groups=chapter_info'
         this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
-        if (!process.env.ADP_TOKEN && !process.env.PRIVATE_KEY) {
+        if (process.env.ADP_TOKEN && process.env.PRIVATE_KEY) {
+            this.adpToken = process.env.ADP_TOKEN
+            this.privateKey = process.env.PRIVATE_KEY
+            this.privateKey = this.privateKey.replace(/\\n/g, '\n')
+        } else {
             throw new Error('Missing environment vars for chapters')
         }
-        this.adpToken = process.env.ADP_TOKEN as string
-        this.privateKey = process.env.PRIVATE_KEY as string
-        this.privateKey = this.privateKey.replace(/\\n/g, '\n') as string
     }
 
     /**
      * Creates path string used by signRequest
      * @returns {string} concat path to be used by signRequest
      */
-    buildPath (): string {
+    buildPath(): string {
         const baseUrl = '1.0/content'
         const params = 'metadata?response_groups=chapter_info'
-        const reqUrl = `/${baseUrl}/${this.asin}/${params}`
-        return reqUrl
+        return `/${baseUrl}/${this.asin}/${params}`
     }
 
     /**
@@ -42,7 +43,7 @@ class ChapterHelper {
      * @param {string} chapter
      * @returns {string} cleaned chapter
      */
-    chapterTitleCleanup (chapter: string): string {
+    chapterTitleCleanup(chapter: string): string {
         // Starting chapter title data
         const originalTitle: string = chapter
         // Strip trailing periods
@@ -70,7 +71,7 @@ class ChapterHelper {
      * @param {string} privateKey from Audible-api auth file
      * @returns {string} encoded 'x-adp-signature' header
      */
-    signRequest (adpToken: string, privateKey: string): string {
+    signRequest(adpToken: string, privateKey: string): string {
         const method = 'GET'
         const path = this.buildPath()
         const body = ''
@@ -89,16 +90,16 @@ class ChapterHelper {
      * Fetches chapter Audible API JSON
      * @returns {Promise<ChapterInterface>} data from parseResponse() function.
      */
-    async fetchBook (): Promise<ChapterInterface | undefined> {
-        const response = await fetch(this.reqUrl, {
+    async fetchChapter(): Promise<ChapterInterface | undefined> {
+        const signedResponse = await fetch(this.reqUrl, {
             headers: {
                 'x-adp-token': this.adpToken,
                 'x-adp-alg': 'SHA256withRSA:1.0',
                 'x-adp-signature': this.signRequest(this.adpToken, this.privateKey)
             }
         })
-        if (!response.ok) {
-            const message = `An error has occured while fetching chapters ${response.status}: ${this.reqUrl}`
+        if (!signedResponse.ok) {
+            const message = `An error has occured while fetching chapters ${signedResponse.status}: ${this.reqUrl}`
             console.log(message)
             return undefined
         } else {
@@ -113,46 +114,36 @@ class ChapterHelper {
      * @param {ChapterInterface} jsonRes fetched json response from api.audible.com
      * @returns {Promise<ApiChapterInterface>} relevant data to keep
      */
-    async parseResponse (jsonRes: ChapterInterface | undefined): Promise<ApiChapterInterface | undefined> {
+    async parseResponse(
+        jsonRes: ChapterInterface | undefined
+    ): Promise<ApiChapterInterface | undefined> {
         // Base undefined check
         if (!jsonRes || !jsonRes.content_metadata.chapter_info) {
             return undefined
         }
-
         const inputJson = jsonRes.content_metadata.chapter_info
-        const finalJson: any = {}
 
-        let key: string
-        let newKey: string
-        const missingKeyMsg = (key: string) => {
-            throw new Error(`Required key: ${key}, does not exist on: ${finalJson.asin}`)
-        }
-        const standardKeyHandling = (oldKey: string, newKey: string) => {
-            if (oldKey in inputJson) {
-                finalJson[newKey] = inputJson[oldKey]
-            } else {
-                missingKeyMsg(key)
+        // Check all required keys present
+        const requiredKeys = [
+            'brandIntroDurationMs',
+            'brandOutroDurationMs',
+            'chapters',
+            'is_accurate',
+            'runtime_length_ms',
+            'runtime_length_sec'
+        ]
+
+        requiredKeys.forEach((key) => {
+            if (!Object.prototype.hasOwnProperty.call(inputJson, key)) {
+                throw new Error(`Required key: ${key}, does not exist on: ${finalJson.asin}`)
             }
-        }
+        })
 
-        // Set asin
-        finalJson.asin = this.asin
-
-        // Audible intro duration
-        key = 'brandIntroDurationMs'
-        newKey = key
-        standardKeyHandling(key, newKey)
-
-        // Audible outro duration
-        key = 'brandOutroDurationMs'
-        newKey = key
-        standardKeyHandling(key, newKey)
-
-        // Chapters
-        key = 'chapters'
-        if (key in inputJson) {
-            // Loop through each chapter and set keys/fix title
-            finalJson[key] = inputJson[key].map((chapter: SingleChapter) => {
+        const finalJson: ApiChapterInterface = {
+            asin: this.asin,
+            brandIntroDurationMs: inputJson.brandIntroDurationMs,
+            brandOutroDurationMs: inputJson.brandOutroDurationMs,
+            chapters: inputJson.chapters.map((chapter: SingleChapter) => {
                 const chapJson = <ApiSingleChapterInterface>{}
 
                 chapJson.lengthMs = chapter.length_ms
@@ -160,27 +151,23 @@ class ChapterHelper {
                 chapJson.startOffsetSec = chapter.start_offset_sec
                 chapJson.title = this.chapterTitleCleanup(chapter.title)
                 return chapJson
-            })
-        } else {
-            missingKeyMsg(key)
+            }),
+            isAccurate: inputJson.is_accurate,
+            runtimeLengthMs: inputJson.runtime_length_ms,
+            runtimeLengthSec: inputJson.runtime_length_sec
         }
 
-        // Are chapter times accurate
-        key = 'is_accurate'
-        newKey = 'isAccurate'
-        standardKeyHandling(key, newKey)
-
-        // Runtime in milliseconds
-        key = 'runtime_length_ms'
-        newKey = 'runtimeLengthMs'
-        standardKeyHandling(key, newKey)
-
-        // Runtime in seconds
-        key = 'runtime_length_sec'
-        newKey = 'runtimeLengthSec'
-        standardKeyHandling(key, newKey)
-
         return finalJson
+    }
+
+    /**
+     * Call functions in the class to parse final book JSON
+     * @returns {Promise<ApiChapterInterface>}
+     */
+    async process(): Promise<ApiChapterInterface | undefined> {
+        const chapterResponse = await this.fetchChapter()
+
+        return this.parseResponse(chapterResponse)
     }
 }
 

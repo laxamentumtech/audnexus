@@ -1,16 +1,23 @@
 {
-    "conventionalCommits.scopes": [
-        "actions",
-        "author-scraper",
-        "chapters",
-        "docker",
-        "log",
-        "parser",
-        "route",
-        "schema",
-        "book-audible-api",
-        "book-scraper",
-        "book-stitcher",
-        "author-search"
-    ]
+	"conventionalCommits.scopes": [
+		"actions",
+		"author-scraper",
+		"chapters",
+		"docker",
+		"log",
+		"parser",
+		"route",
+		"schema",
+		"book-audible-api",
+		"book-scraper",
+		"book-stitcher",
+		"author-search"
+	],
+	"editor.formatOnSave": true,
+	"editor.codeActionsOnSave": {
+		"source.fixAll": true
+	},
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+    "javascript.suggestionActions.enabled": false,
+	"typescript.preferences.quoteStyle": "single"
 }

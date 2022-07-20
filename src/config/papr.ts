@@ -9,7 +9,7 @@ if (!process.env.MONGODB_URI) {
 }
 const uri = process.env.MONGODB_URI
 
-export async function connect () {
+export async function connect() {
     client = await MongoClient.connect(uri)
 
     papr.initialize(client.db('audnexus'))
@@ -17,7 +17,7 @@ export async function connect () {
     await papr.updateSchemas()
 }
 
-export async function disconnect () {
+export async function disconnect() {
     await client.close()
 }
 

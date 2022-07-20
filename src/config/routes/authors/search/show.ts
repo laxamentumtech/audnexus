@@ -1,7 +1,9 @@
-import Author from '../../../models/Author'
+import Author from '#models/Author'
+import { RequestGenericSearch } from '#typing/requests'
+import { FastifyInstance } from 'fastify'
 
-async function routes (fastify, options) {
-    fastify.get('/authors', async (request, reply) => {
+async function routes(fastify: FastifyInstance) {
+    fastify.get<RequestGenericSearch>('/authors', async (request, reply) => {
         const name = request.query.name
 
         if (!name) {
@@ -16,7 +18,11 @@ async function routes (fastify, options) {
             const searchDbByName = await Promise.resolve(
                 Author.find(
                     { $text: { $search: name } },
-                    { projection: { _id: false, asin: true, name: true }, limit: 25, sort: { score: { $meta: 'textScore' } } }
+                    {
+                        projection: { _id: false, asin: true, name: true },
+                        limit: 25,
+                        sort: { score: { $meta: 'textScore' } }
+                    }
                 )
             )
             return searchDbByName

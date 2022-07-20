@@ -8,22 +8,12 @@
     "labels": ["dependencies"],
     "packageRules": [
         {
-            "enabled": true,
-            "groupName": "Skip major Node.js versions",
-            "matchPackageNames": ["@types/node", "node"],
-            "matchUpdateTypes": ["major"]
-        },
-        {
-            "matchUpdateTypes": ["patch", "pin"],
+            "matchUpdateTypes": ["digest", "patch", "pin"],
             "automerge": true
         }
     ],
-    "prCreation": "not-pending",
-    "prConcurrentLimit": 3,
-    "prHourlyLimit": 1,
     "rebaseWhen": "auto",
-    "reviewers": ["djdembeck"],
-    "stabilityDays": 3,
+    "stabilityDays": 5,
     "timezone": "Etc/UTC",
     "vulnerabilityAlerts": {
         "labels": ["security"]

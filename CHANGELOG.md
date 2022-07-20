@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.4.5](https://github.com/djdembeck/audnexus/compare/v0.4.4...v0.4.5) (2022-07-20)
+
+
+### Bug Fixes
+
+* :ambulance: still need await for returns in try/catch ([1181d70](https://github.com/djdembeck/audnexus/commit/1181d700b4d37b3d73046e394252c796f5efa1d7))
+* :bug: fix renovate.json EOF ([322c969](https://github.com/djdembeck/audnexus/commit/322c9692bca98da57463db88e11b15bb1a7763e8))
+* :bug: use spread operator to resolve signature index problem ([d0b838c](https://github.com/djdembeck/audnexus/commit/d0b838c833fce1d9c0dc6235f5c3d1f95e9eb1fc))
+* **author-scraper:** :adhesive_bandage: author helper options doesn't use seed ([9c2b38a](https://github.com/djdembeck/audnexus/commit/9c2b38a5f06e2f1d0e82551316563c21a38e6a9e))
+* **book-audible-api:** :pencil2: fix replace typo ([f8e64e2](https://github.com/djdembeck/audnexus/commit/f8e64e2ea94671f4b78600c1fc79b8f4a003a6a1))
+* **route:** :pencil2: update helper name on book delete route ([adeea0a](https://github.com/djdembeck/audnexus/commit/adeea0a7f9cf56710201f3a56c12c0768260e270))
+
 ### [0.4.4](https://github.com/djdembeck/audnexus/compare/v0.4.3...v0.4.4) (2022-05-20)
 
 

@@ -1,28 +1,28 @@
-import SharedHelper from '../../../helpers/shared'
-import Book from '../../models/Book'
+import { PaprAudibleBookHelper } from '#helpers/database/audible'
+import SharedHelper from '#helpers/shared'
+import { RequestGeneric } from '#typing/requests'
+import { FastifyInstance } from 'fastify'
 
-async function routes (fastify, options) {
-    fastify.delete('/books/:asin', async (request, reply) => {
-        // First, check ASIN validity
+async function routes(fastify: FastifyInstance) {
+    fastify.delete<RequestGeneric>('/books/:asin', async (request, reply) => {
+        // Setup Helpers
         const commonHelpers = new SharedHelper()
+        const DbHelper = new PaprAudibleBookHelper(request.params.asin, {})
+
+        // First, check ASIN validity
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
             reply.code(400)
             throw new Error('Bad ASIN')
         }
 
-        const findBookByAsin = await Book.findOne({
-            asin: request.params.asin
-        })
+        const existingBook = await DbHelper.findOne()
 
-        if (!findBookByAsin) {
+        if (!existingBook) {
             reply.code(404)
-            throw new Error('Book not found')
+            throw new Error(`${request.params.asin} not found in the database`)
         }
 
-        const result = await Book.deleteOne({
-            asin: request.params.asin
-        })
-        return result
+        return DbHelper.delete()
     })
 }
 

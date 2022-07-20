@@ -2,60 +2,60 @@ import { GenreInterface } from '../audible'
 import { AuthorInterface, NarratorInterface } from '../people/index'
 
 export interface ApiSingleChapterInterface {
-    lengthMs: number,
-    startOffsetMs: number,
-    startOffsetSec: number,
+    lengthMs: number
+    startOffsetMs: number
+    startOffsetSec: number
     title: string
 }
 
 export interface ApiChapterInterface {
-    asin: string,
-    brandIntroDurationMs: number,
-    brandOutroDurationMs: number,
-    chapters: ApiSingleChapterInterface[],
-    isAccurate: boolean,
-    runtimeLengthMs: number,
+    asin: string
+    brandIntroDurationMs: number
+    brandOutroDurationMs: number
+    chapters: ApiSingleChapterInterface[]
+    isAccurate: boolean
+    runtimeLengthMs: number
     runtimeLengthSec: number
 }
 
 export interface SeriesInterface {
-    asin?: string,
-    name: string,
+    asin?: string
+    name: string
     position?: string
 }
 
 interface CoreBook {
-    asin: string;
-    authors: AuthorInterface[];
-    description: string;
-    formatType: string;
-    image: string;
-    language: string;
-    narrators?: NarratorInterface[];
-    publisherName: string;
-    rating: string;
-    releaseDate: Date;
-    runtimeLengthMin: number;
-    subtitle?: string;
-    summary: string;
-    title: string;
+    asin: string
+    authors: AuthorInterface[]
+    description: string
+    formatType: string
+    image: string
+    language: string
+    narrators?: NarratorInterface[]
+    publisherName: string
+    rating: string
+    releaseDate: Date
+    runtimeLengthMin: number
+    subtitle?: string
+    summary: string
+    title: string
 }
 
 // Final format of data stored
 export interface BookInterface extends CoreBook {
-    chapterInfo: ApiChapterInterface;
-    genres?: GenreInterface[];
-    seriesPrimary?: SeriesInterface;
-    seriesSecondary?: SeriesInterface;
+    chapterInfo?: ApiChapterInterface
+    genres?: GenreInterface[]
+    seriesPrimary?: SeriesInterface
+    seriesSecondary?: SeriesInterface
 }
 
 // What we expect to keep from Audible's API
 export interface ApiBookInterface extends CoreBook {
-    seriesPrimary?: SeriesInterface;
-    seriesSecondary?: SeriesInterface;
+    seriesPrimary?: SeriesInterface
+    seriesSecondary?: SeriesInterface
 }
 
 // What we expect to keep from Audible's HTML pages
 export interface HtmlBookInterface {
-    genres?: GenreInterface[];
+    genres?: GenreInterface[]
 }

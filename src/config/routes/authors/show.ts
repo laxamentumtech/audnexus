@@ -1,128 +1,70 @@
-import Author from '../../models/Author'
-import ScrapeHelper from '../../../helpers/authors/audibleScrape'
-import SharedHelper from '../../../helpers/shared'
-import lodash from 'lodash'
+import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
+import SharedHelper from '#helpers/shared'
+import type { AuthorDocument } from '#models/Author'
+import { RequestGeneric } from '#typing/requests'
+import { FastifyInstance } from 'fastify'
 
-async function routes (fastify, options) {
-    fastify.get('/authors/:asin', async (request, reply) => {
+async function routes(fastify: FastifyInstance) {
+    fastify.get<RequestGeneric>('/authors/:asin', async (request, reply) => {
         // Query params
-        const queryUpdateAuthor = request.query.update
+        const options: { update: string | undefined } = {
+            update: request.query.update
+        }
+
+        // Setup Helpers
+        const commonHelpers = new SharedHelper()
+        const DbHelper = new PaprAudibleAuthorHelper(request.params.asin, options)
 
         // First, check ASIN validity
-        const commonHelpers = new SharedHelper()
         if (!commonHelpers.checkAsinValidity(request.params.asin)) {
             reply.code(400)
             throw new Error('Bad ASIN')
         }
 
-        const dbProjection = {
-            projection: {
-                _id: 0,
-                asin: 1,
-                description: 1,
-                genres: 1,
-                image: 1,
-                name: 1
-            }
-        }
-
         const { redis } = fastify
-        const setRedis = (asin: string, newDbItem: any) => {
-            redis.set(
-                `author-${asin}`,
-                JSON.stringify(newDbItem, null, 2)
-            )
+        // Set redis k,v function
+        const setRedis = (asin: string, newDbItem: AuthorDocument) => {
+            redis?.set(`author-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
-        let findInRedis: string | undefined
-        if (redis) {
-            findInRedis = await redis.get(
-                `author-${request.params.asin}`,
-                (val: string) => {
-                    return JSON.parse(val)
-                }
-            )
-        }
+        // Search redis if available
+        const findInRedis = redis
+            ? await redis.get(`author-${request.params.asin}`, (_err, val) => {
+                  if (!val) return undefined
+                  return JSON.parse(val)
+              })
+            : undefined
 
-        const findInDb = await Promise.resolve(
-            Author.findOne({
-                asin: request.params.asin
-            }, dbProjection)
-        )
+        const existingAuthor = await DbHelper.findOne()
 
-        if (queryUpdateAuthor !== '0' && findInRedis) {
+        // Check for existing or cached data
+        if (options.update !== '0' && findInRedis) {
             return JSON.parse(findInRedis)
-        } else if (queryUpdateAuthor !== '0' && findInDb) {
-            if (redis) {
-                redis.set(
-                    `author-${request.params.asin}`,
-                    JSON.stringify(findInDb, null, 2)
-                )
-            }
-            return findInDb
-        } else {
-            // Set up helpers
-            const scraper = new ScrapeHelper(request.params.asin)
-
-            // Run fetch tasks in parallel/resolve promises
-            const [scraperRes] = await Promise.all([scraper.fetchBook()])
-
-            // Run parse tasks in parallel/resolve promises
-            const [parseScraper] = await Promise.all([
-                scraper.parseResponse(scraperRes)
-            ])
-
-            let newDbItem: any
-            const updateAuthor = async () => {
-                Promise.resolve(
-                    Author.updateOne(
-                        { asin: request.params.asin },
-                        { $set: parseScraper }
-                    )
-                )
-
-                // Find the updated item
-                newDbItem = await Promise.resolve(
-                    Author.findOne({ asin: request.params.asin }, dbProjection)
-                )
-
-                if (redis) {
-                    setRedis(request.params.asin, newDbItem)
-                }
-            }
-
-            // Update entry or create one
-            if (queryUpdateAuthor === '0' && findInDb) {
-                // If the objects are the exact same return right away
-                if (lodash.isEqual(findInDb, parseScraper)) {
-                    return findInDb
-                }
-                // Check state of existing author
-                // Only update if either genres exist and can be checked
-                // -or if genres exist on new item but not old
-                if (findInDb.genres || (!findInDb.genres && parseScraper.genres)) {
-                    // Only update if it's not nuked data
-                    if (parseScraper.genres && parseScraper.genres.length) {
-                        console.log(`Updating asin ${request.params.asin}`)
-                        await updateAuthor()
-                    }
-                } else if (parseScraper.genres && parseScraper.genres.length) {
-                    // If no genres exist on author, but do on incoming, update
-                    console.log(`Updating asin ${request.params.asin}`)
-                    await updateAuthor()
-                }
-                // No update performed, return original
-                return findInDb
-            } else {
-                // Insert stitched data into DB
-                newDbItem = await Promise.resolve(
-                    Author.insertOne(parseScraper)
-                )
-                if (redis) {
-                    setRedis(request.params.asin, newDbItem)
-                }
-            }
-            return newDbItem
+        } else if (options.update !== '0' && existingAuthor.data) {
+            setRedis(request.params.asin, existingAuthor.data)
+            return existingAuthor.data
         }
+
+        // Set up helper
+        const scrapeHelper = new ScrapeHelper(request.params.asin)
+        // Request data to be processed by helper
+        const authorData = await scrapeHelper.process()
+        // Pass requested data to the CRUD helper
+        DbHelper.authorData = authorData
+        // Let CRUD helper decide how to handle the data
+        const authorToReturn = await DbHelper.createOrUpdate()
+
+        // Throw error on null return data
+        if (!authorToReturn.data) {
+            throw new Error(`No data returned from database for author ${request.params.asin}`)
+        }
+
+        // Update Redis if the item is modified
+        if (authorToReturn.modified) {
+            setRedis(request.params.asin, authorToReturn.data)
+        }
+
+        return authorToReturn.data
     })
 }
 
