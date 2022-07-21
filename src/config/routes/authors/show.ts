@@ -56,7 +56,7 @@ async function _show(fastify: FastifyInstance) {
 
         // Check if the object was updated recently
         if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(existingAuthor.data))
-            return existingAuthor
+            return existingAuthor.data
 
         // Set up helper
         const scrapeHelper = new ScrapeHelper(request.params.asin)
