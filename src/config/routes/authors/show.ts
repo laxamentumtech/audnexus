@@ -42,6 +42,7 @@ async function _show(fastify: FastifyInstance) {
         // Add dates to data if not present
         if (options.update == '2' && existingAuthor.data) {
             DbHelper.authorData = addTimestamps(existingAuthor.data) as AuthorDocument
+            return DbHelper.update()
         }
 
         // Check for existing or cached data
