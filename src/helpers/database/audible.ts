@@ -7,23 +7,12 @@ import Book from '#config/models/Book'
 
 export class PaprAudibleAuthorHelper {
     asin: string
-    dbProjection: {}
     authorData!: AuthorInterface
     options: { update?: string }
 
     constructor(asin: string, options: { update?: string }) {
         this.asin = asin
         this.options = options
-        this.dbProjection = {
-            projection: {
-                _id: 0,
-                asin: 1,
-                description: 1,
-                genres: 1,
-                image: 1,
-                name: 1
-            }
-        }
     }
 
     async create() {
@@ -52,12 +41,9 @@ export class PaprAudibleAuthorHelper {
     }
 
     async findOne() {
-        const findOneAuthor = await Author.findOne(
-            {
-                asin: this.asin
-            },
-            this.dbProjection
-        )
+        const findOneAuthor = await Author.findOne({
+            asin: this.asin
+        })
         return {
             data: findOneAuthor,
             modified: false
@@ -113,36 +99,12 @@ export class PaprAudibleAuthorHelper {
 
 export class PaprAudibleBookHelper {
     asin: string
-    dbProjection: {}
     bookData!: BookInterface
     options: { seed?: string; update?: string }
 
     constructor(asin: string, options: { seed?: string; update?: string }) {
         this.asin = asin
         this.options = options
-        this.dbProjection = {
-            projection: {
-                _id: 0,
-                asin: 1,
-                authors: 1,
-                chapterInfo: 1,
-                description: 1,
-                formatType: 1,
-                genres: 1,
-                image: 1,
-                language: 1,
-                narrators: 1,
-                publisherName: 1,
-                rating: 1,
-                releaseDate: 1,
-                runtimeLengthMin: 1,
-                seriesPrimary: 1,
-                seriesSecondary: 1,
-                subtitle: 1,
-                summary: 1,
-                title: 1
-            }
-        }
     }
 
     async create() {
@@ -171,12 +133,9 @@ export class PaprAudibleBookHelper {
     }
 
     async findOne() {
-        const findOneBook = await Book.findOne(
-            {
-                asin: this.asin
-            },
-            this.dbProjection
-        )
+        const findOneBook = await Book.findOne({
+            asin: this.asin
+        })
         return {
             data: findOneBook,
             modified: false
