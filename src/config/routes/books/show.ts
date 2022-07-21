@@ -56,6 +56,10 @@ async function _show(fastify: FastifyInstance) {
             return existingBook.data
         }
 
+        // Check if the object was updated recently
+        if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(existingBook.data))
+            return existingBook
+
         // Setup helper
         const stitchHelper = new StitchHelper(request.params.asin)
         // Request data to be processed by helper

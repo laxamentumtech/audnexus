@@ -55,6 +55,10 @@ async function _show(fastify: FastifyInstance) {
             return existingChapter.data
         }
 
+        // Check if the object was updated recently
+        if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(existingChapter.data))
+            return existingChapter
+
         // Set up helper
         const chapterHelper = new ChapterHelper(request.params.asin)
         // Request data to be processed by helper
