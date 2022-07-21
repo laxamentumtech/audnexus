@@ -41,7 +41,7 @@ async function _show(fastify: FastifyInstance) {
 
         // Update option #2
         // Add dates to data if not present
-        if (options.update == '2' && existingChapter.data) {
+        if (options.update == '2' && existingChapter.data && !existingChapter.data.createdAt) {
             DbHelper.chapterData = addTimestamps(existingChapter.data) as ChapterDocument
             const update = await DbHelper.update()
             return update.data
