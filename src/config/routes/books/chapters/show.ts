@@ -4,6 +4,8 @@ import SharedHelper from '#helpers/shared'
 import { ApiChapterInterface } from '#interfaces/books'
 import { RequestGeneric } from '#config/typing/requests'
 import { FastifyInstance } from 'fastify'
+import addTimestamps from '#helpers/database/addTimestamps'
+import { ChapterDocument } from '#config/models/Chapter'
 
 async function _show(fastify: FastifyInstance) {
     fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
@@ -36,6 +38,12 @@ async function _show(fastify: FastifyInstance) {
             : undefined
 
         const existingChapter = await DbHelper.findOne()
+
+        // Update option #2
+        // Add dates to data if not present
+        if (options.update == '2' && existingChapter.data) {
+            DbHelper.chapterData = addTimestamps(existingChapter.data) as ChapterDocument
+        }
 
         // Check for existing or cached data
         if (options.update !== '0' && findInRedis) {

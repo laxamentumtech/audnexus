@@ -38,6 +38,22 @@ class SharedHelper {
     }
 
     /**
+     * Checks if the object was updated in the last 24 hours
+     * @param obj object to check
+     * @returns {boolean} true if updated in last 24 hours, false otherwise
+     */
+    checkIfRecentlyUpdated(obj: any): boolean {
+        const now = new Date()
+        const lastUpdated = new Date(obj.updatedAt)
+        const diff = now.getTime() - lastUpdated.getTime()
+        const diffDays = diff / (1000 * 3600 * 24)
+        if (diffDays < 1) {
+            return true
+        }
+        return false
+    }
+
+    /**
      * Regex to return just the ASIN from the given URL
      * @param {string} url string to extract ASIN from
      * @returns {string} ASIN.

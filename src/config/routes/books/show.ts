@@ -5,6 +5,7 @@ import SharedHelper from '#helpers/shared'
 import type { BookDocument } from '#config/models/Book'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import { FastifyInstance } from 'fastify'
+import addTimestamps from '#helpers/database/addTimestamps'
 
 async function _show(fastify: FastifyInstance) {
     fastify.get<RequestGenericWithSeed>('/books/:asin', async (request, reply) => {
@@ -38,6 +39,12 @@ async function _show(fastify: FastifyInstance) {
             : undefined
 
         const existingBook = await DbHelper.findOne()
+
+        // Update option #2
+        // Add dates to data if not present
+        if (options.update == '2' && existingBook.data) {
+            DbHelper.bookData = addTimestamps(existingBook.data) as BookDocument
+        }
 
         // Check for existing or cached data
         if (options.update !== '0' && findInRedis) {

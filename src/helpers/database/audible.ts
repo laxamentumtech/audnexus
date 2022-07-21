@@ -70,6 +70,8 @@ export class PaprAudibleAuthorHelper {
 
         // Update
         if (this.options.update === '0' && findInDb.data) {
+            // First, check if the object was updated recently
+            if (commonHelpers.checkIfRecentlyUpdated(findInDb.data)) return findInDb
             // If the objects are the exact same return right away
             commonHelpers.checkDataEquality(findInDb.data, this.authorData)
             // Check state of existing author
@@ -187,6 +189,8 @@ export class PaprAudibleBookHelper {
 
         // Update
         if (this.options.update === '0' && findInDb.data) {
+            // First, check if the object was updated recently
+            if (commonHelpers.checkIfRecentlyUpdated(findInDb.data)) return findInDb
             // If the objects are the exact same return right away
             commonHelpers.checkDataEquality(findInDb.data, this.bookData)
             // Check state of existing book
@@ -276,6 +280,8 @@ export class PaprAudibleChapterHelper {
 
         // Update
         if (this.options.update === '0' && findInDb.data) {
+            // First, check if the object was updated recently
+            if (commonHelpers.checkIfRecentlyUpdated(findInDb.data)) return findInDb
             // If the objects are the exact same return right away
             commonHelpers.checkDataEquality(findInDb.data, this.chapterData)
             if (this.chapterData.chapters && this.chapterData.chapters.length) {

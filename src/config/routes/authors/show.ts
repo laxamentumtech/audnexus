@@ -4,6 +4,7 @@ import SharedHelper from '#helpers/shared'
 import type { AuthorDocument } from '#config/models/Author'
 import { RequestGeneric } from '#config/typing/requests'
 import { FastifyInstance } from 'fastify'
+import addTimestamps from '#helpers/database/addTimestamps'
 
 async function _show(fastify: FastifyInstance) {
     fastify.get<RequestGeneric>('/authors/:asin', async (request, reply) => {
@@ -36,6 +37,12 @@ async function _show(fastify: FastifyInstance) {
             : undefined
 
         const existingAuthor = await DbHelper.findOne()
+
+        // Update option #2
+        // Add dates to data if not present
+        if (options.update == '2' && existingAuthor.data) {
+            DbHelper.authorData = addTimestamps(existingAuthor.data) as AuthorDocument
+        }
 
         // Check for existing or cached data
         if (options.update !== '0' && findInRedis) {
