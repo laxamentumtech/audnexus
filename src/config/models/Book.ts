@@ -6,7 +6,7 @@ const bookSchema = schema(
         asin: types.string({ required: true }),
         authors: types.array(
             types.object({
-                asin: types.string({ required: true }),
+                asin: types.string(),
                 name: types.string({ required: true })
             }),
             { required: true }

@@ -4,11 +4,15 @@ interface Person {
     name: string
 }
 
-export interface AuthorInterface extends Person {
+export interface AuthorOnBook extends Person {
+    asin?: string
+}
+
+export interface AuthorProfile extends Person {
     asin: string
     description?: string
     genres?: GenreInterface[]
     image?: string
 }
 
-export interface NarratorInterface extends Person {}
+export interface NarratorOnBook extends Person {}

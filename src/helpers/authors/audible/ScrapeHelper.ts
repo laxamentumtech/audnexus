@@ -1,6 +1,6 @@
 import SharedHelper from '#helpers/shared'
 import { GenreInterface } from '#interfaces/audible'
-import { AuthorInterface } from '#interfaces/people/index'
+import { AuthorProfile } from '#interfaces/people/index'
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
@@ -70,13 +70,13 @@ class ScrapeHelper {
      * @param {JSDOM} dom the fetched dom object
      * @returns {HtmlBookInterface} genre and series.
      */
-    async parseResponse($: cheerio.CheerioAPI | undefined): Promise<AuthorInterface> {
+    async parseResponse($: cheerio.CheerioAPI | undefined): Promise<AuthorProfile> {
         // Base undefined check
         if (!$) {
             throw new Error('No response from HTML')
         }
 
-        const returnJson = {} as AuthorInterface
+        const returnJson = {} as AuthorProfile
 
         // ID
         returnJson.asin = this.asin
@@ -127,9 +127,9 @@ class ScrapeHelper {
 
     /**
      * Call functions in the class to parse final book JSON
-     * @returns {Promise<AuthorInterface>}
+     * @returns {Promise<AuthorProfile>}
      */
-    async process(): Promise<AuthorInterface> {
+    async process(): Promise<AuthorProfile> {
         const authorResponse = await this.fetchAuthor()
 
         return this.parseResponse(authorResponse)

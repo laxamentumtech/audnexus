@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { AuthorInterface, NarratorInterface } from '../people/index'
+import { AuthorOnBook, NarratorOnBook } from '../people/index'
 
 interface Codecs {
     enhanced_codec: string
@@ -42,7 +42,7 @@ export interface AudibleSeries {
 export interface AudibleInterface {
     product: {
         asin: string
-        authors?: AuthorInterface[]
+        authors?: AuthorOnBook[]
         available_codecs: Codecs[]
         content_delivery_type: string
         content_type: string
@@ -54,7 +54,7 @@ export interface AudibleInterface {
         issue_date: string
         language: string
         merchandising_summary: string
-        narrators?: NarratorInterface[]
+        narrators?: NarratorOnBook[]
         product_images: { [key: string]: string }
         publication_name?: string
         publisher_name: string

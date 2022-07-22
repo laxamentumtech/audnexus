@@ -1,7 +1,7 @@
 import SharedHelper from '#helpers/shared'
 import { AudibleInterface, AudibleSeries } from '#interfaces/audible/index'
 import { ApiBookInterface, SeriesInterface } from '#interfaces/books/index'
-import { AuthorInterface, NarratorInterface } from '#interfaces/people/index'
+import { AuthorOnBook, NarratorOnBook } from '#interfaces/people/index'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
 const fetch = require('fetch-retry')(originalFetch)
@@ -107,8 +107,8 @@ class ApiHelper {
         const series2 = this.getSeriesSecondary(this.inputJson.series)
         return {
             asin: this.inputJson.asin,
-            authors: this.inputJson.authors!.map((person: AuthorInterface) => {
-                const authorJson = <AuthorInterface>{}
+            authors: this.inputJson.authors!.map((person: AuthorOnBook) => {
+                const authorJson = <AuthorOnBook>{}
 
                 authorJson.asin = person.asin
                 authorJson.name = person.name
@@ -121,8 +121,8 @@ class ApiHelper {
             image: this.getHighResImage(),
             language: this.inputJson.language,
             ...(this.inputJson.narrators && {
-                narrators: this.inputJson.narrators?.map((person: NarratorInterface) => {
-                    const narratorJson = <NarratorInterface>{}
+                narrators: this.inputJson.narrators?.map((person: NarratorOnBook) => {
+                    const narratorJson = <NarratorOnBook>{}
                     narratorJson.name = person.name
                     return narratorJson
                 })

@@ -1,5 +1,5 @@
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
-import { AuthorInterface } from '#interfaces/people'
+import { AuthorProfile } from '#interfaces/people'
 
 const asinAndyWeir = 'B00G0WYW92'
 const asinMissing = '103940202X'
@@ -7,7 +7,7 @@ const asinSimonPegg = 'B0034NFIOI'
 
 // Run through known author data to test responses
 describe('When scraping Andy Weir from Audible', () => {
-    let response: AuthorInterface
+    let response: AuthorProfile
     beforeAll(async () => {
         // Setup helpers
         const authorHelper = new ScrapeHelper(asinAndyWeir)
@@ -73,7 +73,7 @@ describe('When scraping Andy Weir from Audible', () => {
 })
 
 describe('When scraping an author with no description or image from Audible', () => {
-    let response: AuthorInterface
+    let response: AuthorProfile
     beforeAll(async () => {
         // Setup helpers
         const authorHelper = new ScrapeHelper(asinSimonPegg)

@@ -1,5 +1,5 @@
 import { GenreInterface } from '../audible'
-import { AuthorInterface, NarratorInterface } from '../people/index'
+import { AuthorOnBook, NarratorOnBook } from '../people/index'
 
 export interface ApiSingleChapterInterface {
     lengthMs: number
@@ -26,12 +26,12 @@ export interface SeriesInterface {
 
 interface CoreBook {
     asin: string
-    authors: AuthorInterface[]
+    authors: AuthorOnBook[]
     description: string
     formatType: string
     image: string
     language: string
-    narrators?: NarratorInterface[]
+    narrators?: NarratorOnBook[]
     publisherName: string
     rating: string
     releaseDate: Date
