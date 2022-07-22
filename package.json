@@ -31,7 +31,7 @@
 		"@fastify/redis": "6.0.0",
 		"cheerio": "1.0.0-rc.12",
 		"domhandler": "^5.0.3",
-		"fastify": "4.2.1",
+		"fastify": "4.3.0",
 		"fetch-retry": "5.0.3",
 		"html-to-text": "8.2.0",
 		"isomorphic-fetch": "3.0.0",
