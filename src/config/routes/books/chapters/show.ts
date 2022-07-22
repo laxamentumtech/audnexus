@@ -1,87 +1,87 @@
-import ChapterHelper from '#helpers/books/audible/ChapterHelper'
-import { PaprAudibleChapterHelper } from '#helpers/database/audible'
-import SharedHelper from '#helpers/shared'
+import { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
 import { RequestGeneric } from '#config/typing/requests'
-import { FastifyInstance } from 'fastify'
+import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
-import { ChapterDocument } from '#config/models/Chapter'
+import { PaprAudibleChapterHelper } from '#helpers/database/audible'
+import SharedHelper from '#helpers/shared'
+import { FastifyInstance } from 'fastify'
 
 async function _show(fastify: FastifyInstance) {
-    fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
-        // Query params
-        const options: { update: string | undefined } = {
-            update: request.query.update
-        }
+	fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
+		// Query params
+		const options: { update: string | undefined } = {
+			update: request.query.update
+		}
 
-        // Setup Helpers
-        const commonHelpers = new SharedHelper()
-        const DbHelper = new PaprAudibleChapterHelper(request.params.asin, options)
+		// Setup Helpers
+		const commonHelpers = new SharedHelper()
+		const DbHelper = new PaprAudibleChapterHelper(request.params.asin, options)
 
-        // First, check ASIN validity
-        if (!commonHelpers.checkAsinValidity(request.params.asin)) {
-            reply.code(400)
-            throw new Error('Bad ASIN')
-        }
+		// First, check ASIN validity
+		if (!commonHelpers.checkAsinValidity(request.params.asin)) {
+			reply.code(400)
+			throw new Error('Bad ASIN')
+		}
 
-        const { redis } = fastify
-        // Set redis k,v function
-        const setRedis = (asin: string, newDbItem: ApiChapter) => {
-            redis?.set(`chapters-${asin}`, JSON.stringify(newDbItem, null, 2))
-        }
-        // Search redis if available
-        const findInRedis = redis
-            ? await redis.get(`chapters-${request.params.asin}`, (_err, val) => {
-                  if (!val) return undefined
-                  return JSON.parse(val)
-              })
-            : undefined
+		const { redis } = fastify
+		// Set redis k,v function
+		const setRedis = (asin: string, newDbItem: ApiChapter) => {
+			redis?.set(`chapters-${asin}`, JSON.stringify(newDbItem, null, 2))
+		}
+		// Search redis if available
+		const findInRedis = redis
+			? await redis.get(`chapters-${request.params.asin}`, (_err, val) => {
+					if (!val) return undefined
+					return JSON.parse(val)
+			  })
+			: undefined
 
-        let existingChapter = await DbHelper.findOne()
+		let existingChapter = await DbHelper.findOne()
 
-        // Add dates to data if not present
-        if (existingChapter.data && !existingChapter.data.createdAt) {
-            DbHelper.chapterData = addTimestamps(existingChapter.data) as ChapterDocument
-            existingChapter = await DbHelper.update()
-        }
+		// Add dates to data if not present
+		if (existingChapter.data && !existingChapter.data.createdAt) {
+			DbHelper.chapterData = addTimestamps(existingChapter.data) as ChapterDocument
+			existingChapter = await DbHelper.update()
+		}
 
-        // Check for existing or cached data
-        if (options.update !== '0' && findInRedis) {
-            return JSON.parse(findInRedis)
-        } else if (options.update !== '0' && existingChapter.data) {
-            setRedis(request.params.asin, existingChapter.data)
-            return existingChapter.data
-        }
+		// Check for existing or cached data
+		if (options.update !== '0' && findInRedis) {
+			return JSON.parse(findInRedis)
+		} else if (options.update !== '0' && existingChapter.data) {
+			setRedis(request.params.asin, existingChapter.data)
+			return existingChapter.data
+		}
 
-        // Check if the object was updated recently
-        if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(existingChapter.data))
-            return existingChapter.data
+		// Check if the object was updated recently
+		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(existingChapter.data))
+			return existingChapter.data
 
-        // Set up helper
-        const chapterHelper = new ChapterHelper(request.params.asin)
-        // Request data to be processed by helper
-        const chapterData = await chapterHelper.process()
-        // Continue only if chapters exist
-        if (!chapterData) {
-            reply.code(404)
-            throw new Error(`No Chapters for ${request.params.asin}`)
-        }
-        DbHelper.chapterData = chapterData
-        // Let CRUD helper decide how to handle the data
-        const chapterToReturn = await DbHelper.createOrUpdate()
+		// Set up helper
+		const chapterHelper = new ChapterHelper(request.params.asin)
+		// Request data to be processed by helper
+		const chapterData = await chapterHelper.process()
+		// Continue only if chapters exist
+		if (!chapterData) {
+			reply.code(404)
+			throw new Error(`No Chapters for ${request.params.asin}`)
+		}
+		DbHelper.chapterData = chapterData
+		// Let CRUD helper decide how to handle the data
+		const chapterToReturn = await DbHelper.createOrUpdate()
 
-        // Throw error on null return data
-        if (!chapterToReturn.data) {
-            throw new Error(`No data returned from database for chapter ${request.params.asin}`)
-        }
+		// Throw error on null return data
+		if (!chapterToReturn.data) {
+			throw new Error(`No data returned from database for chapter ${request.params.asin}`)
+		}
 
-        // Update Redis if the item is modified
-        if (chapterToReturn.modified) {
-            setRedis(request.params.asin, chapterToReturn.data)
-        }
+		// Update Redis if the item is modified
+		if (chapterToReturn.modified) {
+			setRedis(request.params.asin, chapterToReturn.data)
+		}
 
-        return chapterToReturn.data
-    })
+		return chapterToReturn.data
+	})
 }
 
 export default _show

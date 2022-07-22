@@ -1,10 +1,10 @@
 {
-    "compilerOptions": {
-        "baseUrl": "../src",
-        "paths": {
-            "#config/*": ["config/*"],
-            "#helpers/*": ["helpers/*"]
-        },
-    },
-    "include": ["**/*.test.ts"],
+	"compilerOptions": {
+		"baseUrl": "../src",
+		"paths": {
+			"#config/*": ["config/*"],
+			"#helpers/*": ["helpers/*"]
+		}
+	},
+	"include": ["**/*.test.ts"]
 }

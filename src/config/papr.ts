@@ -5,20 +5,20 @@ export let client: MongoClient
 
 const papr = new Papr()
 if (!process.env.MONGODB_URI) {
-    throw new Error('No MongoDB URI specified')
+	throw new Error('No MongoDB URI specified')
 }
 const uri = process.env.MONGODB_URI
 
 export async function connect() {
-    client = await MongoClient.connect(uri)
+	client = await MongoClient.connect(uri)
 
-    papr.initialize(client.db('audnexus'))
+	papr.initialize(client.db('audnexus'))
 
-    await papr.updateSchemas()
+	await papr.updateSchemas()
 }
 
 export async function disconnect() {
-    await client.close()
+	await client.close()
 }
 
 export default papr
