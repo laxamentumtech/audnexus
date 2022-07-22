@@ -1,5 +1,5 @@
 import StitchHelper from '#helpers/books/audible/StitchHelper'
-import { ApiSingleChapterInterface, BookInterface } from '#interfaces/books'
+import { ApiSingleChapterInterface, BookInterface } from '#config/typing/books'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 
 // Run through known book data to test responses

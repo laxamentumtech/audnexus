@@ -1,7 +1,7 @@
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { PaprAudibleChapterHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import { ApiChapterInterface } from '#interfaces/books'
+import { ApiChapterInterface } from '#config/typing/books'
 import { RequestGeneric } from '#config/typing/requests'
 import { FastifyInstance } from 'fastify'
 import addTimestamps from '#helpers/database/addTimestamps'

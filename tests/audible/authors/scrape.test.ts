@@ -1,5 +1,5 @@
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
-import { AuthorProfile } from '#interfaces/people'
+import { AuthorProfile } from '#config/typing/people'
 
 const asinAndyWeir = 'B00G0WYW92'
 const asinMissing = '103940202X'

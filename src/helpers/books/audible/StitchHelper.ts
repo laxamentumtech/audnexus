@@ -1,7 +1,7 @@
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
-import { AudibleInterface } from '#interfaces/audible'
-import { ApiBookInterface, BookInterface, HtmlBookInterface } from '#interfaces/books/index'
+import { AudibleInterface } from '#config/typing/audible'
+import { ApiBookInterface, BookInterface, HtmlBookInterface } from '#config/typing/books'
 import type { CheerioAPI } from 'cheerio'
 
 class StitchHelper {
@@ -33,9 +33,7 @@ class StitchHelper {
             this.apiResponse = await apiResponse
             this.scraperResponse = await scraperResponse
         } catch (err) {
-            throw new Error(
-                `Error occured while fetching data from API or scraper: ${err}`
-            )
+            throw new Error(`Error occured while fetching data from API or scraper: ${err}`)
         }
     }
 
@@ -53,9 +51,7 @@ class StitchHelper {
             this.tempJson = this.apiParsed
             this.scraperParsed = await scraperParsed
         } catch (err) {
-            throw new Error(
-                `Error occured while parsing data from API or scraper: ${err}`
-            )
+            throw new Error(`Error occured while parsing data from API or scraper: ${err}`)
         }
     }
 

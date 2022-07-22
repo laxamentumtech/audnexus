@@ -1,4 +1,4 @@
-import { GenreInterface } from '../audible'
+import { GenreInterface } from '#config/typing/audible'
 
 interface Person {
     name: string

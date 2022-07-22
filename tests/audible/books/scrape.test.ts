@@ -1,5 +1,5 @@
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
-import { HtmlBookInterface } from '#interfaces/books'
+import { HtmlBookInterface } from '#config/typing/books'
 import { CheerioAPI } from 'cheerio'
 
 let asinBad: string

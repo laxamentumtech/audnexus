@@ -1,6 +1,6 @@
 import SharedHelper from '#helpers/shared'
-import { GenreInterface } from '#interfaces/audible'
-import { AuthorProfile } from '#interfaces/people/index'
+import { GenreInterface } from '#config/typing/audible'
+import { AuthorProfile } from '#config/typing/people'
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'

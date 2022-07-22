@@ -3,8 +3,7 @@
         "baseUrl": "../src",
         "paths": {
             "#config/*": ["config/*"],
-            "#helpers/*": ["helpers/*"],
-            "#interfaces/*": ["interfaces/*"]
+            "#helpers/*": ["helpers/*"]
         },
     },
     "include": ["**/*.test.ts"],

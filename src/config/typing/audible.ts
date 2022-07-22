@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import { AuthorOnBook, NarratorOnBook } from '../people/index'
+import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 
 interface Codecs {
     enhanced_codec: string

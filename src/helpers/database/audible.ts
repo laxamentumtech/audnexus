@@ -1,8 +1,8 @@
 import Author from '#config/models/Author'
 import Chapter from '#config/models/Chapter'
 import SharedHelper from '#helpers/shared'
-import { ApiChapterInterface, BookInterface } from '#interfaces/books'
-import { AuthorProfile } from '#interfaces/people'
+import { ApiChapterInterface, BookInterface } from '#config/typing/books'
+import { AuthorProfile } from '#config/typing/people'
 import Book from '#config/models/Book'
 
 export class PaprAudibleAuthorHelper {

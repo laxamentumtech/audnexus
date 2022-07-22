@@ -1,6 +1,6 @@
 import ApiHelper from '#helpers/books/audible/ApiHelper'
-import { AudibleInterface } from '#interfaces/audible'
-import { ApiBookInterface } from '#interfaces/books'
+import { AudibleInterface } from '#config/typing/audible'
+import { ApiBookInterface } from '#config/typing/books'
 
 let asinBad: string
 let apiBad: ApiHelper

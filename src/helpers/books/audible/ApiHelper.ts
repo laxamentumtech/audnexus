@@ -1,7 +1,7 @@
 import SharedHelper from '#helpers/shared'
-import { AudibleInterface, AudibleSeries } from '#interfaces/audible/index'
-import { ApiBookInterface, SeriesInterface } from '#interfaces/books/index'
-import { AuthorOnBook, NarratorOnBook } from '#interfaces/people/index'
+import { AudibleInterface, AudibleSeries } from '#config/typing/audible'
+import { ApiBookInterface, SeriesInterface } from '#config/typing/books'
+import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
 const fetch = require('fetch-retry')(originalFetch)

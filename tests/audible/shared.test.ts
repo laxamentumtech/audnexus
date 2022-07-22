@@ -1,4 +1,4 @@
-import SharedHelper from '../../src/helpers/shared'
+import SharedHelper from '#helpers/shared'
 
 const asin: string = 'B08G9PRS1K'
 let baseDomain: string

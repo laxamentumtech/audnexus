@@ -1,6 +1,6 @@
 import SharedHelper from '#helpers/shared'
-import { ChapterInterface, SingleChapter } from '#interfaces/audible'
-import { ApiChapterInterface, ApiSingleChapterInterface } from '#interfaces/books'
+import { ChapterInterface, SingleChapter } from '#config/typing/audible'
+import { ApiChapterInterface, ApiSingleChapterInterface } from '#config/typing/books'
 import originalFetch from 'isomorphic-fetch'
 const fetch = require('fetch-retry')(originalFetch)
 import jsrsasign from 'jsrsasign'

@@ -1,5 +1,5 @@
-import { GenreInterface } from '../audible'
-import { AuthorOnBook, NarratorOnBook } from '../people/index'
+import { GenreInterface } from '#config/typing/audible'
+import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 
 export interface ApiSingleChapterInterface {
     lengthMs: number
