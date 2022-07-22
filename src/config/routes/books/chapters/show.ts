@@ -1,75 +1,88 @@
-import ChapterHelper from '#helpers/books/audible/ChapterHelper'
-import { PaprAudibleChapterHelper } from '#helpers/database/audible'
-import SharedHelper from '#helpers/shared'
-import { ApiChapterInterface } from '#interfaces/books'
-import { RequestGeneric } from '#typing/requests'
 import { FastifyInstance } from 'fastify'
 
-async function routes(fastify: FastifyInstance) {
-    fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
-        // Query params
-        const options: { update: string | undefined } = {
-            update: request.query.update
-        }
+import { ChapterDocument } from '#config/models/Chapter'
+import { ApiChapter } from '#config/typing/books'
+import { RequestGeneric } from '#config/typing/requests'
+import ChapterHelper from '#helpers/books/audible/ChapterHelper'
+import addTimestamps from '#helpers/database/addTimestamps'
+import { PaprAudibleChapterHelper } from '#helpers/database/audible'
+import SharedHelper from '#helpers/shared'
 
-        // Setup Helpers
-        const commonHelpers = new SharedHelper()
-        const DbHelper = new PaprAudibleChapterHelper(request.params.asin, options)
+async function _show(fastify: FastifyInstance) {
+	fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
+		// Query params
+		const options: { update: string | undefined } = {
+			update: request.query.update
+		}
 
-        // First, check ASIN validity
-        if (!commonHelpers.checkAsinValidity(request.params.asin)) {
-            reply.code(400)
-            throw new Error('Bad ASIN')
-        }
+		// Setup Helpers
+		const commonHelpers = new SharedHelper()
+		const DbHelper = new PaprAudibleChapterHelper(request.params.asin, options)
 
-        const { redis } = fastify
-        // Set redis k,v function
-        const setRedis = (asin: string, newDbItem: ApiChapterInterface) => {
-            redis?.set(`chapters-${asin}`, JSON.stringify(newDbItem, null, 2))
-        }
-        // Search redis if available
-        const findInRedis = redis
-            ? await redis.get(`chapters-${request.params.asin}`, (_err, val) => {
-                  if (!val) return undefined
-                  return JSON.parse(val)
-              })
-            : undefined
+		// First, check ASIN validity
+		if (!commonHelpers.checkAsinValidity(request.params.asin)) {
+			reply.code(400)
+			throw new Error('Bad ASIN')
+		}
 
-        const existingChapter = await DbHelper.findOne()
+		const { redis } = fastify
+		// Set redis k,v function
+		const setRedis = (asin: string, newDbItem: ApiChapter) => {
+			redis?.set(`chapters-${asin}`, JSON.stringify(newDbItem, null, 2))
+		}
+		// Search redis if available
+		const findInRedis = redis
+			? await redis.get(`chapters-${request.params.asin}`, (_err, val) => {
+					if (!val) return undefined
+					return JSON.parse(val)
+			  })
+			: undefined
 
-        // Check for existing or cached data
-        if (options.update !== '0' && findInRedis) {
-            return JSON.parse(findInRedis)
-        } else if (options.update !== '0' && existingChapter.data) {
-            setRedis(request.params.asin, existingChapter.data)
-            return existingChapter.data
-        }
+		let existingChapter = await DbHelper.findOne()
 
-        // Set up helper
-        const chapterHelper = new ChapterHelper(request.params.asin)
-        // Request data to be processed by helper
-        const chapterData = await chapterHelper.process()
-        // Continue only if chapters exist
-        if (!chapterData) {
-            reply.code(404)
-            throw new Error(`No Chapters for ${request.params.asin}`)
-        }
-        DbHelper.chapterData = chapterData
-        // Let CRUD helper decide how to handle the data
-        const chapterToReturn = await DbHelper.createOrUpdate()
+		// Add dates to data if not present
+		if (existingChapter.data && !existingChapter.data.createdAt) {
+			DbHelper.chapterData = addTimestamps(existingChapter.data) as ChapterDocument
+			existingChapter = await DbHelper.update()
+		}
 
-        // Throw error on null return data
-        if (!chapterToReturn.data) {
-            throw new Error(`No data returned from database for chapter ${request.params.asin}`)
-        }
+		// Check for existing or cached data
+		if (options.update !== '0' && findInRedis) {
+			return JSON.parse(findInRedis)
+		} else if (options.update !== '0' && existingChapter.data) {
+			setRedis(request.params.asin, existingChapter.data)
+			return existingChapter.data
+		}
 
-        // Update Redis if the item is modified
-        if (chapterToReturn.modified) {
-            setRedis(request.params.asin, chapterToReturn.data)
-        }
+		// Check if the object was updated recently
+		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(existingChapter.data))
+			return existingChapter.data
 
-        return chapterToReturn.data
-    })
+		// Set up helper
+		const chapterHelper = new ChapterHelper(request.params.asin)
+		// Request data to be processed by helper
+		const chapterData = await chapterHelper.process()
+		// Continue only if chapters exist
+		if (!chapterData) {
+			reply.code(404)
+			throw new Error(`No Chapters for ${request.params.asin}`)
+		}
+		DbHelper.chapterData = chapterData
+		// Let CRUD helper decide how to handle the data
+		const chapterToReturn = await DbHelper.createOrUpdate()
+
+		// Throw error on null return data
+		if (!chapterToReturn.data) {
+			throw new Error(`No data returned from database for chapter ${request.params.asin}`)
+		}
+
+		// Update Redis if the item is modified
+		if (chapterToReturn.modified) {
+			setRedis(request.params.asin, chapterToReturn.data)
+		}
+
+		return chapterToReturn.data
+	})
 }
 
-export default routes
+export default _show

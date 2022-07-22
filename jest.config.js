@@ -1,7 +1,7 @@
 module.exports = {
     moduleNameMapper: {
         '#helpers/(.*)': '<rootDir>/src/helpers/$1',
-        '#interfaces/(.*)': '<rootDir>/src/interfaces/$1',
+        '#config/(.*)': '<rootDir>/src/config/$1',
         '#root/(.*)': '<rootDir>/src/$1'
     },
     roots: ['<rootDir>'],

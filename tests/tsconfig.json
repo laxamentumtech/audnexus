@@ -1,15 +1,10 @@
 {
-    "compilerOptions": {
-        "baseUrl": "../src",
-        "paths": {
-            "#config/*": ["config/*"],
-            "#helpers/*": ["helpers/*"],
-            "#interfaces/*": ["interfaces/*"],
-            "#models/*": ["config/models/*"],
-            "#papr": ["config/papr"],
-            "#routes/*": ["config/routes/*"],
-            "#typing/*": ["config/typing/*"]
-        },
-    },
-    "include": ["**/*.test.ts"],
+	"compilerOptions": {
+		"baseUrl": "../src",
+		"paths": {
+			"#config/*": ["config/*"],
+			"#helpers/*": ["helpers/*"]
+		}
+	},
+	"include": ["**/*.test.ts"]
 }

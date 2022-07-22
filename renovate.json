@@ -1,21 +1,21 @@
 {
-    "baseBranches": ["develop"],
-    "branchConcurrentLimit": 10,
-    "commitMessageAction": "Upgrade",
-    "commitMessagePrefix": "chore:",
-    "commitMessageTopic": "{{depName}}",
-    "extends": ["config:base"],
-    "labels": ["dependencies"],
-    "packageRules": [
-        {
-            "matchUpdateTypes": ["digest", "patch", "pin"],
-            "automerge": true
-        }
-    ],
-    "rebaseWhen": "auto",
-    "stabilityDays": 5,
-    "timezone": "Etc/UTC",
-    "vulnerabilityAlerts": {
-        "labels": ["security"]
-    }
+	"baseBranches": ["develop"],
+	"branchConcurrentLimit": 10,
+	"commitMessageAction": "Upgrade",
+	"commitMessagePrefix": "chore:",
+	"commitMessageTopic": "{{depName}}",
+	"extends": ["config:base"],
+	"labels": ["dependencies"],
+	"packageRules": [
+		{
+			"matchUpdateTypes": ["digest", "patch", "pin"],
+			"automerge": true
+		}
+	],
+	"rebaseWhen": "auto",
+	"stabilityDays": 5,
+	"timezone": "Etc/UTC",
+	"vulnerabilityAlerts": {
+		"labels": ["security"]
+	}
 }
