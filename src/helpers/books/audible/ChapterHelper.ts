@@ -85,8 +85,7 @@ class ChapterHelper {
 		const hash = sig.signString(data)
 		const signedEncoded = jsrsasign.hextob64(hash)
 
-		const signedResponse = `${signedEncoded}:${date}`
-		return signedResponse
+		return `${signedEncoded}:${date}`
 	}
 
 	/**
