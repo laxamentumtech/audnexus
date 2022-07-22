@@ -1,5 +1,6 @@
-import papr from '#config/papr'
 import { schema, types } from 'papr'
+
+import papr from '#config/papr'
 
 const authorSchema = schema(
 	{

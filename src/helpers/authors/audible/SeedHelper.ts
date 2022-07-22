@@ -1,5 +1,6 @@
-import { BookDocument } from '#config/models/Book'
 import originalFetch from 'isomorphic-fetch'
+
+import { BookDocument } from '#config/models/Book'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const fetch = require('fetch-retry')(originalFetch)

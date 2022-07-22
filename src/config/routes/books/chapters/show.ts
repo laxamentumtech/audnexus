@@ -1,3 +1,5 @@
+import { FastifyInstance } from 'fastify'
+
 import { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
 import { RequestGeneric } from '#config/typing/requests'
@@ -5,7 +7,6 @@ import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
 import { PaprAudibleChapterHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import { FastifyInstance } from 'fastify'
 
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {

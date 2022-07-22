@@ -1,9 +1,10 @@
-import { Genre } from '#config/typing/audible'
-import { HtmlBook } from '#config/typing/books'
-import SharedHelper from '#helpers/shared'
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
+
+import { Genre } from '#config/typing/audible'
+import { HtmlBook } from '#config/typing/books'
+import SharedHelper from '#helpers/shared'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const fetch = require('fetch-retry')(originalFetch)

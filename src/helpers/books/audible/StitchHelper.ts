@@ -1,8 +1,9 @@
+import type { CheerioAPI } from 'cheerio'
+
 import { AudibleProduct } from '#config/typing/audible'
 import { ApiBook, Book, HtmlBook } from '#config/typing/books'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
-import type { CheerioAPI } from 'cheerio'
 
 class StitchHelper {
 	apiHelper: ApiHelper

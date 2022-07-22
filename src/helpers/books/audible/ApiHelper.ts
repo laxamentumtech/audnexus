@@ -1,9 +1,10 @@
+import { htmlToText } from 'html-to-text'
+import originalFetch from 'isomorphic-fetch'
+
 import { AudibleProduct, AudibleSeries } from '#config/typing/audible'
 import { ApiBook, Series } from '#config/typing/books'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 import SharedHelper from '#helpers/shared'
-import { htmlToText } from 'html-to-text'
-import originalFetch from 'isomorphic-fetch'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const fetch = require('fetch-retry')(originalFetch)

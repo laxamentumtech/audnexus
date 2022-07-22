@@ -1,6 +1,7 @@
+import { CheerioAPI } from 'cheerio'
+
 import { HtmlBook } from '#config/typing/books'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
-import { CheerioAPI } from 'cheerio'
 
 let asinBad: string
 let htmlBad: ScrapeHelper

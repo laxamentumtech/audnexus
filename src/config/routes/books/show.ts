@@ -1,3 +1,5 @@
+import { FastifyInstance } from 'fastify'
+
 import type { BookDocument } from '#config/models/Book'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
@@ -5,7 +7,6 @@ import StitchHelper from '#helpers/books/audible/StitchHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
 import { PaprAudibleBookHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import { FastifyInstance } from 'fastify'
 
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGenericWithSeed>('/books/:asin', async (request, reply) => {

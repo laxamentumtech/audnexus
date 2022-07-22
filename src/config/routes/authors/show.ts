@@ -1,10 +1,11 @@
+import { FastifyInstance } from 'fastify'
+
 import type { AuthorDocument } from '#config/models/Author'
 import { RequestGeneric } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import { FastifyInstance } from 'fastify'
 
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGeneric>('/authors/:asin', async (request, reply) => {

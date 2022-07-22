@@ -1,17 +1,16 @@
-import { connect, disconnect } from '#config/papr'
-import deleteAuthor from '#config/routes/authors/delete'
-import searchAuthor from '#config/routes/authors/search/show'
-// Author routes
-import showAuthor from '#config/routes/authors/show'
-import showChapter from '#config/routes/books/chapters/show'
-import deleteBook from '#config/routes/books/delete'
-// Book routes
-import showBook from '#config/routes/books/show'
-// System imports
 import cors from '@fastify/cors'
 import redis from '@fastify/redis'
 import { fastify } from 'fastify'
+
 import 'module-alias/register'
+
+import { connect, disconnect } from '#config/papr'
+import deleteAuthor from '#config/routes/authors/delete'
+import searchAuthor from '#config/routes/authors/search/show'
+import showAuthor from '#config/routes/authors/show'
+import showChapter from '#config/routes/books/chapters/show'
+import deleteBook from '#config/routes/books/delete'
+import showBook from '#config/routes/books/show'
 
 // Heroku or local port
 const host = '0.0.0.0'

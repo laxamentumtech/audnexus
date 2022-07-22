@@ -1,7 +1,8 @@
+import { FastifyInstance } from 'fastify'
+
 import { RequestGeneric } from '#config/typing/requests'
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import { FastifyInstance } from 'fastify'
 
 async function _delete(fastify: FastifyInstance) {
 	fastify.delete<RequestGeneric>('/authors/:asin', async (request, reply) => {

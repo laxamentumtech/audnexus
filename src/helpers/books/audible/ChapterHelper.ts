@@ -1,9 +1,10 @@
-import { Chapter, SingleChapter } from '#config/typing/audible'
-import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
-import SharedHelper from '#helpers/shared'
 import originalFetch from 'isomorphic-fetch'
 import jsrsasign from 'jsrsasign'
 import moment from 'moment'
+
+import { Chapter, SingleChapter } from '#config/typing/audible'
+import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
+import SharedHelper from '#helpers/shared'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const fetch = require('fetch-retry')(originalFetch)
