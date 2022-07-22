@@ -38,14 +38,12 @@ async function _show(fastify: FastifyInstance) {
               })
             : undefined
 
-        const existingBook = await DbHelper.findOne()
+        let existingBook = await DbHelper.findOne()
 
-        // Update option #2
         // Add dates to data if not present
-        if (options.update == '2' && existingBook.data && !existingBook.data.createdAt) {
+        if (existingBook.data && !existingBook.data.createdAt) {
             DbHelper.bookData = addTimestamps(existingBook.data) as BookDocument
-            const update = await DbHelper.update()
-            return update.data
+            existingBook = await DbHelper.update()
         }
 
         // Check for existing or cached data

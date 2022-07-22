@@ -37,14 +37,12 @@ async function _show(fastify: FastifyInstance) {
               })
             : undefined
 
-        const existingChapter = await DbHelper.findOne()
+        let existingChapter = await DbHelper.findOne()
 
-        // Update option #2
         // Add dates to data if not present
-        if (options.update == '2' && existingChapter.data && !existingChapter.data.createdAt) {
+        if (existingChapter.data && !existingChapter.data.createdAt) {
             DbHelper.chapterData = addTimestamps(existingChapter.data) as ChapterDocument
-            const update = await DbHelper.update()
-            return update.data
+            existingChapter = await DbHelper.update()
         }
 
         // Check for existing or cached data
