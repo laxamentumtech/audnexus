@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.5.1](https://github.com/djdembeck/audnexus/compare/v0.4.5...v0.5.1) (2022-07-22)
+
+
+### Features
+
+* **route:** :triangular_flag_on_post: add `update=2` to add timestamps to existing database entries ([294046f](https://github.com/djdembeck/audnexus/commit/294046f50d3ed6a4fe195152ecb226581df31a6a))
+
 ### [0.4.5](https://github.com/djdembeck/audnexus/compare/v0.4.4...v0.4.5) (2022-07-20)
 
 
