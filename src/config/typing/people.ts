@@ -15,4 +15,4 @@ export interface AuthorProfile extends Person {
 	image?: string
 }
 
-export interface NarratorOnBook extends Person {}
+export type NarratorOnBook = Person

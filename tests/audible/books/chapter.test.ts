@@ -3,7 +3,7 @@ import { ApiChapter } from '#config/typing/books'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 
 // Run through known book data to test responses
-const asinProjectHailMary: string = 'B08G9PRS1K'
+const asinProjectHailMary = 'B08G9PRS1K'
 const chapProjectHailMary = new ChapterHelper(asinProjectHailMary)
 
 describe('When fetching Project Hail Mary chapters from Audible API', () => {
@@ -73,7 +73,7 @@ describe('When fetching Project Hail Mary chapters from Audible API', () => {
 })
 
 // Run through chapter parsing of a book with bad names
-const asinTheSeep: string = '1721358595'
+const asinTheSeep = '1721358595'
 
 describe('When parsing The Seep', () => {
 	let response: ApiChapter
@@ -145,7 +145,7 @@ describe('When parsing The Seep', () => {
 })
 
 // Test known BAD returns
-const asinBad: string = 'B0036I54I6'
+const asinBad = 'B0036I54I6'
 
 describe("When fetching an broken ASIN's chapters from Audible API", () => {
 	let response: ApiChapter | undefined

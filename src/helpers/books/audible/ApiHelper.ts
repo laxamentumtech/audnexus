@@ -5,6 +5,7 @@ import SharedHelper from '#helpers/shared'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const fetch = require('fetch-retry')(originalFetch)
 
 class ApiHelper {
@@ -14,8 +15,8 @@ class ApiHelper {
 	constructor(asin: string) {
 		this.asin = asin
 		const helper = new SharedHelper()
-		const baseDomain: string = 'https://api.audible.com'
-		const baseUrl: string = '1.0/catalog/products'
+		const baseDomain = 'https://api.audible.com'
+		const baseUrl = '1.0/catalog/products'
 		const params =
 			'?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
 		this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)

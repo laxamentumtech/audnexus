@@ -5,6 +5,7 @@ import originalFetch from 'isomorphic-fetch'
 import jsrsasign from 'jsrsasign'
 import moment from 'moment'
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const fetch = require('fetch-retry')(originalFetch)
 
 class ChapterHelper {
@@ -16,8 +17,8 @@ class ChapterHelper {
 	constructor(asin: string) {
 		this.asin = asin
 		const helper = new SharedHelper()
-		const baseDomain: string = 'https://api.audible.com'
-		const baseUrl: string = '1.0/content'
+		const baseDomain = 'https://api.audible.com'
+		const baseUrl = '1.0/content'
 		const params = 'metadata?response_groups=chapter_info'
 		this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
 		if (process.env.ADP_TOKEN && process.env.PRIVATE_KEY) {
@@ -83,7 +84,7 @@ class ChapterHelper {
 		const hash = sig.signString(data)
 		const signedEncoded = jsrsasign.hextob64(hash)
 
-		const signedResponse: string = `${signedEncoded}:${date}`
+		const signedResponse = `${signedEncoded}:${date}`
 		return signedResponse
 	}
 

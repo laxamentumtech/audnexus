@@ -3,7 +3,7 @@ import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 
 // Run through known book data to test responses
-const asinSorcerersStone: string = 'B017V4IM1G'
+const asinSorcerersStone = 'B017V4IM1G'
 
 describe('When stitching together Scorcerers Stone from Audible', () => {
 	let response: Book
@@ -177,7 +177,7 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
 })
 
 // Run through known book data to test responses
-const asinColdestCase: string = 'B08C6YJ1LS'
+const asinColdestCase = 'B08C6YJ1LS'
 
 describe('When stitching together The Coldest Case from Audible', () => {
 	let response: Book
@@ -331,7 +331,7 @@ describe('When stitching together The Coldest Case from Audible', () => {
 	})
 })
 
-const asinBad: string = 'B0036I54I6'
+const asinBad = 'B0036I54I6'
 
 describe('When fetching an ASIN that has no chapters or HTML from Audible', () => {
 	let response: Book

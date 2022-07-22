@@ -5,6 +5,7 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const fetch = require('fetch-retry')(originalFetch)
 
 class ScrapeHelper {
@@ -14,8 +15,8 @@ class ScrapeHelper {
 	constructor(asin: string) {
 		this.asin = asin
 		this.helper = new SharedHelper()
-		const baseDomain: string = 'https://www.audible.com'
-		const baseUrl: string = 'author'
+		const baseDomain = 'https://www.audible.com'
+		const baseUrl = 'author'
 		this.reqUrl = this.helper.buildUrl(asin, baseDomain, baseUrl)
 	}
 
@@ -112,7 +113,7 @@ class ScrapeHelper {
 		// Name.
 		try {
 			// Workaround data error: https://github.com/cheeriojs/cheerio/issues/1854
-			let name = $('h1.bc-text-bold')[0].children[0] as any
+			const name = $('h1.bc-text-bold')[0].children[0] as any
 			if (typeof name.data === 'string') {
 				returnJson.name = name.data
 			}

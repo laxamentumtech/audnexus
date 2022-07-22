@@ -5,6 +5,7 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const fetch = require('fetch-retry')(originalFetch)
 
 class ScrapeHelper {
@@ -14,8 +15,8 @@ class ScrapeHelper {
 	constructor(asin: string) {
 		this.asin = asin
 		this.helper = new SharedHelper()
-		const baseDomain: string = 'https://www.audible.com'
-		const baseUrl: string = 'pd'
+		const baseDomain = 'https://www.audible.com'
+		const baseUrl = 'pd'
 		this.reqUrl = this.helper.buildUrl(asin, baseDomain, baseUrl)
 	}
 
