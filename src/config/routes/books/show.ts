@@ -47,7 +47,7 @@ async function _show(fastify: FastifyInstance) {
 			existingBook = await DbHelper.update()
 		}
 
-        const book = existingBook?.data as BookDocument
+		const book = existingBook?.data as BookDocument
 
 		// Check for existing or cached data
 		if (options.update !== '0' && findInRedis) {
@@ -58,8 +58,7 @@ async function _show(fastify: FastifyInstance) {
 		}
 
 		// Check if the object was updated recently
-		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(book))
-			return book
+		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(book)) return book
 
 		// Setup helper
 		const stitchHelper = new StitchHelper(request.params.asin)

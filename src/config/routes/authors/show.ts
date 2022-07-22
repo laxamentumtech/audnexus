@@ -45,7 +45,7 @@ async function _show(fastify: FastifyInstance) {
 			existingAuthor = await DbHelper.update()
 		}
 
-        const author = existingAuthor?.data as AuthorDocument
+		const author = existingAuthor?.data as AuthorDocument
 
 		// Check for existing or cached data
 		if (options.update !== '0' && findInRedis) {
@@ -56,8 +56,7 @@ async function _show(fastify: FastifyInstance) {
 		}
 
 		// Check if the object was updated recently
-		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(author))
-			return author
+		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(author)) return author
 
 		// Set up helper
 		const scrapeHelper = new ScrapeHelper(request.params.asin)
