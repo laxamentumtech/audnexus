@@ -3,8 +3,5 @@
 	"semi": false,
 	"singleQuote": true,
 	"trailingComma": "none",
-	"useTabs": true,
-	"importOrder": ["^components/(.*)$", "^[./]"],
-	"importOrderSeparation": true,
-	"importOrderSortSpecifiers": true
+	"useTabs": true
 }
