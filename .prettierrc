@@ -1,7 +1,10 @@
 {
-	"singleQuote": true,
-	"trailingComma": "none",
 	"printWidth": 100,
 	"semi": false,
-    "tabWidth": 4
+	"singleQuote": true,
+	"trailingComma": "none",
+	"useTabs": true,
+	"importOrder": ["^components/(.*)$", "^[./]"],
+	"importOrderSeparation": true,
+	"importOrderSortSpecifiers": true
 }
