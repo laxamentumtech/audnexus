@@ -13,6 +13,7 @@ specifiers:
   '@typescript-eslint/parser': 5.30.7
   cheerio: 1.0.0-rc.12
   concurrently: 7.2.2
+  domhandler: ^5.0.3
   eslint: 8.20.0
   eslint-config-prettier: ^8.5.0
   eslint-config-standard: 17.0.0
@@ -44,6 +45,7 @@ dependencies:
   '@fastify/redis': 6.0.0
   cheerio: 1.0.0-rc.12
   concurrently: 7.2.2
+  domhandler: 5.0.3
   eslint-plugin-n: 15.2.4_eslint@8.20.0
   fastify: 4.2.1
   fetch-retry: 5.0.3

@@ -31,6 +31,7 @@
 		"@fastify/redis": "6.0.0",
 		"cheerio": "1.0.0-rc.12",
 		"concurrently": "7.2.2",
+		"domhandler": "^5.0.3",
 		"eslint-plugin-n": "15.2.4",
 		"fastify": "4.2.1",
 		"fetch-retry": "5.0.3",
