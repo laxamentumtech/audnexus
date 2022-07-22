@@ -1,7 +1,7 @@
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { PaprAudibleChapterHelper } from '#helpers/database/audible'
 import SharedHelper from '#helpers/shared'
-import { ApiChapterInterface } from '#config/typing/books'
+import { ApiChapter } from '#config/typing/books'
 import { RequestGeneric } from '#config/typing/requests'
 import { FastifyInstance } from 'fastify'
 import addTimestamps from '#helpers/database/addTimestamps'
@@ -26,7 +26,7 @@ async function _show(fastify: FastifyInstance) {
 
         const { redis } = fastify
         // Set redis k,v function
-        const setRedis = (asin: string, newDbItem: ApiChapterInterface) => {
+        const setRedis = (asin: string, newDbItem: ApiChapter) => {
             redis?.set(`chapters-${asin}`, JSON.stringify(newDbItem, null, 2))
         }
         // Search redis if available

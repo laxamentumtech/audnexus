@@ -1,18 +1,18 @@
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import { AudibleProduct } from '#config/typing/audible'
-import { ApiBookInterface, BookInterface, HtmlBookInterface } from '#config/typing/books'
+import { ApiBook, Book, HtmlBook } from '#config/typing/books'
 import type { CheerioAPI } from 'cheerio'
 
 class StitchHelper {
     apiHelper: ApiHelper
-    apiParsed: ApiBookInterface | undefined
+    apiParsed: ApiBook | undefined
     apiResponse: AudibleProduct | undefined
     asin: string
     scrapeHelper: ScrapeHelper
-    scraperParsed: HtmlBookInterface | undefined
+    scraperParsed: HtmlBook | undefined
     scraperResponse: CheerioAPI | undefined
-    tempJson!: Partial<BookInterface>
+    tempJson!: Partial<Book>
 
     constructor(asin: string) {
         this.asin = asin
@@ -58,24 +58,24 @@ class StitchHelper {
     /**
      * Sets genres key in returned json if it exists
      */
-    async includeGenres(): Promise<BookInterface> {
+    async includeGenres(): Promise<Book> {
         if (this.scraperParsed && this.scraperParsed.genres!.length) {
             this.tempJson.genres = this.scraperParsed.genres
         }
-        return this.tempJson as BookInterface
+        return this.tempJson as Book
     }
 
     /**
      * Call functions in the class to parse final book JSON
-     * @returns {Promise<BookInterface>}
+     * @returns {Promise<Book>}
      */
-    async process(): Promise<BookInterface> {
+    async process(): Promise<Book> {
         // Wait in order
         await this.fetchSources()
         await this.parseResponses()
 
         const stitchedGenres = await this.includeGenres()
-        const bookJson: BookInterface = stitchedGenres
+        const bookJson: Book = stitchedGenres
         return bookJson
     }
 }
