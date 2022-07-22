@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { isText } from 'domhandler'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
 
@@ -113,9 +114,8 @@ class ScrapeHelper {
 
 		// Name.
 		try {
-			// Workaround data error: https://github.com/cheeriojs/cheerio/issues/1854
-			const name = $('h1.bc-text-bold')[0].children[0] as any
-			if (typeof name.data === 'string') {
+			const name = $('h1.bc-text-bold')[0].children[0]
+			if (isText(name)) {
 				returnJson.name = name.data
 			}
 		} catch (err) {

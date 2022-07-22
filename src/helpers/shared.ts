@@ -1,5 +1,9 @@
 import lodash from 'lodash'
 
+import { AuthorDocument } from '#config/models/Author'
+import { BookDocument } from '#config/models/Book'
+import { ChapterDocument } from '#config/models/Chapter'
+
 class SharedHelper {
 	asin10Regex = /(?=.\d)[A-Z\d]{10}/
 	asin11Regex = /(?=.\d)[A-Z\d]{11}/
@@ -31,7 +35,10 @@ class SharedHelper {
 		return false
 	}
 
-	checkDataEquality(original: any, updated: any) {
+	checkDataEquality(
+		original: AuthorDocument | BookDocument | ChapterDocument,
+		updated: AuthorDocument | BookDocument | ChapterDocument
+	) {
 		if (lodash.isEqual(original, updated)) {
 			return original
 		}
@@ -42,7 +49,7 @@ class SharedHelper {
 	 * @param obj object to check
 	 * @returns {boolean} true if updated in last 24 hours, false otherwise
 	 */
-	checkIfRecentlyUpdated(obj: any): boolean {
+	checkIfRecentlyUpdated(obj: AuthorDocument | BookDocument | ChapterDocument): boolean {
 		const now = new Date()
 		const lastUpdated = new Date(obj.updatedAt)
 		const diff = now.getTime() - lastUpdated.getTime()

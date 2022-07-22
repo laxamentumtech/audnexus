@@ -46,17 +46,18 @@ async function _show(fastify: FastifyInstance) {
 			existingChapter = await DbHelper.update()
 		}
 
+		const chapter = existingChapter?.data as ChapterDocument
+
 		// Check for existing or cached data
 		if (options.update !== '0' && findInRedis) {
 			return JSON.parse(findInRedis)
-		} else if (options.update !== '0' && existingChapter.data) {
-			setRedis(request.params.asin, existingChapter.data)
-			return existingChapter.data
+		} else if (options.update !== '0' && chapter) {
+			setRedis(request.params.asin, chapter)
+			return chapter
 		}
 
 		// Check if the object was updated recently
-		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(existingChapter.data))
-			return existingChapter.data
+		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(chapter)) return chapter
 
 		// Set up helper
 		const chapterHelper = new ChapterHelper(request.params.asin)

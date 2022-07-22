@@ -83,7 +83,7 @@ class ApiHelper {
 			if (!this.inputJson) throw new Error(`No input data`)
 			const seriesJson = this.getSeries(series)
 			// Check and set primary series
-			if (seriesJson?.name === this.inputJson.publication_name!) {
+			if (this.inputJson.publication_name && seriesJson?.name === this.inputJson.publication_name) {
 				seriesPrimary = seriesJson
 			}
 		})
@@ -97,8 +97,12 @@ class ApiHelper {
 			if (!this.inputJson) throw new Error(`No input data`)
 			const seriesJson = this.getSeries(series)
 			// Check and set secondary series
-			if (allSeries.length > 1 && seriesJson?.name !== this.inputJson.publication_name) {
-				seriesSecondary = seriesJson!
+			if (
+				allSeries.length > 1 &&
+				seriesJson &&
+				seriesJson?.name !== this.inputJson.publication_name
+			) {
+				seriesSecondary = seriesJson
 			}
 		})
 		if (!seriesSecondary.name) return undefined
@@ -112,13 +116,14 @@ class ApiHelper {
 		const series2 = this.getSeriesSecondary(this.inputJson.series)
 		return {
 			asin: this.inputJson.asin,
-			authors: this.inputJson.authors!.map((person: AuthorOnBook) => {
-				const authorJson: AuthorOnBook = {
-					asin: person.asin,
-					name: person.name
-				}
-				return authorJson
-			}),
+			authors:
+				this.inputJson.authors?.map((person: AuthorOnBook) => {
+					const authorJson: AuthorOnBook = {
+						asin: person.asin,
+						name: person.name
+					}
+					return authorJson
+				}) || [],
 			description: htmlToText(this.inputJson['merchandising_summary'], {
 				wordwrap: false
 			}).trim(),

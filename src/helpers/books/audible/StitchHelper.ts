@@ -60,7 +60,7 @@ class StitchHelper {
 	 * Sets genres key in returned json if it exists
 	 */
 	async includeGenres(): Promise<Book> {
-		if (this.scraperParsed && this.scraperParsed.genres!.length) {
+		if (this.scraperParsed && this.scraperParsed.genres?.length) {
 			this.tempJson.genres = this.scraperParsed.genres
 		}
 		return this.tempJson as Book
