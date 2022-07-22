@@ -1,5 +1,5 @@
 import SharedHelper from '#helpers/shared'
-import { GenreInterface } from '#config/typing/audible'
+import { Genre } from '#config/typing/audible'
 import { AuthorProfile } from '#config/typing/people'
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
@@ -21,15 +21,15 @@ class ScrapeHelper {
     /**
      * Checks the presence of genres on html page and formats them into JSON
      * @param {NodeListOf<Element>} genres selected source from categoriesLabel
-     * @returns {GenreInterface[]}
+     * @returns {Genre[]}
      */
     collectGenres(
         genres: cheerio.Cheerio<cheerio.Element>[],
         type: string
-    ): GenreInterface[] | undefined {
+    ): Genre[] | undefined {
         // Check and label each genre
-        const genreArr: GenreInterface[] | undefined = genres.map((genre, index) => {
-            let thisGenre = {} as GenreInterface
+        const genreArr: Genre[] | undefined = genres.map((genre, index) => {
+            let thisGenre = {} as Genre
             if (genre.attr('href')) {
                 const href = genre.attr('href')
                 const asin = href ? this.helper.getAsinFromUrl(href) : undefined
@@ -45,7 +45,7 @@ class ScrapeHelper {
                 console.debug(`Genre ${index} asin not available on: ${this.asin}`)
             }
             return undefined
-        }) as GenreInterface[]
+        }) as Genre[]
 
         return genreArr
     }
@@ -68,7 +68,7 @@ class ScrapeHelper {
     /**
      * Parses fetched HTML page to extract genres and series'
      * @param {JSDOM} dom the fetched dom object
-     * @returns {HtmlBookInterface} genre and series.
+     * @returns {HtmlBook} genre and series.
      */
     async parseResponse($: cheerio.CheerioAPI | undefined): Promise<AuthorProfile> {
         // Base undefined check

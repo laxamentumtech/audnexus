@@ -1,6 +1,6 @@
 import SharedHelper from '#helpers/shared'
-import { AudibleInterface, AudibleSeries } from '#config/typing/audible'
-import { ApiBookInterface, SeriesInterface } from '#config/typing/books'
+import { AudibleProduct, AudibleSeries } from '#config/typing/audible'
+import { ApiBook, Series } from '#config/typing/books'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
@@ -9,7 +9,7 @@ const fetch = require('fetch-retry')(originalFetch)
 class ApiHelper {
     asin: string
     reqUrl: string
-    inputJson: AudibleInterface['product'] | undefined
+    inputJson: AudibleProduct['product'] | undefined
     constructor(asin: string) {
         this.asin = asin
         const helper = new SharedHelper()
@@ -61,7 +61,7 @@ class ApiHelper {
     }
 
     getSeries(series: AudibleSeries) {
-        const seriesJson = <SeriesInterface>{}
+        const seriesJson = <Series>{}
         // ASIN
         seriesJson.asin = series.asin ? series.asin : undefined
         // Title
@@ -73,7 +73,7 @@ class ApiHelper {
     }
 
     getSeriesPrimary(allSeries: AudibleSeries[]) {
-        let seriesPrimary = <SeriesInterface>{}
+        let seriesPrimary = <Series>{}
         allSeries?.forEach((series: AudibleSeries) => {
             if (!this.inputJson) throw new Error(`No input data`)
             const seriesJson = this.getSeries(series)
@@ -87,7 +87,7 @@ class ApiHelper {
     }
 
     getSeriesSecondary(allSeries: AudibleSeries[]) {
-        let seriesSecondary = <SeriesInterface>{}
+        let seriesSecondary = <Series>{}
         allSeries?.forEach((series: AudibleSeries) => {
             if (!this.inputJson) throw new Error(`No input data`)
             const seriesJson = this.getSeries(series)
@@ -100,7 +100,7 @@ class ApiHelper {
         return seriesSecondary
     }
 
-    getFinalData(): ApiBookInterface {
+    getFinalData(): ApiBook {
         if (!this.inputJson) throw new Error(`No input data`)
         // Find secondary series if available
         const series1 = this.getSeriesPrimary(this.inputJson.series)
@@ -150,25 +150,25 @@ class ApiHelper {
     /**
      * Fetches Audible API JSON
      * @param {scraperUrl} reqUrl the full url to fetch.
-     * @returns {Promise<AudibleInterface>} response from Audible API
+     * @returns {Promise<AudibleProduct>} response from Audible API
      */
-    async fetchBook(): Promise<AudibleInterface | undefined> {
+    async fetchBook(): Promise<AudibleProduct | undefined> {
         const response = await fetch(this.reqUrl)
         if (!response.ok) {
             const message = `An error has occured while fetching from Audible API. Response: ${response.status}, ASIN: ${this.asin}`
             throw new Error(message)
         } else {
-            const json: AudibleInterface = await response.json()
+            const json: AudibleProduct = await response.json()
             return json
         }
     }
 
     /**
      * Parses fetched Audible API data
-     * @param {AudibleInterface} jsonRes fetched json response from api.audible.com
-     * @returns {Promise<ApiBookInterface>} relevant data to keep
+     * @param {AudibleProduct} jsonRes fetched json response from api.audible.com
+     * @returns {Promise<ApiBook>} relevant data to keep
      */
-    async parseResponse(jsonRes: AudibleInterface | undefined): Promise<ApiBookInterface> {
+    async parseResponse(jsonRes: AudibleProduct | undefined): Promise<ApiBook> {
         // Base undefined check
         if (!jsonRes) {
             throw new Error('No API response to parse')

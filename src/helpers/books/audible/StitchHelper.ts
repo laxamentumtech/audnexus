@@ -1,13 +1,13 @@
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
-import { AudibleInterface } from '#config/typing/audible'
+import { AudibleProduct } from '#config/typing/audible'
 import { ApiBookInterface, BookInterface, HtmlBookInterface } from '#config/typing/books'
 import type { CheerioAPI } from 'cheerio'
 
 class StitchHelper {
     apiHelper: ApiHelper
     apiParsed: ApiBookInterface | undefined
-    apiResponse: AudibleInterface | undefined
+    apiResponse: AudibleProduct | undefined
     asin: string
     scrapeHelper: ScrapeHelper
     scraperParsed: HtmlBookInterface | undefined

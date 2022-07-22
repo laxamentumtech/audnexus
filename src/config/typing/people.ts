@@ -1,4 +1,4 @@
-import { GenreInterface } from '#config/typing/audible'
+import { Genre } from '#config/typing/audible'
 
 interface Person {
     name: string
@@ -11,7 +11,7 @@ export interface AuthorOnBook extends Person {
 export interface AuthorProfile extends Person {
     asin: string
     description?: string
-    genres?: GenreInterface[]
+    genres?: Genre[]
     image?: string
 }
 

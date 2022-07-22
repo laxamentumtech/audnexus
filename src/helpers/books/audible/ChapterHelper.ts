@@ -1,6 +1,6 @@
 import SharedHelper from '#helpers/shared'
-import { ChapterInterface, SingleChapter } from '#config/typing/audible'
-import { ApiChapterInterface, ApiSingleChapterInterface } from '#config/typing/books'
+import { Chapter, SingleChapter } from '#config/typing/audible'
+import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
 import originalFetch from 'isomorphic-fetch'
 const fetch = require('fetch-retry')(originalFetch)
 import jsrsasign from 'jsrsasign'
@@ -88,9 +88,9 @@ class ChapterHelper {
 
     /**
      * Fetches chapter Audible API JSON
-     * @returns {Promise<ChapterInterface>} data from parseResponse() function.
+     * @returns {Promise<Chapter>} data from parseResponse() function.
      */
-    async fetchChapter(): Promise<ChapterInterface | undefined> {
+    async fetchChapter(): Promise<Chapter | undefined> {
         const signedResponse = await fetch(this.reqUrl, {
             headers: {
                 'x-adp-token': this.adpToken,
@@ -104,19 +104,19 @@ class ChapterHelper {
             return undefined
         } else {
             const response = await fetch(this.reqUrl)
-            const json: ChapterInterface = await response.json()
+            const json: Chapter = await response.json()
             return json
         }
     }
 
     /**
      * Pareses fetched chapters from Audible API and cleaning up chapter titles
-     * @param {ChapterInterface} jsonRes fetched json response from api.audible.com
-     * @returns {Promise<ApiChapterInterface>} relevant data to keep
+     * @param {Chapter} jsonRes fetched json response from api.audible.com
+     * @returns {Promise<ApiChapter>} relevant data to keep
      */
     async parseResponse(
-        jsonRes: ChapterInterface | undefined
-    ): Promise<ApiChapterInterface | undefined> {
+        jsonRes: Chapter | undefined
+    ): Promise<ApiChapter | undefined> {
         // Base undefined check
         if (!jsonRes || !jsonRes.content_metadata.chapter_info) {
             return undefined
@@ -139,12 +139,12 @@ class ChapterHelper {
             }
         })
 
-        const finalJson: ApiChapterInterface = {
+        const finalJson: ApiChapter = {
             asin: this.asin,
             brandIntroDurationMs: inputJson.brandIntroDurationMs,
             brandOutroDurationMs: inputJson.brandOutroDurationMs,
             chapters: inputJson.chapters.map((chapter: SingleChapter) => {
-                const chapJson = <ApiSingleChapterInterface>{}
+                const chapJson = <ApiSingleChapter>{}
 
                 chapJson.lengthMs = chapter.length_ms
                 chapJson.startOffsetMs = chapter.start_offset_ms
@@ -162,9 +162,9 @@ class ChapterHelper {
 
     /**
      * Call functions in the class to parse final book JSON
-     * @returns {Promise<ApiChapterInterface>}
+     * @returns {Promise<ApiChapter>}
      */
-    async process(): Promise<ApiChapterInterface | undefined> {
+    async process(): Promise<ApiChapter | undefined> {
         const chapterResponse = await this.fetchChapter()
 
         return this.parseResponse(chapterResponse)

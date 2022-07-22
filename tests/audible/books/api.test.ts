@@ -1,6 +1,6 @@
 import ApiHelper from '#helpers/books/audible/ApiHelper'
-import { AudibleInterface } from '#config/typing/audible'
-import { ApiBookInterface } from '#config/typing/books'
+import { AudibleProduct } from '#config/typing/audible'
+import { ApiBook } from '#config/typing/books'
 
 let asinBad: string
 let apiBad: ApiHelper
@@ -10,7 +10,7 @@ let apiGood: ApiHelper
 
 // Run through known book data to test responses
 describe('When fetching Project Hail Mary from Audible API', () => {
-    let response: AudibleInterface
+    let response: AudibleProduct
     beforeAll((done) => {
         asinGood = 'B08G9PRS1K'
         apiGood = new ApiHelper(asinGood)
@@ -91,7 +91,7 @@ describe('When fetching Project Hail Mary from Audible API', () => {
 })
 
 describe('When fetching The Coldest Case from Audible API', () => {
-    let response: AudibleInterface
+    let response: AudibleProduct
     beforeAll((done) => {
         asinGood = 'B08C6YJ1LS'
         apiGood = new ApiHelper(asinGood)
@@ -201,7 +201,7 @@ describe('When fetching The Coldest Case from Audible API', () => {
 })
 
 describe('When parsing The Coldest Case', () => {
-    let response: ApiBookInterface
+    let response: ApiBook
     beforeAll((done) => {
         asinGood = 'B08C6YJ1LS'
         apiGood = new ApiHelper(asinGood)
@@ -315,7 +315,7 @@ describe('When parsing The Coldest Case', () => {
 })
 
 describe('When parsing Scorcerers Stone', () => {
-    let response: ApiBookInterface
+    let response: ApiBook
     beforeAll((done) => {
         asinGood = 'B017V4IM1G'
         apiGood = new ApiHelper(asinGood)
@@ -354,7 +354,7 @@ describe('When parsing Scorcerers Stone', () => {
 
 // Test parse is also undefined
 describe('When fetching a fake ASIN from Audible API', () => {
-    let response: AudibleInterface
+    let response: AudibleProduct
     beforeAll((done) => {
         asinBad = '1234567891'
         apiBad = new ApiHelper(asinBad)
@@ -382,7 +382,7 @@ describe('When fetching a fake ASIN from Audible API', () => {
 })
 
 describe('When parsing a book with no title from Audible API', () => {
-    let response: AudibleInterface
+    let response: AudibleProduct
     beforeAll((done) => {
         asinBad = 'B07BS4RKGH'
         apiBad = new ApiHelper(asinBad)
@@ -400,7 +400,7 @@ describe('When parsing a book with no title from Audible API', () => {
 })
 
 describe('When fetching a book with no image from Audible API', () => {
-    let response: AudibleInterface
+    let response: AudibleProduct
     beforeAll((done) => {
         asinBad = 'B008D2SJRS'
         apiBad = new ApiHelper(asinBad)
@@ -422,7 +422,7 @@ describe('When fetching a book with no image from Audible API', () => {
 })
 
 describe('When parsing a book with a series but no position', () => {
-    let response: ApiBookInterface
+    let response: ApiBook
     beforeAll((done) => {
         asinBad = '059345586X'
         apiBad = new ApiHelper(asinBad)

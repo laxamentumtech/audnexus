@@ -1,13 +1,13 @@
 import StitchHelper from '#helpers/books/audible/StitchHelper'
-import { ApiSingleChapterInterface, BookInterface } from '#config/typing/books'
+import { ApiSingleChapter, Book } from '#config/typing/books'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 
 // Run through known book data to test responses
 const asinSorcerersStone: string = 'B017V4IM1G'
 
 describe('When stitching together Scorcerers Stone from Audible', () => {
-    let response: BookInterface
-    let chapters: ApiSingleChapterInterface[] | undefined
+    let response: Book
+    let chapters: ApiSingleChapter[] | undefined
     beforeAll(async () => {
         // Setup helpers
         const chapterHelper = new ChapterHelper(asinSorcerersStone)
@@ -180,8 +180,8 @@ describe('When stitching together Scorcerers Stone from Audible', () => {
 const asinColdestCase: string = 'B08C6YJ1LS'
 
 describe('When stitching together The Coldest Case from Audible', () => {
-    let response: BookInterface
-    let chapters: ApiSingleChapterInterface[] | undefined
+    let response: Book
+    let chapters: ApiSingleChapter[] | undefined
     beforeAll(async () => {
         // Setup helpers
         const chapterHelper = new ChapterHelper(asinColdestCase)
@@ -334,8 +334,8 @@ describe('When stitching together The Coldest Case from Audible', () => {
 const asinBad: string = 'B0036I54I6'
 
 describe('When fetching an ASIN that has no chapters or HTML from Audible', () => {
-    let response: BookInterface
-    let chapters: ApiSingleChapterInterface[] | undefined
+    let response: Book
+    let chapters: ApiSingleChapter[] | undefined
     beforeAll(async () => {
         // Setup helpers
         const chapterHelper = new ChapterHelper(asinBad)

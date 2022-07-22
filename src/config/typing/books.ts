@@ -1,24 +1,24 @@
-import { GenreInterface } from '#config/typing/audible'
+import { Genre } from '#config/typing/audible'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 
-export interface ApiSingleChapterInterface {
+export interface ApiSingleChapter {
     lengthMs: number
     startOffsetMs: number
     startOffsetSec: number
     title: string
 }
 
-export interface ApiChapterInterface {
+export interface ApiChapter {
     asin: string
     brandIntroDurationMs: number
     brandOutroDurationMs: number
-    chapters: ApiSingleChapterInterface[]
+    chapters: ApiSingleChapter[]
     isAccurate: boolean
     runtimeLengthMs: number
     runtimeLengthSec: number
 }
 
-export interface SeriesInterface {
+export interface Series {
     asin?: string
     name: string
     position?: string
@@ -42,20 +42,20 @@ interface CoreBook {
 }
 
 // Final format of data stored
-export interface BookInterface extends CoreBook {
-    chapterInfo?: ApiChapterInterface
-    genres?: GenreInterface[]
-    seriesPrimary?: SeriesInterface
-    seriesSecondary?: SeriesInterface
+export interface Book extends CoreBook {
+    chapterInfo?: ApiChapter
+    genres?: Genre[]
+    seriesPrimary?: Series
+    seriesSecondary?: Series
 }
 
 // What we expect to keep from Audible's API
-export interface ApiBookInterface extends CoreBook {
-    seriesPrimary?: SeriesInterface
-    seriesSecondary?: SeriesInterface
+export interface ApiBook extends CoreBook {
+    seriesPrimary?: Series
+    seriesSecondary?: Series
 }
 
 // What we expect to keep from Audible's HTML pages
-export interface HtmlBookInterface {
-    genres?: GenreInterface[]
+export interface HtmlBook {
+    genres?: Genre[]
 }

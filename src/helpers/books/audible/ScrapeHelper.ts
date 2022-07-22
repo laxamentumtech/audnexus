@@ -1,6 +1,6 @@
 import SharedHelper from '#helpers/shared'
-import { GenreInterface } from '#config/typing/audible'
-import { HtmlBookInterface } from '#config/typing/books'
+import { Genre } from '#config/typing/audible'
+import { HtmlBook } from '#config/typing/books'
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import originalFetch from 'isomorphic-fetch'
@@ -21,15 +21,15 @@ class ScrapeHelper {
     /**
      * Checks the presence of genres on html page and formats them into JSON
      * @param {NodeListOf<Element>} genres selected source from categoriesLabel
-     * @returns {GenreInterface[]}
+     * @returns {Genre[]}
      */
     collectGenres(
         genres: cheerio.Cheerio<cheerio.Element>[],
         type: string
-    ): GenreInterface[] | undefined {
+    ): Genre[] | undefined {
         // Check and label each genre
-        const genreArr: GenreInterface[] | undefined = genres.map((genre, index) => {
-            let thisGenre = {} as GenreInterface
+        const genreArr: Genre[] | undefined = genres.map((genre, index) => {
+            let thisGenre = {} as Genre
             // Only proceed if there's an ID to use
             if (genre.attr('href')) {
                 const href = genre.attr('href')
@@ -48,7 +48,7 @@ class ScrapeHelper {
                 console.log(`Genre ${index} asin not available on: ${this.asin}`)
             }
             return undefined
-        }) as GenreInterface[]
+        }) as Genre[]
 
         return genreArr
     }
@@ -74,11 +74,11 @@ class ScrapeHelper {
     /**
      * Parses fetched HTML page to extract genres and series'
      * @param {JSDOM} dom the fetched dom object
-     * @returns {HtmlBookInterface} genre and series.
+     * @returns {HtmlBook} genre and series.
      */
     async parseResponse(
         dom: cheerio.CheerioAPI | undefined
-    ): Promise<HtmlBookInterface | undefined> {
+    ): Promise<HtmlBook | undefined> {
         // If there's no dom, don't interrupt the other module cycles
         if (!dom) {
             return undefined
@@ -93,8 +93,8 @@ class ScrapeHelper {
             .map((element) => dom(element))
 
         const returnJson = {
-            genres: Array<GenreInterface>(genres.length + tags.length)
-        } as HtmlBookInterface
+            genres: Array<Genre>(genres.length + tags.length)
+        } as HtmlBook
 
         // Combine genres and tags
         if (genres.length) {

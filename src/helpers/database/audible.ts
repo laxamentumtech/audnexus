@@ -1,9 +1,9 @@
-import Author from '#config/models/Author'
-import Chapter from '#config/models/Chapter'
+import AuthorModel from '#config/models/Author'
+import ChapterModel from '#config/models/Chapter'
 import SharedHelper from '#helpers/shared'
-import { ApiChapterInterface, BookInterface } from '#config/typing/books'
+import { ApiChapter, Book } from '#config/typing/books'
 import { AuthorProfile } from '#config/typing/people'
-import Book from '#config/models/Book'
+import BookModel from '#config/models/Book'
 
 export class PaprAudibleAuthorHelper {
     asin: string
@@ -17,7 +17,7 @@ export class PaprAudibleAuthorHelper {
 
     async create() {
         try {
-            const authorToReturn = await Author.insertOne(this.authorData)
+            const authorToReturn = await AuthorModel.insertOne(this.authorData)
             return {
                 data: authorToReturn,
                 modified: true
@@ -30,7 +30,7 @@ export class PaprAudibleAuthorHelper {
 
     async delete() {
         try {
-            const deletedAuthor = await Author.deleteOne({ asin: this.asin })
+            const deletedAuthor = await AuthorModel.deleteOne({ asin: this.asin })
             return {
                 data: deletedAuthor,
                 modified: true
@@ -41,7 +41,7 @@ export class PaprAudibleAuthorHelper {
     }
 
     async findOne() {
-        const findOneAuthor = await Author.findOne({
+        const findOneAuthor = await AuthorModel.findOne({
             asin: this.asin
         })
         return {
@@ -85,7 +85,7 @@ export class PaprAudibleAuthorHelper {
 
     async update() {
         try {
-            await Author.updateOne({ asin: this.asin }, { $set: { ...this.authorData } })
+            await AuthorModel.updateOne({ asin: this.asin }, { $set: { ...this.authorData } })
             // After updating, return with specific projection
             return await this.findOne()
         } catch (err) {
@@ -97,7 +97,7 @@ export class PaprAudibleAuthorHelper {
 
 export class PaprAudibleBookHelper {
     asin: string
-    bookData!: BookInterface
+    bookData!: Book
     options: { seed?: string; update?: string }
 
     constructor(asin: string, options: { seed?: string; update?: string }) {
@@ -107,7 +107,7 @@ export class PaprAudibleBookHelper {
 
     async create() {
         try {
-            const bookToReturn = await Book.insertOne(this.bookData)
+            const bookToReturn = await BookModel.insertOne(this.bookData)
             return {
                 data: bookToReturn,
                 modified: true
@@ -120,7 +120,7 @@ export class PaprAudibleBookHelper {
 
     async delete() {
         try {
-            const deletedBook = await Book.deleteOne({ asin: this.asin })
+            const deletedBook = await BookModel.deleteOne({ asin: this.asin })
             return {
                 data: deletedBook,
                 modified: true
@@ -131,7 +131,7 @@ export class PaprAudibleBookHelper {
     }
 
     async findOne() {
-        const findOneBook = await Book.findOne({
+        const findOneBook = await BookModel.findOne({
             asin: this.asin
         })
         return {
@@ -174,7 +174,7 @@ export class PaprAudibleBookHelper {
 
     async update() {
         try {
-            await Book.updateOne({ asin: this.asin }, { $set: { ...this.bookData } })
+            await BookModel.updateOne({ asin: this.asin }, { $set: { ...this.bookData } })
             // After updating, return with specific projection
             return await this.findOne()
         } catch (err) {
@@ -186,7 +186,7 @@ export class PaprAudibleBookHelper {
 
 export class PaprAudibleChapterHelper {
     asin: string
-    chapterData!: ApiChapterInterface
+    chapterData!: ApiChapter
     options: { update?: string }
 
     constructor(asin: string, options: { update?: string }) {
@@ -196,7 +196,7 @@ export class PaprAudibleChapterHelper {
 
     async create() {
         try {
-            const chapterToReturn = await Chapter.insertOne(this.chapterData)
+            const chapterToReturn = await ChapterModel.insertOne(this.chapterData)
             return {
                 data: chapterToReturn,
                 modified: true
@@ -209,7 +209,7 @@ export class PaprAudibleChapterHelper {
 
     async delete() {
         try {
-            const deletedChapter = await Chapter.deleteOne({ asin: this.asin })
+            const deletedChapter = await ChapterModel.deleteOne({ asin: this.asin })
             return {
                 data: deletedChapter,
                 modified: true
@@ -220,7 +220,7 @@ export class PaprAudibleChapterHelper {
     }
 
     async findOne() {
-        const findOneChapter = await Chapter.findOne({
+        const findOneChapter = await ChapterModel.findOne({
             asin: this.asin
         })
         return {
@@ -252,7 +252,7 @@ export class PaprAudibleChapterHelper {
 
     async update() {
         try {
-            await Chapter.updateOne({ asin: this.asin }, { $set: { ...this.chapterData } })
+            await ChapterModel.updateOne({ asin: this.asin }, { $set: { ...this.chapterData } })
             // After updating, return with specific projection
             return await this.findOne()
         } catch (err) {

@@ -8,7 +8,7 @@ interface Codecs {
     name: string
 }
 
-export interface GenreInterface {
+export interface Genre {
     asin: string
     name: string
     type: string
@@ -39,7 +39,7 @@ export interface AudibleSeries {
     sequence: string | undefined
 }
 
-export interface AudibleInterface {
+export interface AudibleProduct {
     product: {
         asin: string
         authors?: AuthorOnBook[]
@@ -78,7 +78,7 @@ export interface SingleChapter {
     title: string
 }
 
-export interface ChapterInterface {
+export interface Chapter {
     content_metadata: {
         chapter_info: {
             brandIntroDurationMs: number

@@ -1,5 +1,5 @@
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
-import { HtmlBookInterface } from '#config/typing/books'
+import { HtmlBook } from '#config/typing/books'
 import { CheerioAPI } from 'cheerio'
 
 let asinBad: string
@@ -10,7 +10,7 @@ let htmlGood: ScrapeHelper
 
 // Run through known book data to test responses
 describe('When scraping Project Hail Mary genres from Audible', () => {
-    let response: HtmlBookInterface
+    let response: HtmlBook
     beforeAll((done) => {
         asinGood = 'B08G9PRS1K'
         htmlGood = new ScrapeHelper(asinGood)
@@ -53,7 +53,7 @@ describe('When scraping Project Hail Mary genres from Audible', () => {
 
 // Run through known book data to test responses
 describe('When scraping Scorcerers Stone genres/series from Audible', () => {
-    let response: HtmlBookInterface
+    let response: HtmlBook
     beforeAll((done) => {
         asinGood = 'B017V4IM1G'
         htmlGood = new ScrapeHelper(asinGood)
@@ -132,7 +132,7 @@ describe('When scraping Scorcerers Stone genres/series from Audible', () => {
 
 // Run through single series book
 describe('When fetching The Coldest Case from Audible HTML', () => {
-    let response: HtmlBookInterface
+    let response: HtmlBook
     beforeAll((done) => {
         asinGood = 'B08C6YJ1LS'
         htmlGood = new ScrapeHelper(asinGood)
@@ -191,14 +191,14 @@ describe('When scraping The Martian from Audible', () => {
 })
 
 describe("When fetching a broken ASIN's HTML from Audible", () => {
-    let response: HtmlBookInterface | undefined
+    let response: HtmlBook | undefined
     beforeAll((done) => {
         asinBad = 'B0036I54I6'
         htmlBad = new ScrapeHelper(asinBad)
         htmlBad.fetchBook().then((fetchResult: CheerioAPI | undefined) => {
             htmlBad
                 .parseResponse(fetchResult)
-                .then((parseResult: HtmlBookInterface | undefined) => {
+                .then((parseResult: HtmlBook | undefined) => {
                     response = parseResult!
                     done()
                 })
@@ -212,7 +212,7 @@ describe("When fetching a broken ASIN's HTML from Audible", () => {
 
 // TODO find an asin which passes this test
 // describe('When fetching a book with no genres', () => {
-//     let response: HtmlBookInterface
+//     let response: HtmlBook
 //     beforeAll((done) => {
 //         asinBad = 'B007NMU87I'
 //         htmlBad = new ScrapeHelper(asinBad)
@@ -231,7 +231,7 @@ describe("When fetching a broken ASIN's HTML from Audible", () => {
 
 // TODO find an asin which passes this test
 // describe('When fetching a book with only 1 genre', () => {
-//     let response: HtmlBookInterface
+//     let response: HtmlBook
 //     beforeAll((done) => {
 //         asinBad = 'B017JDRBUW'
 //         htmlBad = new ScrapeHelper(asinBad)

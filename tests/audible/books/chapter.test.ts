@@ -1,13 +1,13 @@
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
-import { ChapterInterface } from '#config/typing/audible'
-import { ApiChapterInterface } from '#config/typing/books'
+import { Chapter } from '#config/typing/audible'
+import { ApiChapter } from '#config/typing/books'
 
 // Run through known book data to test responses
 const asinProjectHailMary: string = 'B08G9PRS1K'
 const chapProjectHailMary = new ChapterHelper(asinProjectHailMary)
 
 describe('When fetching Project Hail Mary chapters from Audible API', () => {
-    let response: ChapterInterface
+    let response: Chapter
     beforeAll((done) => {
         chapProjectHailMary.fetchChapter().then((result) => {
             response = result!
@@ -76,7 +76,7 @@ describe('When fetching Project Hail Mary chapters from Audible API', () => {
 const asinTheSeep: string = '1721358595'
 
 describe('When parsing The Seep', () => {
-    let response: ApiChapterInterface
+    let response: ApiChapter
     beforeAll(async () => {
         // Setup helpers
         const chapterHelper = new ChapterHelper(asinTheSeep)
@@ -148,7 +148,7 @@ describe('When parsing The Seep', () => {
 const asinBad: string = 'B0036I54I6'
 
 describe("When fetching an broken ASIN's chapters from Audible API", () => {
-    let response: ApiChapterInterface | undefined
+    let response: ApiChapter | undefined
     beforeAll(async () => {
         // Setup helpers
         const chapterHelper = new ChapterHelper(asinBad)
