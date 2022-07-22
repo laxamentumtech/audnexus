@@ -144,12 +144,12 @@ class ChapterHelper {
             brandIntroDurationMs: inputJson.brandIntroDurationMs,
             brandOutroDurationMs: inputJson.brandOutroDurationMs,
             chapters: inputJson.chapters.map((chapter: SingleChapter) => {
-                const chapJson = <ApiSingleChapter>{}
-
-                chapJson.lengthMs = chapter.length_ms
-                chapJson.startOffsetMs = chapter.start_offset_ms
-                chapJson.startOffsetSec = chapter.start_offset_sec
-                chapJson.title = this.chapterTitleCleanup(chapter.title)
+                const chapJson: ApiSingleChapter = {
+                    lengthMs: chapter.length_ms,
+                    startOffsetMs: chapter.start_offset_ms,
+                    startOffsetSec: chapter.start_offset_sec,
+                    title: this.chapterTitleCleanup(chapter.title)
+                }
                 return chapJson
             }),
             isAccurate: inputJson.is_accurate,

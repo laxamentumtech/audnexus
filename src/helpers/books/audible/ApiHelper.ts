@@ -61,19 +61,21 @@ class ApiHelper {
     }
 
     getSeries(series: AudibleSeries) {
-        const seriesJson = <Series>{}
-        // ASIN
-        seriesJson.asin = series.asin ? series.asin : undefined
-        // Title
         if (!series.title) return undefined
-        seriesJson.name = series.title
-        // Position
-        seriesJson.position = series.sequence ? series.sequence : undefined
+        const seriesJson: Series = {
+            ...(series.asin && {
+                asin: series.asin,
+            }),
+            name: series.title,
+            ...(series.sequence && {
+                position: series.sequence,
+            }),
+        }
         return seriesJson
     }
 
     getSeriesPrimary(allSeries: AudibleSeries[]) {
-        let seriesPrimary = <Series>{}
+        let seriesPrimary = {} as Series
         allSeries?.forEach((series: AudibleSeries) => {
             if (!this.inputJson) throw new Error(`No input data`)
             const seriesJson = this.getSeries(series)
@@ -87,7 +89,7 @@ class ApiHelper {
     }
 
     getSeriesSecondary(allSeries: AudibleSeries[]) {
-        let seriesSecondary = <Series>{}
+        let seriesSecondary = {} as Series
         allSeries?.forEach((series: AudibleSeries) => {
             if (!this.inputJson) throw new Error(`No input data`)
             const seriesJson = this.getSeries(series)
@@ -108,10 +110,10 @@ class ApiHelper {
         return {
             asin: this.inputJson.asin,
             authors: this.inputJson.authors!.map((person: AuthorOnBook) => {
-                const authorJson = <AuthorOnBook>{}
-
-                authorJson.asin = person.asin
-                authorJson.name = person.name
+                const authorJson: AuthorOnBook = {
+                    asin: person.asin,
+                    name: person.name,
+                }
                 return authorJson
             }),
             description: htmlToText(this.inputJson['merchandising_summary'], {
@@ -122,8 +124,9 @@ class ApiHelper {
             language: this.inputJson.language,
             ...(this.inputJson.narrators && {
                 narrators: this.inputJson.narrators?.map((person: NarratorOnBook) => {
-                    const narratorJson = <NarratorOnBook>{}
-                    narratorJson.name = person.name
+                    const narratorJson: NarratorOnBook = {
+                        name: person.name,
+                    }
                     return narratorJson
                 })
             }),
