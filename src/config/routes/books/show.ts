@@ -1,11 +1,13 @@
 import { FastifyInstance } from 'fastify'
 
 import type { BookDocument } from '#config/models/Book'
+import { Book } from '#config/typing/books'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
 import { PaprAudibleBookHelper } from '#helpers/database/audible'
+import { RedisHelper } from '#helpers/database/redis'
 import SharedHelper from '#helpers/shared'
 
 async function _show(fastify: FastifyInstance) {
@@ -16,58 +18,53 @@ async function _show(fastify: FastifyInstance) {
 			update: request.query.update
 		}
 
-		// Setup Helpers
+		// Setup common helper first
 		const commonHelpers = new SharedHelper()
-		const DbHelper = new PaprAudibleBookHelper(request.params.asin, options)
-
 		// First, check ASIN validity
 		if (!commonHelpers.checkAsinValidity(request.params.asin)) {
 			reply.code(400)
 			throw new Error('Bad ASIN')
 		}
 
+		// Setup Helpers
+		const paprHelper = new PaprAudibleBookHelper(request.params.asin, options)
 		const { redis } = fastify
-		// Set redis k,v function
-		const setRedis = (asin: string, newDbItem: BookDocument) => {
-			redis?.set(`book-${asin}`, JSON.stringify(newDbItem, null, 2))
-		}
-		// Search redis if available
-		const findInRedis = redis
-			? await redis.get(`book-${request.params.asin}`, (_err, val) => {
-					if (!val) return undefined
-					return JSON.parse(val)
-			  })
-			: undefined
+		const redisHelper = new RedisHelper(redis, 'book')
 
-		let existingBook = await DbHelper.findOne()
+		// Get book from database
+		const existingBook = (await paprHelper.findOne()).data
+		let book: Book | undefined = undefined
 
 		// Add dates to data if not present
-		if (existingBook.data && !existingBook.data.createdAt) {
-			DbHelper.bookData = addTimestamps(existingBook.data) as BookDocument
-			existingBook = await DbHelper.update()
+		if (existingBook && !existingBook.createdAt) {
+			paprHelper.bookData = addTimestamps(existingBook) as BookDocument
+			book = (await paprHelper.update()).data
+		} else {
+			const checkBook = await paprHelper.findOneWithProjection()
+			if (checkBook.data) {
+				book = checkBook.data
+			}
 		}
 
-		const book = existingBook?.data as BookDocument
-
-		// Check for existing or cached data
-		if (options.update !== '0' && findInRedis) {
-			return JSON.parse(findInRedis)
-		} else if (options.update !== '0' && book) {
-			setRedis(request.params.asin, book)
-			return book
+		// Check for existing or cached data from redis
+		if (options.update !== '0') {
+			const redisBook = await redisHelper.findOrCreate(request.params.asin, book)
+			if (redisBook) return redisBook
 		}
 
 		// Check if the object was updated recently
-		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(book)) return book
+		if (options.update == '0' && existingBook && commonHelpers.checkIfRecentlyUpdated(existingBook))
+			return book
 
+		// Proceed to stitch the book since it doesn't exist in db or is outdated
 		// Setup helper
 		const stitchHelper = new StitchHelper(request.params.asin)
 		// Request data to be processed by helper
 		const bookData = await stitchHelper.process()
 		// Pass requested data to the CRUD helper
-		DbHelper.bookData = bookData
+		paprHelper.bookData = bookData
 		// Let CRUD helper decide how to handle the data
-		const bookToReturn = await DbHelper.createOrUpdate()
+		const bookToReturn = await paprHelper.createOrUpdate()
 
 		// Throw error on null return data
 		if (!bookToReturn.data) {
@@ -76,7 +73,7 @@ async function _show(fastify: FastifyInstance) {
 
 		// Update Redis if the item is modified
 		if (bookToReturn.modified) {
-			setRedis(request.params.asin, bookToReturn.data)
+			redisHelper.setKey(request.params.asin, bookToReturn.data)
 		}
 
 		// Seed authors in the background if it's a new/updated book
