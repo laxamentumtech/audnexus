@@ -1,17 +1,12 @@
 {
 	"conventionalCommits.scopes": [
 		"actions",
-		"author-scraper",
-		"chapters",
 		"docker",
-		"log",
-		"parser",
+        "helper",
 		"route",
 		"schema",
-		"book-audible-api",
-		"book-scraper",
-		"book-stitcher",
-		"author-search"
+		"search",
+        "types"
 	],
 	"editor.formatOnSave": true,
 	"editor.codeActionsOnSave": {
