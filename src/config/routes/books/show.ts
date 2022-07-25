@@ -7,7 +7,7 @@ import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
 import { PaprAudibleBookHelper } from '#helpers/database/audible'
-import { RedisHelper } from '#helpers/database/redis'
+import RedisHelper from '#helpers/database/RedisHelper'
 import SharedHelper from '#helpers/shared'
 
 async function _show(fastify: FastifyInstance) {

@@ -6,7 +6,7 @@ import { RequestGeneric } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
-import { RedisHelper } from '#helpers/database/redis'
+import RedisHelper from '#helpers/database/RedisHelper'
 import SharedHelper from '#helpers/shared'
 
 async function _show(fastify: FastifyInstance) {

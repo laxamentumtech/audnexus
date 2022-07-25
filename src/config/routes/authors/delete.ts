@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 
 import { RequestGeneric } from '#config/typing/requests'
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
-import { RedisHelper } from '#helpers/database/redis'
+import RedisHelper from '#helpers/database/RedisHelper'
 import SharedHelper from '#helpers/shared'
 
 async function _delete(fastify: FastifyInstance) {

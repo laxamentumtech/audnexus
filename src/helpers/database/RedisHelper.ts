@@ -3,7 +3,7 @@ import type { FastifyRedis } from '@fastify/redis'
 import { ApiChapter, Book } from '#config/typing/books'
 import { AuthorProfile } from '#config/typing/people'
 
-export class RedisHelper {
+export default class RedisHelper {
 	instance: FastifyRedis | null
 	key: string
 	constructor(instance: FastifyRedis | null, key: string) {
