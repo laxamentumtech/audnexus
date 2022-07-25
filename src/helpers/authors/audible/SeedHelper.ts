@@ -1,14 +1,14 @@
 import originalFetch from 'isomorphic-fetch'
 
-import { BookDocument } from '#config/models/Book'
+import { Book } from '#config/typing/books'
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const fetch = require('fetch-retry')(originalFetch)
 
 class SeedHelper {
-	book: BookDocument
+	book: Book
 
-	constructor(book: BookDocument) {
+	constructor(book: Book) {
 		this.book = book
 	}
 

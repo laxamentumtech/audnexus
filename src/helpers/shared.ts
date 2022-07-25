@@ -3,6 +3,8 @@ import lodash from 'lodash'
 import { AuthorDocument } from '#config/models/Author'
 import { BookDocument } from '#config/models/Book'
 import { ChapterDocument } from '#config/models/Chapter'
+import { ApiChapter, Book } from '#config/typing/books'
+import { AuthorProfile } from '#config/typing/people'
 
 class SharedHelper {
 	asin10Regex = /(?=.\d)[A-Z\d]{10}/
@@ -36,8 +38,8 @@ class SharedHelper {
 	}
 
 	checkDataEquality(
-		original: AuthorDocument | BookDocument | ChapterDocument,
-		updated: AuthorDocument | BookDocument | ChapterDocument
+		original: AuthorProfile | Book | ApiChapter,
+		updated: AuthorProfile | Book | ApiChapter
 	) {
 		if (lodash.isEqual(original, updated)) {
 			return original
