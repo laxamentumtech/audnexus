@@ -50,9 +50,9 @@ server.listen({ port: port, host: host }, async (err, address) => {
 })
 
 const startGracefulShutdown = () => {
-	console.log('Closing http server.')
+	console.log('Closing HTTP server')
 	server.close(() => {
-		console.log('Http server closed.')
+		console.log('HTTP server closed')
 		//   Close Papr/mongo connection
 		disconnect().then(() => {
 			console.log('DB connection closed')
