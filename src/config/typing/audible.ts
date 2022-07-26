@@ -37,6 +37,7 @@ export interface AudibleSeries {
 	asin: string | undefined
 	title: string
 	sequence: string | undefined
+	url?: string
 }
 
 export interface AudibleProduct {
@@ -63,12 +64,14 @@ export interface AudibleProduct {
 		release_date: string
 		runtime_length_min: number
 		series: AudibleSeries[]
+		sku?: string
+		sku_lite?: string
 		social_media_images: { [key: string]: string }
 		subtitle?: string
 		thesaurus_subject_keywords: [string]
 		title: string
 	}
-	response_groups: [string]
+	response_groups: string[]
 }
 
 export interface SingleChapter {
