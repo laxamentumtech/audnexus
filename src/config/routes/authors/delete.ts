@@ -18,7 +18,7 @@ async function _delete(fastify: FastifyInstance) {
 		// Setup Helpers
 		const paprHelper = new PaprAudibleAuthorHelper(request.params.asin, {})
 		const { redis } = fastify
-		const redisHelper = new RedisHelper(redis, 'book')
+		const redisHelper = new RedisHelper(redis, 'author', request.params.asin)
 
 		// Get author from database
 		const existingAuthor = await paprHelper.findOne()
@@ -28,7 +28,7 @@ async function _delete(fastify: FastifyInstance) {
 			throw new Error(`${request.params.asin} not found in the database`)
 		}
 
-		await redisHelper.deleteKey(request.params.asin)
+		await redisHelper.deleteOne()
 		return paprHelper.delete()
 	})
 }

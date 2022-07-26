@@ -27,7 +27,7 @@ async function _show(fastify: FastifyInstance) {
 		// Setup Helpers
 		const paprHelper = new PaprAudibleChapterHelper(request.params.asin, options)
 		const { redis } = fastify
-		const redisHelper = new RedisHelper(redis, 'chapters')
+		const redisHelper = new RedisHelper(redis, 'chapters', request.params.asin)
 
 		// Get chapters from database
 		const existingChapter = (await paprHelper.findOne()).data
@@ -46,7 +46,7 @@ async function _show(fastify: FastifyInstance) {
 
 		// Check for existing or cached data from redis
 		if (options.update !== '0') {
-			const redisChapter = await redisHelper.findOrCreate(request.params.asin, chapter)
+			const redisChapter = await redisHelper.findOrCreate(chapter)
 			if (redisChapter) return redisChapter
 		}
 
@@ -78,7 +78,7 @@ async function _show(fastify: FastifyInstance) {
 
 		// Update Redis if the item is modified
 		if (chapterToReturn.modified) {
-			redisHelper.setKey(request.params.asin, chapterToReturn.data)
+			redisHelper.setOne(chapterToReturn.data)
 		}
 
 		return chapterToReturn.data
