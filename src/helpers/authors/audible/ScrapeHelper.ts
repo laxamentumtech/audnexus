@@ -33,7 +33,7 @@ class ScrapeHelper {
 			let thisGenre = {} as Genre
 			if (genre.attr('href')) {
 				const href = genre.attr('href')
-				const asin = href ? this.helper.getAsinFromUrl(href) : undefined
+				const asin = href ? this.helper.getGenreAsinFromUrl(href) : undefined
 				if (genre.text() && asin) {
 					thisGenre = {
 						asin: asin,

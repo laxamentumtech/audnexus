@@ -37,13 +37,20 @@ class SharedHelper {
 		return false
 	}
 
+	/**
+	 * Checks whether the input data are identical
+	 * @param {AuthorProfile | Book | ApiChapter} original
+	 * @param {AuthorProfile | Book | ApiChapter} updated
+	 * @returns {boolean}
+	 */
 	checkDataEquality(
 		original: AuthorProfile | Book | ApiChapter,
 		updated: AuthorProfile | Book | ApiChapter
-	) {
+	): boolean {
 		if (lodash.isEqual(original, updated)) {
-			return original
+			return true
 		}
+		return false
 	}
 
 	/**
@@ -67,7 +74,7 @@ class SharedHelper {
 	 * @param {string} url string to extract ASIN from
 	 * @returns {string} ASIN.
 	 */
-	getAsinFromUrl(url: string): string | undefined {
+	getGenreAsinFromUrl(url: string): string | undefined {
 		return url.match(this.asin11Regex)?.[0]
 	}
 }

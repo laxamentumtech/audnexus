@@ -76,7 +76,13 @@ export class PaprAudibleAuthorHelper {
 		// Update
 		if (this.options.update === '0' && findInDb.data) {
 			// If the objects are the exact same return right away
-			commonHelpers.checkDataEquality(findInDb.data, this.authorData)
+			const equality = commonHelpers.checkDataEquality(findInDb.data, this.authorData)
+			if (equality) {
+				return {
+					data: findInDb.data,
+					modified: false
+				}
+			}
 			// Check state of existing author
 			// Only update if either genres exist and can be checked
 			// -or if genres exist on new item but not old
@@ -179,7 +185,13 @@ export class PaprAudibleBookHelper {
 		// Update
 		if (this.options.update === '0' && findInDb.data) {
 			// If the objects are the exact same return right away
-			commonHelpers.checkDataEquality(findInDb.data, this.bookData)
+			const equality = commonHelpers.checkDataEquality(findInDb.data, this.bookData)
+			if (equality) {
+				return {
+					data: findInDb.data,
+					modified: false
+				}
+			}
 			// Check state of existing book
 			// Only update if either genres exist and can be checked
 			// -or if genres exist on new item but not old
@@ -281,7 +293,13 @@ export class PaprAudibleChapterHelper {
 		// Update
 		if (this.options.update === '0' && findInDb.data) {
 			// If the objects are the exact same return right away
-			commonHelpers.checkDataEquality(findInDb.data, this.chapterData)
+			const equality = commonHelpers.checkDataEquality(findInDb.data, this.chapterData)
+			if (equality) {
+				return {
+					data: findInDb.data,
+					modified: false
+				}
+			}
 			if (this.chapterData.chapters && this.chapterData.chapters.length) {
 				console.log(`Updating chapters for asin ${this.asin}`)
 				// Update

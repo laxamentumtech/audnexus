@@ -33,7 +33,7 @@ class ScrapeHelper {
 			// Only proceed if there's an ID to use
 			if (genre.attr('href')) {
 				const href = genre.attr('href')
-				const asin = href ? this.helper.getAsinFromUrl(href) : undefined
+				const asin = href ? this.helper.getGenreAsinFromUrl(href) : undefined
 				// Verify existence of name and valid ID
 				if (genre.text() && asin) {
 					const cleanedName = htmlToText(genre.text(), { wordwrap: false })
