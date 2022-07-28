@@ -51,9 +51,10 @@ class ChapterHelper {
 		const originalTitle: string = chapter
 		// Strip trailing periods
 		const strippedTitle: string = originalTitle.replace(/\.$/, '')
-		let chapterTitle: string
+		let chapterTitle = strippedTitle
 		// Check if title is just numbers
-		if (!isNaN(Number(strippedTitle)) && strippedTitle.length < 3) {
+		const isNotNumber = isNaN(Number(strippedTitle))
+		if (!isNotNumber && strippedTitle.length <= 3) {
 			// Remove trailing period in some cases
 			const stripPeriod: string = strippedTitle
 			// Convert to number to normalize numbers
@@ -61,8 +62,6 @@ class ChapterHelper {
 			// Convert back to string for concat
 			const strTitle: string = numTitle.toString()
 			chapterTitle = `Chapter ${strTitle}`
-		} else {
-			chapterTitle = originalTitle
 		}
 
 		return chapterTitle
