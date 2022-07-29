@@ -2,7 +2,7 @@ import { ObjectId } from 'mongodb'
 
 import { BookDocument } from '#config/models/Book'
 import { AudibleProduct } from '#config/typing/audible'
-import { ApiBook } from '#config/typing/books'
+import { ApiBook, Book } from '#config/typing/books'
 
 // Reusable
 const asin = 'B079LRSMNN'
@@ -38,6 +38,29 @@ const seriesPrimary = {
 const summary =
 	"<p><i>Galaxy's Edge </i>contains <i>Legionnaire </i>through to the end of <i>Galactic Outlaws</i>. </p> <p>On the edge of the galaxy, a diplomatic mission to an alien planet takes a turn when the Legionnaires, an elite special fighting force, find themselves ambushed and stranded behind enemy lines. They struggle to survive under siege, waiting on a rescue that might never come.</p> <p>In the seedy starport of Ackabar, a young girl searches the crime-ridden gutters to avenge her father's murder; not far away, a double-dealing legionniare-turned-smuggler hunts an epic payday; and somewhere along the outer galaxy, a mysterious bounty hunter lies in wait.</p> <p><i>Galaxy's Edge</i> combines sleek starfighters, exotic aliens, loyal bots, blasters, scoundrels, heroes, and powerful enemies in a thrilling adventure that will take you back to that magic place from a long time ago.</p>"
 const title = "Galaxy's Edge"
+
+const genres = [
+	{
+		asin: '18580606011',
+		name: 'Science Fiction & Fantasy',
+		type: 'genre'
+	},
+	{ asin: '18580641011', name: 'Military', type: 'tag' }
+]
+
+export const genresObject = {
+	genres: genres
+}
+
+export const genresWithoutAsin = {
+	genres: [
+		{
+			name: 'Science Fiction & Fantasy',
+			type: 'genre'
+		},
+		{ name: 'Military', type: 'tag' }
+	]
+}
 
 export const apiResponse: AudibleProduct = {
 	product: {
@@ -199,6 +222,24 @@ export const parsedBook: ApiBook = {
 	seriesPrimary,
 	summary,
 	title
+}
+
+export const parsedBookWithGenres: Book = {
+	asin,
+	authors,
+	description,
+	formatType,
+	image,
+	language,
+	narrators,
+	publisherName,
+	rating,
+	releaseDate,
+	runtimeLengthMin,
+	seriesPrimary,
+	summary,
+	title,
+	genres
 }
 
 export const changedParsedBook: ApiBook = {
