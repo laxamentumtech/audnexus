@@ -13,6 +13,9 @@ beforeEach(() => {
 afterEach(() => {
 	// Reset helper
 	helper = new ApiHelper('B079LRSMNN')
+    // https://github.com/facebook/jest/issues/7136
+    jest.resetAllMocks()
+    jest.restoreAllMocks()
 })
 
 test('should setup constructor correctly', () => {
@@ -71,6 +74,7 @@ test('should get final data', () => {
 })
 
 test('should fetch book data', async () => {
+    jest.spyOn(ApiHelper.prototype, 'fetchBook').mockResolvedValue(apiResponse)
 	const data = await helper.fetchBook()
 	expect(data).toEqual(apiResponse)
 })
