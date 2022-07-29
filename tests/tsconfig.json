@@ -6,5 +6,5 @@
 			"#helpers/*": ["helpers/*"]
 		}
 	},
-	"include": ["**/*.test.ts"]
+	"include": ["**/*.ts"]
 }
