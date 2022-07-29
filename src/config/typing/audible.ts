@@ -92,5 +92,5 @@ export interface Chapter {
 			runtime_length_sec: number
 		}
 	}
-	response_groups: [string]
+	response_groups: string[]
 }
