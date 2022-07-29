@@ -1,6 +1,5 @@
-import { apiChapters, parsedChapters } from '../../datasets/helpers/chapters'
-
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
+import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
 
 let helper: ChapterHelper
 

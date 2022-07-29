@@ -1,6 +1,5 @@
-import { genresObject } from '../../datasets/helpers/books'
-
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
+import { genresObject } from '#tests/datasets/helpers/books'
 
 let helper: ScrapeHelper
 

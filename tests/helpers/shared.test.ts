@@ -1,6 +1,10 @@
-import { bookWithoutProjection, bookWithoutProjectionUpdatedNow, changedParsedBook, parsedBook } from '../datasets/helpers/books'
-
 import SharedHelper from '#helpers/shared'
+import {
+	bookWithoutProjection,
+	bookWithoutProjectionUpdatedNow,
+	changedParsedBook,
+	parsedBook
+} from '#tests/datasets/helpers/books'
 
 let helper: SharedHelper
 beforeAll(() => {

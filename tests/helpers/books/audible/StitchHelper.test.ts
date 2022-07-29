@@ -1,8 +1,7 @@
-import { parsedBookWithGenres } from '../../datasets/helpers/books'
-
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
+import { parsedBookWithGenres } from '#tests/datasets/helpers/books'
 
 let helper: StitchHelper
 
