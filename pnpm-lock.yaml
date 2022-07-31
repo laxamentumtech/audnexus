@@ -20,7 +20,6 @@ specifiers:
   eslint-plugin-jest: 26.6.0
   eslint-plugin-simple-import-sort: ^7.0.0
   fastify: 4.3.0
-  fetch-retry: 5.0.3
   html-to-text: 8.2.0
   isomorphic-fetch: 3.0.0
   jest: 28.1.3
@@ -43,7 +42,6 @@ dependencies:
   cheerio: 1.0.0-rc.12
   domhandler: 5.0.3
   fastify: 4.3.0
-  fetch-retry: 5.0.3
   html-to-text: 8.2.0
   isomorphic-fetch: 3.0.0
   jsrsasign: 10.5.26
@@ -2442,10 +2440,6 @@ packages:
     dependencies:
       bser: 2.1.1
     dev: true
-
-  /fetch-retry/5.0.3:
-    resolution: {integrity: sha512-uJQyMrX5IJZkhoEUBQ3EjxkeiZkppBd5jS/fMTJmfZxLSiaQjv2zD0kTvuvkSH89uFvgSlB6ueGpjD3HWN7Bxw==}
-    dev: false
 
   /figures/3.2.0:
     resolution: {integrity: sha512-yaduQFRKLXYOGgEn6AZau90j3ggSOyiqXU0F9JZfeXYhNa+Jk4X+s45A2zg5jns87GAFa34BBm2kXw4XpNcbdg==}
