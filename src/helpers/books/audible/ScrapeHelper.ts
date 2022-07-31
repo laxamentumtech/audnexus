@@ -1,13 +1,10 @@
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
-import originalFetch from 'isomorphic-fetch'
 
 import { Genre } from '#config/typing/audible'
 import { HtmlBook } from '#config/typing/books'
+import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fetch = require('fetch-retry')(originalFetch)
 
 class ScrapeHelper {
 	asin: string
@@ -58,17 +55,18 @@ class ScrapeHelper {
 	 * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
 	 */
 	async fetchBook(): Promise<cheerio.CheerioAPI | undefined> {
-		const response = await fetch(this.reqUrl)
-		if (!response.ok) {
-			const message = `An error has occured while scraping HTML ${response.status}: ${this.reqUrl}`
-			if (response.status !== 404) {
-				console.log(message)
-			}
-			return undefined
-		} else {
-			const text = await response.text()
-			return cheerio.load(text)
-		}
+		return fetch(this.reqUrl)
+			.then(async (response) => {
+				const text = await response.text()
+				return cheerio.load(text)
+			})
+			.catch((error) => {
+				const message = `An error has occured while scraping HTML ${error.status}: ${this.reqUrl}`
+				if (error.status !== 404) {
+					console.log(message)
+				}
+				return undefined
+			})
 	}
 
 	/**

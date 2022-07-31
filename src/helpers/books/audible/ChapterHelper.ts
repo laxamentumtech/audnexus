@@ -1,13 +1,10 @@
-import originalFetch from 'isomorphic-fetch'
 import jsrsasign from 'jsrsasign'
 import moment from 'moment'
 
 import { Chapter, SingleChapter } from '#config/typing/audible'
 import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
+import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fetch = require('fetch-retry')(originalFetch)
 
 class ChapterHelper {
 	asin: string
@@ -92,22 +89,22 @@ class ChapterHelper {
 	 * @returns {Promise<Chapter>} data from parseResponse() function.
 	 */
 	async fetchChapter(): Promise<Chapter | undefined> {
-		const signedResponse = await fetch(this.reqUrl, {
+		return fetch(this.reqUrl, {
 			headers: {
 				'x-adp-token': this.adpToken,
 				'x-adp-alg': 'SHA256withRSA:1.0',
 				'x-adp-signature': this.signRequest(this.adpToken, this.privateKey)
 			}
 		})
-		if (!signedResponse.ok) {
-			const message = `An error has occured while fetching chapters ${signedResponse.status}: ${this.reqUrl}`
-			console.log(message)
-			return undefined
-		} else {
-			const response = await fetch(this.reqUrl)
-			const json: Chapter = await response.json()
-			return json
-		}
+			.then(async (response) => {
+				const json: Chapter = await response.json()
+				return json
+			})
+			.catch((error) => {
+				const message = `An error has occured while fetching chapters ${error.status}: ${this.reqUrl}`
+				console.log(message)
+				return undefined
+			})
 	}
 
 	/**

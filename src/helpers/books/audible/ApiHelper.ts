@@ -1,13 +1,10 @@
 import { htmlToText } from 'html-to-text'
-import originalFetch from 'isomorphic-fetch'
 
 import { AudibleProduct, AudibleSeries } from '#config/typing/audible'
 import { ApiBook, Series } from '#config/typing/books'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
+import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fetch = require('fetch-retry')(originalFetch)
 
 class ApiHelper {
 	asin: string
@@ -164,14 +161,15 @@ class ApiHelper {
 	 * @returns {Promise<AudibleProduct>} response from Audible API
 	 */
 	async fetchBook(): Promise<AudibleProduct | undefined> {
-		const response = await fetch(this.reqUrl)
-		if (!response.ok) {
-			const message = `An error has occured while fetching from Audible API. Response: ${response.status}, ASIN: ${this.asin}`
-			throw new Error(message)
-		} else {
-			const json: AudibleProduct = await response.json()
-			return json
-		}
+		return fetch(this.reqUrl)
+			.then(async (response) => {
+				const json: AudibleProduct = await response.json()
+				return json
+			})
+			.catch((error) => {
+				const message = `An error has occured while fetching from Audible API. Response: ${error.status}, ASIN: ${this.asin}`
+				throw new Error(message)
+			})
 	}
 
 	/**

@@ -1,9 +1,5 @@
-import originalFetch from 'isomorphic-fetch'
-
 import { Book } from '#config/typing/books'
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fetch = require('fetch-retry')(originalFetch)
+import fetch from '#helpers/fetchPlus'
 
 class SeedHelper {
 	book: Book
@@ -19,12 +15,15 @@ class SeedHelper {
 	async seedAll() {
 		// Seed authors in the background
 		try {
-			this.book.authors?.map((author) => {
-				if (author && author.asin) {
-					return fetch('http://localhost:3000/authors/' + author.asin)
-				}
-				return undefined
-			})
+			return await Promise.all(
+				this.book.authors?.map(async (author) => {
+					if (author && author.asin) {
+						const request = await fetch('http://localhost:3000/authors/' + author.asin)
+						return request.ok
+					}
+					return false
+				})
+			)
 		} catch (err) {
 			console.error(err)
 		}

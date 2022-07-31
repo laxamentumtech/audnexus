@@ -1,14 +1,11 @@
 import * as cheerio from 'cheerio'
 import { isText } from 'domhandler'
 import { htmlToText } from 'html-to-text'
-import originalFetch from 'isomorphic-fetch'
 
 import { Genre } from '#config/typing/audible'
 import { AuthorProfile } from '#config/typing/people'
+import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fetch = require('fetch-retry')(originalFetch)
 
 class ScrapeHelper {
 	asin: string
@@ -56,14 +53,15 @@ class ScrapeHelper {
 	 * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
 	 */
 	async fetchAuthor(): Promise<cheerio.CheerioAPI> {
-		const response = await fetch(this.reqUrl)
-		if (!response.ok) {
-			const message = `An error occured while fetching Audible HTML. Response: ${response.status}, ASIN: ${this.asin}`
-			throw new Error(message)
-		} else {
-			const text = await response.text()
-			return cheerio.load(text)
-		}
+		return fetch(this.reqUrl)
+			.then(async (response) => {
+				const text = await response.text()
+				return cheerio.load(text)
+			})
+			.catch((error) => {
+				const message = `An error occured while fetching Audible HTML. Response: ${error.status}, ASIN: ${this.asin}`
+				throw new Error(message)
+			})
 	}
 
 	/**
