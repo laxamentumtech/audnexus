@@ -19,7 +19,7 @@ specifiers:
   eslint-config-prettier: ^8.5.0
   eslint-plugin-jest: 26.6.0
   eslint-plugin-simple-import-sort: ^7.0.0
-  fastify: 4.2.1
+  fastify: 4.3.0
   fetch-retry: 5.0.3
   html-to-text: 8.2.0
   isomorphic-fetch: 3.0.0
@@ -42,7 +42,7 @@ dependencies:
   '@fastify/redis': 6.0.0
   cheerio: 1.0.0-rc.12
   domhandler: 5.0.3
-  fastify: 4.2.1
+  fastify: 4.3.0
   fetch-retry: 5.0.3
   html-to-text: 8.2.0
   isomorphic-fetch: 3.0.0
@@ -2351,8 +2351,8 @@ packages:
     resolution: {integrity: sha512-qKcDXmuZadJqdTm6vlCqioEbyewF60b/0LOFCcYN1B6BIZGlYJumWWOYs70SFYLDAH4YqdE1cxH/RKMG7rFxgA==}
     dev: false
 
-  /fastify/4.2.1:
-    resolution: {integrity: sha512-eyAWHN9+8IPTnhvGz+leseASGV/JZ75Y+jXXV7tid4awUjCMInY1gazZXuTD95xUW+Ve5vfgLjQ2i1i0/XJjdw==}
+  /fastify/4.3.0:
+    resolution: {integrity: sha512-9q5Ron8jWmX6ElFkgZH4zmIIXdnkGIu16JozWG2ohcs7th5rAo1ymNi+rn6xCmbWc6jl9lf+9OxVe93LOg6/2w==}
     dependencies:
       '@fastify/ajv-compiler': 3.1.2
       '@fastify/error': 3.0.0
