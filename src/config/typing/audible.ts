@@ -68,7 +68,7 @@ export interface AudibleProduct {
 		sku_lite?: string
 		social_media_images: { [key: string]: string }
 		subtitle?: string
-		thesaurus_subject_keywords: [string]
+		thesaurus_subject_keywords: string[]
 		title: string
 	}
 	response_groups: string[]
