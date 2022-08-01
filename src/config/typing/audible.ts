@@ -63,7 +63,7 @@ export interface AudibleProduct {
 		rating: Ratings
 		release_date: string
 		runtime_length_min: number
-		series: AudibleSeries[]
+		series?: AudibleSeries[]
 		sku?: string
 		sku_lite?: string
 		social_media_images: { [key: string]: string }
