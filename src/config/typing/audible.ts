@@ -47,6 +47,7 @@ export interface AudibleProduct {
 		available_codecs: Codecs[]
 		content_delivery_type: string
 		content_type: string
+		editorial_reviews?: string[]
 		format_type: string
 		has_children: boolean
 		is_adult_product: boolean
@@ -57,7 +58,7 @@ export interface AudibleProduct {
 		merchandising_summary: string
 		narrators?: NarratorOnBook[]
 		product_images: { [key: string]: string }
-        program_participation?: string
+		program_participation?: string
 		publication_name?: string
 		publisher_name: string
 		publisher_summary: string
@@ -70,7 +71,7 @@ export interface AudibleProduct {
 		social_media_images: { [key: string]: string }
 		subtitle?: string
 		thesaurus_subject_keywords: string[]
-		title: string
+		title?: string
 	}
 	response_groups: string[]
 }
