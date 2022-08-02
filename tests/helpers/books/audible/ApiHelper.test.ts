@@ -1,4 +1,5 @@
 import ApiHelper from '#helpers/books/audible/ApiHelper'
+import { B07BS4RKGH, B017V4IM1G } from '#tests/datasets/audible/api'
 import { apiResponse, parsedBook } from '#tests/datasets/helpers/books'
 
 let helper: ApiHelper
@@ -90,4 +91,27 @@ test('should parse response', async () => {
 	await expect(helper.parseResponse(undefined)).rejects.toThrowError('No API response to parse')
 
 	await expect(helper.parseResponse(apiResponse)).resolves.toEqual(parsedBook)
+})
+
+// Edge cases
+test('should throw error when book has no title', async () => {
+	helper = new ApiHelper('B07BS4RKGH')
+	await expect(helper.parseResponse(B07BS4RKGH)).rejects.toThrowError(
+		'Required key: title, does not exist on: B07BS4RKGH'
+	)
+})
+
+test('should parse a book with 2 series', async () => {
+	helper = new ApiHelper('B017V4IM1G')
+	const data = await helper.parseResponse(B017V4IM1G)
+	expect(data.seriesPrimary).toEqual({
+		asin: B017V4IM1G.product.series[0].asin,
+		name: B017V4IM1G.product.series[0].title,
+		position: B017V4IM1G.product.series[0].sequence
+	})
+	expect(data.seriesSecondary).toEqual({
+		asin: B017V4IM1G.product.series[1].asin,
+		name: B017V4IM1G.product.series[1].title,
+		position: B017V4IM1G.product.series[1].sequence
+	})
 })
