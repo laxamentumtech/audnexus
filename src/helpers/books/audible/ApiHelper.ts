@@ -74,7 +74,7 @@ class ApiHelper {
 		return seriesJson
 	}
 
-	getSeriesPrimary(allSeries: AudibleSeries[]) {
+	getSeriesPrimary(allSeries: AudibleSeries[] | undefined) {
 		let seriesPrimary = {} as Series
 		allSeries?.forEach((series: AudibleSeries) => {
 			if (!this.inputJson) throw new Error(`No input data`)
@@ -88,7 +88,7 @@ class ApiHelper {
 		return seriesPrimary
 	}
 
-	getSeriesSecondary(allSeries: AudibleSeries[]) {
+	getSeriesSecondary(allSeries: AudibleSeries[] | undefined) {
 		let seriesSecondary = {} as Series
 		allSeries?.forEach((series: AudibleSeries) => {
 			if (!this.inputJson) throw new Error(`No input data`)
@@ -108,6 +108,7 @@ class ApiHelper {
 
 	getFinalData(): ApiBook {
 		if (!this.inputJson) throw new Error(`No input data`)
+		if (!this.inputJson.title) throw new Error(`No title`)
 		// Find secondary series if available
 		const series1 = this.getSeriesPrimary(this.inputJson.series)
 		const series2 = this.getSeriesSecondary(this.inputJson.series)
