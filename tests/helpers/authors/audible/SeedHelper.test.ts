@@ -14,12 +14,12 @@ afterEach(() => {
 	jest.restoreAllMocks()
 })
 
-describe('successful tests', () => {
-	test('should setup constructor correctly', () => {
+describe('SeedHelper should', () => {
+	test('setup constructor correctly', () => {
 		expect(helper.book).toBe(parsedBook)
 	})
 
-	test('should seed all', async () => {
+	test('seed all', async () => {
 		// Mock Fetch
 		global.fetch = jest.fn().mockImplementation(() =>
 			Promise.resolve({
@@ -31,10 +31,8 @@ describe('successful tests', () => {
 		expect(seedAll).toEqual([true, true])
 		expect(fetch).toHaveBeenCalledTimes(2)
 	})
-})
 
-describe('error tests', () => {
-	test('should log error if http error', async () => {
+	test('log error if http error', async () => {
 		// Mock Fetch
 		global.fetch = jest.fn().mockImplementation(() =>
 			Promise.reject({
@@ -45,7 +43,7 @@ describe('error tests', () => {
 		await expect(helper.seedAll()).resolves.toBeUndefined()
 	})
 
-	test('should return false if no author asin', async () => {
+	test('return false if no author asin', async () => {
 		helper.book.authors = []
 		await expect(helper.seedAll()).resolves.toEqual([])
 	})

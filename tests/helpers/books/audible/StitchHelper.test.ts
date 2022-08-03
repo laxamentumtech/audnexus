@@ -10,37 +10,39 @@ beforeEach(() => {
 	helper = new StitchHelper('B079LRSMNN')
 })
 
-test('should setup constructor correctly', () => {
-	expect(helper.asin).toBe('B079LRSMNN')
-	expect(helper.apiHelper).toBeInstanceOf(ApiHelper)
-	expect(helper.scrapeHelper).toBeInstanceOf(ScrapeHelper)
-})
+describe('StitchHelper should', () => {
+	test('setup constructor correctly', () => {
+		expect(helper.asin).toBe('B079LRSMNN')
+		expect(helper.apiHelper).toBeInstanceOf(ApiHelper)
+		expect(helper.scrapeHelper).toBeInstanceOf(ScrapeHelper)
+	})
 
-test('should fetch sources', async () => {
-	await helper.fetchSources()
-	expect(helper.apiResponse).toBeDefined()
-	expect(helper.scraperResponse).toBeDefined()
-})
+	test('fetch sources', async () => {
+		await helper.fetchSources()
+		expect(helper.apiResponse).toBeDefined()
+		expect(helper.scraperResponse).toBeDefined()
+	})
 
-test('should parse responses', async () => {
-	await helper.fetchSources()
-	await helper.parseResponses()
-	expect(helper.apiParsed).toBeDefined()
-	expect(helper.scraperParsed).toBeDefined()
-})
+	test('parse responses', async () => {
+		await helper.fetchSources()
+		await helper.parseResponses()
+		expect(helper.apiParsed).toBeDefined()
+		expect(helper.scraperParsed).toBeDefined()
+	})
 
-test('should include genres if genres exist', async () => {
-	await helper.fetchSources()
-	await helper.parseResponses()
-	await expect(helper.includeGenres()).resolves.toEqual(parsedBookWithGenres)
-})
+	test('include genres if genres exist', async () => {
+		await helper.fetchSources()
+		await helper.parseResponses()
+		await expect(helper.includeGenres()).resolves.toEqual(parsedBookWithGenres)
+	})
 
-test('should process book', async () => {
-	const proccessed = await helper.process()
+	test('process book', async () => {
+		const proccessed = await helper.process()
 
-	expect(proccessed).toEqual(parsedBookWithGenres)
-	expect(helper.apiResponse).toBeDefined()
-	expect(helper.scraperResponse).toBeDefined()
-	expect(helper.apiParsed).toBeDefined()
-	expect(helper.scraperParsed).toBeDefined()
+		expect(proccessed).toEqual(parsedBookWithGenres)
+		expect(helper.apiResponse).toBeDefined()
+		expect(helper.scraperResponse).toBeDefined()
+		expect(helper.apiParsed).toBeDefined()
+		expect(helper.scraperParsed).toBeDefined()
+	})
 })
