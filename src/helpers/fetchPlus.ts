@@ -1,6 +1,6 @@
 import 'isomorphic-fetch'
 
-function fetchPlus(url: string, options = {}, retries = 3): Promise<Response> {
+function fetchPlus(url: string, options = {}, retries = 0): Promise<Response> {
 	return new Promise((resolve, reject) => {
 		fetch(url, options)
 			.then((res) => {
