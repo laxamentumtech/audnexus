@@ -1,18 +1,18 @@
 import ApiHelper from '#helpers/books/audible/ApiHelper'
-import { B07BS4RKGH, B017V4IM1G } from '#tests/datasets/audible/api'
+import { B07BS4RKGH, B017V4IM1G } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook } from '#tests/datasets/helpers/books'
 
+let asin: string
 let helper: ApiHelper
 
 beforeEach(() => {
+	asin = 'B079LRSMNN'
 	// Set up helpers
-	helper = new ApiHelper('B079LRSMNN')
+	helper = new ApiHelper(asin)
 	helper.inputJson = apiResponse.product
 })
 
 afterEach(() => {
-	// Reset helper
-	helper = new ApiHelper('B079LRSMNN')
 	// https://github.com/facebook/jest/issues/7136
 	jest.resetAllMocks()
 	jest.restoreAllMocks()
@@ -20,9 +20,9 @@ afterEach(() => {
 
 describe('ApiHelper should', () => {
 	test('setup constructor correctly', () => {
-		expect(helper.asin).toBe('B079LRSMNN')
+		expect(helper.asin).toBe(asin)
 		expect(helper.reqUrl).toBe(
-			'https://api.audible.com/1.0/catalog/products/B079LRSMNN/?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
+			`https://api.audible.com/1.0/catalog/products/${asin}/?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024`
 		)
 	})
 
@@ -127,9 +127,10 @@ describe('ApiHelper should throw error when', () => {
 	})
 
 	test('error fetching book data', async () => {
-		helper = new ApiHelper('')
+		asin = ''
+		helper = new ApiHelper(asin)
 		await expect(helper.fetchBook()).rejects.toThrowError(
-			'An error has occured while fetching from Audible API. Response: 403, ASIN: '
+			`An error has occured while fetching from Audible API. Response: 403, ASIN: ${asin}`
 		)
 	})
 
@@ -138,9 +139,10 @@ describe('ApiHelper should throw error when', () => {
 	})
 
 	test('book has no title', async () => {
-		helper = new ApiHelper('B07BS4RKGH')
+		asin = 'B07BS4RKGH'
+		helper = new ApiHelper(asin)
 		await expect(helper.parseResponse(B07BS4RKGH)).rejects.toThrowError(
-			'Required key: title, does not exist on: B07BS4RKGH'
+			`Required key: title, does not exist on: ${asin}`
 		)
 
 		helper.inputJson = B07BS4RKGH.product

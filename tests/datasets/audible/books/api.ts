@@ -1,4 +1,5 @@
 import { AudibleProduct } from '#config/typing/audible'
+import { Book } from '#config/typing/books'
 
 export interface MinimalResponse {
 	asin: string
@@ -13,6 +14,59 @@ export interface MinimalResponse {
 	release_date: AudibleProduct['product']['release_date']
 	runtime_length_min: AudibleProduct['product']['runtime_length_min']
 	title: AudibleProduct['product']['title']
+}
+
+export function setupMinimalParsed(
+	response: AudibleProduct['product'],
+	description: string,
+	image: string
+): Book {
+	return {
+		asin: response.asin,
+		authors: response.authors,
+		description: description,
+		formatType: response.format_type,
+		language: response.language,
+		narrators: response.narrators,
+		image: image,
+		rating: response.rating.overall_distribution.display_average_rating.toString(),
+		publisherName: response.publisher_name,
+		summary: response.publisher_summary,
+		releaseDate: new Date(response.release_date),
+		runtimeLengthMin: response.runtime_length_min,
+		title: response.title,
+		...(response.series?.[0] && {
+			seriesPrimary: {
+				asin: response.series[0].asin,
+				name: response.series[0].title,
+				position: response.series[0].sequence
+			}
+		}),
+		...(response.series?.[1] && {
+			seriesSecondary: {
+				asin: response.series[1].asin,
+				name: response.series[1].title,
+				position: response.series[1].sequence
+			}
+		})
+	}
+}
+
+export function setupMinimalResponse(response: AudibleProduct['product']): MinimalResponse {
+	return {
+		asin: response.asin,
+		authors: response.authors,
+		merchandising_summary: response.merchandising_summary,
+		format_type: response.format_type,
+		language: response.language,
+		narrators: response.narrators,
+		product_images: response.product_images,
+		publisher_name: response.publisher_name,
+		publisher_summary: response.publisher_summary,
+		release_date: response.release_date,
+		runtime_length_min: response.runtime_length_min,
+		title: response.title
+	}
 }
 
 export const B08G9PRS1K: AudibleProduct = {
@@ -151,20 +205,7 @@ export const B08G9PRS1K: AudibleProduct = {
 	]
 }
 
-export const minimalB08G9PRS1K: MinimalResponse = {
-	asin: B08G9PRS1K.product.asin,
-	authors: B08G9PRS1K.product.authors,
-	merchandising_summary: B08G9PRS1K.product.merchandising_summary,
-	format_type: B08G9PRS1K.product.format_type,
-	language: B08G9PRS1K.product.language,
-	narrators: B08G9PRS1K.product.narrators,
-	product_images: B08G9PRS1K.product.product_images,
-	publisher_name: B08G9PRS1K.product.publisher_name,
-	publisher_summary: B08G9PRS1K.product.publisher_summary,
-	release_date: B08G9PRS1K.product.release_date,
-	runtime_length_min: B08G9PRS1K.product.runtime_length_min,
-	title: B08G9PRS1K.product.title
-}
+export const minimalB08G9PRS1K: MinimalResponse = setupMinimalResponse(B08G9PRS1K.product)
 
 export const B08C6YJ1LS: AudibleProduct = {
 	product: {
@@ -298,20 +339,7 @@ export const B08C6YJ1LS: AudibleProduct = {
 	]
 }
 
-export const minimalB08C6YJ1LS: MinimalResponse = {
-	asin: B08C6YJ1LS.product.asin,
-	authors: B08C6YJ1LS.product.authors,
-	merchandising_summary: B08C6YJ1LS.product.merchandising_summary,
-	format_type: B08C6YJ1LS.product.format_type,
-	language: B08C6YJ1LS.product.language,
-	narrators: B08C6YJ1LS.product.narrators,
-	product_images: B08C6YJ1LS.product.product_images,
-	publisher_name: B08C6YJ1LS.product.publisher_name,
-	publisher_summary: B08C6YJ1LS.product.publisher_summary,
-	release_date: B08C6YJ1LS.product.release_date,
-	runtime_length_min: B08C6YJ1LS.product.runtime_length_min,
-	title: B08C6YJ1LS.product.title
-}
+export const minimalB08C6YJ1LS: MinimalResponse = setupMinimalResponse(B08C6YJ1LS.product)
 
 export const B017V4IM1G: AudibleProduct = {
 	product: {
@@ -575,4 +603,26 @@ export const B07BS4RKGH: AudibleProduct = {
 		'media',
 		'product_attrs'
 	]
+}
+
+export const minimalB0036I54I6: Book = {
+	asin: 'B0036I54I6',
+	authors: [
+		{ name: 'Diane Wood Middlebrook (Professor of English' },
+		{ name: 'Stanford University)' },
+		{ name: 'Herbert Lindenberger (Avalon Foundation Professor of Humanities' },
+		{ name: 'Comparative Literature' }
+	],
+	description:
+		'Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions...',
+	formatType: 'unabridged',
+	image: 'https://m.media-amazon.com/images/I/41dNQts9Z7L.jpg',
+	language: 'english',
+	publisherName: 'Stanford Audio',
+	rating: '3.9',
+	releaseDate: new Date('1999-12-16T00:00:00.000Z'),
+	runtimeLengthMin: 114,
+	summary:
+		'Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions for American poetry and share the woman\'s perspective in distinct, powerful voices. Professor Middlebrook, author of the best selling <i>Anne Sexton: A Biography</i>, sheds light on the unique and important contributions of these poets by examining 4 works: "Morning Song" and "Ariel" by Plath and "The Fortress" and "The Double Image" by Sexton. Her conversations with Professor Lindenberger and an audience further delve into the work and lives of these women, their friendship, and their tragic deaths.',
+	title: 'The Poetry of Anne Sexton and Sylvia Plath'
 }

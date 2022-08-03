@@ -1,17 +1,19 @@
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import { genresObject } from '#tests/datasets/helpers/books'
 
+let asin: string
 let helper: ScrapeHelper
 
 beforeEach(() => {
+	asin = 'B079LRSMNN'
 	// Set up helpers
-	helper = new ScrapeHelper('B079LRSMNN')
+	helper = new ScrapeHelper(asin)
 })
 
 describe('ScrapeHelper should', () => {
 	test('setup constructor correctly', () => {
-		expect(helper.asin).toBe('B079LRSMNN')
-		expect(helper.reqUrl).toBe('https://www.audible.com/pd/B079LRSMNN/')
+		expect(helper.asin).toBe(asin)
+		expect(helper.reqUrl).toBe(`https://www.audible.com/pd/${asin}/`)
 	})
 
 	test('fetch book', async () => {
@@ -21,7 +23,8 @@ describe('ScrapeHelper should', () => {
 	test.todo('log error message if no book found')
 
 	test('return error if no book', async () => {
-		helper = new ScrapeHelper('B079LRSMN')
+        asin = asin.slice(0, -1)
+		helper = new ScrapeHelper(asin)
 
 		await expect(helper.fetchBook()).resolves.toBeUndefined()
 	})

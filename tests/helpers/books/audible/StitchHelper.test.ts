@@ -3,16 +3,18 @@ import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import { parsedBookWithGenres } from '#tests/datasets/helpers/books'
 
+let asin: string
 let helper: StitchHelper
 
 beforeEach(() => {
+	asin = 'B079LRSMNN'
 	// Set up helpers
-	helper = new StitchHelper('B079LRSMNN')
+	helper = new StitchHelper(asin)
 })
 
 describe('StitchHelper should', () => {
 	test('setup constructor correctly', () => {
-		expect(helper.asin).toBe('B079LRSMNN')
+		expect(helper.asin).toBe(asin)
 		expect(helper.apiHelper).toBeInstanceOf(ApiHelper)
 		expect(helper.scrapeHelper).toBeInstanceOf(ScrapeHelper)
 	})

@@ -1,25 +1,27 @@
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
 
+let asin: string
 let helper: ChapterHelper
 
 beforeEach(() => {
+	asin = 'B079LRSMNN'
 	// Set up helpers
-	helper = new ChapterHelper('B079LRSMNN')
+	helper = new ChapterHelper(asin)
 })
 
 describe('ChapterHelper should', () => {
 	test('setup constructor correctly', () => {
-		expect(helper.asin).toBe('B079LRSMNN')
+		expect(helper.asin).toBe(asin)
 		expect(helper.adpToken).toBeDefined()
 		expect(helper.privateKey).toBeDefined()
 		expect(helper.reqUrl).toBe(
-			'https://api.audible.com/1.0/content/B079LRSMNN/metadata?response_groups=chapter_info'
+			`https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info`
 		)
 	})
 
 	test('build path', () => {
-		expect(helper.buildPath()).toBe('/1.0/content/B079LRSMNN/metadata?response_groups=chapter_info')
+		expect(helper.buildPath()).toBe(`/1.0/content/${asin}/metadata?response_groups=chapter_info`)
 	})
 
 	test('cleanup chapter titles', () => {
@@ -40,7 +42,8 @@ describe('ChapterHelper should', () => {
 	})
 
 	test('return undefined if no chapters', async () => {
-		helper = new ChapterHelper('B079LRSMN')
+        asin = asin.slice(0, -1)
+		helper = new ChapterHelper(asin)
 		await expect(helper.fetchChapter()).resolves.toBeUndefined()
 	})
 

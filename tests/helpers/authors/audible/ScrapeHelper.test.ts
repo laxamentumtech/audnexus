@@ -1,16 +1,18 @@
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import { parsedAuthor } from '#tests/datasets/helpers/authors'
 
+let asin: string
 let helper: ScrapeHelper
 
 beforeEach(() => {
 	// Set up helpers
-	helper = new ScrapeHelper('B012DQ3BCM')
+	asin = 'B012DQ3BCM'
+	helper = new ScrapeHelper(asin)
 })
 
 describe('ScrapeHelper should', () => {
 	test('setup constructor correctly', () => {
-		expect(helper.asin).toBe('B012DQ3BCM')
+		expect(helper.asin).toBe(asin)
 		expect(helper.reqUrl).toBe('https://www.audible.com/author/B012DQ3BCM/')
 	})
 
@@ -36,10 +38,11 @@ describe('ScrapeHelper should', () => {
 
 describe('ScrapeHelper should throw error when', () => {
 	test('no author', async () => {
-		helper = new ScrapeHelper('B012DQ3BC')
+		asin = asin.slice(0, -1)
+		helper = new ScrapeHelper(asin)
 
 		await expect(helper.fetchAuthor()).rejects.toThrow(
-			'An error occured while fetching Audible HTML. Response: 404, ASIN: B012DQ3BC'
+			`An error occured while fetching Audible HTML. Response: 404, ASIN: ${asin}`
 		)
 	})
 	test.todo('author has no name')
