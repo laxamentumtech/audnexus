@@ -107,6 +107,22 @@ describe('ApiHelper edge cases should', () => {
 			position: B017V4IM1G.product.series[1].sequence
 		})
 	})
+
+	test('retry fetching book data', async () => {
+		// Mock Fetch to fail once
+		global.fetch = jest
+			.fn()
+			.mockImplementationOnce(() => Promise.reject())
+			.mockImplementationOnce(() =>
+				Promise.resolve({
+					json: () => Promise.resolve(apiResponse),
+					status: 200,
+					ok: true
+				})
+			)
+		const data = await helper.fetchBook()
+		expect(data).toEqual(apiResponse)
+	})
 })
 
 describe('ApiHelper should throw error when', () => {
