@@ -1,3 +1,4 @@
+import { Chapter } from '#config/typing/audible'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
 
@@ -58,5 +59,39 @@ describe('ChapterHelper should', () => {
 
 	test('process', async () => {
 		await expect(helper.process()).resolves.toEqual(parsedChapters)
+	})
+})
+
+describe('ChapterHelper should throw error when', () => {
+	const OLD_ENV = process.env
+
+	test('missing environment vars', () => {
+		// Set environment variables
+		process.env = { ...OLD_ENV }
+		process.env.ADP_TOKEN = undefined
+		process.env.PRIVATE_KEY = undefined
+		// setup function to fail if environment variables are missing
+		const bad_helper = function () {
+			new ChapterHelper(asin)
+		}
+		expect(bad_helper).toThrowError('Missing environment vars for chapters')
+		// Restore environment
+		process.env = OLD_ENV
+	})
+	test('chapter missing required keys', async () => {
+		await expect(
+			helper.parseResponse({
+				content_metadata: {
+					chapter_info: {
+						brandIntroDurationMs: 2043,
+						brandOutroDurationMs: 5062,
+						is_accurate: true,
+						runtime_length_ms: 62548009,
+						runtime_length_sec: 62548
+					}
+				},
+				response_groups: ['chapter_info']
+			} as Chapter)
+		).rejects.toThrowError(`Required key: chapters, does not exist on: ${asin}`)
 	})
 })
