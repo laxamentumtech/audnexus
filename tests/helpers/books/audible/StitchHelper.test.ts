@@ -67,15 +67,17 @@ describe('StitchHelper should', () => {
 })
 
 describe('StitchHelper should throw error when', () => {
-	test('fetching book data fails', async () => {
+	beforeEach(() => {
 		// Mock Fetch to fail
 		jest.spyOn(global, 'fetch').mockImplementation(() => Promise.reject({ status: 400, ok: false }))
+	})
+
+	test('fetching book data fails', async () => {
 		await expect(helper.fetchSources()).rejects.toThrowError(
 			`Error occured while fetching data from API or scraper: Error: An error has occured while fetching from Audible API. Response: 400, ASIN: ${asin}`
 		)
 	})
 	test('parsing book data fails', async () => {
-		jest.spyOn(global, 'fetch').mockImplementation(() => Promise.reject({ status: 400, ok: false }))
 		await expect(helper.parseResponses()).rejects.toThrowError(
 			'Error occured while parsing data from API or scraper: Error: No API response to parse'
 		)
