@@ -31,7 +31,7 @@ describe('ScrapeHelper should', () => {
 	test.todo('log error message if no book found')
 
 	test('return error if no book', async () => {
-        asin = asin.slice(0, -1)
+		asin = asin.slice(0, -1)
 		helper = new ScrapeHelper(asin)
 
 		await expect(helper.fetchBook()).resolves.toBeUndefined()

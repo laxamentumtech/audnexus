@@ -42,7 +42,7 @@ describe('ChapterHelper should', () => {
 	})
 
 	test('return undefined if no chapters', async () => {
-        asin = asin.slice(0, -1)
+		asin = asin.slice(0, -1)
 		helper = new ChapterHelper(asin)
 		await expect(helper.fetchChapter()).resolves.toBeUndefined()
 	})
