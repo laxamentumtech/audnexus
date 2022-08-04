@@ -88,7 +88,7 @@ export class PaprAudibleAuthorHelper {
 			// -or if genres exist on new item but not old
 			if (findInDb.data.genres || (!findInDb.data.genres && this.authorData.genres)) {
 				// Only update if it's not nuked data
-				if (this.authorData.genres && this.authorData.genres.length) {
+				if (this.authorData.genres?.length) {
 					console.log(`Updating author asin ${this.asin}`)
 					// Update
 					return this.update()
@@ -197,12 +197,12 @@ export class PaprAudibleBookHelper {
 			// -or if genres exist on new item but not old
 			if (findInDb.data.genres || (!findInDb.data.genres && this.bookData.genres)) {
 				// Only update if it's not nuked data
-				if (this.bookData.genres && this.bookData.genres.length) {
+				if (this.bookData.genres?.length) {
 					console.log(`Updating book asin ${this.asin}`)
 					// Update
 					return this.update()
 				}
-			} else if (this.bookData.genres && this.bookData.genres.length) {
+			} else if (this.bookData.genres?.length) {
 				// If no genres exist on book, but do on incoming, update
 				console.log(`Updating book asin ${this.asin}`)
 				// Update
@@ -300,7 +300,7 @@ export class PaprAudibleChapterHelper {
 					modified: false
 				}
 			}
-			if (this.chapterData.chapters && this.chapterData.chapters.length) {
+			if (this.chapterData.chapters?.length) {
 				console.log(`Updating chapters for asin ${this.asin}`)
 				// Update
 				return this.update()

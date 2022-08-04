@@ -17,7 +17,7 @@ class SeedHelper {
 		try {
 			return await Promise.all(
 				this.book.authors?.map(async (author) => {
-					if (author && author.asin) {
+					if (author?.asin) {
 						const request = await fetch('http://localhost:3000/authors/' + author.asin)
 						return request.ok
 					}
