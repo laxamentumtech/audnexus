@@ -12,12 +12,6 @@ beforeEach(() => {
 	helper.inputJson = apiResponse.product
 })
 
-afterEach(() => {
-	// https://github.com/facebook/jest/issues/7136
-	jest.resetAllMocks()
-	jest.restoreAllMocks()
-})
-
 describe('ApiHelper should', () => {
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
@@ -110,15 +104,15 @@ describe('ApiHelper edge cases should', () => {
 
 	test('retry fetching book data', async () => {
 		// Mock Fetch to fail once
-		global.fetch = jest
-			.fn()
+		jest
+			.spyOn(global, 'fetch')
 			.mockImplementationOnce(() => Promise.reject())
 			.mockImplementationOnce(() =>
 				Promise.resolve({
 					json: () => Promise.resolve(apiResponse),
-					status: 200,
-					ok: true
-				})
+					ok: true,
+					status: 200
+				} as Response)
 			)
 		const data = await helper.fetchBook()
 		expect(data).toEqual(apiResponse)

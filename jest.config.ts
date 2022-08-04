@@ -11,6 +11,9 @@ const config: Config.InitialOptions = {
 		'#config/(.*)': '<rootDir>/src/config/$1',
 		'#tests/(.*)': '<rootDir>/tests/$1'
 	},
+	restoreMocks: true,
+	clearMocks: true,
+	resetMocks: true,
 	roots: ['<rootDir>'],
 	testMatch: ['tests/**/*.+(ts|tsx|js)', '**/?(*.)+(spec|test).+(ts|tsx|js)'],
 	transform: {

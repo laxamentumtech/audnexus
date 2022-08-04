@@ -8,12 +8,6 @@ beforeEach(() => {
 	helper = new SeedHelper(parsedBook)
 })
 
-afterEach(() => {
-	// Reset mocks
-	jest.resetAllMocks()
-	jest.restoreAllMocks()
-})
-
 describe('SeedHelper should', () => {
 	test('setup constructor correctly', () => {
 		expect(helper.book).toBe(parsedBook)
