@@ -1,5 +1,7 @@
+import * as cheerio from 'cheerio'
+
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
-import { genresObject } from '#tests/datasets/helpers/books'
+import { genresObject, htmlResponse } from '#tests/datasets/helpers/books'
 
 let asin: string
 let helper: ScrapeHelper
@@ -17,7 +19,13 @@ describe('ScrapeHelper should', () => {
 	})
 
 	test('fetch book', async () => {
-		await expect(helper.fetchBook()).resolves.toBeDefined()
+		jest
+			.spyOn(global, 'fetch')
+			.mockImplementationOnce(() =>
+				Promise.resolve({ ok: true, status: 200, text: () => htmlResponse } as unknown as Response)
+			)
+		const book = await helper.fetchBook()
+		expect(book.html()).toEqual(cheerio.load(htmlResponse).html())
 	})
 
 	test.todo('log error message if no book found')

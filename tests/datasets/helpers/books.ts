@@ -62,6 +62,107 @@ export const genresWithoutAsin = {
 	]
 }
 
+export const htmlResponse =
+	'<div id="center-9" class="slot centerSlot">\
+<div class="bc-container product-topic-tags">\
+    <span>\
+        <ul\
+            class="bc-list bc-spacing-s3 bc-color-secondary bc-list-nostyle"\
+        >\
+            <li class="bc-list-item seriesLabel">\
+                Series:\
+\
+                <a\
+                    class="bc-link bc-color-link"\
+                    tabindex="0"\
+                    href="/series/Galaxys-Edge-Series-Audiobooks/B079YXK1GL?ref=a_pd_Galaxy_c9_series_1&pf_rd_p=185bc0d6-e1e0-4345-b88d-545c324f8afa&pf_rd_r=S2EP595FDGG6ANXWB059"\
+                    >Galaxy\'s Edge Series</a\
+                >, Book 1-2\
+            </li>\
+\
+            <li class="bc-list-item format">Unabridged Audiobook</li>\
+\
+            <li class="bc-list-item categoriesLabel">\
+                Categories:\
+\
+                <a\
+                    class="bc-link bc-size-base bc-color-link"\
+                    tabindex="0"\
+                    href="/cat/Science-Fiction-Fantasy-Audiobooks/18580606011?ref=a_pd_Galaxy_c9_bc&pf_rd_p=185bc0d6-e1e0-4345-b88d-545c324f8afa&pf_rd_r=S2EP595FDGG6ANXWB059"\
+                    >Science Fiction & Fantasy</a\
+                >\
+            </li>\
+        </ul>\
+    </span>\
+\
+    <style type="text/css">\
+        .bc-expander.bc-expander-52.bc-expander-collapsed\
+            > .bc-expander-content {\
+            max-height: 52px;\
+        }\
+    </style>\
+\
+    <div\
+        data-bc-expander-collapsed-height="52"\
+        class="bc-expander bc-expander-type-partial-collapse bc-expander-collapsed bc-spacing-s4 bc-expander-52"\
+    >\
+        <div class="bc-expander-content">\
+            <div class="bc-section bc-chip-group" style="">\
+                <span class="bc-chip-wrapper">\
+                    <span class="bc-chip-tap-target" role="button">\
+                        <a\
+                            href="/cat/Science-Fiction/Military-Audiobooks/18580641011?ref=a_pd_Galaxy_c9_topic-tags_1&pf_rd_p=185bc0d6-e1e0-4345-b88d-545c324f8afa&pf_rd_r=S2EP595FDGG6ANXWB059"\
+                        >\
+                            <span\
+                                class="bc-chip bc-chip-outline bc-chip-button"\
+                            >\
+                                <span\
+                                    class="bc-chip-text"\
+                                    data-text="Military"\
+                                >\
+                                    Military\
+                                </span>\
+\
+                                <span class="bc-chip-border"></span>\
+                            </span>\
+                        </a>\
+                    </span>\
+                </span>\
+            </div>\
+        </div>\
+\
+        <a\
+            class="bc-link bc-expander-toggle bc-color-base"\
+            tabindex="0"\
+            role="button"\
+        >\
+            <span class="bc-expander-show-when-collapsed">\
+                Show more\
+\
+                <i\
+                    style="vertical-align: middle"\
+                    aria-hidden="true"\
+                    class="bc-icon bc-icon-fill-base bc-icon-caret-down-s2 bc-icon-caret-down bc-icon-size-s2 bc-color-base"\
+                >\
+                </i>\
+            </span>\
+\
+            <span class="bc-expander-show-when-expanded">\
+                Show less\
+\
+                <i\
+                    style="vertical-align: middle"\
+                    aria-hidden="true"\
+                    class="bc-icon bc-icon-fill-base bc-icon-caret-up-s2 bc-icon-caret-up bc-icon-size-s2 bc-color-base"\
+                >\
+                </i>\
+            </span>\
+        </a>\
+    </div>\
+</div>\
+</div>\
+'
+
 export const apiResponse: AudibleProduct = {
 	product: {
 		asin: 'B079LRSMNN',
