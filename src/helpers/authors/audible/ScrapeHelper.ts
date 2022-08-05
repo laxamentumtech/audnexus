@@ -114,7 +114,7 @@ class ScrapeHelper {
 		try {
 			const name = $('h1.bc-text-bold')[0].children[0]
 			if (isText(name)) {
-				returnJson.name = name.data
+				returnJson.name = name.data.trim()
 			}
 		} catch (err) {
 			throw new Error('Author name not available')
