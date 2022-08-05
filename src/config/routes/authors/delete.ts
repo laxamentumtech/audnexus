@@ -2,28 +2,34 @@ import { FastifyInstance } from 'fastify'
 
 import { RequestGeneric } from '#config/typing/requests'
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
+import RedisHelper from '#helpers/database/RedisHelper'
 import SharedHelper from '#helpers/shared'
 
 async function _delete(fastify: FastifyInstance) {
 	fastify.delete<RequestGeneric>('/authors/:asin', async (request, reply) => {
-		// Setup Helpers
+		// Setup common helper first
 		const commonHelpers = new SharedHelper()
-		const DbHelper = new PaprAudibleAuthorHelper(request.params.asin, {})
-
 		// First, check ASIN validity
 		if (!commonHelpers.checkAsinValidity(request.params.asin)) {
 			reply.code(400)
 			throw new Error('Bad ASIN')
 		}
 
-		const existingAuthor = await DbHelper.findOne()
+		// Setup Helpers
+		const paprHelper = new PaprAudibleAuthorHelper(request.params.asin, {})
+		const { redis } = fastify
+		const redisHelper = new RedisHelper(redis, 'author', request.params.asin)
+
+		// Get author from database
+		const existingAuthor = await paprHelper.findOne()
 
 		if (!existingAuthor) {
 			reply.code(404)
 			throw new Error(`${request.params.asin} not found in the database`)
 		}
 
-		return DbHelper.delete()
+		await redisHelper.deleteOne()
+		return paprHelper.delete()
 	})
 }
 

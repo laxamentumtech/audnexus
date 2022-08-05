@@ -1,13 +1,10 @@
 import * as cheerio from 'cheerio'
+import { isText } from 'domhandler'
 import { htmlToText } from 'html-to-text'
-import originalFetch from 'isomorphic-fetch'
 
-import { Genre } from '#config/typing/audible'
 import { AuthorProfile } from '#config/typing/people'
+import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fetch = require('fetch-retry')(originalFetch)
 
 class ScrapeHelper {
 	asin: string
@@ -22,46 +19,46 @@ class ScrapeHelper {
 	}
 
 	/**
-	 * Checks the presence of genres on html page and formats them into JSON
-	 * @param {NodeListOf<Element>} genres selected source from categoriesLabel
-	 * @returns {Genre[]}
-	 */
-	collectGenres(genres: cheerio.Cheerio<cheerio.Element>[], type: string): Genre[] | undefined {
-		// Check and label each genre
-		const genreArr: Genre[] | undefined = genres.map((genre, index) => {
-			let thisGenre = {} as Genre
-			if (genre.attr('href')) {
-				const href = genre.attr('href')
-				const asin = href ? this.helper.getAsinFromUrl(href) : undefined
-				if (genre.text() && asin) {
-					thisGenre = {
-						asin: asin,
-						name: genre.children().text(),
-						type: type
-					}
-				}
-				return thisGenre
-			} else {
-				console.debug(`Genre ${index} asin not available on: ${this.asin}`)
-			}
-			return undefined
-		}) as Genre[]
-
-		return genreArr
-	}
-
-	/**
 	 * Fetches the html page and checks it's response
 	 * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
 	 */
 	async fetchAuthor(): Promise<cheerio.CheerioAPI> {
-		const response = await fetch(this.reqUrl)
-		if (!response.ok) {
-			const message = `An error occured while fetching Audible HTML. Response: ${response.status}, ASIN: ${this.asin}`
-			throw new Error(message)
-		} else {
-			const text = await response.text()
-			return cheerio.load(text)
+		return fetch(this.reqUrl)
+			.then(async (response) => {
+				const text = await response.text()
+				return cheerio.load(text)
+			})
+			.catch((error) => {
+				const message = `An error occured while fetching Audible HTML. Response: ${error.status}, ASIN: ${this.asin}`
+				throw new Error(message)
+			})
+	}
+
+	getDescription(dom: cheerio.CheerioAPI): string {
+		const description = dom('div.bc-expander-content').children().text()
+		return htmlToText(description, { wordwrap: false })
+	}
+
+	getImage(dom: cheerio.CheerioAPI): string {
+		try {
+			return dom('img.author-image-outline')[0].attribs.src.replace(
+				'__01_SX120_CR0,0,120,120__.',
+				''
+			)
+		} catch (error) {
+			return ''
+		}
+	}
+
+	getName(dom: cheerio.CheerioAPI): string {
+		try {
+			const name = dom('h1.bc-text-bold')[0].children[0]
+			if (isText(name)) {
+				return name.data.trim()
+			}
+			return ''
+		} catch (error) {
+			throw new Error(`No author name found for ASIN: ${this.asin}`)
 		}
 	}
 
@@ -70,59 +67,35 @@ class ScrapeHelper {
 	 * @param {JSDOM} dom the fetched dom object
 	 * @returns {HtmlBook} genre and series.
 	 */
-	async parseResponse($: cheerio.CheerioAPI | undefined): Promise<AuthorProfile> {
+	async parseResponse(dom: cheerio.CheerioAPI | undefined): Promise<AuthorProfile> {
 		// Base undefined check
-		if (!$) {
+		if (!dom) {
 			throw new Error('No response from HTML')
 		}
 
-		const returnJson = {} as AuthorProfile
+		// Description
+		const description = this.getDescription(dom)
+		// Genres
+		const genres = this.helper.collectGenres(
+			this.asin,
+			this.helper.getGenresFromHtml(dom, 'div.contentPositionClass div.bc-box a.bc-color-link'),
+			'genre'
+		)
+		// Image
+		const image = this.getImage(dom)
+		// Name
+		const name = this.getName(dom)
 
-		// ID
-		returnJson.asin = this.asin
-
-		// Bio.
-		try {
-			returnJson.description = htmlToText($('div.bc-expander-content').children().text(), {
-				wordwrap: false
-			})
-		} catch (err) {
-			console.debug(`Bio not available on: ${this.asin}`)
+		// Object to return
+		const author: AuthorProfile = {
+			asin: this.asin,
+			description,
+			genres,
+			image,
+			name
 		}
 
-		// Genres.
-		try {
-			const genres = $('div.contentPositionClass div.bc-box a.bc-color-link')
-				.toArray()
-				.map((element) => $(element))
-			returnJson.genres = this.collectGenres(genres, 'genre')
-		} catch (err) {
-			console.debug(`Genres not available on: ${this.asin}`)
-		}
-
-		// Image.
-		try {
-			// We'll ask for a *slightly* larger than postage-stamp-sized pic...
-			returnJson.image = $('img.author-image-outline')[0].attribs.src.replace(
-				'__01_SX120_CR0,0,120,120__.',
-				''
-			)
-		} catch (err) {
-			// continue regardless of error
-		}
-
-		// Name.
-		try {
-			// Workaround data error: https://github.com/cheeriojs/cheerio/issues/1854
-			const name = $('h1.bc-text-bold')[0].children[0] as any
-			if (typeof name.data === 'string') {
-				returnJson.name = name.data
-			}
-		} catch (err) {
-			throw new Error('Author name not available')
-		}
-
-		return returnJson
+		return author
 	}
 
 	/**

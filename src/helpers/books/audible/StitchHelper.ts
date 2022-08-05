@@ -13,7 +13,6 @@ class StitchHelper {
 	scrapeHelper: ScrapeHelper
 	scraperParsed: HtmlBook | undefined
 	scraperResponse: CheerioAPI | undefined
-	tempJson!: Partial<Book>
 
 	constructor(asin: string) {
 		this.asin = asin
@@ -49,7 +48,6 @@ class StitchHelper {
 		try {
 			this.apiParsed = await apiParsed
 			// Also create the partial json for genre use
-			this.tempJson = this.apiParsed
 			this.scraperParsed = await scraperParsed
 		} catch (err) {
 			throw new Error(`Error occured while parsing data from API or scraper: ${err}`)
@@ -60,10 +58,10 @@ class StitchHelper {
 	 * Sets genres key in returned json if it exists
 	 */
 	async includeGenres(): Promise<Book> {
-		if (this.scraperParsed && this.scraperParsed.genres!.length) {
-			this.tempJson.genres = this.scraperParsed.genres
+		if (this.scraperParsed?.genres?.length) {
+			return { ...this.apiParsed, ...this.scraperParsed } as Book
 		}
-		return this.tempJson as Book
+		return this.apiParsed as Book
 	}
 
 	/**

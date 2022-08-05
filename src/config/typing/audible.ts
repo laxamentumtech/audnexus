@@ -37,6 +37,7 @@ export interface AudibleSeries {
 	asin: string | undefined
 	title: string
 	sequence: string | undefined
+	url?: string
 }
 
 export interface AudibleProduct {
@@ -46,6 +47,7 @@ export interface AudibleProduct {
 		available_codecs: Codecs[]
 		content_delivery_type: string
 		content_type: string
+		editorial_reviews?: string[]
 		format_type: string
 		has_children: boolean
 		is_adult_product: boolean
@@ -56,19 +58,22 @@ export interface AudibleProduct {
 		merchandising_summary: string
 		narrators?: NarratorOnBook[]
 		product_images: { [key: string]: string }
+		program_participation?: string
 		publication_name?: string
 		publisher_name: string
 		publisher_summary: string
 		rating: Ratings
 		release_date: string
 		runtime_length_min: number
-		series: AudibleSeries[]
+		series?: AudibleSeries[]
+		sku?: string
+		sku_lite?: string
 		social_media_images: { [key: string]: string }
 		subtitle?: string
-		thesaurus_subject_keywords: [string]
-		title: string
+		thesaurus_subject_keywords: string[]
+		title?: string
 	}
-	response_groups: [string]
+	response_groups: string[]
 }
 
 export interface SingleChapter {
@@ -89,5 +94,5 @@ export interface Chapter {
 			runtime_length_sec: number
 		}
 	}
-	response_groups: [string]
+	response_groups: string[]
 }

@@ -1,13 +1,10 @@
 import { htmlToText } from 'html-to-text'
-import originalFetch from 'isomorphic-fetch'
 
 import { AudibleProduct, AudibleSeries } from '#config/typing/audible'
 import { ApiBook, Series } from '#config/typing/books'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
+import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fetch = require('fetch-retry')(originalFetch)
 
 class ApiHelper {
 	asin: string
@@ -77,13 +74,13 @@ class ApiHelper {
 		return seriesJson
 	}
 
-	getSeriesPrimary(allSeries: AudibleSeries[]) {
+	getSeriesPrimary(allSeries: AudibleSeries[] | undefined) {
 		let seriesPrimary = {} as Series
 		allSeries?.forEach((series: AudibleSeries) => {
 			if (!this.inputJson) throw new Error(`No input data`)
 			const seriesJson = this.getSeries(series)
 			// Check and set primary series
-			if (seriesJson?.name === this.inputJson.publication_name!) {
+			if (this.inputJson.publication_name && seriesJson?.name === this.inputJson.publication_name) {
 				seriesPrimary = seriesJson
 			}
 		})
@@ -91,14 +88,18 @@ class ApiHelper {
 		return seriesPrimary
 	}
 
-	getSeriesSecondary(allSeries: AudibleSeries[]) {
+	getSeriesSecondary(allSeries: AudibleSeries[] | undefined) {
 		let seriesSecondary = {} as Series
 		allSeries?.forEach((series: AudibleSeries) => {
 			if (!this.inputJson) throw new Error(`No input data`)
 			const seriesJson = this.getSeries(series)
 			// Check and set secondary series
-			if (allSeries.length > 1 && seriesJson?.name !== this.inputJson.publication_name) {
-				seriesSecondary = seriesJson!
+			if (
+				allSeries.length > 1 &&
+				seriesJson &&
+				seriesJson?.name !== this.inputJson.publication_name
+			) {
+				seriesSecondary = seriesJson
 			}
 		})
 		if (!seriesSecondary.name) return undefined
@@ -107,18 +108,20 @@ class ApiHelper {
 
 	getFinalData(): ApiBook {
 		if (!this.inputJson) throw new Error(`No input data`)
+		if (!this.inputJson.title) throw new Error(`No title`)
 		// Find secondary series if available
 		const series1 = this.getSeriesPrimary(this.inputJson.series)
 		const series2 = this.getSeriesSecondary(this.inputJson.series)
 		return {
 			asin: this.inputJson.asin,
-			authors: this.inputJson.authors!.map((person: AuthorOnBook) => {
-				const authorJson: AuthorOnBook = {
-					asin: person.asin,
-					name: person.name
-				}
-				return authorJson
-			}),
+			authors:
+				this.inputJson.authors?.map((person: AuthorOnBook) => {
+					const authorJson: AuthorOnBook = {
+						asin: person.asin,
+						name: person.name
+					}
+					return authorJson
+				}) || [],
 			description: htmlToText(this.inputJson['merchandising_summary'], {
 				wordwrap: false
 			}).trim(),
@@ -159,14 +162,15 @@ class ApiHelper {
 	 * @returns {Promise<AudibleProduct>} response from Audible API
 	 */
 	async fetchBook(): Promise<AudibleProduct | undefined> {
-		const response = await fetch(this.reqUrl)
-		if (!response.ok) {
-			const message = `An error has occured while fetching from Audible API. Response: ${response.status}, ASIN: ${this.asin}`
-			throw new Error(message)
-		} else {
-			const json: AudibleProduct = await response.json()
-			return json
-		}
+		return fetch(this.reqUrl)
+			.then(async (response) => {
+				const json: AudibleProduct = await response.json()
+				return json
+			})
+			.catch((error) => {
+				const message = `An error has occured while fetching from Audible API. Response: ${error.status}, ASIN: ${this.asin}`
+				throw new Error(message)
+			})
 	}
 
 	/**

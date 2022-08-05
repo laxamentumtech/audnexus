@@ -1,13 +1,10 @@
-import originalFetch from 'isomorphic-fetch'
 import jsrsasign from 'jsrsasign'
 import moment from 'moment'
 
 import { Chapter, SingleChapter } from '#config/typing/audible'
 import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
+import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const fetch = require('fetch-retry')(originalFetch)
 
 class ChapterHelper {
 	asin: string
@@ -51,9 +48,10 @@ class ChapterHelper {
 		const originalTitle: string = chapter
 		// Strip trailing periods
 		const strippedTitle: string = originalTitle.replace(/\.$/, '')
-		let chapterTitle: string
+		let chapterTitle = strippedTitle
 		// Check if title is just numbers
-		if (!isNaN(Number(strippedTitle)) && strippedTitle.length < 3) {
+		const isNotNumber = isNaN(Number(strippedTitle))
+		if (!isNotNumber && strippedTitle.length <= 3) {
 			// Remove trailing period in some cases
 			const stripPeriod: string = strippedTitle
 			// Convert to number to normalize numbers
@@ -61,8 +59,6 @@ class ChapterHelper {
 			// Convert back to string for concat
 			const strTitle: string = numTitle.toString()
 			chapterTitle = `Chapter ${strTitle}`
-		} else {
-			chapterTitle = originalTitle
 		}
 
 		return chapterTitle
@@ -93,22 +89,22 @@ class ChapterHelper {
 	 * @returns {Promise<Chapter>} data from parseResponse() function.
 	 */
 	async fetchChapter(): Promise<Chapter | undefined> {
-		const signedResponse = await fetch(this.reqUrl, {
+		return fetch(this.reqUrl, {
 			headers: {
 				'x-adp-token': this.adpToken,
 				'x-adp-alg': 'SHA256withRSA:1.0',
 				'x-adp-signature': this.signRequest(this.adpToken, this.privateKey)
 			}
 		})
-		if (!signedResponse.ok) {
-			const message = `An error has occured while fetching chapters ${signedResponse.status}: ${this.reqUrl}`
-			console.log(message)
-			return undefined
-		} else {
-			const response = await fetch(this.reqUrl)
-			const json: Chapter = await response.json()
-			return json
-		}
+			.then(async (response) => {
+				const json: Chapter = await response.json()
+				return json
+			})
+			.catch((error) => {
+				const message = `An error has occured while fetching chapters ${error.status}: ${this.reqUrl}`
+				console.log(message)
+				return undefined
+			})
 	}
 
 	/**
@@ -135,7 +131,7 @@ class ChapterHelper {
 
 		requiredKeys.forEach((key) => {
 			if (!Object.prototype.hasOwnProperty.call(inputJson, key)) {
-				throw new Error(`Required key: ${key}, does not exist on: ${finalJson.asin}`)
+				throw new Error(`Required key: ${key}, does not exist on: ${this.asin}`)
 			}
 		})
 

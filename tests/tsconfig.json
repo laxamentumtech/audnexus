@@ -1,10 +1,12 @@
 {
 	"compilerOptions": {
-		"baseUrl": "../src",
+		"baseUrl": "..",
+        "esModuleInterop": true,
 		"paths": {
-			"#config/*": ["config/*"],
-			"#helpers/*": ["helpers/*"]
+			"#config/*": ["src/config/*"],
+			"#helpers/*": ["src/helpers/*"],
+			"#tests/*": ["tests/*"]
 		}
 	},
-	"include": ["**/*.test.ts"]
+	"include": ["**/*.ts"]
 }

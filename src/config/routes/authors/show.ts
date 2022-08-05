@@ -1,10 +1,12 @@
 import { FastifyInstance } from 'fastify'
 
 import type { AuthorDocument } from '#config/models/Author'
+import { AuthorProfile } from '#config/typing/people'
 import { RequestGeneric } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
 import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
+import RedisHelper from '#helpers/database/RedisHelper'
 import SharedHelper from '#helpers/shared'
 
 async function _show(fastify: FastifyInstance) {
@@ -14,57 +16,57 @@ async function _show(fastify: FastifyInstance) {
 			update: request.query.update
 		}
 
-		// Setup Helpers
+		// Setup common helper first
 		const commonHelpers = new SharedHelper()
-		const DbHelper = new PaprAudibleAuthorHelper(request.params.asin, options)
-
 		// First, check ASIN validity
 		if (!commonHelpers.checkAsinValidity(request.params.asin)) {
 			reply.code(400)
 			throw new Error('Bad ASIN')
 		}
 
+		// Setup Helpers
+		const paprHelper = new PaprAudibleAuthorHelper(request.params.asin, options)
 		const { redis } = fastify
-		// Set redis k,v function
-		const setRedis = (asin: string, newDbItem: AuthorDocument) => {
-			redis?.set(`author-${asin}`, JSON.stringify(newDbItem, null, 2))
-		}
-		// Search redis if available
-		const findInRedis = redis
-			? await redis.get(`author-${request.params.asin}`, (_err, val) => {
-					if (!val) return undefined
-					return JSON.parse(val)
-			  })
-			: undefined
+		const redisHelper = new RedisHelper(redis, 'author', request.params.asin)
 
-		let existingAuthor = await DbHelper.findOne()
+		// Get author from database
+		const existingAuthor = (await paprHelper.findOne()).data
+		let author: AuthorProfile | undefined = undefined
 
 		// Add dates to data if not present
-		if (existingAuthor.data && !existingAuthor.data.createdAt) {
-			DbHelper.authorData = addTimestamps(existingAuthor.data) as AuthorDocument
-			existingAuthor = await DbHelper.update()
+		if (existingAuthor && !existingAuthor.createdAt) {
+			paprHelper.authorData = addTimestamps(existingAuthor) as AuthorDocument
+			author = (await paprHelper.update()).data
+		} else {
+			const checkAuthor = await paprHelper.findOneWithProjection()
+			if (checkAuthor.data) {
+				author = checkAuthor.data
+			}
 		}
 
-		// Check for existing or cached data
-		if (options.update !== '0' && findInRedis) {
-			return JSON.parse(findInRedis)
-		} else if (options.update !== '0' && existingAuthor.data) {
-			setRedis(request.params.asin, existingAuthor.data)
-			return existingAuthor.data
+		// Check for existing or cached data from redis
+		if (options.update !== '0') {
+			const redisAuthor = await redisHelper.findOrCreate(author)
+			if (redisAuthor) return redisAuthor
 		}
 
 		// Check if the object was updated recently
-		if (options.update == '0' && commonHelpers.checkIfRecentlyUpdated(existingAuthor.data))
-			return existingAuthor.data
+		if (
+			options.update == '0' &&
+			existingAuthor &&
+			commonHelpers.checkIfRecentlyUpdated(existingAuthor)
+		)
+			return author
 
+		// Proceed to scrape the author since it doesn't exist in db or is outdated
 		// Set up helper
 		const scrapeHelper = new ScrapeHelper(request.params.asin)
 		// Request data to be processed by helper
 		const authorData = await scrapeHelper.process()
 		// Pass requested data to the CRUD helper
-		DbHelper.authorData = authorData
+		paprHelper.authorData = authorData
 		// Let CRUD helper decide how to handle the data
-		const authorToReturn = await DbHelper.createOrUpdate()
+		const authorToReturn = await paprHelper.createOrUpdate()
 
 		// Throw error on null return data
 		if (!authorToReturn.data) {
@@ -73,7 +75,7 @@ async function _show(fastify: FastifyInstance) {
 
 		// Update Redis if the item is modified
 		if (authorToReturn.modified) {
-			setRedis(request.params.asin, authorToReturn.data)
+			redisHelper.setOne(authorToReturn.data)
 		}
 
 		return authorToReturn.data
