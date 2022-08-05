@@ -1,8 +1,11 @@
+import * as cheerio from 'cheerio'
+import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
 import { AuthorDocument } from '#config/models/Author'
 import { BookDocument } from '#config/models/Book'
 import { ChapterDocument } from '#config/models/Chapter'
+import { Genre } from '#config/typing/audible'
 import { ApiChapter, Book } from '#config/typing/books'
 import { AuthorProfile } from '#config/typing/people'
 
@@ -67,6 +70,47 @@ class SharedHelper {
 			return true
 		}
 		return false
+	}
+
+	/**
+	 * Checks the presence of genres on html page and formats them into JSON.
+	 * @param {string} asin the ASIN of the book or author
+	 * @param {NodeListOf<Element>} genres selected source from categoriesLabel
+	 * @param {string} type the type to assign to the returned objects
+	 * @returns {Genre[]}
+	 */
+	collectGenres(asin: string, genres: cheerio.Cheerio<cheerio.Element>[], type: string): Genre[] {
+		// Check and label each genre
+		const genreArr: Genre[] = genres
+			.map((genre, index) => {
+				// Only proceed if there's an ID to use
+				if (genre.attr('href')) {
+					const href = genre.attr('href')
+					const catAsin = href ? this.getGenreAsinFromUrl(href) : undefined
+					// Verify existence of name and valid ID
+					if (genre.text() && catAsin) {
+						// Cleanup the name of the genre
+						const cleanedName = htmlToText(genre.text(), { wordwrap: false })
+						const thisGenre: Genre = {
+							asin: catAsin,
+							name: cleanedName,
+							type: type
+						}
+						return thisGenre
+					}
+				} else {
+					console.log(`Genre ${index} asin not available on: ${asin}`)
+				}
+			})
+			.filter((genre) => genre) as Genre[] // Filter out undefined values
+
+		// Only return map if there's at least one genre
+		if (genreArr.length > 0) {
+			return genreArr
+		}
+
+		// If there's no genre, return an empty array
+		return [] as Genre[]
 	}
 
 	/**

@@ -2,7 +2,6 @@ import * as cheerio from 'cheerio'
 import { isText } from 'domhandler'
 import { htmlToText } from 'html-to-text'
 
-import { Genre } from '#config/typing/audible'
 import { AuthorProfile } from '#config/typing/people'
 import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
@@ -17,35 +16,6 @@ class ScrapeHelper {
 		const baseDomain = 'https://www.audible.com'
 		const baseUrl = 'author'
 		this.reqUrl = this.helper.buildUrl(asin, baseDomain, baseUrl)
-	}
-
-	/**
-	 * Checks the presence of genres on html page and formats them into JSON
-	 * @param {NodeListOf<Element>} genres selected source from categoriesLabel
-	 * @returns {Genre[]}
-	 */
-	collectGenres(genres: cheerio.Cheerio<cheerio.Element>[], type: string): Genre[] | undefined {
-		// Check and label each genre
-		const genreArr: Genre[] | undefined = genres.map((genre, index) => {
-			let thisGenre = {} as Genre
-			if (genre.attr('href')) {
-				const href = genre.attr('href')
-				const asin = href ? this.helper.getGenreAsinFromUrl(href) : undefined
-				if (genre.text() && asin) {
-					thisGenre = {
-						asin: asin,
-						name: genre.children().text(),
-						type: type
-					}
-				}
-				return thisGenre
-			} else {
-				console.debug(`Genre ${index} asin not available on: ${this.asin}`)
-			}
-			return undefined
-		}) as Genre[]
-
-		return genreArr
 	}
 
 	/**
@@ -94,7 +64,7 @@ class ScrapeHelper {
 			const genres = $('div.contentPositionClass div.bc-box a.bc-color-link')
 				.toArray()
 				.map((element) => $(element))
-			returnJson.genres = this.collectGenres(genres, 'genre')
+			returnJson.genres = this.helper.collectGenres(this.asin, genres, 'genre')
 		} catch (err) {
 			console.debug(`Genres not available on: ${this.asin}`)
 		}

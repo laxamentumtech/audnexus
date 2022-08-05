@@ -1,11 +1,13 @@
+import * as cheerio from 'cheerio'
+
 import SharedHelper from '#helpers/shared'
+import { htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
 import {
 	bookWithoutProjection,
 	bookWithoutProjectionUpdatedNow,
 	changedParsedBook,
 	parsedBook
 } from '#tests/datasets/helpers/books'
-
 let helper: SharedHelper
 beforeAll(() => {
 	helper = new SharedHelper()
@@ -55,5 +57,14 @@ describe('SharedHelper should', () => {
 		expect(
 			helper.getGenreAsinFromUrl('https://www.audible.com/cat/Science-Fiction/Military-Audiobooks/')
 		).toBeUndefined()
+	})
+
+	test('collectGenres returns empty array if no genres', () => {
+		const asin = 'B012DQ3BCM'
+		const html = cheerio.load(htmlResponseNameOnly)
+		const genres = html('div.contentPositionClass div.bc-box a.bc-color-link')
+			.toArray()
+			.map((element) => html(element))
+		expect(helper.collectGenres(asin, genres, 'genre').length).toBeFalsy()
 	})
 })
