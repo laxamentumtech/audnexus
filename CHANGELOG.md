@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.6.0](https://github.com/djdembeck/audnexus/compare/v0.5.1...v0.6.0) (2022-08-05)
+
+
+### Features
+
+* **helper:** :recycle: add `redis` helper for more portable and reusable functions ([a4a5682](https://github.com/djdembeck/audnexus/commit/a4a5682f511ad9cc37c46166652c47cb084e4b10))
+
+
+### Bug Fixes
+
+* **helper:** :bug: always trim author name when scraping ([f598f2e](https://github.com/djdembeck/audnexus/commit/f598f2e3a524ff9c4291a3fcd27ac334004396bb))
+* **helper:** :bug: fetchPlus wouldn't retry ([967d340](https://github.com/djdembeck/audnexus/commit/967d34089723220b9a1d23024ef6b50e994d5224))
+* **helper:** :bug: fix throwing error in ChapterHelper using asin before it's assigned ([d0bc3d8](https://github.com/djdembeck/audnexus/commit/d0bc3d805cf3160b11659334dfc14c337c3996c7))
+* **types:** :label: add `editorial_reviews`, `program_participation`, and make `title` optional ([38c536f](https://github.com/djdembeck/audnexus/commit/38c536f1ca637781709b29b07a69edaa780cce0f))
+* **types:** :label: fix response_groups type for chapters ([9d4cfdf](https://github.com/djdembeck/audnexus/commit/9d4cfdf4b9265e16523a0eab44dd22c4b674fe64))
+* **types:** :label: series is an optional field on AudibleProduct ([c72f31b](https://github.com/djdembeck/audnexus/commit/c72f31bb9c1f9fc8059c9060dc61aed700ccdf20))
+* **types:** :label: thesaurus_subject_keywords had wrong type ([d451736](https://github.com/djdembeck/audnexus/commit/d451736495a16a873b57c3447145f29dfe9b3fa5))
+
 ### [0.5.1](https://github.com/djdembeck/audnexus/compare/v0.4.5...v0.5.1) (2022-07-22)
 
 
