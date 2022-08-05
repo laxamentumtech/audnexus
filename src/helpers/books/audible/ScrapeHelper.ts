@@ -1,6 +1,5 @@
 import * as cheerio from 'cheerio'
 
-import { Genre } from '#config/typing/audible'
 import { HtmlBook } from '#config/typing/books'
 import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
@@ -47,30 +46,26 @@ class ScrapeHelper {
 			return undefined
 		}
 
-		const genres = dom('li.categoriesLabel a')
-			.toArray()
-			.map((element) => dom(element))
-
-		const tags = dom('div.bc-chip-group a')
-			.toArray()
-			.map((element) => dom(element))
-
-		const returnJson = {
-			genres: Array<Genre>(genres.length + tags.length)
-		} as HtmlBook
-
-		// Combine genres and tags
-		if (genres.length) {
-			let genreArr = this.helper.collectGenres(this.asin, genres, 'genre')
-			// Tags.
-			if (tags.length) {
-				const tagArr = this.helper.collectGenres(this.asin, tags, 'tag')
-				genreArr = tagArr?.length ? genreArr?.concat(tagArr) : genreArr
-			}
-			returnJson.genres = genreArr
+		// Genres
+		const genres = this.helper.collectGenres(
+			this.asin,
+			this.helper.getGenresFromHtml(dom, 'li.categoriesLabel a'),
+			'genre'
+		)
+		// Tags
+		const tags = this.helper.collectGenres(
+			this.asin,
+			this.helper.getGenresFromHtml(dom, 'div.bc-chip-group a'),
+			'tag'
+		)
+		// Object to return
+		const genresObject: HtmlBook = {
+			genres: [...genres, ...tags]
 		}
+		// Return the object if there's at least one genre
+		if (genresObject?.genres?.length) return genresObject
 
-		return returnJson
+		return undefined
 	}
 }
 

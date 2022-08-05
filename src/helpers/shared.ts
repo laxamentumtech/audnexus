@@ -114,6 +114,20 @@ class SharedHelper {
 	}
 
 	/**
+	 * Get genres from a specific selector.
+	 * @param {cheeriom.Cheerio} dom the cheerio object to extract from
+	 * @param {string} selector the selector to extract from
+	 * @returns {cheerio.Cheerio<cheerio.Element>[]} the genres from the selector
+	 */
+	getGenresFromHtml(dom: cheerio.CheerioAPI, selector: string): cheerio.Cheerio<cheerio.Element>[] {
+		const genres = dom(selector)
+			.toArray()
+			.map((element) => dom(element)) as cheerio.Cheerio<cheerio.Element>[]
+
+		return genres
+	}
+
+	/**
 	 * Regex to return just the ASIN from the given URL
 	 * @param {string} url string to extract ASIN from
 	 * @returns {string} ASIN.

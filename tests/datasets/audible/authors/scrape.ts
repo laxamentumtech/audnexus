@@ -36,6 +36,7 @@ export const authorParsedB0034NFIOI: AuthorProfile = {
 			type: 'genre'
 		}
 	],
+	image: '',
 	name: 'Simon Pegg'
 }
 

@@ -30,8 +30,6 @@ describe('ScrapeHelper should', () => {
 		expect(helper.reqUrl).toBe('https://www.audible.com/author/B012DQ3BCM/')
 	})
 
-	test.todo('return undefined if no genres')
-
 	test('fetch author', async () => {
 		const author = await helper.fetchAuthor()
 		expect(author.html()).toEqual(cheerio.load(htmlResponse).html())
@@ -56,6 +54,7 @@ describe('ScrapeHelper should', () => {
 			asin: 'B012DQ3BCM',
 			description: '',
 			genres: [],
+			image: '',
 			name: 'Jason Anspach'
 		})
 	})
@@ -75,6 +74,8 @@ describe('ScrapeHelper should throw error when', () => {
 	})
 	test('author has no name', async () => {
 		const html = cheerio.load(htmlResponseNoData)
-		expect(helper.parseResponse(html)).rejects.toThrowError('Author name not available')
+		expect(helper.parseResponse(html)).rejects.toThrowError(
+			'No author name found for ASIN: B012DQ3BCM'
+		)
 	})
 })

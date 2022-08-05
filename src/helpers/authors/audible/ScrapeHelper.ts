@@ -34,63 +34,68 @@ class ScrapeHelper {
 			})
 	}
 
+	getDescription(dom: cheerio.CheerioAPI): string {
+		const description = dom('div.bc-expander-content').children().text()
+		return htmlToText(description, { wordwrap: false })
+	}
+
+	getImage(dom: cheerio.CheerioAPI): string {
+		try {
+			return dom('img.author-image-outline')[0].attribs.src.replace(
+				'__01_SX120_CR0,0,120,120__.',
+				''
+			)
+		} catch (error) {
+			return ''
+		}
+	}
+
+	getName(dom: cheerio.CheerioAPI): string {
+		try {
+			const name = dom('h1.bc-text-bold')[0].children[0]
+			if (isText(name)) {
+				return name.data.trim()
+			}
+			return ''
+		} catch (error) {
+			throw new Error(`No author name found for ASIN: ${this.asin}`)
+		}
+	}
+
 	/**
 	 * Parses fetched HTML page to extract genres and series'
 	 * @param {JSDOM} dom the fetched dom object
 	 * @returns {HtmlBook} genre and series.
 	 */
-	async parseResponse($: cheerio.CheerioAPI | undefined): Promise<AuthorProfile> {
+	async parseResponse(dom: cheerio.CheerioAPI | undefined): Promise<AuthorProfile> {
 		// Base undefined check
-		if (!$) {
+		if (!dom) {
 			throw new Error('No response from HTML')
 		}
 
-		const returnJson = {} as AuthorProfile
+		// Description
+		const description = this.getDescription(dom)
+		// Genres
+		const genres = this.helper.collectGenres(
+			this.asin,
+			this.helper.getGenresFromHtml(dom, 'div.contentPositionClass div.bc-box a.bc-color-link'),
+			'genre'
+		)
+		// Image
+		const image = this.getImage(dom)
+		// Name
+		const name = this.getName(dom)
 
-		// ID
-		returnJson.asin = this.asin
-
-		// Bio.
-		try {
-			returnJson.description = htmlToText($('div.bc-expander-content').children().text(), {
-				wordwrap: false
-			})
-		} catch (err) {
-			console.debug(`Bio not available on: ${this.asin}`)
+		// Object to return
+		const author: AuthorProfile = {
+			asin: this.asin,
+			description,
+			genres,
+			image,
+			name
 		}
 
-		// Genres.
-		try {
-			const genres = $('div.contentPositionClass div.bc-box a.bc-color-link')
-				.toArray()
-				.map((element) => $(element))
-			returnJson.genres = this.helper.collectGenres(this.asin, genres, 'genre')
-		} catch (err) {
-			console.debug(`Genres not available on: ${this.asin}`)
-		}
-
-		// Image.
-		try {
-			// We'll ask for a *slightly* larger than postage-stamp-sized pic...
-			returnJson.image = $('img.author-image-outline')[0].attribs.src.replace(
-				'__01_SX120_CR0,0,120,120__.',
-				''
-			)
-		} catch (err) {
-			// continue regardless of error
-		}
-
-		// Name.
-		try {
-			const name = $('h1.bc-text-bold')[0].children[0]
-			if (isText(name)) {
-				returnJson.name = name.data.trim()
-			}
-		} catch (err) {
-			throw new Error('Author name not available')
-		}
-
-		return returnJson
+		return author
 	}
 
 	/**
