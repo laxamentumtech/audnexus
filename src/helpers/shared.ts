@@ -84,9 +84,9 @@ class SharedHelper {
 		const genreArr: Genre[] = genres
 			.map((genre, index) => {
 				// Only proceed if there's an ID to use
-				if (genre.attr('href')) {
-					const href = genre.attr('href')
-					const catAsin = href ? this.getGenreAsinFromUrl(href) : undefined
+				const href = genre.attr('href')
+				if (href) {
+					const catAsin = this.getGenreAsinFromUrl(href)
 					// Verify existence of name and valid ID
 					if (genre.text() && catAsin) {
 						// Cleanup the name of the genre
