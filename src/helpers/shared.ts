@@ -120,11 +120,9 @@ class SharedHelper {
 	 * @returns {cheerio.Cheerio<cheerio.Element>[]} the genres from the selector
 	 */
 	getGenresFromHtml(dom: cheerio.CheerioAPI, selector: string): cheerio.Cheerio<cheerio.Element>[] {
-		const genres = dom(selector)
+		return dom(selector)
 			.toArray()
 			.map((element) => dom(element)) as cheerio.Cheerio<cheerio.Element>[]
-
-		return genres
 	}
 
 	/**
