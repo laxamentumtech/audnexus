@@ -1,4 +1,11 @@
+import * as cheerio from 'cheerio'
+
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import {
+	htmlResponse,
+	htmlResponseNameOnly,
+	htmlResponseNoData
+} from '#tests/datasets/audible/authors/scrape'
 import { parsedAuthor } from '#tests/datasets/helpers/authors'
 
 let asin: string
@@ -11,6 +18,13 @@ beforeEach(() => {
 })
 
 describe('ScrapeHelper should', () => {
+	beforeEach(() => {
+		jest
+			.spyOn(global, 'fetch')
+			.mockImplementationOnce(() =>
+				Promise.resolve({ ok: true, status: 200, text: () => htmlResponse } as unknown as Response)
+			)
+	})
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
 		expect(helper.reqUrl).toBe('https://www.audible.com/author/B012DQ3BCM/')
@@ -19,7 +33,8 @@ describe('ScrapeHelper should', () => {
 	test.todo('return undefined if no genres')
 
 	test('fetch author', async () => {
-		await expect(helper.fetchAuthor()).resolves.toBeDefined()
+		const author = await helper.fetchAuthor()
+		expect(author.html()).toEqual(cheerio.load(htmlResponse).html())
 	})
 
 	test('parse response', async () => {
@@ -34,17 +49,32 @@ describe('ScrapeHelper should', () => {
 	test('process author', async () => {
 		await expect(helper.process()).resolves.toEqual(parsedAuthor)
 	})
+
+	test('return a name when author has no bio, genres or image', async () => {
+		const html = cheerio.load(htmlResponseNameOnly)
+		await expect(helper.parseResponse(html)).resolves.toEqual({
+			asin: 'B012DQ3BCM',
+			description: '',
+			genres: [],
+			name: 'Jason Anspach'
+		})
+	})
 })
 
 describe('ScrapeHelper should throw error when', () => {
 	test('no author', async () => {
 		asin = asin.slice(0, -1)
 		helper = new ScrapeHelper(asin)
-
+		jest.restoreAllMocks()
+		jest
+			.spyOn(global, 'fetch')
+			.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 404 } as Response))
 		await expect(helper.fetchAuthor()).rejects.toThrow(
 			`An error occured while fetching Audible HTML. Response: 404, ASIN: ${asin}`
 		)
 	})
-	test.todo('author has no name')
-	test.todo('author has no bio or genres')
+	test('author has no name', async () => {
+		const html = cheerio.load(htmlResponseNoData)
+		expect(helper.parseResponse(html)).rejects.toThrowError('Author name not available')
+	})
 })

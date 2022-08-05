@@ -13,17 +13,19 @@ beforeEach(() => {
 })
 
 describe('ScrapeHelper should', () => {
+	beforeEach(() => {
+		jest
+			.spyOn(global, 'fetch')
+			.mockImplementationOnce(() =>
+				Promise.resolve({ ok: true, status: 200, text: () => htmlResponse } as unknown as Response)
+			)
+	})
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
 		expect(helper.reqUrl).toBe(`https://www.audible.com/pd/${asin}/`)
 	})
 
 	test('fetch book', async () => {
-		jest
-			.spyOn(global, 'fetch')
-			.mockImplementationOnce(() =>
-				Promise.resolve({ ok: true, status: 200, text: () => htmlResponse } as unknown as Response)
-			)
 		const book = await helper.fetchBook()
 		expect(book.html()).toEqual(cheerio.load(htmlResponse).html())
 	})
@@ -33,7 +35,10 @@ describe('ScrapeHelper should', () => {
 	test('return error if no book', async () => {
 		asin = asin.slice(0, -1)
 		helper = new ScrapeHelper(asin)
-
+		jest.restoreAllMocks()
+		jest
+			.spyOn(global, 'fetch')
+			.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 404 } as Response))
 		await expect(helper.fetchBook()).resolves.toBeUndefined()
 	})
 
