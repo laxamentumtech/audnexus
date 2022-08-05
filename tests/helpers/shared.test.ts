@@ -1,7 +1,12 @@
 import * as cheerio from 'cheerio'
 
 import SharedHelper from '#helpers/shared'
-import { htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
+import {
+	htmlResponseGenreNoHref,
+	htmlResponseGenreOnly,
+	htmlResponseNameOnly
+} from '#tests/datasets/audible/authors/scrape'
+import { parsedAuthor } from '#tests/datasets/helpers/authors'
 import {
 	bookWithoutProjection,
 	bookWithoutProjectionUpdatedNow,
@@ -66,5 +71,23 @@ describe('SharedHelper should', () => {
 			.toArray()
 			.map((element) => html(element))
 		expect(helper.collectGenres(asin, genres, 'genre').length).toBeFalsy()
+	})
+
+	test('collectGenres returns array of genres', () => {
+		const asin = 'B012DQ3BCM'
+		const html = cheerio.load(htmlResponseGenreOnly)
+		const genres = html('div.contentPositionClass div.bc-box a.bc-color-link')
+			.toArray()
+			.map((element) => html(element))
+		expect(helper.collectGenres(asin, genres, 'genre')).toEqual(parsedAuthor.genres)
+	})
+
+	test('collectGenres logs error on genre without asin', () => {
+		const asin = 'B012DQ3BCM'
+		const html = cheerio.load(htmlResponseGenreNoHref)
+		const genres = html('div.contentPositionClass div.bc-box a.bc-color-link')
+			.toArray()
+			.map((element) => html(element))
+		expect(helper.collectGenres(asin, genres, 'genre')).toEqual([parsedAuthor.genres[0]])
 	})
 })

@@ -397,3 +397,106 @@ export const htmlResponseNoData =
 </div>\
 </div>\
 '
+
+export const htmlResponseGenreOnly =
+	'<div class="bc-container">\
+<div id="" class="bc-row-responsive bc-spacing-mini" style="">\
+    <div class="bc-col-responsive contentPositionClass box-height">\
+        <div\
+            class="bc-box bc-box-padding-none bc-color-background-base app-content-position"\
+        >\
+            <div id="" class="bc-row-responsive" style="">\
+                <div class="bc-col-responsive 0 bc-col-8 bc-col-offset-2">\
+\
+                    <div\
+                        class="bc-box bc-box-padding-none bc-spacing-top-medium bc-text-center"\
+                    >\
+                        <a\
+                            class="bc-link bc-color-link"\
+                            tabindex="0"\
+                            href="/cat/Science-Fiction-Fantasy-Audiobooks/18580606011?ref=a_author_Ja_c1_athr_tp_ct0&pf_rd_p=b43010f3-9bf4-4e6f-8457-55fbb35ec99e&pf_rd_r=HJCAJRT3DQ3RCDR5EDNT"\
+                        >\
+                            <span class="bc-text bc-size-base"\
+                                >Science Fiction & Fantasy</span\
+                            >\
+                        </a>\
+\
+                        <span\
+                            class="bc-letter-space bc-letter-space-base"\
+                        ></span>\
+\
+                        |\
+\
+                        <span\
+                            class="bc-letter-space bc-letter-space-base"\
+                        ></span>\
+\
+                        <a\
+                            class="bc-link bc-color-link"\
+                            tabindex="0"\
+                            href="/cat/Literature-Fiction-Audiobooks/18574426011?ref=a_author_Ja_c1_athr_tp_ct1&pf_rd_p=b43010f3-9bf4-4e6f-8457-55fbb35ec99e&pf_rd_r=HJCAJRT3DQ3RCDR5EDNT"\
+                        >\
+                            <span class="bc-text bc-size-base"\
+                                >Literature & Fiction</span\
+                            >\
+                        </a>\
+                    </div>\
+\
+                </div>\
+            </div>\
+        </div>\
+    </div>\
+</div>\
+</div>\
+'
+
+export const htmlResponseGenreNoHref =
+	'<div class="bc-container">\
+<div id="" class="bc-row-responsive bc-spacing-mini" style="">\
+    <div class="bc-col-responsive contentPositionClass box-height">\
+        <div\
+            class="bc-box bc-box-padding-none bc-color-background-base app-content-position"\
+        >\
+            <div id="" class="bc-row-responsive" style="">\
+                <div class="bc-col-responsive 0 bc-col-8 bc-col-offset-2">\
+\
+                    <div\
+                        class="bc-box bc-box-padding-none bc-spacing-top-medium bc-text-center"\
+                    >\
+                        <a\
+                            class="bc-link bc-color-link"\
+                            tabindex="0"\
+                            href="/cat/Science-Fiction-Fantasy-Audiobooks/18580606011?ref=a_author_Ja_c1_athr_tp_ct0&pf_rd_p=b43010f3-9bf4-4e6f-8457-55fbb35ec99e&pf_rd_r=HJCAJRT3DQ3RCDR5EDNT"\
+                        >\
+                            <span class="bc-text bc-size-base"\
+                                >Science Fiction & Fantasy</span\
+                            >\
+                        </a>\
+\
+                        <span\
+                            class="bc-letter-space bc-letter-space-base"\
+                        ></span>\
+\
+                        |\
+\
+                        <span\
+                            class="bc-letter-space bc-letter-space-base"\
+                        ></span>\
+\
+                        <a\
+                            class="bc-link bc-color-link"\
+                            tabindex="0"\
+                        >\
+                            <span class="bc-text bc-size-base"\
+                                >Literature & Fiction</span\
+                            >\
+                        </a>\
+                    </div>\
+\
+                </div>\
+            </div>\
+        </div>\
+    </div>\
+</div>\
+</div>\
+'
