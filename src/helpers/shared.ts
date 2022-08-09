@@ -133,6 +133,15 @@ class SharedHelper {
 	getGenreAsinFromUrl(url: string): string | undefined {
 		return url.match(this.asin11Regex)?.[0]
 	}
+
+	/**
+	 * Combine the given array of string parameters into a single string.
+	 * @param {string[]} params the array of string parameters to combine
+	 * @returns {string} the combined string
+	 */
+	getParamString(params: string[]): string {
+		return params.slice(0, -1).join(',') + '&' + params.slice(-1)
+	}
 }
 
 export default SharedHelper

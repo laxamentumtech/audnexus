@@ -15,8 +15,18 @@ class ApiHelper {
 		const helper = new SharedHelper()
 		const baseDomain = 'https://api.audible.com'
 		const baseUrl = '1.0/catalog/products'
-		const params =
-			'?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
+		const paramArr = [
+			'contributors',
+			'product_desc',
+			'product_extended_attrs',
+			'product_attrs',
+			'media',
+			'rating',
+			'series',
+			'image_sizes=500,1024'
+		]
+		const paramStr = helper.getParamString(paramArr)
+		const params = `?response_groups=${paramStr}`
 		this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
 	}
 
