@@ -1,6 +1,15 @@
 /* eslint-disable camelcase */
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 
+export interface Category {
+	id: string
+	name: string
+}
+export interface Categories {
+	ladder: Category[]
+	root: string
+}
+
 interface Codecs {
 	enhanced_codec: string
 	format: string
@@ -39,6 +48,7 @@ export interface AudibleProduct {
 		asin: string
 		authors?: AuthorOnBook[]
 		available_codecs: Codecs[]
+		category_ladders: Categories[]
 		content_delivery_type: string
 		content_type: string
 		editorial_reviews?: string[]

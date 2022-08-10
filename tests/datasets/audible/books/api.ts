@@ -1,9 +1,10 @@
 import { AudibleProduct } from '#config/typing/audible'
-import { Book } from '#config/typing/books'
+import { ApiGenre, Book } from '#config/typing/books'
 
 export interface MinimalResponse {
 	asin: string
 	authors: AudibleProduct['product']['authors']
+	category_ladders: AudibleProduct['product']['category_ladders']
 	merchandising_summary: AudibleProduct['product']['merchandising_summary']
 	format_type: AudibleProduct['product']['format_type']
 	language: AudibleProduct['product']['language']
@@ -19,16 +20,18 @@ export interface MinimalResponse {
 export function setupMinimalParsed(
 	response: AudibleProduct['product'],
 	description: string,
-	image: string
+	image: string,
+	genres: ApiGenre[]
 ): Book {
 	return {
 		asin: response.asin,
 		authors: response.authors,
-		description: description,
+		description,
 		formatType: response.format_type,
+		genres,
 		language: response.language,
 		narrators: response.narrators,
-		image: image,
+		image,
 		rating: response.rating.overall_distribution.display_average_rating.toString(),
 		publisherName: response.publisher_name,
 		summary: response.publisher_summary,
@@ -56,6 +59,7 @@ export function setupMinimalResponse(response: AudibleProduct['product']): Minim
 	return {
 		asin: response.asin,
 		authors: response.authors,
+		category_ladders: response.category_ladders,
 		merchandising_summary: response.merchandising_summary,
 		format_type: response.format_type,
 		language: response.language,
@@ -124,6 +128,32 @@ export const B08G9PRS1K: AudibleProduct = {
 				name: 'mp4_22_32'
 			},
 			{ enhanced_codec: 'aax', format: 'Enhanced', is_kindle_enhanced: false, name: 'aax' }
+		],
+		category_ladders: [
+			{
+				ladder: [
+					{ id: '18580606011', name: 'Science Fiction & Fantasy' },
+					{ id: '18580628011', name: 'Science Fiction' },
+					{ id: '18580629011', name: 'Adventure' }
+				],
+				root: 'Genres'
+			},
+			{
+				ladder: [
+					{ id: '18580606011', name: 'Science Fiction & Fantasy' },
+					{ id: '18580628011', name: 'Science Fiction' },
+					{ id: '18580639011', name: 'Hard Science Fiction' }
+				],
+				root: 'Genres'
+			},
+			{
+				ladder: [
+					{ id: '18580606011', name: 'Science Fiction & Fantasy' },
+					{ id: '18580628011', name: 'Science Fiction' },
+					{ id: '18580645011', name: 'Space Opera' }
+				],
+				root: 'Genres'
+			}
 		],
 		content_delivery_type: 'MultiPartBook',
 		content_type: 'Product',
@@ -242,6 +272,16 @@ export const B08C6YJ1LS: AudibleProduct = {
 				name: 'mp4_44_128'
 			},
 			{ enhanced_codec: 'aax', format: 'Enhanced', is_kindle_enhanced: false, name: 'aax' }
+		],
+		category_ladders: [
+			{
+				ladder: [
+					{ id: '18574597011', name: 'Mystery, Thriller & Suspense' },
+					{ id: '18574621011', name: 'Thriller & Suspense' },
+					{ id: '18574623011', name: 'Crime Thrillers' }
+				],
+				root: 'Genres'
+			}
 		],
 		content_delivery_type: 'SinglePartBook',
 		content_type: 'Show',
@@ -372,6 +412,33 @@ export const B017V4IM1G: AudibleProduct = {
 				name: 'mp4_22_64'
 			},
 			{ enhanced_codec: 'aax', format: 'Enhanced', is_kindle_enhanced: false, name: 'aax' }
+		],
+		category_ladders: [
+			{ ladder: [{ id: '18572091011', name: "Children's Audiobooks" }], root: 'Genres' },
+			{ ladder: [{ id: '18572091011', name: "Children's Audiobooks" }], root: 'Genres' },
+			{
+				ladder: [
+					{ id: '18572091011', name: "Children's Audiobooks" },
+					{ id: '18572491011', name: 'Literature & Fiction' },
+					{ id: '18572505011', name: 'Family Life' }
+				],
+				root: 'Genres'
+			},
+			{
+				ladder: [
+					{ id: '18572091011', name: "Children's Audiobooks" },
+					{ id: '18572586011', name: 'Science Fiction & Fantasy' },
+					{ id: '18572587011', name: 'Fantasy & Magic' }
+				],
+				root: 'Genres'
+			},
+			{
+				ladder: [
+					{ id: '18580606011', name: 'Science Fiction & Fantasy' },
+					{ id: '18580607011', name: 'Fantasy' }
+				],
+				root: 'Genres'
+			}
 		],
 		content_delivery_type: 'SinglePartBook',
 		content_type: 'Product',
@@ -515,6 +582,7 @@ export const B07BS4RKGH: AudibleProduct = {
 			},
 			{ enhanced_codec: 'aax', format: 'Enhanced', is_kindle_enhanced: false, name: 'aax' }
 		],
+		category_ladders: [],
 		content_delivery_type: 'MultiPartBook',
 		content_type: 'Product',
 		editorial_reviews: [''],
@@ -616,6 +684,15 @@ export const minimalB0036I54I6: Book = {
 	description:
 		'Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions...',
 	formatType: 'unabridged',
+	genres: [
+		{
+			asin: '18574426011',
+			name: 'Literature & Fiction',
+			type: 'genre'
+		},
+		{ asin: '18574449011', name: 'Classics', type: 'tag' },
+		{ asin: '18574505011', name: 'Poetry', type: 'tag' }
+	],
 	image: 'https://m.media-amazon.com/images/I/41dNQts9Z7L.jpg',
 	language: 'english',
 	publisherName: 'Stanford Audio',

@@ -45,11 +45,16 @@ const genres = [
 		name: 'Science Fiction & Fantasy',
 		type: 'genre'
 	},
+	{
+		asin: '18580628011',
+		name: 'Science Fiction',
+		type: 'tag'
+	},
 	{ asin: '18580641011', name: 'Military', type: 'tag' }
 ]
 
 export const genresObject = {
-	genres: genres
+	genres: [genres[0], genres[2]]
 }
 
 export const genresWithoutAsin = {
@@ -220,6 +225,25 @@ export const apiResponse: AudibleProduct = {
 				name: 'aax'
 			}
 		],
+		category_ladders: [
+			{
+				ladder: [
+					{
+						id: '18580606011',
+						name: 'Science Fiction & Fantasy'
+					},
+					{
+						id: '18580628011',
+						name: 'Science Fiction'
+					},
+					{
+						id: '18580641011',
+						name: 'Military'
+					}
+				],
+				root: 'Genres'
+			}
+		],
 		content_delivery_type: 'MultiPartBook',
 		content_type: 'Product',
 		format_type: 'unabridged',
@@ -313,6 +337,7 @@ export const parsedBook: ApiBook = {
 	authors,
 	description,
 	formatType,
+	genres,
 	image,
 	language,
 	narrators,
