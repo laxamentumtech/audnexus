@@ -16,7 +16,7 @@ describe('ApiHelper should', () => {
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
 		expect(helper.reqUrl).toBe(
-			`https://api.audible.com/1.0/catalog/products/${asin}/?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024`
+			`https://api.audible.com/1.0/catalog/products/${asin}/?response_groups=category_ladders,contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024`
 		)
 	})
 

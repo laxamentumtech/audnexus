@@ -1,10 +1,11 @@
 import { htmlToText } from 'html-to-text'
 
-import { AudibleProduct, AudibleSeries } from '#config/typing/audible'
-import { ApiBook, Series } from '#config/typing/books'
+import { AudibleProduct, AudibleSeries, Category } from '#config/typing/audible'
+import { ApiBook, ApiGenre, Series } from '#config/typing/books'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
+import { parentCategories } from '#static/constants'
 
 class ApiHelper {
 	asin: string
@@ -16,6 +17,7 @@ class ApiHelper {
 		const baseDomain = 'https://api.audible.com'
 		const baseUrl = '1.0/catalog/products'
 		const paramArr = [
+			'category_ladders',
 			'contributors',
 			'product_desc',
 			'product_extended_attrs',
@@ -50,6 +52,46 @@ class ApiHelper {
 				throw new Error(`Required key: ${key}, does not exist on: ${this.inputJson?.asin}`)
 			}
 		})
+	}
+
+	isParentCategory(category: Category): boolean {
+		return parentCategories.some((parentCategory) => {
+			return parentCategory.id === category.id && parentCategory.name === category.name
+		})
+	}
+
+	categoryToApiGenre(category: Category, type: string): ApiGenre {
+		return {
+			asin: category.id,
+			name: category.name,
+			type: type
+		}
+	}
+
+	getGenres(categories: Category[]): ApiGenre[] {
+		// Genres ARE parent categories
+		const filtered = categories.filter(this.isParentCategory)
+		// Transform categories to ApiGenres
+		return filtered.map((category) => {
+			return this.categoryToApiGenre(category, 'genre')
+		})
+	}
+
+	getTags(categories: Category[]): ApiGenre[] {
+		// Tags are NOT parent categories
+		const filtered = categories.filter((e) => !this.isParentCategory(e))
+		// Transform categories to ApiGenres
+		return filtered.map((category) => {
+			return this.categoryToApiGenre(category, 'tag')
+		})
+	}
+
+	getCategories(): Category[] {
+		if (!this.inputJson) throw new Error(`No input data`)
+		// Flatten category ladders to a single array of categories
+		const categories = this.inputJson.category_ladders?.map((category) => category.ladder).flat()
+		// Remove duplicates from categories array
+		return [...new Map(categories.map((item) => [item.name, item])).values()]
 	}
 
 	getHighResImage() {
@@ -119,6 +161,8 @@ class ApiHelper {
 	getFinalData(): ApiBook {
 		if (!this.inputJson) throw new Error(`No input data`)
 		if (!this.inputJson.title) throw new Error(`No title`)
+		// Get flattened categories
+		const categories = this.getCategories()
 		// Find secondary series if available
 		const series1 = this.getSeriesPrimary(this.inputJson.series)
 		const series2 = this.getSeriesSecondary(this.inputJson.series)
@@ -136,6 +180,9 @@ class ApiHelper {
 				wordwrap: false
 			}).trim(),
 			formatType: this.inputJson.format_type,
+			...(categories && {
+				genres: [...this.getGenres(categories), ...this.getTags(categories)]
+			}),
 			image: this.getHighResImage(),
 			language: this.inputJson.language,
 			...(this.inputJson.narrators && {
