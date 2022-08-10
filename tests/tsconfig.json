@@ -1,10 +1,11 @@
 {
 	"compilerOptions": {
 		"baseUrl": "..",
-        "esModuleInterop": true,
+		"esModuleInterop": true,
 		"paths": {
 			"#config/*": ["src/config/*"],
 			"#helpers/*": ["src/helpers/*"],
+			"#static/*": ["src/static/*"],
 			"#tests/*": ["tests/*"]
 		}
 	},

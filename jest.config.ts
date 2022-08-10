@@ -9,6 +9,7 @@ const config: Config.InitialOptions = {
 	moduleNameMapper: {
 		'#helpers/(.*)': '<rootDir>/src/helpers/$1',
 		'#config/(.*)': '<rootDir>/src/config/$1',
+		'#static/(.*)': '<rootDir>/src/static/$1',
 		'#tests/(.*)': '<rootDir>/tests/$1'
 	},
 	restoreMocks: true,
