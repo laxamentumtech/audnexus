@@ -5,7 +5,7 @@ import lodash from 'lodash'
 import { AuthorDocument } from '#config/models/Author'
 import { BookDocument } from '#config/models/Book'
 import { ChapterDocument } from '#config/models/Chapter'
-import { Genre } from '#config/typing/audible'
+import { ApiGenre } from '#config/typing/books'
 import { ApiChapter, Book } from '#config/typing/books'
 import { AuthorProfile } from '#config/typing/people'
 
@@ -77,11 +77,15 @@ class SharedHelper {
 	 * @param {string} asin the ASIN of the book or author
 	 * @param {NodeListOf<Element>} genres selected source from categoriesLabel
 	 * @param {string} type the type to assign to the returned objects
-	 * @returns {Genre[]}
+	 * @returns {ApiGenre[]}
 	 */
-	collectGenres(asin: string, genres: cheerio.Cheerio<cheerio.Element>[], type: string): Genre[] {
+	collectGenres(
+		asin: string,
+		genres: cheerio.Cheerio<cheerio.Element>[],
+		type: string
+	): ApiGenre[] {
 		// Check and label each genre
-		const genreArr: Genre[] = genres
+		const genreArr: ApiGenre[] = genres
 			.map((genre, index) => {
 				// Only proceed if there's an ID to use
 				const href = genre.attr('href')
@@ -91,7 +95,7 @@ class SharedHelper {
 					if (genre.text() && catAsin) {
 						// Cleanup the name of the genre
 						const cleanedName = htmlToText(genre.text(), { wordwrap: false })
-						const thisGenre: Genre = {
+						const thisGenre: ApiGenre = {
 							asin: catAsin,
 							name: cleanedName,
 							type: type
@@ -102,7 +106,7 @@ class SharedHelper {
 					console.log(`Genre ${index} asin not available on: ${asin}`)
 				}
 			})
-			.filter((genre) => genre) as Genre[] // Filter out undefined values
+			.filter((genre) => genre) as ApiGenre[] // Filter out undefined values
 
 		// Only return map if there's at least one genre
 		if (genreArr.length > 0) {
@@ -110,7 +114,7 @@ class SharedHelper {
 		}
 
 		// If there's no genre, return an empty array
-		return [] as Genre[]
+		return [] as ApiGenre[]
 	}
 
 	/**

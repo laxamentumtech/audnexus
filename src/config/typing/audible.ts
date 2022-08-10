@@ -8,12 +8,6 @@ interface Codecs {
 	name: string
 }
 
-export interface Genre {
-	asin: string
-	name: string
-	type: string
-}
-
 interface RatingItems {
 	average_rating: number
 	display_average_rating: string
