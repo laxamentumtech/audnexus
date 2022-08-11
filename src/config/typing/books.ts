@@ -62,5 +62,5 @@ export interface ApiBook extends CoreBook {
 
 // What we expect to keep from Audible's HTML pages
 export interface HtmlBook {
-	genres?: ApiGenre[]
+	genres: ApiGenre[]
 }
