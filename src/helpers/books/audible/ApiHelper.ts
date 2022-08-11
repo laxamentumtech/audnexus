@@ -86,10 +86,11 @@ class ApiHelper {
 		})
 	}
 
-	getCategories(): Category[] {
+	getCategories(): Category[] | undefined {
 		if (!this.inputJson) throw new Error(`No input data`)
+		if (!this.inputJson.category_ladders) return undefined
 		// Flatten category ladders to a single array of categories
-		const categories = this.inputJson.category_ladders?.map((category) => category.ladder).flat()
+		const categories = this.inputJson.category_ladders.map((category) => category.ladder).flat()
 		// Remove duplicates from categories array
 		return [...new Map(categories.map((item) => [item.name, item])).values()]
 	}
@@ -218,7 +219,7 @@ class ApiHelper {
 	 * @param {scraperUrl} reqUrl the full url to fetch.
 	 * @returns {Promise<AudibleProduct>} response from Audible API
 	 */
-	async fetchBook(): Promise<AudibleProduct | undefined> {
+	async fetchBook(): Promise<AudibleProduct> {
 		return fetch(this.reqUrl)
 			.then(async (response) => {
 				const json: AudibleProduct = await response.json()

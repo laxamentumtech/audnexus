@@ -7,8 +7,8 @@ import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 
 class StitchHelper {
 	apiHelper: ApiHelper
-	apiParsed: ApiBook | undefined
-	apiResponse: AudibleProduct | undefined
+	apiParsed!: ApiBook
+	apiResponse!: AudibleProduct
 	asin: string
 	scrapeHelper: ScrapeHelper
 	scraperParsed: HtmlBook | undefined
@@ -32,7 +32,7 @@ class StitchHelper {
 		try {
 			this.apiResponse = await apiResponse
 			// Skip scraping if API response has category ladders
-			if (this.apiResponse?.product.category_ladders.length) {
+			if (this.apiResponse.product.category_ladders?.length) {
 				return
 			}
 			this.scraperResponse = await scraperResponse
@@ -85,7 +85,7 @@ class StitchHelper {
 		await this.parseResponses()
 
 		// If parsed API response has genres, return it
-		if (this.apiParsed?.genres?.length) {
+		if (this.apiParsed.genres?.length) {
 			return this.apiParsed as Book
 		}
 
