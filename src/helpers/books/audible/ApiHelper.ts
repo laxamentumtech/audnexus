@@ -98,7 +98,7 @@ class ApiHelper {
 	getHighResImage() {
 		if (!this.inputJson) throw new Error(`No input data`)
 		return this.inputJson.product_images?.[1024]
-			? this.inputJson.product_images?.[1024]?.replace('_SL1024_.', '')
+			? this.inputJson.product_images[1024].replace('_SL1024_.', '')
 			: this.inputJson.product_images?.[500]?.replace('_SL500_.', '')
 	}
 
@@ -150,7 +150,7 @@ class ApiHelper {
 			if (
 				allSeries.length > 1 &&
 				seriesJson &&
-				seriesJson?.name !== this.inputJson.publication_name
+				seriesJson.name !== this.inputJson.publication_name
 			) {
 				seriesSecondary = seriesJson
 			}
