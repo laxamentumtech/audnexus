@@ -2,6 +2,7 @@ import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import {
 	apiResponse,
+	genresObject,
 	htmlResponse,
 	parsedBook,
 	parsedBookWithGenres
@@ -42,7 +43,12 @@ describe('StitchHelper should', () => {
 		expect(helper.apiParsed).toEqual(parsedBook)
 	})
 
-	test.todo('parse html genres')
+	test('return an untoched book with includeGenres', async () => {
+		await helper.fetchSources()
+		await helper.parseResponses()
+
+		await expect(helper.includeGenres()).resolves.toEqual(parsedBook)
+	})
 
 	test('process book', async () => {
 		const proccessed = await helper.process()
@@ -53,17 +59,46 @@ describe('StitchHelper should', () => {
 	})
 })
 
+describe('SitchHelper should handle fallback', () => {
+	test('and includeGenres properly', async () => {
+		const obj = { data: apiResponse }
+		delete obj.data.product.category_ladders
+		jest.spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(obj.data))
+		jest.spyOn(global, 'fetch').mockImplementationOnce(() =>
+			Promise.resolve({
+				ok: true,
+				status: 200,
+				text: () => htmlResponse
+			} as unknown as Response)
+		)
+		await helper.process()
+		expect(helper.scraperParsed).toEqual(genresObject)
+	})
+})
+
 describe('StitchHelper should throw error when', () => {
 	beforeEach(() => {
 		// Mock Fetch to fail
 		jest.spyOn(global, 'fetch').mockImplementation(() => Promise.reject({ status: 400, ok: false }))
 	})
 
-	test('fetching book data fails', async () => {
+	test('fetching book data fails completely', async () => {
 		await expect(helper.fetchSources()).rejects.toThrowError(
 			`Error occured while fetching data from API or scraper: Error: An error has occured while fetching from Audible API. Response: 400, ASIN: ${asin}`
 		)
 	})
+
+	test('fetching book data from API fails', async () => {
+		const error = `An error has occured while fetching from Audible API. Response: 404, ASIN: ${asin}`
+		jest.spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() => Promise.reject(error))
+		jest
+			.spyOn(global, 'fetch')
+			.mockImplementationOnce(() =>
+				Promise.resolve({ ok: true, status: 200, text: () => htmlResponse } as unknown as Response)
+			)
+		await expect(helper.fetchSources()).rejects.toThrowError(error)
+	})
+
 	test('parsing book data fails', async () => {
 		await expect(helper.parseResponses()).rejects.toThrowError(
 			'Error occured while parsing data from API or scraper: Error: No API response to parse'

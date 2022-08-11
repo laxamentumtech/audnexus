@@ -122,6 +122,7 @@ describe('ApiHelper edge cases should', () => {
 describe('ApiHelper should throw error when', () => {
 	test('no input data', () => {
 		helper.inputJson = undefined
+		expect(() => helper.getCategories()).toThrowError('No input data')
 		expect(() => helper.getHighResImage()).toThrowError('No input data')
 		expect(() => helper.getReleaseDate()).toThrowError('No input data')
 		expect(() => helper.getSeriesPrimary(apiResponse.product.series)).toThrowError('No input data')
@@ -137,6 +138,14 @@ describe('ApiHelper should throw error when', () => {
 	})
 
 	test('error fetching book data', async () => {
+		// Mock Fetch to fail once
+		jest.spyOn(global, 'fetch').mockImplementation(() =>
+			Promise.resolve({
+				json: () => Promise.resolve(apiResponse),
+				ok: false,
+				status: 403
+			} as Response)
+		)
 		asin = ''
 		helper = new ApiHelper(asin)
 		await expect(helper.fetchBook()).rejects.toThrowError(
