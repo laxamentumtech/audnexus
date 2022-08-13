@@ -695,6 +695,7 @@ export const minimalB0036I54I6: Book = {
 	],
 	image: 'https://m.media-amazon.com/images/I/41dNQts9Z7L.jpg',
 	language: 'english',
+	narrators: [],
 	publisherName: 'Stanford Audio',
 	rating: '3.9',
 	releaseDate: new Date('1999-12-16T00:00:00.000Z'),

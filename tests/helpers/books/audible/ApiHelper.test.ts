@@ -1,3 +1,4 @@
+import { AudibleProduct } from '#config/typing/audible'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import { B07BS4RKGH, B017V4IM1G } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook } from '#tests/datasets/helpers/books'
@@ -122,6 +123,7 @@ describe('ApiHelper edge cases should', () => {
 describe('ApiHelper should throw error when', () => {
 	test('no input data', () => {
 		helper.inputJson = undefined
+		expect(() => helper.hasRequiredKeys()).toThrowError('No input data')
 		expect(() => helper.getCategories()).toThrowError('No input data')
 		expect(() => helper.getHighResImage()).toThrowError('No input data')
 		expect(() => helper.getReleaseDate()).toThrowError('No input data')
@@ -160,11 +162,10 @@ describe('ApiHelper should throw error when', () => {
 	test('book has no title', async () => {
 		asin = 'B07BS4RKGH'
 		helper = new ApiHelper(asin)
-		await expect(helper.parseResponse(B07BS4RKGH)).rejects.toThrowError(
-			`Required key: title, does not exist on: ${asin}`
+		// Setup variable without title
+		const data = B07BS4RKGH as unknown as AudibleProduct
+		await expect(helper.parseResponse(data)).rejects.toThrowError(
+			`The API does not have all the keys required for parsing on ${asin}`
 		)
-
-		helper.inputJson = B07BS4RKGH.product
-		expect(() => helper.getFinalData()).toThrowError('No title')
 	})
 })

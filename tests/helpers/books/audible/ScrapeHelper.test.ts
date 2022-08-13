@@ -51,5 +51,7 @@ describe('ScrapeHelper should', () => {
 		await expect(helper.parseResponse(undefined)).resolves.toBeUndefined()
 	})
 
-	test.todo("return undefined if genres don't have asin")
+	test('return undefined if no genres', async () => {
+		await expect(helper.parseResponse(cheerio.load(''))).resolves.toBeUndefined()
+	})
 })
