@@ -5,8 +5,7 @@ import lodash from 'lodash'
 import { AuthorDocument } from '#config/models/Author'
 import { BookDocument } from '#config/models/Book'
 import { ChapterDocument } from '#config/models/Chapter'
-import { ApiGenre } from '#config/typing/books'
-import { ApiChapter, Book } from '#config/typing/books'
+import { ApiChapter, ApiGenre, Book } from '#config/typing/books'
 import { AuthorProfile } from '#config/typing/people'
 
 class SharedHelper {
