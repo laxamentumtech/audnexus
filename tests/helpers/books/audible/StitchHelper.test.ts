@@ -74,6 +74,22 @@ describe('SitchHelper should handle fallback', () => {
 		await helper.process()
 		expect(helper.scraperParsed).toEqual(genresObject)
 	})
+
+	test('and include no genres', async () => {
+		const obj = { data: apiResponse }
+		delete obj.data.product.category_ladders
+		jest.spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(obj.data))
+		jest.spyOn(global, 'fetch').mockImplementationOnce(() =>
+			Promise.resolve({
+				ok: true,
+				status: 200
+			} as unknown as Response)
+		)
+		delete parsedBook.genres
+		const processed = await helper.process()
+		expect(processed).toEqual(parsedBook)
+		expect(helper.scraperParsed).toBeUndefined()
+	})
 })
 
 describe('StitchHelper should throw error when', () => {

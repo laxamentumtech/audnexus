@@ -26,6 +26,20 @@ describe('SeedHelper should', () => {
 		expect(fetch).toHaveBeenCalledTimes(2)
 	})
 
+	test('return false when no author asin', async () => {
+		// Mock Fetch
+		global.fetch = jest.fn().mockImplementation(() =>
+			Promise.resolve({
+				status: 200,
+				ok: true
+			})
+		)
+		helper.book.authors[0].asin = undefined
+		const seedAll = await helper.seedAll()
+		expect(seedAll).toEqual([false, true])
+		expect(fetch).toHaveBeenCalledTimes(1)
+	})
+
 	test('log error if http error', async () => {
 		// Mock Fetch
 		global.fetch = jest.fn().mockImplementation(() =>
