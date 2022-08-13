@@ -161,7 +161,6 @@ class ApiHelper {
 
 	getFinalData(): ApiBook {
 		if (!this.inputJson) throw new Error(`No input data`)
-		if (!this.inputJson.title) throw new Error(`No title`)
 		// Get flattened categories
 		const categories = this.getCategories()
 		// Find secondary series if available
@@ -169,14 +168,13 @@ class ApiHelper {
 		const series2 = this.getSeriesSecondary(this.inputJson.series)
 		return {
 			asin: this.inputJson.asin,
-			authors:
-				this.inputJson.authors?.map((person: AuthorOnBook) => {
-					const authorJson: AuthorOnBook = {
-						asin: person.asin,
-						name: person.name
-					}
-					return authorJson
-				}) || [],
+			authors: this.inputJson.authors.map((person: AuthorOnBook) => {
+				const authorJson: AuthorOnBook = {
+					asin: person.asin,
+					name: person.name
+				}
+				return authorJson
+			}),
 			description: htmlToText(this.inputJson['merchandising_summary'], {
 				wordwrap: false
 			}).trim(),
@@ -186,14 +184,13 @@ class ApiHelper {
 			}),
 			image: this.getHighResImage(),
 			language: this.inputJson.language,
-			...(this.inputJson.narrators && {
-				narrators: this.inputJson.narrators?.map((person: NarratorOnBook) => {
+			narrators:
+				this.inputJson.narrators?.map((person: NarratorOnBook) => {
 					const narratorJson: NarratorOnBook = {
 						name: person.name
 					}
 					return narratorJson
-				})
-			}),
+				}) || [],
 			publisherName: this.inputJson.publisher_name,
 			...(this.inputJson.rating && {
 				rating: this.inputJson.rating.overall_distribution.display_average_rating.toString()
@@ -206,9 +203,7 @@ class ApiHelper {
 					seriesSecondary: series2
 				})
 			}),
-			...(this.inputJson.subtitle && {
-				subtitle: this.inputJson.subtitle
-			}),
+			subtitle: this.inputJson.subtitle,
 			summary: this.inputJson.publisher_summary,
 			title: this.inputJson.title
 		}

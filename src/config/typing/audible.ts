@@ -46,7 +46,7 @@ export interface AudibleSeries {
 export interface AudibleProduct {
 	product: {
 		asin: string
-		authors?: AuthorOnBook[]
+		authors: AuthorOnBook[]
 		available_codecs: Codecs[]
 		category_ladders: Categories[]
 		content_delivery_type: string
@@ -75,7 +75,7 @@ export interface AudibleProduct {
 		social_media_images: { [key: string]: string }
 		subtitle?: string
 		thesaurus_subject_keywords: string[]
-		title?: string
+		title: string
 	}
 	response_groups: string[]
 }

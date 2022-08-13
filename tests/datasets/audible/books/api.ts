@@ -538,7 +538,7 @@ export const B017V4IM1G: AudibleProduct = {
 	]
 }
 
-export const B07BS4RKGH: AudibleProduct = {
+export const B07BS4RKGH = {
 	product: {
 		asin: 'B07BS4RKGH',
 		authors: [{ asin: 'B019LK4QFY', name: 'Phil Price' }],
