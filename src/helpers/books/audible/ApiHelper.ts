@@ -32,7 +32,10 @@ class ApiHelper {
 		this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
 	}
 
-	checkRequiredKeys() {
+	hasRequiredKeys() {
+		if (!this.inputJson) throw new Error(`No input data`)
+		// Create new const for presence check within forloop
+		const json = this.inputJson
 		const requiredKeys = [
 			'asin',
 			'authors',
@@ -47,11 +50,7 @@ class ApiHelper {
 			'title'
 		]
 
-		requiredKeys.forEach((key) => {
-			if (!Object.prototype.hasOwnProperty.call(this.inputJson, key)) {
-				throw new Error(`Required key: ${key}, does not exist on: ${this.inputJson?.asin}`)
-			}
-		})
+		return requiredKeys.every((key) => Object.keys(json).includes(key))
 	}
 
 	isParentCategory(category: Category): boolean {
@@ -239,7 +238,9 @@ class ApiHelper {
 		this.inputJson = jsonRes.product
 
 		// Check all required keys present
-		this.checkRequiredKeys()
+		if (!this.hasRequiredKeys()) {
+			throw new Error(`The API does not have all the keys required for parsing on ${this.asin}`)
+		}
 
 		return this.getFinalData()
 	}
