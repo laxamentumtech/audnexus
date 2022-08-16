@@ -32,7 +32,7 @@ specifiers:
   papr: 7.2.1
   prettier: 2.7.1
   standard-version: 9.5.0
-  ts-jest: 28.0.7
+  ts-jest: 28.0.8
   ts-node: 10.9.1
   typescript: 4.7.4
 
@@ -71,7 +71,7 @@ devDependencies:
   nodemon: 2.0.19
   prettier: 2.7.1
   standard-version: 9.5.0
-  ts-jest: 28.0.7_lhw3xkmzugq5tscs3x2ndm4sby
+  ts-jest: 28.0.8_lhw3xkmzugq5tscs3x2ndm4sby
   ts-node: 10.9.1_lpebteyakkup4lmzaiqtzvqavm
 
 packages:
@@ -4737,8 +4737,8 @@ packages:
     engines: {node: '>=8'}
     dev: true
 
-  /ts-jest/28.0.7_lhw3xkmzugq5tscs3x2ndm4sby:
-    resolution: {integrity: sha512-wWXCSmTwBVmdvWrOpYhal79bDpioDy4rTT+0vyUnE3ZzM7LOAAGG9NXwzkEL/a516rQEgnMmS/WKP9jBPCVJyA==}
+  /ts-jest/28.0.8_lhw3xkmzugq5tscs3x2ndm4sby:
+    resolution: {integrity: sha512-5FaG0lXmRPzApix8oFG8RKjAz4ehtm8yMKOTy5HX3fY6W8kmvOrmcY0hKDElW52FJov+clhUbrKAqofnj4mXTg==}
     engines: {node: ^12.13.0 || ^14.15.0 || ^16.10.0 || >=17.0.0}
     hasBin: true
     peerDependencies:
