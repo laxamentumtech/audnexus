@@ -8,7 +8,7 @@ specifiers:
   '@types/isomorphic-fetch': 0.0.36
   '@types/jest': 28.1.6
   '@types/jsrsasign': 10.5.2
-  '@types/lodash': 4.14.182
+  '@types/lodash': 4.14.183
   '@types/node': 18.7.4
   '@typescript-eslint/eslint-plugin': 5.31.0
   '@typescript-eslint/parser': 5.31.0
@@ -58,7 +58,7 @@ devDependencies:
   '@types/isomorphic-fetch': 0.0.36
   '@types/jest': 28.1.6
   '@types/jsrsasign': 10.5.2
-  '@types/lodash': 4.14.182
+  '@types/lodash': 4.14.183
   '@types/node': 18.7.4
   '@typescript-eslint/eslint-plugin': 5.31.0_jnss7dz76sznncvpyatba5hbxa
   '@typescript-eslint/parser': 5.31.0_qugx7qdu5zevzvxaiqyxfiwquq
@@ -1019,8 +1019,8 @@ packages:
     resolution: {integrity: sha512-oroCALq37fnUKPRYatawNq3oBNITN7lROpy6JBUanYLhuMZwG5shVxCyZ1/wM3RQCNJ/Ac5/+g7yZaZ+tVBy3A==}
     dev: true
 
-  /@types/lodash/4.14.182:
-    resolution: {integrity: sha512-/THyiqyQAP9AfARo4pF+aCGcyiQ94tX/Is2I7HofNRqoYLgN1PBoOWu2/zTA5zMxzP5EFutMtWtGAFRKUe961Q==}
+  /@types/lodash/4.14.183:
+    resolution: {integrity: sha512-UXavyuxzXKMqJPEpFPri6Ku5F9af6ZJXUneHhvQJxavrEjuHkFp2YnDWHcxJiG7hk8ZkWqjcyNeW1s/smZv5cw==}
     dev: true
 
   /@types/minimist/1.2.2:
