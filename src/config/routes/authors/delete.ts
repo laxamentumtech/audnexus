@@ -1,7 +1,7 @@
 import { FastifyInstance } from 'fastify'
 
 import { RequestGeneric } from '#config/typing/requests'
-import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
+import PaprAudibleAuthorHelper from '#helpers/database/audible/PaprAudibleAuthorHelper'
 import RedisHelper from '#helpers/database/RedisHelper'
 import SharedHelper from '#helpers/shared'
 

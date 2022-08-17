@@ -5,7 +5,7 @@ import { AuthorProfile } from '#config/typing/people'
 import { RequestGeneric } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
-import { PaprAudibleAuthorHelper } from '#helpers/database/audible'
+import PaprAudibleAuthorHelper from '#helpers/database/audible/PaprAudibleAuthorHelper'
 import RedisHelper from '#helpers/database/RedisHelper'
 import SharedHelper from '#helpers/shared'
 

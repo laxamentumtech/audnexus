@@ -6,7 +6,7 @@ import { RequestGenericWithSeed } from '#config/typing/requests'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import addTimestamps from '#helpers/database/addTimestamps'
-import { PaprAudibleBookHelper } from '#helpers/database/audible'
+import PaprAudibleBookHelper from '#helpers/database/audible/PaprAudibleBookHelper'
 import RedisHelper from '#helpers/database/RedisHelper'
 import SharedHelper from '#helpers/shared'
 
