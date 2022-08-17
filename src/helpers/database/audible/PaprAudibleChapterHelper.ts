@@ -66,6 +66,10 @@ export default class PaprAudibleChapterHelper {
 		}
 	}
 
+	setChapterData(chapterData: ApiChapter) {
+		this.chapterData = chapterData
+	}
+
 	async createOrUpdate() {
 		const commonHelpers = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()

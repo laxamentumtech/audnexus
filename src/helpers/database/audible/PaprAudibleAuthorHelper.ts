@@ -66,6 +66,10 @@ export default class PaprAudibleAuthorHelper {
 		}
 	}
 
+	setAuthorData(authorData: AuthorProfile) {
+		this.authorData = authorData
+	}
+
 	async createOrUpdate() {
 		const commonHelpers = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
