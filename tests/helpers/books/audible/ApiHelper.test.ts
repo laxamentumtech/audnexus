@@ -118,6 +118,16 @@ describe('ApiHelper edge cases should', () => {
 		const data = await helper.fetchBook()
 		expect(data).toEqual(apiResponse)
 	})
+
+	test('not pass key check when on empty image object', () => {
+		helper.inputJson.product_images = {}
+		expect(helper.hasRequiredKeys()).toBe(false)
+	})
+
+	test('not pass key check when on falsy value', () => {
+		helper.inputJson.asin = ''
+		expect(helper.hasRequiredKeys()).toBe(false)
+	})
 })
 
 describe('ApiHelper should throw error when', () => {

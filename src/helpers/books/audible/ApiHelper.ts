@@ -33,9 +33,21 @@ class ApiHelper {
 	}
 
 	hasRequiredKeys() {
-		if (!this.inputJson) throw new Error(`No input data`)
+		const isValidKey = (key: string): boolean => {
+			if (!this.inputJson) throw new Error(`No input data`)
+			// Make sure key exists in inputJson
+			if (!Object.hasOwnProperty.call(this.inputJson, key)) return false
+			// Get value of key
+			const value = this.inputJson[key as keyof typeof this.inputJson]
+			// Make sure key is not falsy
+			if (!value) return false
+			// Make sure key is not an empty object
+			if (typeof value === 'object' && Object.entries(value).length === 0) return false
+
+			return true
+		}
+
 		// Create new const for presence check within forloop
-		const json = this.inputJson
 		const requiredKeys = [
 			'asin',
 			'authors',
@@ -50,7 +62,7 @@ class ApiHelper {
 			'title'
 		]
 
-		return requiredKeys.every((key) => Object.keys(json).includes(key))
+		return requiredKeys.every((key) => isValidKey(key))
 	}
 
 	isParentCategory(category: Category): boolean {
