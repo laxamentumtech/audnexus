@@ -12,7 +12,7 @@ import SharedHelper from '#helpers/shared'
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
 		// Query params
-		const options: { update: string | undefined } = {
+		const options: RequestGeneric['Querystring'] = {
 			update: request.query.update
 		}
 

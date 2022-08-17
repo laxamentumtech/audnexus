@@ -13,8 +13,8 @@ import SharedHelper from '#helpers/shared'
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGenericWithSeed>('/books/:asin', async (request, reply) => {
 		// Query params
-		const options: { seed: string | undefined; update: string | undefined } = {
-			seed: request.query.seedAuthors,
+		const options: RequestGenericWithSeed['Querystring'] = {
+			seedAuthors: request.query.seedAuthors,
 			update: request.query.update
 		}
 
@@ -77,7 +77,7 @@ async function _show(fastify: FastifyInstance) {
 		}
 
 		// Seed authors in the background if it's a new/updated book
-		if (options.seed !== '0' && bookToReturn.modified) {
+		if (options.seedAuthors !== '0' && bookToReturn.modified) {
 			const authorSeeder = new SeedHelper(bookToReturn.data)
 			authorSeeder.seedAll()
 		}
