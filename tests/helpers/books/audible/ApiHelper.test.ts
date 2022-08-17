@@ -74,7 +74,7 @@ describe('ApiHelper edge cases should', () => {
 
 	test('handle no image', () => {
 		helper.inputJson.product_images = undefined
-		expect(helper.getHighResImage()).toBe(undefined)
+		expect(helper.getHighResImage()).toBe('')
 	})
 
 	test('use issue_date if release_date is not available', () => {
@@ -117,11 +117,6 @@ describe('ApiHelper edge cases should', () => {
 			)
 		const data = await helper.fetchBook()
 		expect(data).toEqual(apiResponse)
-	})
-
-	test('not pass key check when on empty image object', () => {
-		helper.inputJson.product_images = {}
-		expect(helper.hasRequiredKeys()).toBe(false)
 	})
 
 	test('not pass key check when on falsy value', () => {

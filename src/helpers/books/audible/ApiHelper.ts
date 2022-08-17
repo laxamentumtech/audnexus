@@ -54,7 +54,6 @@ class ApiHelper {
 			'format_type',
 			'language',
 			'merchandising_summary',
-			'product_images',
 			'publisher_name',
 			'publisher_summary',
 			'release_date',
@@ -110,7 +109,7 @@ class ApiHelper {
 		if (!this.inputJson) throw new Error(`No input data`)
 		return this.inputJson.product_images?.[1024]
 			? this.inputJson.product_images[1024].replace('_SL1024_.', '')
-			: this.inputJson.product_images?.[500]?.replace('_SL500_.', '')
+			: this.inputJson.product_images?.[500]?.replace('_SL500_.', '') || ''
 	}
 
 	getReleaseDate() {
