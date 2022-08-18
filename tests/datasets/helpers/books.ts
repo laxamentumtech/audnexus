@@ -1,10 +1,11 @@
-import { ObjectId } from 'mongodb'
+import { ObjectId, WithId } from 'mongodb'
 
 import { BookDocument } from '#config/models/Book'
 import { AudibleProduct } from '#config/typing/audible'
 import { ApiBook, Book } from '#config/typing/books'
 
 // Reusable
+const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
 const asin = 'B079LRSMNN'
 const authors = [
 	{
@@ -385,8 +386,8 @@ export const changedParsedBook: ApiBook = {
 	title
 }
 
-export const bookWithoutProjection: BookDocument = {
-	_id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f'),
+export const bookWithId: WithId<Book> = {
+	_id,
 	asin,
 	authors,
 	description,
@@ -400,27 +401,17 @@ export const bookWithoutProjection: BookDocument = {
 	runtimeLengthMin,
 	seriesPrimary,
 	summary,
-	title,
+	title
+}
+
+export const bookWithoutProjection: BookDocument = {
+	...bookWithId,
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
 	updatedAt: new Date('2018-02-20T00:00:00.000Z')
 }
 
 export const bookWithoutProjectionUpdatedNow: BookDocument = {
-	_id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f'),
-	asin,
-	authors,
-	description,
-	formatType,
-	image,
-	language,
-	narrators,
-	publisherName,
-	rating,
-	releaseDate,
-	runtimeLengthMin,
-	seriesPrimary,
-	summary,
-	title,
+	...bookWithId,
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
 	updatedAt: new Date(Date.now())
 }
