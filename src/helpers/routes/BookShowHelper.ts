@@ -96,7 +96,7 @@ export default class BookShowHelper {
 		}
 
 		// 4. Seed authors in the background
-		if (this.options.seedAuthors !== '0' && bookToReturn.modified) {
+		if (this.options.seedAuthors === '1' && bookToReturn.modified) {
 			const authorSeeder = new SeedHelper(bookToReturn.data)
 			authorSeeder.seedAll()
 		}
