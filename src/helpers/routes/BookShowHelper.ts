@@ -19,7 +19,11 @@ export default class BookShowHelper {
 	options: RequestGenericWithSeed['Querystring']
 	originalBook: BookDocument | null = null
 	stitchHelper: StitchHelper
-	constructor(asin: string, options: RequestGenericWithSeed['Querystring'], redis: FastifyRedis) {
+	constructor(
+		asin: string,
+		options: RequestGenericWithSeed['Querystring'],
+		redis: FastifyRedis | null
+	) {
 		this.asin = asin
 		this.commonHelpers = new SharedHelper()
 		this.options = options
@@ -41,10 +45,6 @@ export default class BookShowHelper {
 		this.paprHelper.setBookData(await this.getNewBookData())
 		// Create or update the book
 		const bookToReturn = await this.paprHelper.createOrUpdate()
-		// Throw error on null return data
-		if (!bookToReturn.data) {
-			throw new Error(`An error occurred while updating book ${this.asin} in the DB`)
-		}
 		// Update or create the book in cache
 		await this.redisHelper.findOrCreate(bookToReturn.data)
 		// Return the book
