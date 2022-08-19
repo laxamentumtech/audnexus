@@ -50,7 +50,7 @@ describe('BookShowHelper should', () => {
 		await expect(helper.updateBookTimestamps()).resolves.toBe(bookWithoutProjection)
 	})
 
-	test('update that book is updated recently', async () => {
+	test('returns original book if it was updated recently when trying to update', async () => {
 		helper.originalBook = bookWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toBe(bookWithoutProjectionUpdatedNow)
 	})
