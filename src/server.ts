@@ -22,14 +22,14 @@ const server = fastify({
 	}
 })
 
-// Register book routes
-server.register(showBook)
-server.register(showChapter)
-server.register(deleteBook)
-// Register author routes
-server.register(showAuthor)
-server.register(deleteAuthor)
-server.register(searchAuthor)
+// Register routes
+server
+	.register(showBook)
+	.register(showChapter)
+	.register(deleteBook)
+	.register(showAuthor)
+	.register(deleteAuthor)
+	.register(searchAuthor)
 
 // Register redis if it's present
 if (process.env.REDIS_URL) {
