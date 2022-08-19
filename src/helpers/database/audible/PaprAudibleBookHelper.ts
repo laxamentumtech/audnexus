@@ -1,5 +1,6 @@
 import BookModel from '#config/models/Book'
 import { Book } from '#config/typing/books'
+import { RequestGenericWithSeed } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
 
 const projectionWithoutDbFields = {
@@ -11,9 +12,9 @@ const projectionWithoutDbFields = {
 export default class PaprAudibleBookHelper {
 	asin: string
 	bookData!: Book
-	options: { seed?: string; update?: string }
+	options: RequestGenericWithSeed['Querystring']
 
-	constructor(asin: string, options: { seed?: string; update?: string }) {
+	constructor(asin: string, options: RequestGenericWithSeed['Querystring']) {
 		this.asin = asin
 		this.options = options
 	}
