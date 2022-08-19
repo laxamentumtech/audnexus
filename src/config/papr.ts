@@ -1,24 +1,10 @@
-import { MongoClient } from 'mongodb'
 import Papr from 'papr'
 
-export let client: MongoClient
+import type { Context } from '#config/context'
 
 const papr = new Papr()
-if (!process.env.MONGODB_URI) {
-	throw new Error('No MongoDB URI specified')
-}
-const uri = process.env.MONGODB_URI
-
-export async function connect() {
-	client = await MongoClient.connect(uri)
-
-	papr.initialize(client.db('audnexus'))
-
+export async function initialize(ctx: Context) {
+	papr.initialize(ctx.client.db('audnexus'))
 	await papr.updateSchemas()
 }
-
-export async function disconnect() {
-	await client.close()
-}
-
 export default papr
