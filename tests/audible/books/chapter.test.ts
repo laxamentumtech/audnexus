@@ -17,6 +17,7 @@ describe('Audible API', () => {
 			asin = 'B017V4IM1G'
 			helper = new ChapterHelper(asin)
 			const fetched = await helper.fetchChapter()
+			if (!fetched) throw new Error('Parsed is undefined')
 			response = fetched
 		})
 
@@ -33,6 +34,7 @@ describe('Audible API', () => {
 			helper = new ChapterHelper(asin)
 			const fetched = await helper.fetchChapter()
 			const parsed = await helper.parseResponse(fetched)
+			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
 		})
 

@@ -57,6 +57,7 @@ describe('Audible API', () => {
 			helper = new ApiHelper(asin)
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
+			if (!parsed.genres) throw new Error('Parsed is undefined')
 			response = parsed
 			// Make an object with the same keys as the response
 			const description =
@@ -77,6 +78,7 @@ describe('Audible API', () => {
 			helper = new ApiHelper(asin)
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
+			if (!parsed.genres) throw new Error('Parsed is undefined')
 			response = parsed
 			// Make an object with the same keys as the response
 			const description =

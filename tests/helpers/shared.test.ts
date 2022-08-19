@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as cheerio from 'cheerio'
 
 import SharedHelper from '#helpers/shared'
@@ -88,6 +89,6 @@ describe('SharedHelper should', () => {
 		const genres = html('div.contentPositionClass div.bc-box a.bc-color-link')
 			.toArray()
 			.map((element) => html(element))
-		expect(helper.collectGenres(asin, genres, 'genre')).toEqual([parsedAuthor.genres[0]])
+		expect(helper.collectGenres(asin, genres, 'genre')).toEqual([parsedAuthor.genres![0]])
 	})
 })
