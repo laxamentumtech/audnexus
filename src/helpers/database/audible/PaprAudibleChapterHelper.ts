@@ -1,5 +1,6 @@
 import ChapterModel from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
+import { RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
 
 const projectionWithoutDbFields = {
@@ -11,9 +12,9 @@ const projectionWithoutDbFields = {
 export default class PaprAudibleChapterHelper {
 	asin: string
 	chapterData!: ApiChapter
-	options: { update?: string }
+	options: RequestGeneric['Querystring']
 
-	constructor(asin: string, options: { update?: string }) {
+	constructor(asin: string, options: RequestGeneric['Querystring']) {
 		this.asin = asin
 		this.options = options
 	}
