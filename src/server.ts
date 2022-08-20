@@ -9,6 +9,7 @@ import { initialize } from '#config/papr'
 import deleteAuthor from '#config/routes/authors/delete'
 import searchAuthor from '#config/routes/authors/search/show'
 import showAuthor from '#config/routes/authors/show'
+import deleteChapter from '#config/routes/books/chapters/delete'
 import showChapter from '#config/routes/books/chapters/show'
 import deleteBook from '#config/routes/books/delete'
 import showBook from '#config/routes/books/show'
@@ -25,8 +26,9 @@ const server = fastify({
 // Register routes
 server
 	.register(showBook)
-	.register(showChapter)
 	.register(deleteBook)
+	.register(showChapter)
+	.register(deleteChapter)
 	.register(showAuthor)
 	.register(deleteAuthor)
 	.register(searchAuthor)
