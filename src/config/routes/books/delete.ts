@@ -14,7 +14,7 @@ async function _delete(fastify: FastifyInstance) {
 			throw new Error('Bad ASIN')
 		}
 
-		// Setup Helpers
+		// Setup helper
 		const { redis } = fastify
 		const helper = new BookDeleteHelper(request.params.asin, redis)
 
