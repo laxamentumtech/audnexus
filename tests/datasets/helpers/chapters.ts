@@ -1,5 +1,10 @@
+import { ObjectId, WithId } from 'mongodb'
+
+import { ChapterDocument } from '#config/models/Chapter'
 import { Chapter } from '#config/typing/audible'
 import { ApiChapter } from '#config/typing/books'
+
+const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
 
 export const apiChapters: Chapter = {
 	content_metadata: {
@@ -769,4 +774,21 @@ export const parsedChapters: ApiChapter = {
 	isAccurate: true,
 	runtimeLengthMs: 62548009,
 	runtimeLengthSec: 62548
+}
+
+export const chaptersWithId: WithId<ApiChapter> = {
+	_id,
+	...parsedChapters
+}
+
+export const chaptersWithoutProjection: ChapterDocument = {
+	...chaptersWithId,
+	createdAt: new Date('2019-03-18T00:00:00.000Z'),
+	updatedAt: new Date('2019-03-18T00:00:00.000Z')
+}
+
+export const chaptersWithoutProjectionUpdatedNow: ChapterDocument = {
+	...chaptersWithoutProjection,
+	createdAt: new Date('2018-02-20T00:00:00.000Z'),
+	updatedAt: new Date()
 }
