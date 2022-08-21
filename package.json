@@ -49,7 +49,7 @@
 		"@types/isomorphic-fetch": "0.0.36",
 		"@types/jest": "28.1.7",
 		"@types/jsrsasign": "10.5.2",
-		"@types/lodash": "4.14.183",
+		"@types/lodash": "4.14.184",
 		"@types/node": "18.7.4",
 		"@typescript-eslint/eslint-plugin": "5.33.1",
 		"@typescript-eslint/parser": "5.33.1",
