@@ -31,6 +31,10 @@ beforeEach(() => {
 	jest
 		.spyOn(helper.paprHelper, 'findOneWithProjection')
 		.mockResolvedValue({ data: bookWithoutProjection, modified: false })
+	jest.spyOn(global, 'fetch').mockResolvedValue({
+		status: 200,
+		ok: true
+	} as Response)
 })
 
 describe('BookShowHelper should', () => {
@@ -105,8 +109,8 @@ describe('BookShowHelper should', () => {
 
 describe('BookShowHelper should throw an error when', () => {
 	test('adding timestamps to a book fails', async () => {
-        // For some reason, this test fails when run with the rest of the tests
-        // Manually typed out the test and it works
+		// For some reason, this test fails when run with the rest of the tests
+		// Manually typed out the test and it works
 		helper.originalBook = {
 			_id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f'),
 			asin: 'B079LRSMNN',

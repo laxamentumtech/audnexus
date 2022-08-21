@@ -352,20 +352,7 @@ export const parsedBook: ApiBook = {
 }
 
 export const parsedBookWithGenres: Book = {
-	asin,
-	authors,
-	description,
-	formatType,
-	image,
-	language,
-	narrators,
-	publisherName,
-	rating,
-	releaseDate,
-	runtimeLengthMin,
-	seriesPrimary,
-	summary,
-	title,
+	...parsedBook,
 	genres
 }
 
@@ -388,20 +375,7 @@ export const changedParsedBook: ApiBook = {
 
 export const bookWithId: WithId<Book> = {
 	_id,
-	asin,
-	authors,
-	description,
-	formatType,
-	image,
-	language,
-	narrators,
-	publisherName,
-	rating,
-	releaseDate,
-	runtimeLengthMin,
-	seriesPrimary,
-	summary,
-	title
+	...parsedBook
 }
 
 export const bookWithoutProjection: BookDocument = {
