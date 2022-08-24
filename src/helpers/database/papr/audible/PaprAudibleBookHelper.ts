@@ -40,7 +40,8 @@ export default class PaprAudibleBookHelper {
 				modified: true
 			}
 		} catch (err) {
-			throw new Error(err as string)
+			console.error(err)
+			throw new Error(`An error occurred while deleting book ${this.asin} in the DB`)
 		}
 	}
 
@@ -76,7 +77,7 @@ export default class PaprAudibleBookHelper {
 		const findInDb = await this.findOneWithProjection()
 
 		// Update
-		if (this.options.update === '0' && findInDb.data) {
+		if (this.options.update === '1' && findInDb.data) {
 			// If the objects are the exact same return right away
 			const equality = commonHelpers.checkDataEquality(findInDb.data, this.bookData)
 			if (equality) {
@@ -95,11 +96,6 @@ export default class PaprAudibleBookHelper {
 					// Update
 					return this.update()
 				}
-			} else if (this.bookData.genres?.length) {
-				// If no genres exist on book, but do on incoming, update
-				console.log(`Updating book asin ${this.asin}`)
-				// Update
-				return this.update()
 			}
 			// No update performed, return original
 			return findInDb
@@ -113,7 +109,10 @@ export default class PaprAudibleBookHelper {
 		try {
 			await BookModel.updateOne({ asin: this.asin }, { $set: { ...this.bookData } })
 			// After updating, return with specific projection
-			return await this.findOneWithProjection()
+			const updatedBook = await this.findOneWithProjection()
+			// Set modified to true to indicate that the data has been updated
+			updatedBook.modified = true
+			return updatedBook
 		} catch (err) {
 			console.error(err)
 			throw new Error(`An error occurred while updating book ${this.asin} in the DB`)
