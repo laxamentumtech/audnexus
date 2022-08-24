@@ -11,10 +11,14 @@ export default class RedisHelper {
 		this.key = `${key}-${id}`
 	}
 
+	convertStringToDate(parsed: Book) {
+		parsed.releaseDate = new Date(parsed.releaseDate)
+		return parsed
+	}
+
 	async deleteOne() {
 		try {
 			const deleted = await this.instance?.del(this.key)
-			if (!deleted) return undefined
 			return deleted
 		} catch (err) {
 			console.error(err)
@@ -26,6 +30,11 @@ export default class RedisHelper {
 		try {
 			const found = await this.instance?.get(this.key)
 			if (!found) return undefined
+			const parsed = JSON.parse(found)
+			// Convert the release date to a date object if it's a book
+			if (parsed.releaseDate) {
+				return this.convertStringToDate(parsed)
+			}
 			return JSON.parse(found)
 		} catch (err) {
 			console.error(err)
@@ -47,7 +56,6 @@ export default class RedisHelper {
 	async setOne(data: AuthorProfile | Book | ApiChapter) {
 		try {
 			const set = await this.instance?.set(this.key, JSON.stringify(data, null, 2))
-			if (!set) return undefined
 			return set
 		} catch (err) {
 			console.error(err)
