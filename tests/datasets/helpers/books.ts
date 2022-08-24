@@ -389,3 +389,31 @@ export const bookWithoutProjectionUpdatedNow: BookDocument = {
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
 	updatedAt: new Date(Date.now())
 }
+
+export const parsedBookWithoutGenres: ApiBook = {
+	asin,
+	authors,
+	description,
+	formatType,
+	image,
+	language,
+	narrators,
+	publisherName,
+	rating,
+	releaseDate,
+	runtimeLengthMin,
+	seriesPrimary,
+	summary,
+	title
+}
+
+export const bookWithoutGenresWithId: WithId<Book> = {
+	_id,
+	...parsedBookWithoutGenres
+}
+
+export const bookWithoutGenresWithoutProjection: BookDocument = {
+	...bookWithoutGenresWithId,
+	createdAt: new Date('2018-02-20T00:00:00.000Z'),
+	updatedAt: new Date('2018-02-20T00:00:00.000Z')
+}
