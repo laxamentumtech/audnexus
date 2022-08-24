@@ -1,7 +1,7 @@
 jest.mock('#config/models/Chapter')
 jest.mock('#helpers/database/audible/PaprAudibleChapterHelper')
 jest.mock('#helpers/books/audible/StitchHelper')
-jest.mock('#helpers/database/RedisHelper')
+jest.mock('#helpers/database/redis/RedisHelper')
 
 import { ChapterDocument } from '#config/models/Chapter'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'

@@ -1,8 +1,8 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { AuthorDocument } from '#config/models/Author'
-import PaprAudibleAuthorHelper from '#helpers/database/audible/PaprAudibleAuthorHelper'
-import RedisHelper from '#helpers/database/RedisHelper'
+import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
+import RedisHelper from '#helpers/database/redis/RedisHelper'
 
 export default class AuthorDeleteHelper {
 	asin: string

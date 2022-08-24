@@ -4,9 +4,9 @@ import type { AuthorDocument } from '#config/models/Author'
 import { AuthorProfile } from '#config/typing/people'
 import { RequestGeneric } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
-import addTimestamps from '#helpers/database/addTimestamps'
-import PaprAudibleAuthorHelper from '#helpers/database/audible/PaprAudibleAuthorHelper'
-import RedisHelper from '#helpers/database/RedisHelper'
+import addTimestamps from '#helpers/database/papr/addTimestamps'
+import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
+import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/shared'
 
 export default class AuthorShowHelper {

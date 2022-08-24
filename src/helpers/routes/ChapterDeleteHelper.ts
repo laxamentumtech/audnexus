@@ -1,8 +1,8 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { ChapterDocument } from '#config/models/Chapter'
-import PaprAudibleChapterHelper from '#helpers/database/audible/PaprAudibleChapterHelper'
-import RedisHelper from '#helpers/database/RedisHelper'
+import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
+import RedisHelper from '#helpers/database/redis/RedisHelper'
 
 export default class ChapterDeleteHelper {
 	asin: string

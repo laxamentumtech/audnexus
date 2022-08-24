@@ -2,7 +2,7 @@ jest.mock('@fastify/redis')
 import type { FastifyRedis } from '@fastify/redis'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
-import RedisHelper from '#helpers/database/RedisHelper'
+import RedisHelper from '#helpers/database/redis/RedisHelper'
 import { parsedAuthor } from '#tests/datasets/helpers/authors'
 import { parsedBook } from '#tests/datasets/helpers/books'
 

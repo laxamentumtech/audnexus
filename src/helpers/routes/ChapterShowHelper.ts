@@ -4,9 +4,9 @@ import { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
 import { RequestGeneric } from '#config/typing/requests'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
-import addTimestamps from '#helpers/database/addTimestamps'
-import PaprAudibleChapterHelper from '#helpers/database/audible/PaprAudibleChapterHelper'
-import RedisHelper from '#helpers/database/RedisHelper'
+import addTimestamps from '#helpers/database/papr/addTimestamps'
+import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
+import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/shared'
 
 export default class ChapterShowHelper {

@@ -1,7 +1,7 @@
 jest.mock('#config/models/Author')
 jest.mock('#helpers/database/audible/PaprAudibleAuthorHelper')
 jest.mock('#helpers/authors/audible/ScrapeHelper')
-jest.mock('#helpers/database/RedisHelper')
+jest.mock('#helpers/database/redis/RedisHelper')
 
 import { AuthorDocument } from '#config/models/Author'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
