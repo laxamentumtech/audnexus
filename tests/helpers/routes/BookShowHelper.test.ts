@@ -1,5 +1,5 @@
 jest.mock('#config/models/Book')
-jest.mock('#helpers/database/audible/PaprAudibleBookHelper')
+jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
 jest.mock('#helpers/books/audible/StitchHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
 
