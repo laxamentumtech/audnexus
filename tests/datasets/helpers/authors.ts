@@ -47,3 +47,21 @@ export const authorWithoutProjectionUpdatedNow: AuthorDocument = {
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
 	updatedAt: new Date()
 }
+
+export const parsedAuthorWithoutGenres: AuthorProfile = {
+	asin,
+	description,
+	image,
+	name
+}
+
+export const authorWithoutGenresWithId: WithId<AuthorProfile> = {
+	_id,
+	...parsedAuthorWithoutGenres
+}
+
+export const authorWithoutGenresWithoutProjection: AuthorDocument = {
+	...authorWithoutGenresWithId,
+	createdAt: new Date('2019-03-18T00:00:00.000Z'),
+	updatedAt: new Date('2019-03-18T00:00:00.000Z')
+}
