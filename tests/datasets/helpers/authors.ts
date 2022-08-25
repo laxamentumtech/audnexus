@@ -67,10 +67,6 @@ const authorWithoutGenresWithIdInternal: WithId<AuthorProfile> = {
 	...parsedAuthorWithoutGenres
 }
 
-export const authorWithoutGenresWithId = (): WithId<AuthorProfile> => {
-	return authorWithoutGenresWithIdInternal
-}
-
 export const authorWithoutGenresWithoutProjection: AuthorDocument = {
 	...authorWithoutGenresWithIdInternal,
 	createdAt: new Date('2019-03-18T00:00:00.000Z'),

@@ -419,10 +419,6 @@ const bookWithoutGenresWithIdInternal: WithId<Book> = {
 	...parsedBookWithoutGenres
 }
 
-export const bookWithoutGenresWithId = (): WithId<Book> => {
-	return bookWithIdInternal
-}
-
 export const bookWithoutGenresWithoutProjection: BookDocument = {
 	...bookWithoutGenresWithIdInternal,
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
