@@ -6,13 +6,16 @@
 	"commitMessageTopic": "{{depName}}",
 	"extends": ["config:base", ":automergeEslintWeekly"],
 	"labels": ["dependencies"],
+	"lockFileMaintenance": {
+		"enabled": true,
+		"automerge": true,
+		"automergeType": "pr",
+		"platformAutomerge": true
+	},
 	"packageRules": [
 		{
-			"matchUpdateTypes": ["digest", "patch", "pin"],
-			"automerge": true
-		},
-		{
-			"matchDepTypes": ["devDependencies"],
+			"description": "Automatically merge minor and patch-level updates",
+			"matchUpdateTypes": ["minor", "digest", "patch", "pin"],
 			"automerge": true,
 			"automergeType": "branch"
 		},
