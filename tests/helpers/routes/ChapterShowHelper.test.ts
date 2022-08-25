@@ -123,10 +123,10 @@ describe('ChapterShowHelper should throw an error when', () => {
 		jest
 			.spyOn(helper.paprHelper, 'update')
 			.mockRejectedValue(
-				new Error(`An error occurred while adding timestamps to chapter ${asin} in the DB`)
+				new Error(`An error occurred while adding timestamps to chapter ${asin} in the DB. Try updating the chapter manually with 'update=1'.`)
 			)
 		await expect(helper.updateChapterTimestamps()).rejects.toThrowError(
-			`An error occurred while adding timestamps to chapter ${asin} in the DB`
+			`An error occurred while adding timestamps to chapter ${asin} in the DB. Try updating the chapter manually with 'update=1'.`
 		)
 	})
 })

@@ -111,10 +111,10 @@ describe('BookShowHelper should throw an error when', () => {
 		jest
 			.spyOn(helper.paprHelper, 'update')
 			.mockRejectedValue(
-				new Error(`An error occurred while adding timestamps to book ${asin} in the DB`)
+				new Error(`An error occurred while adding timestamps to book ${asin} in the DB. Try updating the book manually with 'update=1'.`)
 			)
 		await expect(helper.updateBookTimestamps()).rejects.toThrowError(
-			`An error occurred while adding timestamps to book ${asin} in the DB`
+			`An error occurred while adding timestamps to book ${asin} in the DB. Try updating the book manually with 'update=1'.`
 		)
 	})
 })

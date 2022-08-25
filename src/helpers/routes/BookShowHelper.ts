@@ -75,7 +75,9 @@ export default class BookShowHelper {
 		try {
 			this.bookInternal = (await this.paprHelper.update()).data
 		} catch (err) {
-			throw new Error(`An error occurred while adding timestamps to book ${this.asin} in the DB`)
+			throw new Error(
+				`An error occurred while adding timestamps to book ${this.asin} in the DB. Try updating the book manually with 'update=1'.`
+			)
 		}
 		return this.bookInternal
 	}

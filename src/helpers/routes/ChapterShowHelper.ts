@@ -74,7 +74,7 @@ export default class ChapterShowHelper {
 		try {
 			this.chapterInternal = (await this.paprHelper.update()).data
 		} catch (err) {
-			throw new Error(`An error occurred while adding timestamps to chapter ${this.asin} in the DB`)
+			throw new Error(`An error occurred while adding timestamps to chapter ${this.asin} in the DB. Try updating the chapter manually with 'update=1'.`)
 		}
 		return this.chapterInternal
 	}

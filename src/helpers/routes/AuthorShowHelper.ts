@@ -70,7 +70,7 @@ export default class AuthorShowHelper {
 		try {
 			this.authorInternal = (await this.paprHelper.update()).data
 		} catch (err) {
-			throw new Error(`An error occurred while adding timestamps to author ${this.asin} in the DB`)
+			throw new Error(`An error occurred while adding timestamps to author ${this.asin} in the DB. Try updating the author manually with 'update=1'.`)
 		}
 		return this.authorInternal
 	}
