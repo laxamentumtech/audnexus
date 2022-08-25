@@ -1,5 +1,4 @@
 import * as cheerio from 'cheerio'
-import { isText } from 'domhandler'
 import { htmlToText } from 'html-to-text'
 
 import { AuthorProfile } from '#config/typing/people'

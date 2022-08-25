@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import { AudibleProduct, AudibleSeries } from '#config/typing/audible'
+import { AudibleProduct } from '#config/typing/audible'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import { B07BS4RKGH, B017V4IM1G } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook } from '#tests/datasets/helpers/books'
