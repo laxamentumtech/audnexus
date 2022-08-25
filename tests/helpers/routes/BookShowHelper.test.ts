@@ -3,8 +3,6 @@ jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
 jest.mock('#helpers/books/audible/StitchHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
 
-import { ObjectId } from 'mongodb'
-
 import { BookDocument } from '#config/models/Book'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import {
@@ -59,7 +57,7 @@ describe('BookShowHelper should', () => {
 	})
 
 	test('update book without timestamps returns updated book', async () => {
-		helper.originalBook = bookWithId as BookDocument
+		helper.originalBook = bookWithId() as BookDocument
 		jest
 			.spyOn(helper.paprHelper, 'update')
 			.mockResolvedValue({ data: bookWithoutProjection, modified: true })
@@ -109,30 +107,7 @@ describe('BookShowHelper should', () => {
 
 describe('BookShowHelper should throw an error when', () => {
 	test('adding timestamps to a book fails', async () => {
-		// For some reason, this test fails when run with the rest of the tests
-		// Manually typed out the test and it works
-		helper.originalBook = {
-			_id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f'),
-			asin: 'B079LRSMNN',
-			authors: [
-				{ asin: 'B012DQ3BCM', name: 'Jason Anspach' },
-				{ asin: 'B004W47QXE', name: 'Nick Cole' }
-			],
-			description:
-				'On the edge of the galaxy, a diplomatic mission to an alien planet takes a turn when the Legionnaires, an elite special fighting force, find themselves ambushed and stranded behind enemy lines. They struggle to survive under siege, waiting on a rescue that might never come....',
-			formatType: 'unabridged',
-			image: 'https://m.media-amazon.com/images/I/91spdScZuIL.jpg',
-			language: 'english',
-			narrators: [{ name: 'R.C. Bray' }],
-			publisherName: 'Podium Audio',
-			rating: '4.5',
-			releaseDate: new Date('2018-02-20T00:00:00.000Z'),
-			runtimeLengthMin: 1042,
-			seriesPrimary: { asin: 'B079YXK1GL', name: "Galaxy's Edge Series", position: '1-2' },
-			summary:
-				"<p><i>Galaxy's Edge </i>contains <i>Legionnaire </i>through to the end of <i>Galactic Outlaws</i>. </p> <p>On the edge of the galaxy, a diplomatic mission to an alien planet takes a turn when the Legionnaires, an elite special fighting force, find themselves ambushed and stranded behind enemy lines. They struggle to survive under siege, waiting on a rescue that might never come.</p> <p>In the seedy starport of Ackabar, a young girl searches the crime-ridden gutters to avenge her father's murder; not far away, a double-dealing legionniare-turned-smuggler hunts an epic payday; and somewhere along the outer galaxy, a mysterious bounty hunter lies in wait.</p> <p><i>Galaxy's Edge</i> combines sleek starfighters, exotic aliens, loyal bots, blasters, scoundrels, heroes, and powerful enemies in a thrilling adventure that will take you back to that magic place from a long time ago.</p>",
-			title: "Galaxy's Edge"
-		} as BookDocument
+		helper.originalBook = bookWithId() as BookDocument
 		jest
 			.spyOn(helper.paprHelper, 'update')
 			.mockRejectedValue(

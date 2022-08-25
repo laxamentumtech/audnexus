@@ -373,19 +373,26 @@ export const changedParsedBook: ApiBook = {
 	title
 }
 
-export const bookWithId: WithId<Book> = {
+const bookWithIdInternal: WithId<Book> = {
 	_id,
 	...parsedBook
 }
 
+export const bookWithId = (): WithId<Book> => {
+	return {
+		_id,
+		...parsedBook
+	}
+}
+
 export const bookWithoutProjection: BookDocument = {
-	...bookWithId,
+	...bookWithIdInternal,
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
 	updatedAt: new Date('2018-02-20T00:00:00.000Z')
 }
 
 export const bookWithoutProjectionUpdatedNow: BookDocument = {
-	...bookWithId,
+	...bookWithIdInternal,
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
 	updatedAt: new Date(Date.now())
 }
@@ -407,13 +414,17 @@ export const parsedBookWithoutGenres: ApiBook = {
 	title
 }
 
-export const bookWithoutGenresWithId: WithId<Book> = {
+const bookWithoutGenresWithIdInternal: WithId<Book> = {
 	_id,
 	...parsedBookWithoutGenres
 }
 
+export const bookWithoutGenresWithId = (): WithId<Book> => {
+	return bookWithIdInternal
+}
+
 export const bookWithoutGenresWithoutProjection: BookDocument = {
-	...bookWithoutGenresWithId,
+	...bookWithoutGenresWithIdInternal,
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
 	updatedAt: new Date('2018-02-20T00:00:00.000Z')
 }

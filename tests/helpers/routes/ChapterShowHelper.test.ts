@@ -1,6 +1,5 @@
 jest.mock('#config/models/Chapter')
 jest.mock('#helpers/database/papr/audible/PaprAudibleChapterHelper')
-jest.mock('#helpers/books/audible/StitchHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
 
 import { ChapterDocument } from '#config/models/Chapter'
@@ -32,35 +31,40 @@ beforeEach(() => {
 })
 
 describe('ChapterShowHelper should', () => {
-	test('get a book from Papr', async () => {
+	test('get a chapter from Papr', async () => {
 		await expect(helper.getChaptersFromPapr()).resolves.toBe(chaptersWithoutProjection)
 	})
 
-	test('get new book data', async () => {
+	test('get new chapter data', async () => {
 		await expect(helper.getNewChapterData()).resolves.toBe(parsedChapters)
 	})
 
-	test('create or update a book', async () => {
+	test('create or update a chapter', async () => {
 		await expect(helper.createOrUpdateChapters()).resolves.toStrictEqual({
 			data: chaptersWithoutProjection,
 			modified: true
 		})
 	})
 
-	test('update book with timestamps returns original book', async () => {
+	test('create or update chapter and return undefined if no chapters', async () => {
+		jest.spyOn(helper.chapterHelper, 'process').mockResolvedValue(undefined)
+		await expect(helper.createOrUpdateChapters()).resolves.toBeUndefined()
+	})
+
+	test('update chapter with timestamps returns original chapter', async () => {
 		helper.originalChapter = chaptersWithoutProjection
 		await expect(helper.updateChapterTimestamps()).resolves.toBe(chaptersWithoutProjection)
 	})
 
-	test('update book without timestamps returns updated book', async () => {
-		helper.originalChapter = chaptersWithId as ChapterDocument
+	test('update chapter without timestamps returns updated chapter', async () => {
+		helper.originalChapter = chaptersWithId() as ChapterDocument
 		jest
 			.spyOn(helper.paprHelper, 'update')
 			.mockResolvedValue({ data: chaptersWithoutProjection, modified: true })
 		await expect(helper.updateChapterTimestamps()).resolves.toBe(chaptersWithoutProjection)
 	})
 
-	test('returns original book if it was updated recently when trying to update', async () => {
+	test('returns original chapter if it was updated recently when trying to update', async () => {
 		helper.originalChapter = chaptersWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toBe(chaptersWithoutProjectionUpdatedNow)
 	})
@@ -74,12 +78,18 @@ describe('ChapterShowHelper should', () => {
 		await expect(helper.updateActions()).resolves.toBe(chaptersWithoutProjection)
 	})
 
-	test('run handler for a new book', async () => {
+	test('run all update actions and return undefined if no chapters', async () => {
+		jest.spyOn(helper.chapterHelper, 'process').mockResolvedValue(undefined)
+		helper.originalChapter = chaptersWithoutProjection
+		await expect(helper.updateActions()).resolves.toBeUndefined()
+	})
+
+	test('run handler for a new chapter', async () => {
 		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
 		await expect(helper.handler()).resolves.toBe(chaptersWithoutProjection)
 	})
 
-	test('run handler and update an existing book', async () => {
+	test('run handler and update an existing chapter', async () => {
 		helper = new ChapterShowHelper(asin, { update: '1' }, null)
 		jest
 			.spyOn(helper.paprHelper, 'createOrUpdate')
@@ -91,12 +101,32 @@ describe('ChapterShowHelper should', () => {
 		await expect(helper.handler()).resolves.toBe(chaptersWithoutProjection)
 	})
 
-	test('run handler for an existing book', async () => {
+	test('run handler for an existing chapter', async () => {
 		jest.spyOn(helper.redisHelper, 'findOrCreate').mockResolvedValue(undefined)
 		await expect(helper.handler()).resolves.toBe(chaptersWithoutProjection)
 	})
 
-	test('run handler for an existing book in redis', async () => {
+	test('run handler for an existing chapter in redis', async () => {
 		await expect(helper.handler()).resolves.toBe(chaptersWithoutProjection)
+	})
+
+	test('run handler for no chapters', async () => {
+		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
+		jest.spyOn(helper.chapterHelper, 'process').mockResolvedValue(undefined)
+		await expect(helper.handler()).resolves.toBeUndefined()
+	})
+})
+
+describe('ChapterShowHelper should throw an error when', () => {
+	test('adding timestamps to a chapter fails', async () => {
+		helper.originalChapter = chaptersWithId() as ChapterDocument
+		jest
+			.spyOn(helper.paprHelper, 'update')
+			.mockRejectedValue(
+				new Error(`An error occurred while adding timestamps to chapter ${asin} in the DB`)
+			)
+		await expect(helper.updateChapterTimestamps()).rejects.toThrowError(
+			`An error occurred while adding timestamps to chapter ${asin} in the DB`
+		)
 	})
 })

@@ -776,13 +776,20 @@ export const parsedChapters: ApiChapter = {
 	runtimeLengthSec: 62548
 }
 
-export const chaptersWithId: WithId<ApiChapter> = {
+const chaptersWithIdInternal: WithId<ApiChapter> = {
 	_id,
 	...parsedChapters
 }
 
+export const chaptersWithId = (): WithId<ApiChapter> => {
+	return {
+		_id,
+		...parsedChapters
+	}
+}
+
 export const chaptersWithoutProjection: ChapterDocument = {
-	...chaptersWithId,
+	...chaptersWithIdInternal,
 	createdAt: new Date('2019-03-18T00:00:00.000Z'),
 	updatedAt: new Date('2019-03-18T00:00:00.000Z')
 }

@@ -31,19 +31,26 @@ export const parsedAuthor: AuthorProfile = {
 	name
 }
 
-export const authorWithId: WithId<AuthorProfile> = {
+const authorWithIdInternal: WithId<AuthorProfile> = {
 	_id,
 	...parsedAuthor
 }
 
+export const authorWithId = (): WithId<AuthorProfile> => {
+	return {
+		_id,
+		...parsedAuthor
+	}
+}
+
 export const authorWithoutProjection: AuthorDocument = {
-	...authorWithId,
+	...authorWithIdInternal,
 	createdAt: new Date('2019-03-18T00:00:00.000Z'),
 	updatedAt: new Date('2019-03-18T00:00:00.000Z')
 }
 
 export const authorWithoutProjectionUpdatedNow: AuthorDocument = {
-	...authorWithoutProjection,
+	...authorWithIdInternal,
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
 	updatedAt: new Date()
 }
@@ -55,13 +62,17 @@ export const parsedAuthorWithoutGenres: AuthorProfile = {
 	name
 }
 
-export const authorWithoutGenresWithId: WithId<AuthorProfile> = {
+const authorWithoutGenresWithIdInternal: WithId<AuthorProfile> = {
 	_id,
 	...parsedAuthorWithoutGenres
 }
 
+export const authorWithoutGenresWithId = (): WithId<AuthorProfile> => {
+	return authorWithoutGenresWithIdInternal
+}
+
 export const authorWithoutGenresWithoutProjection: AuthorDocument = {
-	...authorWithoutGenresWithId,
+	...authorWithoutGenresWithIdInternal,
 	createdAt: new Date('2019-03-18T00:00:00.000Z'),
 	updatedAt: new Date('2019-03-18T00:00:00.000Z')
 }

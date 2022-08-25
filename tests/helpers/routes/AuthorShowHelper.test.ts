@@ -53,7 +53,7 @@ describe('AuthorShowHelper should', () => {
 	})
 
 	test('update book without timestamps returns updated book', async () => {
-		helper.originalAuthor = authorWithId as AuthorDocument
+		helper.originalAuthor = authorWithId() as AuthorDocument
 		jest
 			.spyOn(helper.paprHelper, 'update')
 			.mockResolvedValue({ data: authorWithoutProjection, modified: true })
@@ -98,5 +98,19 @@ describe('AuthorShowHelper should', () => {
 
 	test('run handler for an existing book in redis', async () => {
 		await expect(helper.handler()).resolves.toBe(authorWithoutProjection)
+	})
+})
+
+describe('AuthorShowHelper should throw an error when', () => {
+	test('adding timestamps to a author fails', async () => {
+		helper.originalAuthor = authorWithId() as AuthorDocument
+		jest
+			.spyOn(helper.paprHelper, 'update')
+			.mockRejectedValue(
+				new Error(`An error occurred while adding timestamps to author ${asin} in the DB`)
+			)
+		await expect(helper.updateAuthorTimestamps()).rejects.toThrowError(
+			`An error occurred while adding timestamps to author ${asin} in the DB`
+		)
 	})
 })
