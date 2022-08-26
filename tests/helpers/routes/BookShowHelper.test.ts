@@ -3,10 +3,8 @@ jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
 jest.mock('#helpers/books/audible/StitchHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
 
-import { BookDocument } from '#config/models/Book'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import {
-	bookWithId,
 	bookWithoutProjection,
 	bookWithoutProjectionUpdatedNow,
 	parsedBook
@@ -51,19 +49,6 @@ describe('BookShowHelper should', () => {
 		})
 	})
 
-	test('update book with timestamps returns original book', async () => {
-		helper.originalBook = bookWithoutProjection
-		await expect(helper.updateBookTimestamps()).resolves.toBe(bookWithoutProjection)
-	})
-
-	test('update book without timestamps returns updated book', async () => {
-		helper.originalBook = bookWithId() as BookDocument
-		jest
-			.spyOn(helper.paprHelper, 'update')
-			.mockResolvedValue({ data: bookWithoutProjection, modified: true })
-		await expect(helper.updateBookTimestamps()).resolves.toBe(bookWithoutProjection)
-	})
-
 	test('returns original book if it was updated recently when trying to update', async () => {
 		helper.originalBook = bookWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toBe(bookWithoutProjectionUpdatedNow)
@@ -102,19 +87,5 @@ describe('BookShowHelper should', () => {
 
 	test('run handler for an existing book in redis', async () => {
 		await expect(helper.handler()).resolves.toBe(bookWithoutProjection)
-	})
-})
-
-describe('BookShowHelper should throw an error when', () => {
-	test('adding timestamps to a book fails', async () => {
-		helper.originalBook = bookWithId() as BookDocument
-		jest
-			.spyOn(helper.paprHelper, 'update')
-			.mockRejectedValue(
-				new Error(`An error occurred while adding timestamps to book ${asin} in the DB. Try updating the book manually with 'update=1'.`)
-			)
-		await expect(helper.updateBookTimestamps()).rejects.toThrowError(
-			`An error occurred while adding timestamps to book ${asin} in the DB. Try updating the book manually with 'update=1'.`
-		)
 	})
 })

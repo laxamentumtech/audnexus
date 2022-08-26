@@ -56,12 +56,12 @@ export default class PaprAudibleBookHelper {
 	}
 
 	async findOneWithProjection() {
-		const findOneBook = (await BookModel.findOne(
+		const findOneBook = await BookModel.findOne(
 			{
 				asin: this.asin
 			},
 			{ projection: projectionWithoutDbFields }
-		)) as unknown as Book
+		)
 		return {
 			data: findOneBook,
 			modified: false
@@ -78,18 +78,19 @@ export default class PaprAudibleBookHelper {
 
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
+			const data = findInDb.data as BookDocument
 			// If the objects are the exact same return right away
-			const equality = commonHelpers.checkDataEquality(findInDb.data, this.bookData)
+			const equality = commonHelpers.checkDataEquality(data, this.bookData)
 			if (equality) {
 				return {
-					data: findInDb.data,
+					data: data,
 					modified: false
 				}
 			}
 			// Check state of existing book
 			// Only update if either genres exist and can be checked
 			// -or if genres exist on new item but not old
-			if (findInDb.data.genres || (!findInDb.data.genres && this.bookData.genres)) {
+			if (data.genres || (!data.genres && this.bookData.genres)) {
 				// Only update if it's not nuked data
 				if (this.bookData.genres?.length) {
 					console.log(`Updating book asin ${this.asin}`)
@@ -107,7 +108,14 @@ export default class PaprAudibleBookHelper {
 
 	async update() {
 		try {
-			await BookModel.updateOne({ asin: this.asin }, { $set: { ...this.bookData } })
+			const found = await this.findOne()
+			await BookModel.updateOne(
+				{ asin: this.asin },
+				{
+					$set: { ...this.bookData, createdAt: found.data?._id.getTimestamp() },
+					$currentDate: { updatedAt: true }
+				}
+			)
 			// After updating, return with specific projection
 			const updatedBook = await this.findOneWithProjection()
 			// Set modified to true to indicate that the data has been updated

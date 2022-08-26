@@ -5,7 +5,6 @@ import { Book } from '#config/typing/books'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
-import addTimestamps from '#helpers/database/papr/addTimestamps'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/shared'
@@ -45,8 +44,12 @@ export default class BookShowHelper {
 		this.paprHelper.setBookData(await this.getNewBookData())
 		// Create or update the book
 		const bookToReturn = await this.paprHelper.createOrUpdate()
+		if (!bookToReturn.data) throw new Error(`Book ${this.asin} not found`)
+		const data = bookToReturn.data as BookDocument
+
 		// Update or create the book in cache
-		await this.redisHelper.findOrCreate(bookToReturn.data)
+		await this.redisHelper.findOrCreate(data)
+
 		// Return the book
 		return bookToReturn
 	}
@@ -62,49 +65,30 @@ export default class BookShowHelper {
 	}
 
 	/**
-	 * Update the timestamps of the book when they are missing
-	 */
-	async updateBookTimestamps(): Promise<Book> {
-		// Return if not present or already has timestamps
-		if (!this.originalBook || this.originalBook.createdAt)
-			return (await this.paprHelper.findOneWithProjection()).data
-
-		// Add timestamps
-		this.paprHelper.bookData = addTimestamps(this.originalBook) as BookDocument
-		// Update book in DB
-		try {
-			this.bookInternal = (await this.paprHelper.update()).data
-		} catch (err) {
-			throw new Error(
-				`An error occurred while adding timestamps to book ${this.asin} in the DB. Try updating the book manually with 'update=1'.`
-			)
-		}
-		return this.bookInternal
-	}
-
-	/**
 	 * Actions to run when an update is requested
 	 */
 	async updateActions(): Promise<Book> {
 		// 1. Check if it is updated recently
-		if (this.isUpdatedRecently()) return this.originalBook as Book
+		// if (this.isUpdatedRecently()) return this.originalBook as Book
 
 		// 2. Get the new book and create or update it
 		const bookToReturn = await this.createOrUpdateBook()
+		if (!bookToReturn.data) throw new Error(`Book ${this.asin} not found`)
+		const data = bookToReturn.data as BookDocument
 
 		// 3. Update book in cache
 		if (bookToReturn.modified) {
-			this.redisHelper.setOne(bookToReturn.data)
+			this.redisHelper.setOne(data)
 		}
 
 		// 4. Seed authors in the background
 		if (this.options.seedAuthors !== '0' && bookToReturn.modified) {
-			const authorSeeder = new SeedHelper(bookToReturn.data)
+			const authorSeeder = new SeedHelper(data)
 			authorSeeder.seedAll()
 		}
 
 		// 5. Return the book
-		return bookToReturn.data
+		return data
 	}
 
 	/**
@@ -119,13 +103,15 @@ export default class BookShowHelper {
 			if (this.options.update === '1') {
 				return this.updateActions()
 			}
-			// 1. Make sure it has timestamps
-			await this.updateBookTimestamps()
+			// 1. Get the book with projections
+			const bookToReturn = await this.paprHelper.findOneWithProjection()
+			if (!bookToReturn.data) throw new Error(`Book ${this.asin} not found`)
+			const data = bookToReturn.data as BookDocument
 			// 2. Check it it is cached
-			const redisBook = await this.redisHelper.findOrCreate(this.originalBook)
+			const redisBook = await this.redisHelper.findOrCreate(data)
 			if (redisBook) return redisBook as Book
 			// 3. Return the book from DB
-			return this.originalBook as Book
+			return data
 		}
 
 		// If the book is not present
