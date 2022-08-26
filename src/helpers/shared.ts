@@ -145,6 +145,14 @@ class SharedHelper {
 	getParamString(params: string[]): string {
 		return params.slice(0, -1).join(',') + '&' + params.slice(-1)
 	}
+
+	sortBookData(bookData: Book) {
+		const keys = Object.keys(bookData) as Array<keyof Book>
+		const ordered = keys.sort().reduce((obj, key) => {
+			return { ...obj, [key]: bookData[key] }
+		}, {} as Book)
+		return ordered
+	}
 }
 
 export default SharedHelper

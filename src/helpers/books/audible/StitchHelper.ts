@@ -4,12 +4,14 @@ import { AudibleProduct } from '#config/typing/audible'
 import { ApiBook, Book, HtmlBook } from '#config/typing/books'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
+import SharedHelper from '#helpers/shared'
 
 class StitchHelper {
 	apiHelper: ApiHelper
 	apiParsed!: ApiBook
 	apiResponse!: AudibleProduct
 	asin: string
+	helper: SharedHelper
 	scrapeHelper: ScrapeHelper
 	scraperParsed: HtmlBook | undefined
 	scraperResponse: CheerioAPI | undefined
@@ -18,6 +20,7 @@ class StitchHelper {
 		this.asin = asin
 		// Set up helpers
 		this.apiHelper = new ApiHelper(asin)
+		this.helper = new SharedHelper()
 		this.scrapeHelper = new ScrapeHelper(asin)
 	}
 
@@ -70,7 +73,8 @@ class StitchHelper {
 	 */
 	async includeGenres(): Promise<Book> {
 		if (this.scraperParsed?.genres?.length) {
-			return { ...this.apiParsed, ...this.scraperParsed } as Book
+			const sortedObject = this.helper.sortBookData({ ...this.apiParsed, ...this.scraperParsed })
+			return sortedObject
 		}
 		return this.apiParsed as Book
 	}
@@ -84,14 +88,8 @@ class StitchHelper {
 		await this.fetchSources()
 		await this.parseResponses()
 
-		// If parsed API response has genres, return it
-		if (this.apiParsed.genres?.length) {
-			return this.apiParsed as Book
-		}
-
-		// If no genres in API response, return scraper parsed response
-		const stitchedGenres = await this.includeGenres()
-		return stitchedGenres
+		// Return object with genres attached if it exists
+		return this.includeGenres()
 	}
 }
 
