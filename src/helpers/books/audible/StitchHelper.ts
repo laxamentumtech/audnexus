@@ -73,7 +73,10 @@ class StitchHelper {
 	 */
 	async includeGenres(): Promise<Book> {
 		if (this.scraperParsed?.genres?.length) {
-			const sortedObject = this.sharedHelper.sortBookData({ ...this.apiParsed, ...this.scraperParsed })
+			const sortedObject = this.sharedHelper.sortBookData({
+				...this.apiParsed,
+				...this.scraperParsed
+			})
 			return sortedObject
 		}
 		return this.apiParsed as Book
