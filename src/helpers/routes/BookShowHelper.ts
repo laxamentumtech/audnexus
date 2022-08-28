@@ -69,7 +69,7 @@ export default class BookShowHelper {
 	 */
 	async updateActions(): Promise<Book> {
 		// 1. Check if it is updated recently
-		// if (this.isUpdatedRecently()) return this.originalBook as Book
+		if (this.isUpdatedRecently()) return this.originalBook as Book
 
 		// 2. Get the new book and create or update it
 		const bookToReturn = await this.createOrUpdateBook()
