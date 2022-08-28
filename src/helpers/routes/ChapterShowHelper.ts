@@ -12,7 +12,7 @@ import SharedHelper from '#helpers/shared'
 export default class ChapterShowHelper {
 	asin: string
 	chapterInternal: ApiChapter | undefined = undefined
-	commonHelpers: SharedHelper
+	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleChapterHelper
 	redisHelper: RedisHelper
 	options: RequestGeneric['Querystring']
@@ -21,7 +21,7 @@ export default class ChapterShowHelper {
 	constructor(asin: string, options: RequestGeneric['Querystring'], redis: FastifyRedis | null) {
 		this.asin = asin
 		this.chapterHelper = new ChapterHelper(this.asin)
-		this.commonHelpers = new SharedHelper()
+		this.sharedHelper = new SharedHelper()
 		this.options = options
 		this.paprHelper = new PaprAudibleChapterHelper(this.asin, this.options)
 		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin)
@@ -57,7 +57,7 @@ export default class ChapterShowHelper {
 		if (!this.originalChapter) {
 			return false
 		}
-		return this.commonHelpers.checkIfRecentlyUpdated(this.originalChapter)
+		return this.sharedHelper.checkIfRecentlyUpdated(this.originalChapter)
 	}
 
 	/**
@@ -74,7 +74,9 @@ export default class ChapterShowHelper {
 		try {
 			this.chapterInternal = (await this.paprHelper.update()).data
 		} catch (err) {
-			throw new Error(`An error occurred while adding timestamps to chapter ${this.asin} in the DB. Try updating the chapter manually with 'update=1'.`)
+			throw new Error(
+				`An error occurred while adding timestamps to chapter ${this.asin} in the DB. Try updating the chapter manually with 'update=1'.`
+			)
 		}
 		return this.chapterInternal
 	}

@@ -11,7 +11,7 @@ class StitchHelper {
 	apiParsed!: ApiBook
 	apiResponse!: AudibleProduct
 	asin: string
-	helper: SharedHelper
+	sharedHelper: SharedHelper
 	scrapeHelper: ScrapeHelper
 	scraperParsed: HtmlBook | undefined
 	scraperResponse: CheerioAPI | undefined
@@ -20,7 +20,7 @@ class StitchHelper {
 		this.asin = asin
 		// Set up helpers
 		this.apiHelper = new ApiHelper(asin)
-		this.helper = new SharedHelper()
+		this.sharedHelper = new SharedHelper()
 		this.scrapeHelper = new ScrapeHelper(asin)
 	}
 
@@ -73,7 +73,7 @@ class StitchHelper {
 	 */
 	async includeGenres(): Promise<Book> {
 		if (this.scraperParsed?.genres?.length) {
-			const sortedObject = this.helper.sortBookData({ ...this.apiParsed, ...this.scraperParsed })
+			const sortedObject = this.sharedHelper.sortBookData({ ...this.apiParsed, ...this.scraperParsed })
 			return sortedObject
 		}
 		return this.apiParsed as Book

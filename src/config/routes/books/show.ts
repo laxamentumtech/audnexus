@@ -13,9 +13,9 @@ async function _show(fastify: FastifyInstance) {
 		}
 
 		// Setup common helper first
-		const commonHelpers = new SharedHelper()
+		const sharedHelper = new SharedHelper()
 		// First, check ASIN validity
-		if (!commonHelpers.checkAsinValidity(request.params.asin)) {
+		if (!sharedHelper.checkAsinValidity(request.params.asin)) {
 			reply.code(400)
 			throw new Error('Bad ASIN')
 		}

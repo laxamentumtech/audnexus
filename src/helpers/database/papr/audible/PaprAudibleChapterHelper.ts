@@ -73,13 +73,13 @@ export default class PaprAudibleChapterHelper {
 	}
 
 	async createOrUpdate() {
-		const commonHelpers = new SharedHelper()
+		const sharedHelper = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
 
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
 			// If the objects are the exact same return right away
-			const equality = commonHelpers.checkDataEquality(findInDb.data, this.chapterData)
+			const equality = sharedHelper.checkDataEquality(findInDb.data, this.chapterData)
 			if (equality) {
 				return {
 					data: findInDb.data,

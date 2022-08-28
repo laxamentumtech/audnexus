@@ -12,7 +12,7 @@ import SharedHelper from '#helpers/shared'
 export default class BookShowHelper {
 	asin: string
 	bookInternal: Book | undefined = undefined
-	commonHelpers: SharedHelper
+	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleBookHelper
 	redisHelper: RedisHelper
 	options: RequestGenericWithSeed['Querystring']
@@ -24,7 +24,7 @@ export default class BookShowHelper {
 		redis: FastifyRedis | null
 	) {
 		this.asin = asin
-		this.commonHelpers = new SharedHelper()
+		this.sharedHelper = new SharedHelper()
 		this.options = options
 		this.paprHelper = new PaprAudibleBookHelper(this.asin, this.options)
 		this.redisHelper = new RedisHelper(redis, 'book', this.asin)
@@ -61,7 +61,7 @@ export default class BookShowHelper {
 		if (!this.originalBook) {
 			return false
 		}
-		return this.commonHelpers.checkIfRecentlyUpdated(this.originalBook)
+		return this.sharedHelper.checkIfRecentlyUpdated(this.originalBook)
 	}
 
 	/**

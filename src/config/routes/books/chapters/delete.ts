@@ -7,9 +7,9 @@ import SharedHelper from '#helpers/shared'
 async function _delete(fastify: FastifyInstance) {
 	fastify.delete<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
 		// Setup common helper first
-		const commonHelpers = new SharedHelper()
+		const sharedHelper = new SharedHelper()
 		// First, check ASIN validity
-		if (!commonHelpers.checkAsinValidity(request.params.asin)) {
+		if (!sharedHelper.checkAsinValidity(request.params.asin)) {
 			reply.code(400)
 			throw new Error('Bad ASIN')
 		}

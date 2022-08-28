@@ -12,7 +12,7 @@ import SharedHelper from '#helpers/shared'
 export default class AuthorShowHelper {
 	asin: string
 	authorInternal: AuthorProfile | undefined = undefined
-	commonHelpers: SharedHelper
+	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleAuthorHelper
 	redisHelper: RedisHelper
 	options: RequestGeneric['Querystring']
@@ -20,7 +20,7 @@ export default class AuthorShowHelper {
 	originalAuthor: AuthorDocument | null = null
 	constructor(asin: string, options: RequestGeneric['Querystring'], redis: FastifyRedis | null) {
 		this.asin = asin
-		this.commonHelpers = new SharedHelper()
+		this.sharedHelper = new SharedHelper()
 		this.options = options
 		this.paprHelper = new PaprAudibleAuthorHelper(this.asin, this.options)
 		this.redisHelper = new RedisHelper(redis, 'book', this.asin)
@@ -53,7 +53,7 @@ export default class AuthorShowHelper {
 		if (!this.originalAuthor) {
 			return false
 		}
-		return this.commonHelpers.checkIfRecentlyUpdated(this.originalAuthor)
+		return this.sharedHelper.checkIfRecentlyUpdated(this.originalAuthor)
 	}
 
 	/**
@@ -70,7 +70,9 @@ export default class AuthorShowHelper {
 		try {
 			this.authorInternal = (await this.paprHelper.update()).data
 		} catch (err) {
-			throw new Error(`An error occurred while adding timestamps to author ${this.asin} in the DB. Try updating the author manually with 'update=1'.`)
+			throw new Error(
+				`An error occurred while adding timestamps to author ${this.asin} in the DB. Try updating the author manually with 'update=1'.`
+			)
 		}
 		return this.authorInternal
 	}
