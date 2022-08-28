@@ -1,5 +1,6 @@
-import BookModel, { BookDocument } from '#config/models/Book'
+import BookModel from '#config/models/Book'
 import { Book } from '#config/typing/books'
+import { isBookDocument } from '#config/typing/checkers'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
 
@@ -77,8 +78,8 @@ export default class PaprAudibleBookHelper {
 		const findInDb = await this.findOneWithProjection()
 
 		// Update
-		if (this.options.update === '1' && findInDb.data) {
-			const data = findInDb.data as BookDocument
+		if (this.options.update === '1' && isBookDocument(findInDb.data)) {
+			const data = findInDb.data
 			// If the objects are the exact same return right away
 			const equality = sharedHelper.checkDataEquality(data, this.bookData)
 			if (equality) {

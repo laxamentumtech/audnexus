@@ -2,6 +2,7 @@ import { FastifyRedis } from '@fastify/redis'
 
 import { BookDocument } from '#config/models/Book'
 import { Book } from '#config/typing/books'
+import { isBook, isBookDocument } from '#config/typing/checkers'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
@@ -44,8 +45,8 @@ export default class BookShowHelper {
 		this.paprHelper.setBookData(await this.getNewBookData())
 		// Create or update the book
 		const bookToReturn = await this.paprHelper.createOrUpdate()
-		if (!bookToReturn.data) throw new Error(`Book ${this.asin} not found`)
-		const data = bookToReturn.data as BookDocument
+		if (!isBookDocument(bookToReturn.data)) throw new Error(`BookDocument ${this.asin} not found`)
+		const data = bookToReturn.data
 
 		// Update or create the book in cache
 		await this.redisHelper.findOrCreate(data)
@@ -69,12 +70,12 @@ export default class BookShowHelper {
 	 */
 	async updateActions(): Promise<Book> {
 		// 1. Check if it is updated recently
-		if (this.isUpdatedRecently()) return this.originalBook as Book
+		if (this.isUpdatedRecently() && isBook(this.originalBook)) return this.originalBook
 
 		// 2. Get the new book and create or update it
 		const bookToReturn = await this.createOrUpdateBook()
-		if (!bookToReturn.data) throw new Error(`Book ${this.asin} not found`)
-		const data = bookToReturn.data as BookDocument
+		if (!isBookDocument(bookToReturn.data)) throw new Error(`BookDocument ${this.asin} not found`)
+		const data = bookToReturn.data
 
 		// 3. Update book in cache
 		if (bookToReturn.modified) {
@@ -103,13 +104,17 @@ export default class BookShowHelper {
 			if (this.options.update === '1') {
 				return this.updateActions()
 			}
+
 			// 1. Get the book with projections
 			const bookToReturn = await this.paprHelper.findOneWithProjection()
-			if (!bookToReturn.data) throw new Error(`Book ${this.asin} not found`)
-			const data = bookToReturn.data as BookDocument
+			// Make saure we get a book type back
+			if (!isBook(bookToReturn.data)) throw new Error(`Book ${this.asin} not found`)
+			const data = bookToReturn.data
+
 			// 2. Check it it is cached
 			const redisBook = await this.redisHelper.findOrCreate(data)
-			if (redisBook) return redisBook as Book
+			if (redisBook && isBook(redisBook)) return redisBook
+
 			// 3. Return the book from DB
 			return data
 		}
