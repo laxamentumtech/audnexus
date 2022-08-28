@@ -109,7 +109,14 @@ export default class PaprAudibleAuthorHelper {
 
 	async update() {
 		try {
-			await AuthorModel.updateOne({ asin: this.asin }, { $set: { ...this.authorData } })
+			const found = await this.findOne()
+			await AuthorModel.updateOne(
+				{ asin: this.asin },
+				{
+					$set: { ...this.authorData, createdAt: found.data?._id.getTimestamp() },
+					$currentDate: { updatedAt: true }
+				}
+			)
 			// After updating, return with specific projection
 			const updatedAuthor = await this.findOneWithProjection()
 			// Set modified to true to indicate that the data has been updated

@@ -103,7 +103,14 @@ export default class PaprAudibleChapterHelper {
 
 	async update() {
 		try {
-			await ChapterModel.updateOne({ asin: this.asin }, { $set: { ...this.chapterData } })
+			const found = await this.findOne()
+			await ChapterModel.updateOne(
+				{ asin: this.asin },
+				{
+					$set: { ...this.chapterData, createdAt: found.data?._id.getTimestamp() },
+					$currentDate: { updatedAt: true }
+				}
+			)
 			// After updating, return with specific projection
 			const updatedChapter = await this.findOneWithProjection()
 			// Set modified to true to indicate that the data has been updated
