@@ -1,4 +1,5 @@
 import AuthorModel from '#config/models/Author'
+import { isAuthorProfile } from '#config/typing/checkers'
 import { AuthorProfile } from '#config/typing/people'
 import { RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
@@ -56,12 +57,12 @@ export default class PaprAudibleAuthorHelper {
 	}
 
 	async findOneWithProjection() {
-		const findOneAuthor = (await AuthorModel.findOne(
+		const findOneAuthor = await AuthorModel.findOne(
 			{
 				asin: this.asin
 			},
 			{ projection: projectionWithoutDbFields }
-		)) as unknown as AuthorProfile
+		)
 		return {
 			data: findOneAuthor,
 			modified: false
@@ -77,19 +78,20 @@ export default class PaprAudibleAuthorHelper {
 		const findInDb = await this.findOneWithProjection()
 
 		// Update
-		if (this.options.update === '1' && findInDb.data) {
+		if (this.options.update === '1' && isAuthorProfile(findInDb.data)) {
+			const data = findInDb.data
 			// If the objects are the exact same return right away
-			const equality = sharedHelper.checkDataEquality(findInDb.data, this.authorData)
+			const equality = sharedHelper.checkDataEquality(data, this.authorData)
 			if (equality) {
 				return {
-					data: findInDb.data,
+					data: data,
 					modified: false
 				}
 			}
 			// Check state of existing author
 			// Only update if either genres exist and can be checked
 			// -or if genres exist on new item but not old
-			if (findInDb.data.genres || (!findInDb.data.genres && this.authorData.genres)) {
+			if (data.genres || (!data.genres && this.authorData.genres)) {
 				// Only update if it's not nuked data
 				if (this.authorData.genres?.length) {
 					console.log(`Updating author asin ${this.asin}`)

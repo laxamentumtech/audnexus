@@ -1,5 +1,6 @@
 import ChapterModel from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
+import { isChapter } from '#config/typing/checkers'
 import { RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
 
@@ -56,12 +57,12 @@ export default class PaprAudibleChapterHelper {
 	}
 
 	async findOneWithProjection() {
-		const findOneChapter = (await ChapterModel.findOne(
+		const findOneChapter = await ChapterModel.findOne(
 			{
 				asin: this.asin
 			},
 			{ projection: projectionWithoutDbFields }
-		)) as unknown as ApiChapter
+		)
 		return {
 			data: findOneChapter,
 			modified: false
@@ -77,12 +78,13 @@ export default class PaprAudibleChapterHelper {
 		const findInDb = await this.findOneWithProjection()
 
 		// Update
-		if (this.options.update === '1' && findInDb.data) {
+		if (this.options.update === '1' && isChapter(findInDb.data)) {
+			const data = findInDb.data
 			// If the objects are the exact same return right away
-			const equality = sharedHelper.checkDataEquality(findInDb.data, this.chapterData)
+			const equality = sharedHelper.checkDataEquality(data, this.chapterData)
 			if (equality) {
 				return {
-					data: findInDb.data,
+					data: data,
 					modified: false
 				}
 			}
