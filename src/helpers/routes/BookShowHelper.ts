@@ -2,7 +2,7 @@ import { FastifyRedis } from '@fastify/redis'
 
 import { BookDocument } from '#config/models/Book'
 import { Book } from '#config/typing/books'
-import { isBook, isBookDocument } from '#config/typing/checkers'
+import { isBook } from '#config/typing/checkers'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
@@ -36,23 +36,34 @@ export default class BookShowHelper {
 		return (await this.paprHelper.findOne()).data
 	}
 
+	async getBookWithProjection(): Promise<Book> {
+		// 1. Get the book with projections
+		const bookToReturn = await this.paprHelper.findOneWithProjection()
+		// Make saure we get a book type back
+		if (!isBook(bookToReturn.data)) throw new Error(`Book ${this.asin} not found`)
+		return bookToReturn.data
+	}
+
 	async getNewBookData() {
 		return this.stitchHelper.process()
 	}
 
-	async createOrUpdateBook() {
+	async createOrUpdateBook(): Promise<Book> {
 		// Place the new book data into the papr helper
 		this.paprHelper.setBookData(await this.getNewBookData())
+
 		// Create or update the book
 		const bookToReturn = await this.paprHelper.createOrUpdate()
-		if (!isBookDocument(bookToReturn.data)) throw new Error(`BookDocument ${this.asin} not found`)
+		if (!isBook(bookToReturn.data)) throw new Error(`Book ${this.asin} not found`)
 		const data = bookToReturn.data
 
 		// Update or create the book in cache
-		await this.redisHelper.findOrCreate(data)
+		if (bookToReturn.modified) {
+			this.redisHelper.setOne(data)
+		}
 
 		// Return the book
-		return bookToReturn
+		return data
 	}
 
 	/**
@@ -70,32 +81,25 @@ export default class BookShowHelper {
 	 */
 	async updateActions(): Promise<Book> {
 		// 1. Check if it is updated recently
-		if (this.isUpdatedRecently() && isBook(this.originalBook)) return this.originalBook
+		if (this.isUpdatedRecently()) return this.getBookWithProjection()
 
 		// 2. Get the new book and create or update it
-		const bookToReturn = await this.createOrUpdateBook()
-		if (!isBookDocument(bookToReturn.data)) throw new Error(`BookDocument ${this.asin} not found`)
-		const data = bookToReturn.data
+		const data = await this.createOrUpdateBook()
 
-		// 3. Update book in cache
-		if (bookToReturn.modified) {
-			this.redisHelper.setOne(data)
-		}
-
-		// 4. Seed authors in the background
-		if (this.options.seedAuthors !== '0' && bookToReturn.modified) {
+		// 3. Seed authors in the background
+		if (this.options.seedAuthors !== '0') {
 			const authorSeeder = new SeedHelper(data)
 			authorSeeder.seedAll()
 		}
 
-		// 5. Return the book
+		// 4. Return the book
 		return data
 	}
 
 	/**
 	 * Main handler for the book show route
 	 */
-	async handler() {
+	async handler(): Promise<Book> {
 		this.originalBook = await this.getBookFromPapr()
 
 		// If the book is already present
@@ -106,10 +110,7 @@ export default class BookShowHelper {
 			}
 
 			// 1. Get the book with projections
-			const bookToReturn = await this.paprHelper.findOneWithProjection()
-			// Make saure we get a book type back
-			if (!isBook(bookToReturn.data)) throw new Error(`Book ${this.asin} not found`)
-			const data = bookToReturn.data
+			const data = await this.getBookWithProjection()
 
 			// 2. Check it it is cached
 			const redisBook = await this.redisHelper.findOrCreate(data)
@@ -120,6 +121,6 @@ export default class BookShowHelper {
 		}
 
 		// If the book is not present
-		return (await this.createOrUpdateBook()).data
+		return await this.createOrUpdateBook()
 	}
 }

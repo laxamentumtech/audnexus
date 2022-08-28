@@ -2,9 +2,9 @@ import { FastifyRedis } from '@fastify/redis'
 
 import { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
+import { isChapter } from '#config/typing/checkers'
 import { RequestGeneric } from '#config/typing/requests'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
-import addTimestamps from '#helpers/database/papr/addTimestamps'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/shared'
@@ -31,23 +31,38 @@ export default class ChapterShowHelper {
 		return (await this.paprHelper.findOne()).data
 	}
 
+	async getChapterWithProjection(): Promise<ApiChapter> {
+		const chapterToReturn = await this.paprHelper.findOneWithProjection()
+		if (!isChapter(chapterToReturn.data)) throw new Error(`Chapter ${this.asin} not found`)
+		return chapterToReturn.data
+	}
+
 	async getNewChapterData() {
 		return this.chapterHelper.process()
 	}
 
-	async createOrUpdateChapters() {
+	async createOrUpdateChapters(): Promise<ApiChapter | undefined> {
 		// Get the new chapter data
 		const getNewChapterData = await this.getNewChapterData()
+
 		// If the chapter is not found
 		if (!getNewChapterData) return undefined
+
 		// Place the new chapter data into the papr helper
 		this.paprHelper.setChapterData(getNewChapterData)
+
 		// Create or update the chapter
 		const chapterToReturn = await this.paprHelper.createOrUpdate()
+		if (!isChapter(chapterToReturn.data)) throw new Error(`Chapter ${this.asin} not found`)
+		const data = chapterToReturn.data
+
 		// Update or create the chapter in cache
-		await this.redisHelper.findOrCreate(chapterToReturn.data)
+		if (chapterToReturn.modified) {
+			this.redisHelper.setOne(data)
+		}
+
 		// Return the chapter
-		return chapterToReturn
+		return data
 	}
 
 	/**
@@ -61,27 +76,6 @@ export default class ChapterShowHelper {
 	}
 
 	/**
-	 * Update the timestamps of the chapter when they are missing
-	 */
-	async updateChapterTimestamps(): Promise<ApiChapter> {
-		// Return if not present or already has timestamps
-		if (!this.originalChapter || this.originalChapter.createdAt)
-			return (await this.paprHelper.findOneWithProjection()).data
-
-		// Add timestamps
-		this.paprHelper.chapterData = addTimestamps(this.originalChapter) as ChapterDocument
-		// Update chapter in DB
-		try {
-			this.chapterInternal = (await this.paprHelper.update()).data
-		} catch (err) {
-			throw new Error(
-				`An error occurred while adding timestamps to chapter ${this.asin} in the DB. Try updating the chapter manually with 'update=1'.`
-			)
-		}
-		return this.chapterInternal
-	}
-
-	/**
 	 * Actions to run when an update is requested
 	 */
 	async updateActions(): Promise<ApiChapter | undefined> {
@@ -89,23 +83,17 @@ export default class ChapterShowHelper {
 		if (this.isUpdatedRecently()) return this.originalChapter as ApiChapter
 
 		// 2. Get the new chapter and create or update it
-		const chapterToReturn = await this.createOrUpdateChapters()
-		// If the chapter is not found
-		if (!chapterToReturn) return undefined
+		const data = await this.createOrUpdateChapters()
+		if (!data) return undefined
 
-		// 3. Update chapter in cache
-		if (chapterToReturn.modified) {
-			this.redisHelper.setOne(chapterToReturn.data)
-		}
-
-		// 4. Return the chapter
-		return chapterToReturn.data
+		// 3. Return the chapter
+		return data
 	}
 
 	/**
 	 * Main handler for the chapter show route
 	 */
-	async handler() {
+	async handler(): Promise<ApiChapter | undefined> {
 		this.originalChapter = await this.getChaptersFromPapr()
 
 		// If the chapter is already present
@@ -114,21 +102,19 @@ export default class ChapterShowHelper {
 			if (this.options.update === '1') {
 				return this.updateActions()
 			}
-			// 1. Make sure it has timestamps
-			await this.updateChapterTimestamps()
+
+			// 1. Get the chapter with projections
+			const data = await this.getChapterWithProjection()
+
 			// 2. Check it it is cached
-			const redisChapter = await this.redisHelper.findOrCreate(this.originalChapter)
-			if (redisChapter) return redisChapter as ApiChapter
+			const redisChapter = await this.redisHelper.findOrCreate(data)
+			if (redisChapter && isChapter(redisChapter)) return redisChapter
+
 			// 3. Return the chapter from DB
-			return this.originalChapter as ApiChapter
+			return data
 		}
 
 		// If the chapter is not present
-		// Attempt to create it in the DB
-		const chapterToReturn = await this.createOrUpdateChapters()
-		// If the chapter is not found
-		if (!chapterToReturn) return undefined
-		// Return the chapter
-		return chapterToReturn.data
+		return this.createOrUpdateChapters()
 	}
 }

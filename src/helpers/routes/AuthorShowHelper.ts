@@ -1,10 +1,10 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import type { AuthorDocument } from '#config/models/Author'
+import { isAuthorProfile } from '#config/typing/checkers'
 import { AuthorProfile } from '#config/typing/people'
 import { RequestGeneric } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
-import addTimestamps from '#helpers/database/papr/addTimestamps'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/shared'
@@ -31,19 +31,35 @@ export default class AuthorShowHelper {
 		return (await this.paprHelper.findOne()).data
 	}
 
+	async getAuthorWithProjection(): Promise<AuthorProfile> {
+		// 1. Get the author with projections
+		const author = await this.paprHelper.findOneWithProjection()
+		// Make saure we get a authorprofile type back
+		if (!isAuthorProfile(author.data)) throw new Error(`AuthorProfile ${this.asin} not found`)
+		return author.data
+	}
+
 	async getNewAuthorData() {
 		return this.scrapeHelper.process()
 	}
 
-	async createOrUpdateAuthor() {
+	async createOrUpdateAuthor(): Promise<AuthorProfile> {
 		// Place the new author data into the papr helper
 		this.paprHelper.setAuthorData(await this.getNewAuthorData())
+
 		// Create or update the author
 		const authorToReturn = await this.paprHelper.createOrUpdate()
+		if (!isAuthorProfile(authorToReturn.data))
+			throw new Error(`AuthorProfile ${this.asin} not found`)
+		const data = authorToReturn.data
+
 		// Update or create the author in cache
-		await this.redisHelper.findOrCreate(authorToReturn.data)
+		if (authorToReturn.modified) {
+			this.redisHelper.setOne(data)
+		}
+
 		// Return the author
-		return authorToReturn
+		return data
 	}
 
 	/**
@@ -57,49 +73,20 @@ export default class AuthorShowHelper {
 	}
 
 	/**
-	 * Update the timestamps of the author when they are missing
-	 */
-	async updateAuthorTimestamps(): Promise<AuthorProfile> {
-		// Return if not present or already has timestamps
-		if (!this.originalAuthor || this.originalAuthor.createdAt)
-			return (await this.paprHelper.findOneWithProjection()).data
-
-		// Add timestamps
-		this.paprHelper.authorData = addTimestamps(this.originalAuthor) as AuthorDocument
-		// Update author in DB
-		try {
-			this.authorInternal = (await this.paprHelper.update()).data
-		} catch (err) {
-			throw new Error(
-				`An error occurred while adding timestamps to author ${this.asin} in the DB. Try updating the author manually with 'update=1'.`
-			)
-		}
-		return this.authorInternal
-	}
-
-	/**
 	 * Actions to run when an update is requested
 	 */
 	async updateActions(): Promise<AuthorProfile> {
 		// 1. Check if it is updated recently
-		if (this.isUpdatedRecently()) return this.originalAuthor as AuthorProfile
+		if (this.isUpdatedRecently()) return this.getAuthorWithProjection()
 
-		// 2. Get the new author and create or update it
-		const authorToReturn = await this.createOrUpdateAuthor()
-
-		// 3. Update author in cache
-		if (authorToReturn.modified) {
-			this.redisHelper.setOne(authorToReturn.data)
-		}
-
-		// 4. Return the author
-		return authorToReturn.data
+		// 2. Create or update the author
+		return this.createOrUpdateAuthor()
 	}
 
 	/**
 	 * Main handler for the author show route
 	 */
-	async handler() {
+	async handler(): Promise<AuthorProfile> {
 		this.originalAuthor = await this.getAuthorFromPapr()
 
 		// If the author is already present
@@ -108,16 +95,19 @@ export default class AuthorShowHelper {
 			if (this.options.update === '1') {
 				return this.updateActions()
 			}
-			// 1. Make sure it has timestamps
-			await this.updateAuthorTimestamps()
+
+			// 1. Get the author with projections
+			const data = await this.getAuthorWithProjection()
+
 			// 2. Check it it is cached
-			const redisAuthor = await this.redisHelper.findOrCreate(this.originalAuthor)
-			if (redisAuthor) return redisAuthor as AuthorProfile
+			const redisAuthor = await this.redisHelper.findOrCreate(data)
+			if (redisAuthor && isAuthorProfile(redisAuthor)) return redisAuthor
+
 			// 3. Return the author from DB
-			return this.originalAuthor as AuthorProfile
+			return data
 		}
 
 		// If the author is not present
-		return (await this.createOrUpdateAuthor()).data
+		return await this.createOrUpdateAuthor()
 	}
 }
