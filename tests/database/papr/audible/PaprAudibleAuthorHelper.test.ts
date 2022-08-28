@@ -125,7 +125,10 @@ describe('PaprAudibleAuthorHelper should', () => {
 		await expect(helper.update()).resolves.toEqual(obj)
 		expect(AuthorModel.updateOne).toHaveBeenCalledWith(
 			{ asin: asin },
-			{ $set: { ...parsedAuthor } }
+			{
+				$set: { ...parsedAuthor, createdAt: obj.data?._id.getTimestamp() },
+				$currentDate: { updatedAt: true }
+			}
 		)
 	})
 })

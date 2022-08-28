@@ -124,7 +124,13 @@ describe('PaprAudibleBookHelper should', () => {
 		const obj = { data: bookWithoutProjection, modified: true }
 		helper.setBookData(parsedBook)
 		await expect(helper.update()).resolves.toEqual(obj)
-		expect(BookModel.updateOne).toHaveBeenCalledWith({ asin: asin }, { $set: { ...parsedBook } })
+		expect(BookModel.updateOne).toHaveBeenCalledWith(
+			{ asin: asin },
+			{
+				$set: { ...parsedBook, createdAt: obj.data?._id.getTimestamp() },
+				$currentDate: { updatedAt: true }
+			}
+		)
 	})
 })
 

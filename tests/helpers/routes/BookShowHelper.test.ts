@@ -43,13 +43,13 @@ describe('BookShowHelper should', () => {
 	})
 
 	test('create or update a book', async () => {
-		await expect(helper.createOrUpdateBook()).resolves.toStrictEqual({
-			data: bookWithoutProjection,
-			modified: true
-		})
+		await expect(helper.createOrUpdateBook()).resolves.toStrictEqual(bookWithoutProjection)
 	})
 
 	test('returns original book if it was updated recently when trying to update', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'findOneWithProjection')
+			.mockResolvedValue({ data: bookWithoutProjectionUpdatedNow, modified: false })
 		helper.originalBook = bookWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toBe(bookWithoutProjectionUpdatedNow)
 	})

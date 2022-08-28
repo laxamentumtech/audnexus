@@ -107,7 +107,10 @@ describe('PaprAudibleChapterHelper should', () => {
 		await expect(helper.update()).resolves.toEqual(obj)
 		expect(ChapterModel.updateOne).toHaveBeenCalledWith(
 			{ asin: asin },
-			{ $set: { ...parsedChapters } }
+			{
+				$set: { ...parsedChapters, createdAt: obj.data?._id.getTimestamp() },
+				$currentDate: { updatedAt: true }
+			}
 		)
 	})
 })
