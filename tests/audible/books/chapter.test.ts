@@ -1,4 +1,4 @@
-import { Chapter } from '#config/typing/audible'
+import { AudibleChapter } from '#config/typing/audible'
 import { ApiChapter } from '#config/typing/books'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import {
@@ -12,7 +12,7 @@ let helper: ChapterHelper
 // Run through known book data to test responses
 describe('Audible API', () => {
 	describe('When fetching Project Hail Mary chapters', () => {
-		let response: Chapter
+		let response: AudibleChapter
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
 			helper = new ChapterHelper(asin)

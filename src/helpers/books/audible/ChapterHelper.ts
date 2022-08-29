@@ -1,7 +1,7 @@
 import jsrsasign from 'jsrsasign'
 import moment from 'moment'
 
-import { Chapter, SingleChapter } from '#config/typing/audible'
+import { AudibleChapter, SingleChapter } from '#config/typing/audible'
 import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
 import fetch from '#helpers/fetchPlus'
 import SharedHelper from '#helpers/shared'
@@ -86,9 +86,9 @@ class ChapterHelper {
 
 	/**
 	 * Fetches chapter Audible API JSON
-	 * @returns {Promise<Chapter>} data from parseResponse() function.
+	 * @returns {Promise<AudibleChapter>} data from parseResponse() function.
 	 */
-	async fetchChapter(): Promise<Chapter | undefined> {
+	async fetchChapter(): Promise<AudibleChapter | undefined> {
 		return fetch(this.reqUrl, {
 			headers: {
 				'x-adp-token': this.adpToken,
@@ -97,7 +97,7 @@ class ChapterHelper {
 			}
 		})
 			.then(async (response) => {
-				const json: Chapter = await response.json()
+				const json: AudibleChapter = await response.json()
 				return json
 			})
 			.catch((error) => {
@@ -109,10 +109,10 @@ class ChapterHelper {
 
 	/**
 	 * Pareses fetched chapters from Audible API and cleaning up chapter titles
-	 * @param {Chapter} jsonRes fetched json response from api.audible.com
+	 * @param {AudibleChapter} jsonRes fetched json response from api.audible.com
 	 * @returns {Promise<ApiChapter>} relevant data to keep
 	 */
-	async parseResponse(jsonRes: Chapter | undefined): Promise<ApiChapter | undefined> {
+	async parseResponse(jsonRes: AudibleChapter | undefined): Promise<ApiChapter | undefined> {
 		// Base undefined check
 		if (!jsonRes || !jsonRes.content_metadata.chapter_info) {
 			return undefined

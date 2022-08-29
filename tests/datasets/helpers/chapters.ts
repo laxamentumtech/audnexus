@@ -1,12 +1,12 @@
 import { ObjectId, WithId } from 'mongodb'
 
 import { ChapterDocument } from '#config/models/Chapter'
-import { Chapter } from '#config/typing/audible'
+import { AudibleChapter } from '#config/typing/audible'
 import { ApiChapter } from '#config/typing/books'
 
 const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
 
-export const apiChapters: Chapter = {
+export const apiChapters: AudibleChapter = {
 	content_metadata: {
 		chapter_info: {
 			brandIntroDurationMs: 2043,

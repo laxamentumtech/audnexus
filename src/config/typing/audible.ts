@@ -87,7 +87,7 @@ export interface SingleChapter {
 	title: string
 }
 
-export interface Chapter {
+export interface AudibleChapter {
 	content_metadata: {
 		chapter_info: {
 			brandIntroDurationMs: number
