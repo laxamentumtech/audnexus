@@ -36,7 +36,12 @@ export default class AuthorShowHelper {
 		const author = await this.paprHelper.findOneWithProjection()
 		// Make saure we get a authorprofile type back
 		if (!isAuthorProfile(author.data)) throw new Error(`AuthorProfile ${this.asin} not found`)
-		return author.data
+
+		// 2. Sort the object
+		const sort = this.sharedHelper.sortObjectByKeys(author.data)
+		if (isAuthorProfile(sort)) return sort
+
+		throw new Error(`AuthorProfile ${this.asin} not found`)
 	}
 
 	async getNewAuthorData() {
@@ -51,12 +56,12 @@ export default class AuthorShowHelper {
 		const authorToReturn = await this.paprHelper.createOrUpdate()
 		if (!isAuthorProfile(authorToReturn.data))
 			throw new Error(`AuthorProfile ${this.asin} not found`)
-		const data = authorToReturn.data
+
+		// Get the author with projections
+		const data = await this.getAuthorWithProjection()
 
 		// Update or create the author in cache
-		if (authorToReturn.modified) {
-			this.redisHelper.setOne(data)
-		}
+		this.redisHelper.setOne(data)
 
 		// Return the author
 		return data

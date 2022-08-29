@@ -1,6 +1,7 @@
-import ChapterModel from '#config/models/Chapter'
+import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
-import { isChapter } from '#config/typing/checkers'
+import { isChapter, isChapterDocument } from '#config/typing/checkers'
+import { PaprChapterDocumentReturn, PaprChapterReturn } from '#config/typing/papr'
 import { RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
 
@@ -20,7 +21,7 @@ export default class PaprAudibleChapterHelper {
 		this.options = options
 	}
 
-	async create() {
+	async create(): Promise<PaprChapterReturn> {
 		try {
 			await ChapterModel.insertOne(this.chapterData)
 			return {
@@ -46,25 +47,33 @@ export default class PaprAudibleChapterHelper {
 		}
 	}
 
-	async findOne() {
+	async findOne(): Promise<PaprChapterDocumentReturn> {
 		const findOneChapter = await ChapterModel.findOne({
 			asin: this.asin
 		})
+
+		// Assign type to chapter data
+		const data: ChapterDocument | null = isChapterDocument(findOneChapter) ? findOneChapter : null
+
 		return {
-			data: findOneChapter,
+			data: data,
 			modified: false
 		}
 	}
 
-	async findOneWithProjection() {
+	async findOneWithProjection(): Promise<PaprChapterReturn> {
 		const findOneChapter = await ChapterModel.findOne(
 			{
 				asin: this.asin
 			},
 			{ projection: projectionWithoutDbFields }
 		)
+
+		// Assign type to chapter data
+		const data: ApiChapter | null = isChapter(findOneChapter) ? findOneChapter : null
+
 		return {
-			data: findOneChapter,
+			data: data,
 			modified: false
 		}
 	}
@@ -73,7 +82,7 @@ export default class PaprAudibleChapterHelper {
 		this.chapterData = chapterData
 	}
 
-	async createOrUpdate() {
+	async createOrUpdate(): Promise<PaprChapterReturn> {
 		const sharedHelper = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
 
@@ -101,7 +110,7 @@ export default class PaprAudibleChapterHelper {
 		return this.create()
 	}
 
-	async update() {
+	async update(): Promise<PaprChapterReturn> {
 		try {
 			const found = await this.findOne()
 			await ChapterModel.updateOne(

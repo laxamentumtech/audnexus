@@ -41,7 +41,12 @@ export default class BookShowHelper {
 		const bookToReturn = await this.paprHelper.findOneWithProjection()
 		// Make saure we get a book type back
 		if (!isBook(bookToReturn.data)) throw new Error(`Book ${this.asin} not found`)
-		return bookToReturn.data
+
+		// 2. Sort the object
+		const sort = this.sharedHelper.sortObjectByKeys(bookToReturn.data)
+		if (isBook(sort)) return sort
+
+		throw new Error(`Book ${this.asin} not found`)
 	}
 
 	async getNewBookData() {
@@ -55,12 +60,12 @@ export default class BookShowHelper {
 		// Create or update the book
 		const bookToReturn = await this.paprHelper.createOrUpdate()
 		if (!isBook(bookToReturn.data)) throw new Error(`Book ${this.asin} not found`)
-		const data = bookToReturn.data
+
+		// Get the book with projections
+		const data = await this.getBookWithProjection()
 
 		// Update or create the book in cache
-		if (bookToReturn.modified) {
-			this.redisHelper.setOne(data)
-		}
+		this.redisHelper.setOne(data)
 
 		// Return the book
 		return data

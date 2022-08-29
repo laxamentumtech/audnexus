@@ -1,5 +1,6 @@
-import AuthorModel from '#config/models/Author'
-import { isAuthorProfile } from '#config/typing/checkers'
+import AuthorModel, { AuthorDocument } from '#config/models/Author'
+import { isAuthorDocument, isAuthorProfile } from '#config/typing/checkers'
+import { PaprAuthorDocumentReturn, PaprAuthorReturn } from '#config/typing/papr'
 import { AuthorProfile } from '#config/typing/people'
 import { RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
@@ -20,7 +21,7 @@ export default class PaprAudibleAuthorHelper {
 		this.options = options
 	}
 
-	async create() {
+	async create(): Promise<PaprAuthorReturn> {
 		try {
 			await AuthorModel.insertOne(this.authorData)
 			return {
@@ -46,25 +47,33 @@ export default class PaprAudibleAuthorHelper {
 		}
 	}
 
-	async findOne() {
+	async findOne(): Promise<PaprAuthorDocumentReturn> {
 		const findOneAuthor = await AuthorModel.findOne({
 			asin: this.asin
 		})
+
+		// Assign type to author data
+		const data: AuthorDocument | null = isAuthorDocument(findOneAuthor) ? findOneAuthor : null
+
 		return {
-			data: findOneAuthor,
+			data: data,
 			modified: false
 		}
 	}
 
-	async findOneWithProjection() {
+	async findOneWithProjection(): Promise<PaprAuthorReturn> {
 		const findOneAuthor = await AuthorModel.findOne(
 			{
 				asin: this.asin
 			},
 			{ projection: projectionWithoutDbFields }
 		)
+
+		// Assign type to author data
+		const data: AuthorProfile | null = isAuthorProfile(findOneAuthor) ? findOneAuthor : null
+
 		return {
-			data: findOneAuthor,
+			data: data,
 			modified: false
 		}
 	}
@@ -73,7 +82,7 @@ export default class PaprAudibleAuthorHelper {
 		this.authorData = authorData
 	}
 
-	async createOrUpdate() {
+	async createOrUpdate(): Promise<PaprAuthorReturn> {
 		const sharedHelper = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
 
@@ -107,7 +116,7 @@ export default class PaprAudibleAuthorHelper {
 		return this.create()
 	}
 
-	async update() {
+	async update(): Promise<PaprAuthorReturn> {
 		try {
 			const found = await this.findOne()
 			await AuthorModel.updateOne(

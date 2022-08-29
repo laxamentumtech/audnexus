@@ -146,12 +146,11 @@ class SharedHelper {
 		return params.slice(0, -1).join(',') + '&' + params.slice(-1)
 	}
 
-	sortBookData(bookData: Book) {
-		const keys = Object.keys(bookData) as Array<keyof Book>
-		const ordered = keys.sort().reduce((obj, key) => {
-			return { ...obj, [key]: bookData[key] }
-		}, {} as Book)
-		return ordered
+	sortObjectByKeys(data: Book | AuthorProfile | ApiChapter) {
+		const obj = data as unknown as { [key: string]: unknown }
+		return Object.keys(data)
+			.sort()
+			.reduce((r, k) => Object.assign(r, { [k]: obj[k] }), {}) as Book | AuthorProfile | ApiChapter
 	}
 }
 

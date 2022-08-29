@@ -2,6 +2,7 @@ import type { CheerioAPI } from 'cheerio'
 
 import { AudibleProduct } from '#config/typing/audible'
 import { ApiBook, Book, HtmlBook } from '#config/typing/books'
+import { isBook } from '#config/typing/checkers'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import SharedHelper from '#helpers/shared'
@@ -73,11 +74,12 @@ class StitchHelper {
 	 */
 	async includeGenres(): Promise<Book> {
 		if (this.scraperParsed?.genres?.length) {
-			const sortedObject = this.sharedHelper.sortBookData({
+			const sortedObject = this.sharedHelper.sortObjectByKeys({
 				...this.apiParsed,
 				...this.scraperParsed
 			})
-			return sortedObject
+			if (isBook(sortedObject)) return sortedObject
+			throw new Error(`Error occured while sorting book json: ${sortedObject}`)
 		}
 		return this.apiParsed as Book
 	}

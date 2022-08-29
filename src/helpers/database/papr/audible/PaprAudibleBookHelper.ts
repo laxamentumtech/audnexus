@@ -1,6 +1,7 @@
-import BookModel from '#config/models/Book'
+import BookModel, { BookDocument } from '#config/models/Book'
 import { Book } from '#config/typing/books'
-import { isBook } from '#config/typing/checkers'
+import { isBook, isBookDocument } from '#config/typing/checkers'
+import { PaprBookDocumentReturn, PaprBookReturn } from '#config/typing/papr'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
 
@@ -20,7 +21,7 @@ export default class PaprAudibleBookHelper {
 		this.options = options
 	}
 
-	async create() {
+	async create(): Promise<PaprBookReturn> {
 		try {
 			await BookModel.insertOne(this.bookData)
 			return {
@@ -46,25 +47,33 @@ export default class PaprAudibleBookHelper {
 		}
 	}
 
-	async findOne() {
+	async findOne(): Promise<PaprBookDocumentReturn> {
 		const findOneBook = await BookModel.findOne({
 			asin: this.asin
 		})
+
+		// Assign type to book data
+		const data: BookDocument | null = isBookDocument(findOneBook) ? findOneBook : null
+
 		return {
-			data: findOneBook,
+			data: data,
 			modified: false
 		}
 	}
 
-	async findOneWithProjection() {
+	async findOneWithProjection(): Promise<PaprBookReturn> {
 		const findOneBook = await BookModel.findOne(
 			{
 				asin: this.asin
 			},
 			{ projection: projectionWithoutDbFields }
 		)
+
+		// Assign type to book data
+		const data: Book | null = isBook(findOneBook) ? findOneBook : null
+
 		return {
-			data: findOneBook,
+			data: data,
 			modified: false
 		}
 	}
@@ -73,7 +82,7 @@ export default class PaprAudibleBookHelper {
 		this.bookData = bookData
 	}
 
-	async createOrUpdate() {
+	async createOrUpdate(): Promise<PaprBookReturn> {
 		const sharedHelper = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
 
@@ -107,7 +116,7 @@ export default class PaprAudibleBookHelper {
 		return this.create()
 	}
 
-	async update() {
+	async update(): Promise<PaprBookReturn> {
 		try {
 			const found = await this.findOne()
 			await BookModel.updateOne(
