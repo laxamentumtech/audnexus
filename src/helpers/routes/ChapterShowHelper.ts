@@ -35,13 +35,13 @@ export default class ChapterShowHelper {
 		// 1. Get the chapter with projections
 		const chapterToReturn = await this.paprHelper.findOneWithProjection()
 		// Make sure we get a chapter type back
-		if (!isChapter(chapterToReturn.data)) throw new Error(`Chapter ${this.asin} not found`)
+		if (!isChapter(chapterToReturn.data)) throw new Error(`Data type is not a chapter ${this.asin}`)
 
 		// 2. Sort the object
 		const sort = this.sharedHelper.sortObjectByKeys(chapterToReturn.data)
 		if (isChapter(sort)) return sort
 
-		throw new Error(`Chapter ${this.asin} not found`)
+		throw new Error(`Data type is not a chapter ${this.asin}`)
 	}
 
 	async getNewChapterData() {
@@ -60,7 +60,7 @@ export default class ChapterShowHelper {
 
 		// Create or update the chapter
 		const chapterToReturn = await this.paprHelper.createOrUpdate()
-		if (!isChapter(chapterToReturn.data)) throw new Error(`Chapter ${this.asin} not found`)
+		if (!isChapter(chapterToReturn.data)) throw new Error(`Data type is not a chapter ${this.asin}`)
 
 		// Geth the chapter with projections
 		const data = await this.getChapterWithProjection()

@@ -1,9 +1,14 @@
 jest.mock('#config/models/Chapter')
 jest.mock('#helpers/database/papr/audible/PaprAudibleChapterHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
+jest.mock('#helpers/shared')
+jest.mock('#config/typing/checkers')
 
+import { ApiChapter } from '#config/typing/books'
+import * as checkers from '#config/typing/checkers'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import {
+	apiChapters,
 	chaptersWithoutProjection,
 	chaptersWithoutProjectionUpdatedNow,
 	parsedChapters
@@ -26,6 +31,9 @@ beforeEach(() => {
 	jest
 		.spyOn(helper.paprHelper, 'findOneWithProjection')
 		.mockResolvedValue({ data: parsedChapters, modified: false })
+	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
+	jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+	jest.spyOn(checkers, 'isChapter').mockReturnValue(true)
 })
 
 describe('ChapterShowHelper should', () => {
@@ -46,13 +54,14 @@ describe('ChapterShowHelper should', () => {
 		await expect(helper.createOrUpdateChapters()).resolves.toBeUndefined()
 	})
 
-	// test('returns original chapter if it was updated recently when trying to update', async () => {
-	// 	jest
-	// 		.spyOn(helper.paprHelper, 'findOneWithProjection')
-	// 		.mockResolvedValue({ data: chaptersWithoutProjectionUpdatedNow, modified: false })
-	// 	helper.originalChapter = chaptersWithoutProjectionUpdatedNow
-	// 	await expect(helper.updateActions()).resolves.toBe(chaptersWithoutProjectionUpdatedNow)
-	// })
+	test('returns original chapter if it was updated recently when trying to update', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'findOneWithProjection')
+			.mockResolvedValue({ data: parsedChapters, modified: false })
+		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(true)
+		helper.originalChapter = chaptersWithoutProjectionUpdatedNow
+		await expect(helper.updateActions()).resolves.toStrictEqual(parsedChapters)
+	})
 
 	test('isUpdatedRecently returns false if no originalChapter is present', () => {
 		expect(helper.isUpdatedRecently()).toBe(false)
@@ -86,6 +95,10 @@ describe('ChapterShowHelper should', () => {
 		jest
 			.spyOn(helper.paprHelper, 'findOneWithProjection')
 			.mockResolvedValue({ data: parsedChapters, modified: false })
+		jest.spyOn(helper.chapterHelper, 'process').mockResolvedValue(parsedChapters)
+		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
+		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+		jest.spyOn(checkers, 'isChapter').mockReturnValue(true)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedChapters)
 	})
 
@@ -102,5 +115,39 @@ describe('ChapterShowHelper should', () => {
 		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
 		jest.spyOn(helper.chapterHelper, 'process').mockResolvedValue(undefined)
 		await expect(helper.handler()).resolves.toBeUndefined()
+	})
+})
+
+describe('ChapterShowHelper should throw error when', () => {
+	test('getChaptersWithProjection is not a chapter type', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'findOneWithProjection')
+			.mockResolvedValue({ data: apiChapters as unknown as ApiChapter, modified: false })
+		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
+		await expect(helper.getChapterWithProjection()).rejects.toThrow(
+			`Data type is not a chapter ${asin}`
+		)
+	})
+	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'findOneWithProjection')
+			.mockResolvedValue({ data: apiChapters as unknown as ApiChapter, modified: false })
+		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(true)
+		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
+		jest
+			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
+			.mockReturnValue(apiChapters as unknown as ApiChapter)
+		await expect(helper.getChapterWithProjection()).rejects.toThrow(
+			`Data type is not a chapter ${asin}`
+		)
+	})
+	test('createOrUpdateChapters is not a chapter type', async () => {
+		jest
+			.spyOn(helper.chapterHelper, 'process')
+			.mockResolvedValue(apiChapters as unknown as ApiChapter)
+		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
+		await expect(helper.createOrUpdateChapters()).rejects.toThrow(
+			`Data type is not a chapter ${asin}`
+		)
 	})
 })
