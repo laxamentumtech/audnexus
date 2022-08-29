@@ -87,14 +87,10 @@ export default class ChapterShowHelper {
 	 */
 	async updateActions(): Promise<ApiChapter | undefined> {
 		// 1. Check if it is updated recently
-		if (this.isUpdatedRecently()) return this.originalChapter as ApiChapter
+		if (this.isUpdatedRecently()) return this.getChapterWithProjection()
 
-		// 2. Get the new chapter and create or update it
-		const data = await this.createOrUpdateChapters()
-		if (!data) return undefined
-
-		// 3. Return the chapter
-		return data
+		// 2. Create and return the chapter
+		return this.createOrUpdateChapters()
 	}
 
 	/**
