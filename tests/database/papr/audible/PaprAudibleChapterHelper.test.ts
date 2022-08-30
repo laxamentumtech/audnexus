@@ -2,6 +2,7 @@ jest.mock('#config/models/Chapter')
 jest.mock('#helpers/shared')
 
 import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
+import * as checkers from '#config/typing/checkers'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import SharedHelper from '#helpers/shared'
@@ -34,6 +35,8 @@ beforeEach(() => {
 	})
 	jest.spyOn(ChapterModel, 'findOne').mockResolvedValue(chaptersWithoutProjection)
 	jest.spyOn(ChapterModel, 'insertOne').mockResolvedValue(chaptersWithoutProjection)
+	jest.spyOn(checkers, 'isChapter').mockReturnValue(true)
+	jest.spyOn(checkers, 'isChapterDocument').mockReturnValue(true)
 })
 
 describe('PaprAudibleChapterHelper should', () => {
@@ -84,6 +87,10 @@ describe('PaprAudibleChapterHelper should', () => {
 	})
 	test('createOrUpdate finds one to update', async () => {
 		const obj = { data: parsedChapters, modified: true }
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValueOnce(parsedChapters as unknown as ChapterDocument)
+		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(chaptersWithoutProjection)
 		jest
 			.spyOn(ChapterModel, 'findOne')
 			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)

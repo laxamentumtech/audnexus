@@ -2,6 +2,7 @@ jest.mock('#config/models/Author')
 jest.mock('#helpers/shared')
 
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
+import * as checkers from '#config/typing/checkers'
 import { RequestGeneric } from '#config/typing/requests'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import SharedHelper from '#helpers/shared'
@@ -38,6 +39,8 @@ beforeEach(() => {
 	})
 	jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(authorWithoutProjection)
 	jest.spyOn(AuthorModel, 'insertOne').mockResolvedValue(authorWithoutProjection)
+	jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(true)
+	jest.spyOn(checkers, 'isAuthorDocument').mockReturnValue(true)
 })
 
 describe('PaprAudibleAuthorHelper should', () => {
@@ -84,6 +87,10 @@ describe('PaprAudibleAuthorHelper should', () => {
 	})
 	test('createOrUpdate finds one to update', async () => {
 		const obj = { data: parsedAuthor, modified: true }
+		jest
+			.spyOn(AuthorModel, 'findOne')
+			.mockResolvedValueOnce(parsedAuthor as unknown as AuthorDocument)
+		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(authorWithoutProjection)
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
 		helper.setAuthorData(parsedAuthor)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
@@ -105,24 +112,35 @@ describe('PaprAudibleAuthorHelper should', () => {
 	test('createOrUpdate difference in genres', async () => {
 		const obj = { data: parsedAuthor, modified: true }
 		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
-		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(authorWithoutGenresWithoutProjection)
+		jest
+			.spyOn(AuthorModel, 'findOne')
+			.mockResolvedValueOnce(parsedAuthor as unknown as AuthorDocument)
+		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(authorWithoutProjection)
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
 		helper.setAuthorData(parsedAuthor)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate genres on old, but not on new', async () => {
-		const obj = { data: parsedAuthor, modified: true }
+		const obj = { data: parsedAuthor, modified: false }
 		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest
+			.spyOn(AuthorModel, 'findOne')
+			.mockResolvedValueOnce(parsedAuthor as unknown as AuthorDocument)
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(authorWithoutProjection)
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
 		helper.setAuthorData(parsedAuthorWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate no genres on new or old', async () => {
-		const obj = { data: parsedAuthor, modified: true }
+		const obj = { data: parsedAuthorWithoutGenres, modified: false }
 		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest
+			.spyOn(AuthorModel, 'findOne')
+			.mockResolvedValueOnce(parsedAuthorWithoutGenres as unknown as AuthorDocument)
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(authorWithoutGenresWithoutProjection)
-		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
+		jest
+			.spyOn(AuthorModel, 'findOne')
+			.mockResolvedValue(parsedAuthorWithoutGenres as unknown as AuthorDocument)
 		helper.setAuthorData(parsedAuthorWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
