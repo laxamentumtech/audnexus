@@ -1,3 +1,5 @@
+import { DeleteResult } from 'mongodb'
+
 import { AuthorDocument } from '#config/models/Author'
 import { BookDocument } from '#config/models/Book'
 import { ChapterDocument } from '#config/models/Chapter'
@@ -31,4 +33,9 @@ export interface PaprChapterReturn extends GenericReturn {
 
 export interface PaprChapterDocumentReturn extends GenericReturn {
 	data: ChapterDocument | null
+}
+
+export interface PaprDeleteReturn {
+	data: DeleteResult
+	modified: boolean
 }

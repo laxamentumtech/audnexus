@@ -1,6 +1,6 @@
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
 import { isAuthorDocument, isAuthorProfile } from '#config/typing/checkers'
-import { PaprAuthorDocumentReturn, PaprAuthorReturn } from '#config/typing/papr'
+import { PaprAuthorDocumentReturn, PaprAuthorReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { AuthorProfile } from '#config/typing/people'
 import { RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
@@ -34,7 +34,7 @@ export default class PaprAudibleAuthorHelper {
 		}
 	}
 
-	async delete() {
+	async delete(): Promise<PaprDeleteReturn> {
 		try {
 			const deletedAuthor = await AuthorModel.deleteOne({ asin: this.asin })
 			return {

@@ -1,7 +1,7 @@
 import BookModel, { BookDocument } from '#config/models/Book'
 import { Book } from '#config/typing/books'
 import { isBook, isBookDocument } from '#config/typing/checkers'
-import { PaprBookDocumentReturn, PaprBookReturn } from '#config/typing/papr'
+import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
 
@@ -34,7 +34,7 @@ export default class PaprAudibleBookHelper {
 		}
 	}
 
-	async delete() {
+	async delete(): Promise<PaprDeleteReturn> {
 		try {
 			const deletedBook = await BookModel.deleteOne({ asin: this.asin })
 			return {

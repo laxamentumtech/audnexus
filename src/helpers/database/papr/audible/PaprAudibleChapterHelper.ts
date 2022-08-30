@@ -1,7 +1,7 @@
 import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
 import { isChapter, isChapterDocument } from '#config/typing/checkers'
-import { PaprChapterDocumentReturn, PaprChapterReturn } from '#config/typing/papr'
+import { PaprChapterDocumentReturn, PaprChapterReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/shared'
 
@@ -34,7 +34,7 @@ export default class PaprAudibleChapterHelper {
 		}
 	}
 
-	async delete() {
+	async delete(): Promise<PaprDeleteReturn> {
 		try {
 			const deletedChapter = await ChapterModel.deleteOne({ asin: this.asin })
 			return {
