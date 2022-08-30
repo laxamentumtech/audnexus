@@ -49,10 +49,10 @@ describe('Book type checks for', () => {
 		expect(isBook(undefined)).toBe(false)
 		expect(isBook('')).toBe(false)
 		expect(isBook({})).toBe(false)
-	}),
-		test('isBookDocument returns true if book is a BookDocument', () => {
-			expect(isBookDocument(bookWithId())).toBe(true)
-		})
+	})
+	test('isBookDocument returns true if book is a BookDocument', () => {
+		expect(isBookDocument(bookWithId())).toBe(true)
+	})
 	test('risBookDocument eturns false if book is not a BookDocument', () => {
 		expect(isBookDocument(parsedBook)).toBe(false)
 	})
