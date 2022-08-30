@@ -117,7 +117,7 @@ export default class PaprAudibleAuthorHelper {
 		const findInDb = await this.findOneWithProjection()
 
 		// Update
-		if (this.options.update === '1' && isAuthorProfile(findInDb.data)) {
+		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
 			// If the objects are the exact same return right away
 			const equality = sharedHelper.checkDataEquality(data, this.authorData)
