@@ -43,13 +43,13 @@ export default class AuthorShowHelper {
 		// 1. Get the author with projections
 		const author = await this.paprHelper.findOneWithProjection()
 		// Make saure we get a authorprofile type back
-		if (!isAuthorProfile(author.data)) throw new Error(`AuthorProfile ${this.asin} not found`)
+		if (!isAuthorProfile(author.data)) throw new Error(`Data type is not an author ${this.asin}`)
 
 		// 2. Sort the object
 		const sort = this.sharedHelper.sortObjectByKeys(author.data)
 		if (isAuthorProfile(sort)) return sort
 
-		throw new Error(`AuthorProfile ${this.asin} not found`)
+		throw new Error(`Data type is not an author ${this.asin}`)
 	}
 
 	/**
@@ -70,7 +70,7 @@ export default class AuthorShowHelper {
 		// Create or update the author
 		const authorToReturn = await this.paprHelper.createOrUpdate()
 		if (!isAuthorProfile(authorToReturn.data))
-			throw new Error(`AuthorProfile ${this.asin} not found`)
+			throw new Error(`Data type is not an author ${this.asin}`)
 
 		// Get the author with projections
 		const data = await this.getAuthorWithProjection()

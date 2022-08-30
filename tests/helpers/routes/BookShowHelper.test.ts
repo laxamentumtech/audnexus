@@ -3,6 +3,7 @@ jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
 jest.mock('#helpers/books/audible/StitchHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
 
+import * as checkers from '#config/typing/checkers'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import {
 	bookWithoutProjection,
@@ -31,6 +32,9 @@ beforeEach(() => {
 		status: 200,
 		ok: true
 	} as Response)
+	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
+	jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+	jest.spyOn(checkers, 'isBook').mockReturnValue(true)
 })
 
 describe('BookShowHelper should', () => {
@@ -46,13 +50,11 @@ describe('BookShowHelper should', () => {
 		await expect(helper.createOrUpdateBook()).resolves.toStrictEqual(parsedBook)
 	})
 
-	// test('returns original book if it was updated recently when trying to update', async () => {
-	// 	jest
-	// 		.spyOn(helper.paprHelper, 'findOneWithProjection')
-	// 		.mockResolvedValue({ data: bookWithoutProjectionUpdatedNow, modified: false })
-	// 	helper.originalBook = bookWithoutProjectionUpdatedNow
-	// 	await expect(helper.updateActions()).resolves.toStrictEqual(bookWithoutProjectionUpdatedNow)
-	// })
+	test('returns original book if it was updated recently when trying to update', async () => {
+		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(true)
+		helper.originalBook = bookWithoutProjectionUpdatedNow
+		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)
+	})
 
 	test('isUpdatedRecently returns false if no originalBook is present', () => {
 		expect(helper.isUpdatedRecently()).toBe(false)
@@ -80,6 +82,10 @@ describe('BookShowHelper should', () => {
 		jest
 			.spyOn(helper.paprHelper, 'findOneWithProjection')
 			.mockResolvedValue({ data: parsedBook, modified: false })
+		jest.spyOn(helper.stitchHelper, 'process').mockResolvedValue(parsedBook)
+		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
+		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+		jest.spyOn(checkers, 'isBook').mockReturnValue(true)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
 	})
 
@@ -90,5 +96,21 @@ describe('BookShowHelper should', () => {
 
 	test('run handler for an existing book in redis', async () => {
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
+	})
+})
+
+describe('ChapterShowHelper should throw error when', () => {
+	test('getChaptersWithProjection is not a book type', async () => {
+		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
+		await expect(helper.getBookWithProjection()).rejects.toThrow(`Data type is not a book ${asin}`)
+	})
+	test('getChaptersWithProjection sorted book is not a book type', async () => {
+		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(true)
+		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
+		await expect(helper.getBookWithProjection()).rejects.toThrow(`Data type is not a book ${asin}`)
+	})
+	test('createOrUpdateChapters is not a book type', async () => {
+		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
+		await expect(helper.createOrUpdateBook()).rejects.toThrow(`Data type is not a book ${asin}`)
 	})
 })
