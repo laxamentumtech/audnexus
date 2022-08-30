@@ -27,10 +27,18 @@ export default class ChapterShowHelper {
 		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin)
 	}
 
+	/**
+	 * Get the ChapterDocument from Papr
+	 */
 	async getChaptersFromPapr(): Promise<ChapterDocument | null> {
 		return (await this.paprHelper.findOne()).data
 	}
 
+	/**
+	 * Get the chapter with projections,
+	 * making sure the data is the correct type.
+	 * Then, sort the data and return it.
+	 */
 	async getChapterWithProjection(): Promise<ApiChapter> {
 		// 1. Get the chapter with projections
 		const chapterToReturn = await this.paprHelper.findOneWithProjection()
@@ -44,10 +52,17 @@ export default class ChapterShowHelper {
 		throw new Error(`Data type is not a chapter ${this.asin}`)
 	}
 
+	/**
+	 * Run the scraper to get the chapter data
+	 */
 	async getNewChapterData() {
 		return this.chapterHelper.process()
 	}
 
+	/**
+	 * Get new chapter data and pass it to the create or update papr function.
+	 * Then, set redis cache and return the chapter.
+	 */
 	async createOrUpdateChapters(): Promise<ApiChapter | undefined> {
 		// Get the new chapter data
 		const getNewChapterData = await this.getNewChapterData()

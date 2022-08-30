@@ -21,6 +21,10 @@ export default class PaprAudibleChapterHelper {
 		this.options = options
 	}
 
+	/**
+	 * Inserts a new chapter into the DB
+	 * using chapterData from the constructor
+	 */
 	async create(): Promise<PaprChapterReturn> {
 		try {
 			await ChapterModel.insertOne(this.chapterData)
@@ -34,6 +38,10 @@ export default class PaprAudibleChapterHelper {
 		}
 	}
 
+	/**
+	 * Deletes a chapter from the DB
+	 * using asin from the constructor
+	 */
 	async delete(): Promise<PaprDeleteReturn> {
 		try {
 			const deletedChapter = await ChapterModel.deleteOne({ asin: this.asin })
@@ -47,6 +55,11 @@ export default class PaprAudibleChapterHelper {
 		}
 	}
 
+	/**
+	 * Finds a chapter in the DB
+	 * using asin from the constructor.
+	 * Returns unaltered Document.
+	 */
 	async findOne(): Promise<PaprChapterDocumentReturn> {
 		const findOneChapter = await ChapterModel.findOne({
 			asin: this.asin
@@ -61,6 +74,11 @@ export default class PaprAudibleChapterHelper {
 		}
 	}
 
+	/**
+	 * Finds a chapter in the DB
+	 * using asin from the constructor.
+	 * Returns altered Document using projection.
+	 */
 	async findOneWithProjection(): Promise<PaprChapterReturn> {
 		const findOneChapter = await ChapterModel.findOne(
 			{
@@ -78,10 +96,22 @@ export default class PaprAudibleChapterHelper {
 		}
 	}
 
+	/**
+	 * Set chapterData in the class object
+	 */
 	setChapterData(chapterData: ApiChapter) {
 		this.chapterData = chapterData
 	}
 
+	/**
+	 * Creates a chapter if it doesn't exist.
+	 *
+	 * Updates a existing chapter if:
+	 *
+	 * 1. `options.update` is 1 and the chapter exists
+	 * 2. The incoming data is different from the existing data
+	 * 3. The new chapters have a valid length
+	 */
 	async createOrUpdate(): Promise<PaprChapterReturn> {
 		const sharedHelper = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
@@ -110,6 +140,12 @@ export default class PaprAudibleChapterHelper {
 		return this.create()
 	}
 
+	/**
+	 * Updates a chapter in the DB
+	 * using asin from the constructor.
+	 * Always sets createdAt and updatedAt fields.
+	 * Returns altered Document using findOneWithProjection.
+	 */
 	async update(): Promise<PaprChapterReturn> {
 		try {
 			const found = await this.findOne()

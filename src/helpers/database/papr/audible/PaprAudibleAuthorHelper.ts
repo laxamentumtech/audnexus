@@ -21,6 +21,10 @@ export default class PaprAudibleAuthorHelper {
 		this.options = options
 	}
 
+	/**
+	 * Inserts a new author into the DB
+	 * using authorData from the constructor
+	 */
 	async create(): Promise<PaprAuthorReturn> {
 		try {
 			await AuthorModel.insertOne(this.authorData)
@@ -34,6 +38,10 @@ export default class PaprAudibleAuthorHelper {
 		}
 	}
 
+	/**
+	 * Deletes an author from the DB
+	 * using asin from the constructor
+	 */
 	async delete(): Promise<PaprDeleteReturn> {
 		try {
 			const deletedAuthor = await AuthorModel.deleteOne({ asin: this.asin })
@@ -47,6 +55,11 @@ export default class PaprAudibleAuthorHelper {
 		}
 	}
 
+	/**
+	 * Finds an author in the DB
+	 * using asin from the constructor.
+	 * Returns unaltered Document.
+	 */
 	async findOne(): Promise<PaprAuthorDocumentReturn> {
 		const findOneAuthor = await AuthorModel.findOne({
 			asin: this.asin
@@ -61,6 +74,11 @@ export default class PaprAudibleAuthorHelper {
 		}
 	}
 
+	/**
+	 * Finds an author in the DB
+	 * using asin from the constructor.
+	 * Returns altered Document using projection.
+	 */
 	async findOneWithProjection(): Promise<PaprAuthorReturn> {
 		const findOneAuthor = await AuthorModel.findOne(
 			{
@@ -78,10 +96,22 @@ export default class PaprAudibleAuthorHelper {
 		}
 	}
 
+	/**
+	 * Set authorData in the class object
+	 */
 	setAuthorData(authorData: AuthorProfile) {
 		this.authorData = authorData
 	}
 
+	/**
+	 * Creates an author if it doesn't exist.
+	 *
+	 * Updates an existing author if:
+	 *
+	 * 1. `options.update` is 1 and the author exists
+	 * 2. The incoming data is different from the existing data
+	 * 3. Genres exist or are different
+	 */
 	async createOrUpdate(): Promise<PaprAuthorReturn> {
 		const sharedHelper = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
@@ -116,6 +146,12 @@ export default class PaprAudibleAuthorHelper {
 		return this.create()
 	}
 
+	/**
+	 * Updates an author in the DB
+	 * using asin from the constructor.
+	 * Always sets createdAt and updatedAt fields.
+	 * Returns altered Document using findOneWithProjection.
+	 */
 	async update(): Promise<PaprAuthorReturn> {
 		try {
 			const found = await this.findOne()

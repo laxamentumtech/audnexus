@@ -32,10 +32,18 @@ export default class BookShowHelper {
 		this.stitchHelper = new StitchHelper(this.asin)
 	}
 
+	/**
+	 * Get the BookDocument from Papr
+	 */
 	async getBookFromPapr(): Promise<BookDocument | null> {
 		return (await this.paprHelper.findOne()).data
 	}
 
+	/**
+	 * Get the book with projections,
+	 * making sure the data is the correct type.
+	 * Then, sort the data and return it.
+	 */
 	async getBookWithProjection(): Promise<Book> {
 		// 1. Get the book with projections
 		const bookToReturn = await this.paprHelper.findOneWithProjection()
@@ -49,10 +57,17 @@ export default class BookShowHelper {
 		throw new Error(`Book ${this.asin} not found`)
 	}
 
+	/**
+	 * Run the scraper to get the book data
+	 */
 	async getNewBookData() {
 		return this.stitchHelper.process()
 	}
 
+	/**
+	 * Get new book data and pass it to the create or update papr function.
+	 * Then, set redis cache and return the book.
+	 */
 	async createOrUpdateBook(): Promise<Book> {
 		// Place the new book data into the papr helper
 		this.paprHelper.setBookData(await this.getNewBookData())

@@ -21,6 +21,10 @@ export default class PaprAudibleBookHelper {
 		this.options = options
 	}
 
+	/**
+	 * Inserts a new book into the DB
+	 * using bookData from the constructor
+	 */
 	async create(): Promise<PaprBookReturn> {
 		try {
 			await BookModel.insertOne(this.bookData)
@@ -34,6 +38,10 @@ export default class PaprAudibleBookHelper {
 		}
 	}
 
+	/**
+	 * Deletes a book from the DB
+	 * using asin from the constructor
+	 */
 	async delete(): Promise<PaprDeleteReturn> {
 		try {
 			const deletedBook = await BookModel.deleteOne({ asin: this.asin })
@@ -47,6 +55,11 @@ export default class PaprAudibleBookHelper {
 		}
 	}
 
+	/**
+	 * Finds a book in the DB
+	 * using asin from the constructor.
+	 * Returns unaltered Document.
+	 */
 	async findOne(): Promise<PaprBookDocumentReturn> {
 		const findOneBook = await BookModel.findOne({
 			asin: this.asin
@@ -61,6 +74,11 @@ export default class PaprAudibleBookHelper {
 		}
 	}
 
+	/**
+	 * Finds a book in the DB
+	 * using asin from the constructor.
+	 * Returns altered Document using projection.
+	 */
 	async findOneWithProjection(): Promise<PaprBookReturn> {
 		const findOneBook = await BookModel.findOne(
 			{
@@ -78,10 +96,22 @@ export default class PaprAudibleBookHelper {
 		}
 	}
 
+	/**
+	 * Set bookData in the class object
+	 */
 	setBookData(bookData: Book) {
 		this.bookData = bookData
 	}
 
+	/**
+	 * Creates a book if it doesn't exist.
+	 *
+	 * Updates a existing book if:
+	 *
+	 * 1. `options.update` is 1 and the book exists
+	 * 2. The incoming data is different from the existing data
+	 * 3. Genres exist or are different
+	 */
 	async createOrUpdate(): Promise<PaprBookReturn> {
 		const sharedHelper = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
@@ -116,6 +146,12 @@ export default class PaprAudibleBookHelper {
 		return this.create()
 	}
 
+	/**
+	 * Updates a book in the DB
+	 * using asin from the constructor.
+	 * Always sets createdAt and updatedAt fields.
+	 * Returns altered Document using findOneWithProjection.
+	 */
 	async update(): Promise<PaprBookReturn> {
 		try {
 			const found = await this.findOne()

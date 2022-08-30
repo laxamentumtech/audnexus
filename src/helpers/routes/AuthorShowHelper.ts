@@ -27,10 +27,18 @@ export default class AuthorShowHelper {
 		this.scrapeHelper = new ScrapeHelper(this.asin)
 	}
 
+	/**
+	 * Get the AuthorDocument from Papr
+	 */
 	async getAuthorFromPapr(): Promise<AuthorDocument | null> {
 		return (await this.paprHelper.findOne()).data
 	}
 
+	/**
+	 * Get the author with projections,
+	 * making sure the data is the correct type.
+	 * Then, sort the data and return it.
+	 */
 	async getAuthorWithProjection(): Promise<AuthorProfile> {
 		// 1. Get the author with projections
 		const author = await this.paprHelper.findOneWithProjection()
@@ -44,10 +52,17 @@ export default class AuthorShowHelper {
 		throw new Error(`AuthorProfile ${this.asin} not found`)
 	}
 
+	/**
+	 * Run the scraper to get the author data
+	 */
 	async getNewAuthorData() {
 		return this.scrapeHelper.process()
 	}
 
+	/**
+	 * Get new author data and pass it to the create or update papr function.
+	 * Then, set redis cache and return the author.
+	 */
 	async createOrUpdateAuthor(): Promise<AuthorProfile> {
 		// Place the new author data into the papr helper
 		this.paprHelper.setAuthorData(await this.getNewAuthorData())

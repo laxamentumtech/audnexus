@@ -146,6 +146,11 @@ class SharedHelper {
 		return params.slice(0, -1).join(',') + '&' + params.slice(-1)
 	}
 
+	/**
+	 * Sort an objects keys alphabetically.
+	 * @param {object} data the object to sort
+	 * @returns the sorted object
+	 */
 	sortObjectByKeys(data: Book | AuthorProfile | ApiChapter) {
 		const obj = data as unknown as { [key: string]: unknown }
 		return Object.keys(data)
