@@ -1,7 +1,7 @@
 jest.mock('#config/models/Chapter')
 jest.mock('#helpers/shared')
 
-import ChapterModel from '#config/models/Chapter'
+import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import SharedHelper from '#helpers/shared'
@@ -42,7 +42,10 @@ describe('PaprAudibleChapterHelper should', () => {
 		expect(helper.options).toBe(options)
 	})
 	test('create', async () => {
-		const obj = { data: chaptersWithoutProjection, modified: true }
+		const obj = { data: parsedChapters, modified: true }
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		helper.setChapterData(parsedChapters)
 
 		await expect(helper.create()).resolves.toEqual(obj)
@@ -64,7 +67,10 @@ describe('PaprAudibleChapterHelper should', () => {
 		expect(ChapterModel.findOne).toHaveBeenCalledWith({ asin: asin })
 	})
 	test('findOneWithProjection', async () => {
-		const obj = { data: chaptersWithoutProjection, modified: false }
+		const obj = { data: parsedChapters, modified: false }
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(ChapterModel.findOne).toHaveBeenCalledWith(
 			{ asin: asin },
@@ -77,12 +83,18 @@ describe('PaprAudibleChapterHelper should', () => {
 		expect(helper.chapterData).toBe(chapterData)
 	})
 	test('createOrUpdate finds one to update', async () => {
-		const obj = { data: chaptersWithoutProjection, modified: true }
+		const obj = { data: parsedChapters, modified: true }
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		helper.setChapterData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate finds no one to update', async () => {
-		const obj = { data: chaptersWithoutProjection, modified: false }
+		const obj = { data: parsedChapters, modified: false }
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		const test = { ...parsedChapters }
 		test.chapters = []
 		helper.setChapterData(test)
@@ -90,25 +102,35 @@ describe('PaprAudibleChapterHelper should', () => {
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate finds identical update data', async () => {
-		const obj = { data: chaptersWithoutProjection, modified: false }
+		const obj = { data: parsedChapters, modified: false }
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(true)
 		helper.setChapterData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate needs to create', async () => {
-		const obj = { data: chaptersWithoutProjection, modified: true }
+		const obj = { data: parsedChapters, modified: true }
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
 		helper.setChapterData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('update', async () => {
-		const obj = { data: chaptersWithoutProjection, modified: true }
+		const obj = { data: parsedChapters, modified: true }
+		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(chaptersWithoutProjection)
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		helper.setChapterData(parsedChapters)
 		await expect(helper.update()).resolves.toEqual(obj)
 		expect(ChapterModel.updateOne).toHaveBeenCalledWith(
 			{ asin: asin },
 			{
-				$set: { ...parsedChapters, createdAt: obj.data?._id.getTimestamp() },
+				$set: { ...parsedChapters, createdAt: chaptersWithoutProjection._id.getTimestamp() },
 				$currentDate: { updatedAt: true }
 			}
 		)
