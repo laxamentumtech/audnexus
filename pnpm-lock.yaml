@@ -19,7 +19,7 @@ specifiers:
   eslint-config-prettier: 8.5.0
   eslint-plugin-jest: 26.8.7
   eslint-plugin-simple-import-sort: 7.0.0
-  fastify: 4.5.2
+  fastify: 4.5.3
   html-to-text: 8.2.1
   isomorphic-fetch: 3.0.0
   jest: 28.1.3
@@ -42,7 +42,7 @@ dependencies:
   '@fastify/redis': 6.0.0
   cheerio: 1.0.0-rc.12
   domhandler: 5.0.3
-  fastify: 4.5.2
+  fastify: 4.5.3
   html-to-text: 8.2.1
   isomorphic-fetch: 3.0.0
   jest-mock-extended: 2.0.7_556mfp7b5dutuj2jcrj5i7zc5q
@@ -2262,8 +2262,8 @@ packages:
     resolution: {integrity: sha512-ZJcXPPcqkj7HFDYqbsCuOIAgIZ/sd2b+OnBxNGyxAcUDUJfIpxp4t23CwxO2E7LZpqUrIliA4TnjxTXG8mLoqw==}
     dev: false
 
-  /fastify/4.5.2:
-    resolution: {integrity: sha512-cDLhc0bh1ftzMoS7ccGGPUW/xTUnk6I51TktQqKFeJnhoAfk56tfn+xDs8JcJYfouPK23Ljx4OpMaEi+kIDwEg==}
+  /fastify/4.5.3:
+    resolution: {integrity: sha512-Q8Zvkmg7GnioMCDX1jT2Q7iRqjywlnDZ1735D2Ipf7ashCM/3/bqPKv2Jo1ZF2iDExct2eP1C/tdhcj0GG/OuQ==}
     dependencies:
       '@fastify/ajv-compiler': 3.1.2
       '@fastify/error': 3.0.0
@@ -2271,7 +2271,7 @@ packages:
       abstract-logging: 2.0.1
       avvio: 8.1.3
       find-my-way: 7.0.0
-      light-my-request: 5.0.0
+      light-my-request: 5.5.1
       pino: 8.0.0
       process-warning: 2.0.0
       proxy-addr: 2.0.7
@@ -3252,12 +3252,11 @@ packages:
       type-check: 0.4.0
     dev: true
 
-  /light-my-request/5.0.0:
-    resolution: {integrity: sha512-0OPHKV+uHgBOnRokzL1LqeMCnSAo5l/rZS7kyB6G1I8qxGCvhXpq1M6WK565Y9A5CSn50l3DVaHnJ5FCdpguZQ==}
+  /light-my-request/5.5.1:
+    resolution: {integrity: sha512-Zd4oZjF7axSyc5rYQsbB0qsgY4LFFviZSbEywxf7Vi5UE3y3c7tYF/GeheQjBNYY+pQ55BF8UGGJTjneoxOS1w==}
     dependencies:
-      ajv: 8.11.0
       cookie: 0.5.0
-      process-warning: 1.0.0
+      process-warning: 2.0.0
       set-cookie-parser: 2.4.8
     dev: false
 
@@ -3805,10 +3804,6 @@ packages:
   /process-nextick-args/2.0.1:
     resolution: {integrity: sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag==}
     dev: true
-
-  /process-warning/1.0.0:
-    resolution: {integrity: sha512-du4wfLyj4yCZq1VupnVSZmRsPJsNuxoDQFdCFHLaYiEbFBD7QE0a+I4D7hOxrVnh78QE/YipFAj9lXHiXocV+Q==}
-    dev: false
 
   /process-warning/2.0.0:
     resolution: {integrity: sha512-+MmoAXoUX+VTHAlwns0h+kFUWFs/3FZy+ZuchkgjyOu3oioLAo2LB5aCfKPh2+P9O18i3m43tUEv3YqttSy0Ww==}
