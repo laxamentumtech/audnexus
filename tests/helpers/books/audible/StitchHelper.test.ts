@@ -1,3 +1,4 @@
+import { Book } from '#config/typing/books'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import {
@@ -118,6 +119,16 @@ describe('StitchHelper should throw error when', () => {
 	test('parsing book data fails', async () => {
 		await expect(helper.parseResponses()).rejects.toThrowError(
 			'Error occured while parsing data from API or scraper: Error: No API response to parse'
+		)
+	})
+
+	test('includeGenres returns a non-book type', async () => {
+		jest
+			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
+			.mockImplementation(() => Promise.resolve(genresObject) as unknown as Book)
+		helper.scraperParsed = genresObject
+		await expect(helper.includeGenres()).rejects.toThrowError(
+			`Error occured while sorting book json: ${asin}`
 		)
 	})
 })
