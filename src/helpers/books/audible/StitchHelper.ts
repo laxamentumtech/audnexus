@@ -36,7 +36,7 @@ class StitchHelper {
 		try {
 			this.apiResponse = await apiResponse
 			// Skip scraping if API response has category ladders
-			if (this.apiResponse.product.category_ladders?.length) {
+			if (this.apiResponse.product.category_ladders.length) {
 				return
 			}
 			this.scraperResponse = await scraperResponse
