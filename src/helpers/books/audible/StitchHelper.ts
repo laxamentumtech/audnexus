@@ -79,7 +79,7 @@ class StitchHelper {
 				...this.scraperParsed
 			})
 			if (isBook(sortedObject)) return sortedObject
-			throw new Error(`Error occured while sorting book json: ${sortedObject}`)
+			throw new Error(`Error occured while sorting book json: ${this.asin}`)
 		}
 		return this.apiParsed as Book
 	}
