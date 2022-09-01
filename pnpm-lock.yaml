@@ -28,7 +28,7 @@ specifiers:
   lodash: 4.17.21
   module-alias: 2.2.2
   moment: 2.29.4
-  mongodb: 4.9.0
+  mongodb: 4.9.1
   nodemon: 2.0.19
   papr: 7.3.0
   prettier: 2.7.1
@@ -50,8 +50,8 @@ dependencies:
   lodash: 4.17.21
   module-alias: 2.2.2
   moment: 2.29.4
-  mongodb: 4.9.0
-  papr: 7.3.0_mongodb@4.9.0
+  mongodb: 4.9.1
+  papr: 7.3.0_mongodb@4.9.1
   typescript: 4.8.2
 
 devDependencies:
@@ -3450,8 +3450,8 @@ packages:
       whatwg-url: 11.0.0
     dev: false
 
-  /mongodb/4.9.0:
-    resolution: {integrity: sha512-tJJEFJz7OQTQPZeVHZJIeSOjMRqc5eSyXTt86vSQENEErpkiG7279tM/GT5AVZ7TgXNh9HQxoa2ZkbrANz5GQw==}
+  /mongodb/4.9.1:
+    resolution: {integrity: sha512-ZhgI/qBf84fD7sI4waZBoLBNJYPQN5IOC++SBCiPiyhzpNKOxN/fi0tBHvH2dEC42HXtNEbFB0zmNz4+oVtorQ==}
     engines: {node: '>=12.9.0'}
     dependencies:
       bson: 4.7.0
@@ -3650,13 +3650,13 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  /papr/7.3.0_mongodb@4.9.0:
+  /papr/7.3.0_mongodb@4.9.1:
     resolution: {integrity: sha512-bNCmi+6/jDn6/pA94y5mwRhdDcGajLUgSrJmQ1tqN0L7ZXN745f7GW46aKsAxRMuqm76YM5jn56VGDAk9rSrMw==}
     engines: {node: ^14.0.0 || >=15.0.0}
     peerDependencies:
       mongodb: '>=4.9.0'
     dependencies:
-      mongodb: 4.9.0
+      mongodb: 4.9.1
     dev: false
 
   /parent-module/1.0.1:
