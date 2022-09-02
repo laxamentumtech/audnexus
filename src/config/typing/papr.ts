@@ -39,3 +39,5 @@ export interface PaprDeleteReturn {
 	data: DeleteResult
 	modified: boolean
 }
+
+export type PaprDocument = AuthorDocument | BookDocument | ChapterDocument

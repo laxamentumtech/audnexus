@@ -1,7 +1,7 @@
 import type { FastifyRedis } from '@fastify/redis'
 
-import { ApiChapter, Book } from '#config/typing/books'
-import { AuthorProfile } from '#config/typing/people'
+import { Book } from '#config/typing/books'
+import { ParsedObject } from '#config/typing/unions'
 
 export default class RedisHelper {
 	instance: FastifyRedis | null
@@ -26,7 +26,7 @@ export default class RedisHelper {
 		}
 	}
 
-	async findOne(): Promise<AuthorProfile | Book | ApiChapter | undefined> {
+	async findOne(): Promise<ParsedObject | undefined> {
 		try {
 			const found = await this.instance?.get(this.key)
 			if (!found) return undefined
@@ -42,7 +42,7 @@ export default class RedisHelper {
 		}
 	}
 
-	async findOrCreate(data: AuthorProfile | Book | ApiChapter | undefined) {
+	async findOrCreate(data: ParsedObject | undefined) {
 		const found = await this.findOne()
 		// Return if found
 		if (found) return found
@@ -53,7 +53,7 @@ export default class RedisHelper {
 		}
 	}
 
-	async setOne(data: AuthorProfile | Book | ApiChapter) {
+	async setOne(data: ParsedObject) {
 		try {
 			const set = await this.instance?.set(this.key, JSON.stringify(data, null, 2))
 			return set

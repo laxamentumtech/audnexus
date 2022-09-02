@@ -2,11 +2,9 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
-import { AuthorDocument } from '#config/models/Author'
-import { BookDocument } from '#config/models/Book'
-import { ChapterDocument } from '#config/models/Chapter'
-import { ApiChapter, ApiGenre, Book } from '#config/typing/books'
-import { AuthorProfile } from '#config/typing/people'
+import { ApiGenre } from '#config/typing/books'
+import { PaprDocument } from '#config/typing/papr'
+import { ParsedObject } from '#config/typing/unions'
 
 class SharedHelper {
 	asin10Regex = /(?=.\d)[A-Z\d]{10}/
@@ -41,14 +39,11 @@ class SharedHelper {
 
 	/**
 	 * Checks whether the input data are identical
-	 * @param {AuthorProfile | Book | ApiChapter} original
-	 * @param {AuthorProfile | Book | ApiChapter} updated
+	 * @param {ParsedObject} original
+	 * @param {ParsedObject} updated
 	 * @returns {boolean}
 	 */
-	checkDataEquality(
-		original: AuthorProfile | Book | ApiChapter,
-		updated: AuthorProfile | Book | ApiChapter
-	): boolean {
+	checkDataEquality(original: ParsedObject, updated: ParsedObject): boolean {
 		if (lodash.isEqual(original, updated)) {
 			return true
 		}
@@ -60,7 +55,7 @@ class SharedHelper {
 	 * @param obj object to check
 	 * @returns {boolean} true if updated in last 24 hours, false otherwise
 	 */
-	checkIfRecentlyUpdated(obj: AuthorDocument | BookDocument | ChapterDocument): boolean {
+	checkIfRecentlyUpdated(obj: PaprDocument): boolean {
 		const now = new Date()
 		const lastUpdated = new Date(obj.updatedAt)
 		const diff = now.getTime() - lastUpdated.getTime()
@@ -151,11 +146,11 @@ class SharedHelper {
 	 * @param {object} data the object to sort
 	 * @returns the sorted object
 	 */
-	sortObjectByKeys(data: Book | AuthorProfile | ApiChapter) {
+	sortObjectByKeys(data: ParsedObject) {
 		const obj = data as unknown as { [key: string]: unknown }
 		return Object.keys(data)
 			.sort()
-			.reduce((r, k) => Object.assign(r, { [k]: obj[k] }), {}) as Book | AuthorProfile | ApiChapter
+			.reduce((r, k) => Object.assign(r, { [k]: obj[k] }), {}) as ParsedObject
 	}
 }
 

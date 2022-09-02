@@ -128,6 +128,6 @@ export default class AuthorShowHelper {
 		}
 
 		// If the author is not present
-		return await this.createOrUpdateAuthor()
+		return this.createOrUpdateAuthor()
 	}
 }

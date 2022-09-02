@@ -71,7 +71,7 @@ describe('ApiHelper edge cases should', () => {
 	test('parse a book with no narrators', async () => {
 		helper = new ApiHelper('B079LRSMNN')
 		helper.inputJson = apiResponse.product
-		helper.inputJson!.narrators = undefined
+		helper.inputJson.narrators = undefined
 		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
 	})
 

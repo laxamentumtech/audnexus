@@ -141,6 +141,6 @@ export default class BookShowHelper {
 		}
 
 		// If the book is not present
-		return await this.createOrUpdateBook()
+		return this.createOrUpdateBook()
 	}
 }
