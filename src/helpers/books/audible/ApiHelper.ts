@@ -41,8 +41,6 @@ class ApiHelper {
 			const value = this.inputJson[key as keyof typeof this.inputJson]
 			// Make sure key is not falsy
 			if (!value) return false
-			// Make sure key is not an empty object
-			if (typeof value === 'object' && Object.entries(value).length === 0) return false
 
 			return true
 		}
@@ -98,7 +96,6 @@ class ApiHelper {
 
 	getCategories(): Category[] | undefined {
 		if (!this.inputJson) throw new Error(`No input data`)
-		if (!this.inputJson.category_ladders) return undefined
 		// Flatten category ladders to a single array of categories
 		const categories = this.inputJson.category_ladders.map((category) => category.ladder).flat()
 		// Remove duplicates from categories array
@@ -107,9 +104,9 @@ class ApiHelper {
 
 	getHighResImage() {
 		if (!this.inputJson) throw new Error(`No input data`)
-		return this.inputJson.product_images?.[1024]
+		return this.inputJson.product_images[1024]
 			? this.inputJson.product_images[1024].replace('_SL1024_.', '')
-			: this.inputJson.product_images?.[500]?.replace('_SL500_.', '') || ''
+			: this.inputJson.product_images[500]?.replace('_SL500_.', '') || ''
 	}
 
 	getReleaseDate() {
