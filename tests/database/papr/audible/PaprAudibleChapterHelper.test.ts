@@ -69,11 +69,28 @@ describe('PaprAudibleChapterHelper should', () => {
 		await expect(helper.findOne()).resolves.toEqual(obj)
 		expect(ChapterModel.findOne).toHaveBeenCalledWith({ asin: asin })
 	})
+	test('findOne returns null if it is not a ChapterDocument', async () => {
+		const obj = { data: null, modified: false }
+		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
+		jest.spyOn(checkers, 'isChapterDocument').mockReturnValueOnce(false)
+		await expect(helper.findOne()).resolves.toEqual(obj)
+		expect(ChapterModel.findOne).toHaveBeenCalledWith({ asin: asin })
+	})
 	test('findOneWithProjection', async () => {
 		const obj = { data: parsedChapters, modified: false }
 		jest
 			.spyOn(ChapterModel, 'findOne')
 			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
+		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
+		expect(ChapterModel.findOne).toHaveBeenCalledWith(
+			{ asin: asin },
+			{ projection: projectionWithoutDbFields }
+		)
+	})
+	test('findOneWithProjection returns null if it is not a ApiChapter', async () => {
+		const obj = { data: null, modified: false }
+		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
+		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(ChapterModel.findOne).toHaveBeenCalledWith(
 			{ asin: asin },

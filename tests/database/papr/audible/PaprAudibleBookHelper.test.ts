@@ -72,9 +72,26 @@ describe('PaprAudibleBookHelper should', () => {
 		await expect(helper.findOne()).resolves.toEqual(obj)
 		expect(BookModel.findOne).toHaveBeenCalledWith({ asin: asin })
 	})
+	test('findOne returns null if it is not a BookDocument', async () => {
+		const obj = { data: null, modified: false }
+		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(null)
+		jest.spyOn(checkers, 'isBookDocument').mockReturnValueOnce(false)
+		await expect(helper.findOne()).resolves.toEqual(obj)
+		expect(BookModel.findOne).toHaveBeenCalledWith({ asin: asin })
+	})
 	test('findOneWithProjection', async () => {
 		const obj = { data: parsedBook, modified: false }
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
+		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
+		expect(BookModel.findOne).toHaveBeenCalledWith(
+			{ asin: asin },
+			{ projection: projectionWithoutDbFields }
+		)
+	})
+	test('findOneWithProjection returns null if it is not a Book', async () => {
+		const obj = { data: null, modified: false }
+		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(null)
+		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(BookModel.findOne).toHaveBeenCalledWith(
 			{ asin: asin },
