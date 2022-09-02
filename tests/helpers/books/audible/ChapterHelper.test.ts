@@ -1,4 +1,4 @@
-import { Chapter } from '#config/typing/audible'
+import { AudibleChapter } from '#config/typing/audible'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
 
@@ -91,7 +91,7 @@ describe('ChapterHelper should throw error when', () => {
 					}
 				},
 				response_groups: ['chapter_info']
-			} as Chapter)
+			} as AudibleChapter)
 		).rejects.toThrowError(`Required key: chapters, does not exist on: ${asin}`)
 	})
 })

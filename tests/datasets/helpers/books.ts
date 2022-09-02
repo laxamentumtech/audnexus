@@ -1,10 +1,11 @@
-import { ObjectId } from 'mongodb'
+import { ObjectId, WithId } from 'mongodb'
 
 import { BookDocument } from '#config/models/Book'
 import { AudibleProduct } from '#config/typing/audible'
 import { ApiBook, Book } from '#config/typing/books'
 
 // Reusable
+const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
 const asin = 'B079LRSMNN'
 const authors = [
 	{
@@ -45,11 +46,16 @@ const genres = [
 		name: 'Science Fiction & Fantasy',
 		type: 'genre'
 	},
+	{
+		asin: '18580628011',
+		name: 'Science Fiction',
+		type: 'tag'
+	},
 	{ asin: '18580641011', name: 'Military', type: 'tag' }
 ]
 
 export const genresObject = {
-	genres: genres
+	genres: [genres[0], genres[2]]
 }
 
 export const genresWithoutAsin = {
@@ -220,6 +226,25 @@ export const apiResponse: AudibleProduct = {
 				name: 'aax'
 			}
 		],
+		category_ladders: [
+			{
+				ladder: [
+					{
+						id: '18580606011',
+						name: 'Science Fiction & Fantasy'
+					},
+					{
+						id: '18580628011',
+						name: 'Science Fiction'
+					},
+					{
+						id: '18580641011',
+						name: 'Military'
+					}
+				],
+				root: 'Genres'
+			}
+		],
 		content_delivery_type: 'MultiPartBook',
 		content_type: 'Product',
 		format_type: 'unabridged',
@@ -313,6 +338,7 @@ export const parsedBook: ApiBook = {
 	authors,
 	description,
 	formatType,
+	genres,
 	image,
 	language,
 	narrators,
@@ -326,21 +352,13 @@ export const parsedBook: ApiBook = {
 }
 
 export const parsedBookWithGenres: Book = {
-	asin,
-	authors,
-	description,
-	formatType,
-	image,
-	language,
-	narrators,
-	publisherName,
-	rating,
-	releaseDate,
-	runtimeLengthMin,
-	seriesPrimary,
-	summary,
-	title,
+	...parsedBook,
 	genres
+}
+
+export const parsedBookWithoutNarrators: Book = {
+	...parsedBook,
+	narrators: []
 }
 
 export const changedParsedBook: ApiBook = {
@@ -360,28 +378,31 @@ export const changedParsedBook: ApiBook = {
 	title
 }
 
+const bookWithIdInternal: WithId<Book> = {
+	_id,
+	...parsedBook
+}
+
+export const bookWithId = (): WithId<Book> => {
+	return {
+		_id,
+		...parsedBook
+	}
+}
+
 export const bookWithoutProjection: BookDocument = {
-	_id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f'),
-	asin,
-	authors,
-	description,
-	formatType,
-	image,
-	language,
-	narrators,
-	publisherName,
-	rating,
-	releaseDate,
-	runtimeLengthMin,
-	seriesPrimary,
-	summary,
-	title,
+	...bookWithIdInternal,
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
 	updatedAt: new Date('2018-02-20T00:00:00.000Z')
 }
 
 export const bookWithoutProjectionUpdatedNow: BookDocument = {
-	_id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f'),
+	...bookWithIdInternal,
+	createdAt: new Date('2018-02-20T00:00:00.000Z'),
+	updatedAt: new Date(Date.now())
+}
+
+export const parsedBookWithoutGenres: ApiBook = {
 	asin,
 	authors,
 	description,
@@ -395,7 +416,16 @@ export const bookWithoutProjectionUpdatedNow: BookDocument = {
 	runtimeLengthMin,
 	seriesPrimary,
 	summary,
-	title,
+	title
+}
+
+const bookWithoutGenresWithIdInternal: WithId<Book> = {
+	_id,
+	...parsedBookWithoutGenres
+}
+
+export const bookWithoutGenresWithoutProjection: BookDocument = {
+	...bookWithoutGenresWithIdInternal,
 	createdAt: new Date('2018-02-20T00:00:00.000Z'),
-	updatedAt: new Date(Date.now())
+	updatedAt: new Date('2018-02-20T00:00:00.000Z')
 }

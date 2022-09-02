@@ -1,17 +1,20 @@
 /* eslint-disable camelcase */
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 
+export interface Category {
+	id: string
+	name: string
+}
+export interface Categories {
+	ladder: Category[]
+	root: string
+}
+
 interface Codecs {
 	enhanced_codec: string
 	format: string
 	is_kindle_enhanced: boolean
 	name: string
-}
-
-export interface Genre {
-	asin: string
-	name: string
-	type: string
 }
 
 interface RatingItems {
@@ -43,8 +46,9 @@ export interface AudibleSeries {
 export interface AudibleProduct {
 	product: {
 		asin: string
-		authors?: AuthorOnBook[]
+		authors: AuthorOnBook[]
 		available_codecs: Codecs[]
+		category_ladders: Categories[]
 		content_delivery_type: string
 		content_type: string
 		editorial_reviews?: string[]
@@ -57,7 +61,7 @@ export interface AudibleProduct {
 		language: string
 		merchandising_summary: string
 		narrators?: NarratorOnBook[]
-		product_images: { [key: string]: string }
+		product_images?: { [key: string]: string }
 		program_participation?: string
 		publication_name?: string
 		publisher_name: string
@@ -71,7 +75,7 @@ export interface AudibleProduct {
 		social_media_images: { [key: string]: string }
 		subtitle?: string
 		thesaurus_subject_keywords: string[]
-		title?: string
+		title: string
 	}
 	response_groups: string[]
 }
@@ -83,7 +87,7 @@ export interface SingleChapter {
 	title: string
 }
 
-export interface Chapter {
+export interface AudibleChapter {
 	content_metadata: {
 		chapter_info: {
 			brandIntroDurationMs: number

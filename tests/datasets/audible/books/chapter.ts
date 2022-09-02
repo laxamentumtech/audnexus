@@ -1,7 +1,7 @@
-import { Chapter } from '#config/typing/audible'
+import { AudibleChapter } from '#config/typing/audible'
 import { ApiChapter } from '#config/typing/books'
 
-export function setupParsedChapter(object: Chapter, asin: string): ApiChapter {
+export function setupParsedChapter(object: AudibleChapter, asin: string): ApiChapter {
 	const info = object.content_metadata.chapter_info
 	return {
 		asin: asin,
@@ -21,7 +21,7 @@ export function setupParsedChapter(object: Chapter, asin: string): ApiChapter {
 	}
 }
 
-export const chapterResponseB017V4IM1G: Chapter = {
+export const chapterResponseB017V4IM1G: AudibleChapter = {
 	content_metadata: {
 		chapter_info: {
 			brandIntroDurationMs: 2043,
@@ -156,7 +156,7 @@ export const chapterResponseB017V4IM1G: Chapter = {
 	response_groups: ['always-returned', 'chapter_info']
 }
 
-export const chapterResponseB08C6YJ1LS: Chapter = {
+export const chapterResponseB08C6YJ1LS: AudibleChapter = {
 	content_metadata: {
 		chapter_info: {
 			brandIntroDurationMs: 1927,

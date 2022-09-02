@@ -20,7 +20,7 @@ async function _show(fastify: FastifyInstance) {
 				Author.find(
 					{ $text: { $search: name } },
 					{
-						projection: { _id: false, asin: true, name: true },
+						projection: { _id: 0, asin: 1, name: 1 },
 						limit: 25,
 						sort: { score: { $meta: 'textScore' } }
 					}

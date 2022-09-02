@@ -19,6 +19,7 @@ describe('Audible HTML', () => {
 			helper = new ScrapeHelper(asin)
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
+			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
 		})
 
@@ -34,6 +35,7 @@ describe('Audible HTML', () => {
 			helper = new ScrapeHelper(asin)
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
+			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
 		})
 
@@ -50,6 +52,7 @@ describe('Audible HTML', () => {
 			helper = new ScrapeHelper(asin)
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
+			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
 		})
 

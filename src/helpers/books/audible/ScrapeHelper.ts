@@ -63,7 +63,7 @@ class ScrapeHelper {
 			genres: [...genres, ...tags]
 		}
 		// Return the object if there's at least one genre
-		if (genresObject?.genres?.length) return genresObject
+		if (genresObject.genres.length) return genresObject
 
 		return undefined
 	}

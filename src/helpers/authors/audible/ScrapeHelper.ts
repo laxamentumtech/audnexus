@@ -1,5 +1,4 @@
 import * as cheerio from 'cheerio'
-import { isText } from 'domhandler'
 import { htmlToText } from 'html-to-text'
 
 import { AuthorProfile } from '#config/typing/people'
@@ -52,11 +51,9 @@ class ScrapeHelper {
 
 	getName(dom: cheerio.CheerioAPI): string {
 		try {
-			const name = dom('h1.bc-text-bold')[0].children[0]
-			if (isText(name)) {
-				return name.data.trim()
-			}
-			return ''
+			const html = dom('h1.bc-text-bold')[0].children[0]
+			const name = html as unknown as Text
+			return name.data.trim()
 		} catch (error) {
 			throw new Error(`No author name found for ASIN: ${this.asin}`)
 		}

@@ -1,7 +1,7 @@
 import type { FastifyRedis } from '@fastify/redis'
 
-import { ApiChapter, Book } from '#config/typing/books'
-import { AuthorProfile } from '#config/typing/people'
+import { Book } from '#config/typing/books'
+import { ParsedObject } from '#config/typing/unions'
 
 export default class RedisHelper {
 	instance: FastifyRedis | null
@@ -11,10 +11,14 @@ export default class RedisHelper {
 		this.key = `${key}-${id}`
 	}
 
+	convertStringToDate(parsed: Book) {
+		parsed.releaseDate = new Date(parsed.releaseDate)
+		return parsed
+	}
+
 	async deleteOne() {
 		try {
 			const deleted = await this.instance?.del(this.key)
-			if (!deleted) return undefined
 			return deleted
 		} catch (err) {
 			console.error(err)
@@ -22,10 +26,15 @@ export default class RedisHelper {
 		}
 	}
 
-	async findOne(): Promise<AuthorProfile | Book | ApiChapter | undefined> {
+	async findOne(): Promise<ParsedObject | undefined> {
 		try {
 			const found = await this.instance?.get(this.key)
 			if (!found) return undefined
+			const parsed = JSON.parse(found)
+			// Convert the release date to a date object if it's a book
+			if (parsed.releaseDate) {
+				return this.convertStringToDate(parsed)
+			}
 			return JSON.parse(found)
 		} catch (err) {
 			console.error(err)
@@ -33,7 +42,7 @@ export default class RedisHelper {
 		}
 	}
 
-	async findOrCreate(data: AuthorProfile | Book | ApiChapter | undefined) {
+	async findOrCreate(data: ParsedObject | undefined) {
 		const found = await this.findOne()
 		// Return if found
 		if (found) return found
@@ -44,10 +53,9 @@ export default class RedisHelper {
 		}
 	}
 
-	async setOne(data: AuthorProfile | Book | ApiChapter) {
+	async setOne(data: ParsedObject) {
 		try {
 			const set = await this.instance?.set(this.key, JSON.stringify(data, null, 2))
-			if (!set) return undefined
 			return set
 		} catch (err) {
 			console.error(err)

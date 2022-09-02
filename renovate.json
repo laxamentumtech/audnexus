@@ -4,12 +4,27 @@
 	"commitMessageAction": "Upgrade",
 	"commitMessagePrefix": "chore:",
 	"commitMessageTopic": "{{depName}}",
-	"extends": ["config:base"],
+	"extends": ["config:base", ":automergeEslintWeekly"],
 	"labels": ["dependencies"],
+	"lockFileMaintenance": {
+		"enabled": true,
+		"automerge": true,
+		"automergeType": "pr",
+		"platformAutomerge": true
+	},
 	"packageRules": [
 		{
-			"matchUpdateTypes": ["digest", "patch", "pin"],
-			"automerge": true
+			"description": "Automatically merge minor and patch-level updates",
+			"matchUpdateTypes": ["minor", "digest", "patch", "pin"],
+			"automerge": true,
+			"automergeType": "branch"
+		},
+		{
+			"matchPackagePatterns": ["eslint"],
+			"groupName": "eslint",
+			"schedule": ["before 2am on monday"],
+			"automerge": true,
+			"automergeType": "branch"
 		}
 	],
 	"rebaseWhen": "auto",

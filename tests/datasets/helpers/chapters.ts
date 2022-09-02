@@ -1,7 +1,12 @@
-import { Chapter } from '#config/typing/audible'
+import { ObjectId, WithId } from 'mongodb'
+
+import { ChapterDocument } from '#config/models/Chapter'
+import { AudibleChapter } from '#config/typing/audible'
 import { ApiChapter } from '#config/typing/books'
 
-export const apiChapters: Chapter = {
+const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
+
+export const apiChapters: AudibleChapter = {
 	content_metadata: {
 		chapter_info: {
 			brandIntroDurationMs: 2043,
@@ -769,4 +774,28 @@ export const parsedChapters: ApiChapter = {
 	isAccurate: true,
 	runtimeLengthMs: 62548009,
 	runtimeLengthSec: 62548
+}
+
+const chaptersWithIdInternal: WithId<ApiChapter> = {
+	_id,
+	...parsedChapters
+}
+
+export const chaptersWithId = (): WithId<ApiChapter> => {
+	return {
+		_id,
+		...parsedChapters
+	}
+}
+
+export const chaptersWithoutProjection: ChapterDocument = {
+	...chaptersWithIdInternal,
+	createdAt: new Date('2019-03-18T00:00:00.000Z'),
+	updatedAt: new Date('2019-03-18T00:00:00.000Z')
+}
+
+export const chaptersWithoutProjectionUpdatedNow: ChapterDocument = {
+	...chaptersWithoutProjection,
+	createdAt: new Date('2018-02-20T00:00:00.000Z'),
+	updatedAt: new Date()
 }

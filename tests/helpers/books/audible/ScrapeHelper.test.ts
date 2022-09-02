@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as cheerio from 'cheerio'
 
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
@@ -27,7 +28,7 @@ describe('ScrapeHelper should', () => {
 
 	test('fetch book', async () => {
 		const book = await helper.fetchBook()
-		expect(book.html()).toEqual(cheerio.load(htmlResponse).html())
+		expect(book!.html()).toEqual(cheerio.load(htmlResponse).html())
 	})
 
 	test.todo('log error message if no book found')
@@ -51,5 +52,7 @@ describe('ScrapeHelper should', () => {
 		await expect(helper.parseResponse(undefined)).resolves.toBeUndefined()
 	})
 
-	test.todo("return undefined if genres don't have asin")
+	test('return undefined if no genres', async () => {
+		await expect(helper.parseResponse(cheerio.load(''))).resolves.toBeUndefined()
+	})
 })

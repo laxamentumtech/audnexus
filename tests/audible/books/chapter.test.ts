@@ -1,4 +1,4 @@
-import { Chapter } from '#config/typing/audible'
+import { AudibleChapter } from '#config/typing/audible'
 import { ApiChapter } from '#config/typing/books'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import {
@@ -12,11 +12,12 @@ let helper: ChapterHelper
 // Run through known book data to test responses
 describe('Audible API', () => {
 	describe('When fetching Project Hail Mary chapters', () => {
-		let response: Chapter
+		let response: AudibleChapter
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
 			helper = new ChapterHelper(asin)
 			const fetched = await helper.fetchChapter()
+			if (!fetched) throw new Error('Parsed is undefined')
 			response = fetched
 		})
 
@@ -33,6 +34,7 @@ describe('Audible API', () => {
 			helper = new ChapterHelper(asin)
 			const fetched = await helper.fetchChapter()
 			const parsed = await helper.parseResponse(fetched)
+			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
 		})
 

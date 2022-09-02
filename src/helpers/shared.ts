@@ -2,12 +2,9 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
-import { AuthorDocument } from '#config/models/Author'
-import { BookDocument } from '#config/models/Book'
-import { ChapterDocument } from '#config/models/Chapter'
-import { Genre } from '#config/typing/audible'
-import { ApiChapter, Book } from '#config/typing/books'
-import { AuthorProfile } from '#config/typing/people'
+import { ApiGenre } from '#config/typing/books'
+import { PaprDocument } from '#config/typing/papr'
+import { ParsedObject } from '#config/typing/unions'
 
 class SharedHelper {
 	asin10Regex = /(?=.\d)[A-Z\d]{10}/
@@ -42,14 +39,11 @@ class SharedHelper {
 
 	/**
 	 * Checks whether the input data are identical
-	 * @param {AuthorProfile | Book | ApiChapter} original
-	 * @param {AuthorProfile | Book | ApiChapter} updated
+	 * @param {ParsedObject} original
+	 * @param {ParsedObject} updated
 	 * @returns {boolean}
 	 */
-	checkDataEquality(
-		original: AuthorProfile | Book | ApiChapter,
-		updated: AuthorProfile | Book | ApiChapter
-	): boolean {
+	checkDataEquality(original: ParsedObject, updated: ParsedObject): boolean {
 		if (lodash.isEqual(original, updated)) {
 			return true
 		}
@@ -61,7 +55,7 @@ class SharedHelper {
 	 * @param obj object to check
 	 * @returns {boolean} true if updated in last 24 hours, false otherwise
 	 */
-	checkIfRecentlyUpdated(obj: AuthorDocument | BookDocument | ChapterDocument): boolean {
+	checkIfRecentlyUpdated(obj: PaprDocument): boolean {
 		const now = new Date()
 		const lastUpdated = new Date(obj.updatedAt)
 		const diff = now.getTime() - lastUpdated.getTime()
@@ -77,11 +71,15 @@ class SharedHelper {
 	 * @param {string} asin the ASIN of the book or author
 	 * @param {NodeListOf<Element>} genres selected source from categoriesLabel
 	 * @param {string} type the type to assign to the returned objects
-	 * @returns {Genre[]}
+	 * @returns {ApiGenre[]}
 	 */
-	collectGenres(asin: string, genres: cheerio.Cheerio<cheerio.Element>[], type: string): Genre[] {
+	collectGenres(
+		asin: string,
+		genres: cheerio.Cheerio<cheerio.Element>[],
+		type: string
+	): ApiGenre[] {
 		// Check and label each genre
-		const genreArr: Genre[] = genres
+		const genreArr: ApiGenre[] = genres
 			.map((genre, index) => {
 				// Only proceed if there's an ID to use
 				const href = genre.attr('href')
@@ -91,7 +89,7 @@ class SharedHelper {
 					if (genre.text() && catAsin) {
 						// Cleanup the name of the genre
 						const cleanedName = htmlToText(genre.text(), { wordwrap: false })
-						const thisGenre: Genre = {
+						const thisGenre: ApiGenre = {
 							asin: catAsin,
 							name: cleanedName,
 							type: type
@@ -102,7 +100,7 @@ class SharedHelper {
 					console.log(`Genre ${index} asin not available on: ${asin}`)
 				}
 			})
-			.filter((genre) => genre) as Genre[] // Filter out undefined values
+			.filter((genre) => genre) as ApiGenre[] // Filter out undefined values
 
 		// Only return map if there's at least one genre
 		if (genreArr.length > 0) {
@@ -110,7 +108,7 @@ class SharedHelper {
 		}
 
 		// If there's no genre, return an empty array
-		return [] as Genre[]
+		return [] as ApiGenre[]
 	}
 
 	/**
@@ -132,6 +130,27 @@ class SharedHelper {
 	 */
 	getGenreAsinFromUrl(url: string): string | undefined {
 		return url.match(this.asin11Regex)?.[0]
+	}
+
+	/**
+	 * Combine the given array of string parameters into a single string.
+	 * @param {string[]} params the array of string parameters to combine
+	 * @returns {string} the combined string
+	 */
+	getParamString(params: string[]): string {
+		return params.slice(0, -1).join(',') + '&' + params.slice(-1)
+	}
+
+	/**
+	 * Sort an objects keys alphabetically.
+	 * @param {object} data the object to sort
+	 * @returns the sorted object
+	 */
+	sortObjectByKeys(data: ParsedObject) {
+		const obj = data as unknown as { [key: string]: unknown }
+		return Object.keys(data)
+			.sort()
+			.reduce((r, k) => Object.assign(r, { [k]: obj[k] }), {}) as ParsedObject
 	}
 }
 

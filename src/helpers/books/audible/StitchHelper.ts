@@ -2,14 +2,17 @@ import type { CheerioAPI } from 'cheerio'
 
 import { AudibleProduct } from '#config/typing/audible'
 import { ApiBook, Book, HtmlBook } from '#config/typing/books'
+import { isBook } from '#config/typing/checkers'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
+import SharedHelper from '#helpers/shared'
 
 class StitchHelper {
 	apiHelper: ApiHelper
-	apiParsed: ApiBook | undefined
-	apiResponse: AudibleProduct | undefined
+	apiParsed!: ApiBook
+	apiResponse!: AudibleProduct
 	asin: string
+	sharedHelper: SharedHelper
 	scrapeHelper: ScrapeHelper
 	scraperParsed: HtmlBook | undefined
 	scraperResponse: CheerioAPI | undefined
@@ -18,6 +21,7 @@ class StitchHelper {
 		this.asin = asin
 		// Set up helpers
 		this.apiHelper = new ApiHelper(asin)
+		this.sharedHelper = new SharedHelper()
 		this.scrapeHelper = new ScrapeHelper(asin)
 	}
 
@@ -31,6 +35,10 @@ class StitchHelper {
 		// Run fetch tasks in parallel
 		try {
 			this.apiResponse = await apiResponse
+			// Skip scraping if API response has category ladders
+			if (this.apiResponse.product.category_ladders.length) {
+				return
+			}
 			this.scraperResponse = await scraperResponse
 		} catch (err) {
 			throw new Error(`Error occured while fetching data from API or scraper: ${err}`)
@@ -42,13 +50,20 @@ class StitchHelper {
 	 */
 	async parseResponses() {
 		const apiParsed = this.apiHelper.parseResponse(this.apiResponse)
-		const scraperParsed = this.scrapeHelper.parseResponse(this.scraperResponse)
+		// Skip scraper parsing if API response has category ladders
+		let scraperParsed: Promise<HtmlBook | undefined> | undefined = undefined
+		if (this.scraperResponse) {
+			console.debug(
+				`API response has no category ladders, parsing scraper response for: ${this.asin}`
+			)
+			scraperParsed = this.scrapeHelper.parseResponse(this.scraperResponse)
+		}
 
 		// Run parse tasks in parallel
 		try {
 			this.apiParsed = await apiParsed
 			// Also create the partial json for genre use
-			this.scraperParsed = await scraperParsed
+			this.scraperParsed = scraperParsed ? await scraperParsed : undefined
 		} catch (err) {
 			throw new Error(`Error occured while parsing data from API or scraper: ${err}`)
 		}
@@ -59,7 +74,12 @@ class StitchHelper {
 	 */
 	async includeGenres(): Promise<Book> {
 		if (this.scraperParsed?.genres?.length) {
-			return { ...this.apiParsed, ...this.scraperParsed } as Book
+			const sortedObject = this.sharedHelper.sortObjectByKeys({
+				...this.apiParsed,
+				...this.scraperParsed
+			})
+			if (isBook(sortedObject)) return sortedObject
+			throw new Error(`Error occured while sorting book json: ${this.asin}`)
 		}
 		return this.apiParsed as Book
 	}
@@ -73,9 +93,8 @@ class StitchHelper {
 		await this.fetchSources()
 		await this.parseResponses()
 
-		const stitchedGenres = await this.includeGenres()
-		const bookJson: Book = stitchedGenres
-		return bookJson
+		// Return object with genres attached if it exists
+		return this.includeGenres()
 	}
 }
 

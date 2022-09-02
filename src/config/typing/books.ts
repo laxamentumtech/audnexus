@@ -1,4 +1,3 @@
-import { Genre } from '#config/typing/audible'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 
 export interface ApiSingleChapter {
@@ -18,6 +17,12 @@ export interface ApiChapter {
 	runtimeLengthSec: number
 }
 
+export interface ApiGenre {
+	asin: string
+	name: string
+	type: string
+}
+
 export interface Series {
 	asin?: string
 	name: string
@@ -29,7 +34,8 @@ interface CoreBook {
 	authors: AuthorOnBook[]
 	description: string
 	formatType: string
-	image: string
+	genres?: ApiGenre[]
+	image?: string
 	language: string
 	narrators?: NarratorOnBook[]
 	publisherName: string
@@ -44,7 +50,6 @@ interface CoreBook {
 // Final format of data stored
 export interface Book extends CoreBook {
 	chapterInfo?: ApiChapter
-	genres?: Genre[]
 	seriesPrimary?: Series
 	seriesSecondary?: Series
 }
@@ -57,5 +62,5 @@ export interface ApiBook extends CoreBook {
 
 // What we expect to keep from Audible's HTML pages
 export interface HtmlBook {
-	genres?: Genre[]
+	genres: ApiGenre[]
 }

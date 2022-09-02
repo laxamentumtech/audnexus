@@ -4,10 +4,12 @@ import { fastify } from 'fastify'
 
 import 'module-alias/register'
 
-import { connect, disconnect } from '#config/papr'
+import { Context, createDefaultContext } from '#config/context'
+import { initialize } from '#config/papr'
 import deleteAuthor from '#config/routes/authors/delete'
 import searchAuthor from '#config/routes/authors/search/show'
 import showAuthor from '#config/routes/authors/show'
+import deleteChapter from '#config/routes/books/chapters/delete'
 import showChapter from '#config/routes/books/chapters/show'
 import deleteBook from '#config/routes/books/delete'
 import showBook from '#config/routes/books/show'
@@ -21,20 +23,28 @@ const server = fastify({
 	}
 })
 
-// Register book routes
-server.register(showBook)
-server.register(showChapter)
-server.register(deleteBook)
-// Register author routes
-server.register(showAuthor)
-server.register(deleteAuthor)
-server.register(searchAuthor)
+// Register routes
+server
+	.register(showBook)
+	.register(deleteBook)
+	.register(showChapter)
+	.register(deleteChapter)
+	.register(showAuthor)
+	.register(deleteAuthor)
+	.register(searchAuthor)
 
 // Register redis if it's present
 if (process.env.REDIS_URL) {
 	console.log('Using Redis')
 	server.register(redis, { url: process.env.REDIS_URL })
 }
+
+// Setup DB context
+if (!process.env.MONGODB_URI) {
+	throw new Error('No MongoDB URI specified')
+}
+const ctx: Context = createDefaultContext(process.env.MONGODB_URI)
+
 // CORS
 server.register(cors, {
 	origin: true
@@ -45,7 +55,14 @@ server.listen({ port: port, host: host }, async (err, address) => {
 		console.error(err)
 		process.exit(1)
 	}
-	await connect()
+	initialize({ client: await ctx.client.connect() })
+		.then(() => {
+			console.log(`Connected to DB`)
+		})
+		.catch((err) => {
+			console.error(err)
+			process.exit(1)
+		})
 	console.log(`Server listening at ${address}`)
 })
 
@@ -54,10 +71,16 @@ const startGracefulShutdown = () => {
 	server.close(() => {
 		console.log('HTTP server closed')
 		//   Close Papr/mongo connection
-		disconnect().then(() => {
-			console.log('DB connection closed')
-			process.exit(0)
-		})
+		ctx.client
+			.close()
+			.then(() => {
+				console.log('DB connection closed')
+				process.exit(0)
+			})
+			.catch((err) => {
+				console.error(err)
+				process.exit(1)
+			})
 	})
 }
 
