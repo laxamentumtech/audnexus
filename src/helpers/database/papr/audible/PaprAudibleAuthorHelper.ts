@@ -155,10 +155,13 @@ export default class PaprAudibleAuthorHelper {
 	async update(): Promise<PaprAuthorReturn> {
 		try {
 			const found = await this.findOne()
+			if (!found.data) {
+				throw new Error(`Author ${this.asin} not found in DB for update`)
+			}
 			await AuthorModel.updateOne(
 				{ asin: this.asin },
 				{
-					$set: { ...this.authorData, createdAt: found.data?._id.getTimestamp() },
+					$set: { ...this.authorData, createdAt: found.data._id.getTimestamp() },
 					$currentDate: { updatedAt: true }
 				}
 			)

@@ -158,6 +158,13 @@ describe('PaprAudibleChapterHelper should catch error when', () => {
 			`An error occurred while deleting chapter ${asin} in the DB`
 		)
 	})
+	test('update did not find existing', async () => {
+		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
+		helper.setChapterData(parsedChapters)
+		await expect(helper.update()).rejects.toThrowError(
+			`An error occurred while updating chapter ${asin} in the DB`
+		)
+	})
 	test('update', async () => {
 		jest.spyOn(ChapterModel, 'updateOne').mockRejectedValue(new Error('error'))
 		helper.setChapterData(parsedChapters)
