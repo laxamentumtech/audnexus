@@ -61,7 +61,7 @@ export interface AudibleProduct {
 		language: string
 		merchandising_summary: string
 		narrators?: NarratorOnBook[]
-		product_images: { [key: string]: string }
+		product_images?: { [key: string]: string }
 		program_participation?: string
 		publication_name?: string
 		publisher_name: string

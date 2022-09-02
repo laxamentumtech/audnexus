@@ -76,7 +76,7 @@ describe('ApiHelper edge cases should', () => {
 	})
 
 	test('get backup lower res image', () => {
-		helper.inputJson!.product_images[1024] = ''
+		helper.inputJson!.product_images![1024] = ''
 		expect(helper.getHighResImage()).toBe('https://m.media-amazon.com/images/I/51OIn2FgdtL.jpg')
 	})
 
