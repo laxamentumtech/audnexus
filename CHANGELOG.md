@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.7.0](https://github.com/djdembeck/audnexus/compare/v0.6.0...v0.7.0) (2022-09-02)
+
+
+### Features
+
+* :sparkles: use Dependency Injection for MongoClient ([1430a0f](https://github.com/djdembeck/audnexus/commit/1430a0f0a32023cdf16ee7bfea573d42aacb7811))
+* **helper:** :label: add type predicates for `Book` and `BookDocument` ([487315a](https://github.com/djdembeck/audnexus/commit/487315ae3fd254da713c43e281d048347dd5cd39))
+* **helper:** :label: type predicates for `AuthorProfile` and `Chapter` ([5386967](https://github.com/djdembeck/audnexus/commit/5386967b63344f19d539d4aacf23412ae59338a8))
+* **helper:** :sparkles: add `BookDeleteHelper` for delete route ([bc9daa3](https://github.com/djdembeck/audnexus/commit/bc9daa3aa91e30351a260be3c76faa76fb5fc126))
+* **helper:** :sparkles: add `set` functions to paprAudible helpers ([f220383](https://github.com/djdembeck/audnexus/commit/f22038323305d2a265cbc336fc0336ec65b2a00d))
+* **helper:** :sparkles: add function `getParamString` to make param construction easier to read and add to ([302de43](https://github.com/djdembeck/audnexus/commit/302de4343aac58514ee4acfdd0f05e0258b0d6c8))
+* **helper:** :sparkles: always assign date to book update ([abde31d](https://github.com/djdembeck/audnexus/commit/abde31d20cc8efa2662bf418fcf1783cfbcf1e61))
+* **helper:** :sparkles: always sort objects when retruning to user ([7f9674c](https://github.com/djdembeck/audnexus/commit/7f9674ca24e81d9571d48d7e3edc276d90fd9b1d))
+* **helper:** :sparkles: use Audible API for genres ([0ef54b0](https://github.com/djdembeck/audnexus/commit/0ef54b044c7b10ff3a6abc206cc45f10b5f4665a))
+* **route:** :sparkles: `ChapterShowHelper` ([bc4021e](https://github.com/djdembeck/audnexus/commit/bc4021ec4acb39556ab78db3db30f90529e23343))
+* **route:** :sparkles: add `delete` route for chapters ([cb86799](https://github.com/djdembeck/audnexus/commit/cb86799f22f877635c2f98f9dfce43655adcda29))
+* **route:** :sparkles: author `ShowHelper` and `DeleteHelper` ([f1b72e9](https://github.com/djdembeck/audnexus/commit/f1b72e93c142abc40551a39b30375476f88d3b3e))
+* **route:** :sparkles: create `BookShowHelper` for all `books/show.ts` functionality ([4486643](https://github.com/djdembeck/audnexus/commit/448664353e859a787c8279b66250636e4a177521))
+
+
+### Bug Fixes
+
+* **helper:** :bug: improve key check so empty objects don't pass ([0bcea5f](https://github.com/djdembeck/audnexus/commit/0bcea5fb048d5f83225621ce3963d7cfbe0582fb))
+* **types:** :bug: `product_images` can be missing/undefined from Audible responses, so update the type ([078cbd3](https://github.com/djdembeck/audnexus/commit/078cbd34090f972ab7db70d18e761722cab31f96))
+
 ## [0.6.0](https://github.com/djdembeck/audnexus/compare/v0.5.1...v0.6.0) (2022-08-05)
 
 
