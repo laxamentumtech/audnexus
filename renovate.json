@@ -4,7 +4,7 @@
 	"commitMessageAction": "Upgrade",
 	"commitMessagePrefix": "chore:",
 	"commitMessageTopic": "{{depName}}",
-	"extends": ["config:base", ":automergeEslintWeekly"],
+	"extends": ["config:base"],
 	"labels": ["dependencies"],
 	"lockFileMaintenance": {
 		"enabled": true,
