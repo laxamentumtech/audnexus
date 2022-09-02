@@ -75,6 +75,11 @@ describe('ApiHelper edge cases should', () => {
 		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
 	})
 
+	test('pass key check with a number value of 0', () => {
+		helper.inputJson!.runtime_length_min = 0
+		expect(helper.hasRequiredKeys()).toBe(true)
+	})
+
 	test('get backup lower res image', () => {
 		helper.inputJson!.product_images![1024] = ''
 		expect(helper.getHighResImage()).toBe('https://m.media-amazon.com/images/I/51OIn2FgdtL.jpg')
@@ -82,12 +87,12 @@ describe('ApiHelper edge cases should', () => {
 
 	test('handle no image', () => {
 		helper.inputJson!.product_images = {}
-		expect(helper.getHighResImage()).toBe('')
+		expect(helper.getHighResImage()).toBeUndefined()
 	})
 
 	test('handle no product_images object', () => {
 		helper.inputJson!.product_images = undefined
-		expect(helper.getHighResImage()).toBe('')
+		expect(helper.getHighResImage()).toBeUndefined()
 	})
 
 	test('use issue_date if release_date is not available', () => {

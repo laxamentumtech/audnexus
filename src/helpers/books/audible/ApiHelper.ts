@@ -39,6 +39,8 @@ class ApiHelper {
 			if (!Object.hasOwnProperty.call(this.inputJson, key)) return false
 			// Get value of key
 			const value = this.inputJson[key as keyof typeof this.inputJson]
+			// Allow 0 as a valid value
+			if (typeof value === 'number' && value === 0) return true
 			// Make sure key is not falsy
 			if (!value) return false
 
@@ -104,10 +106,10 @@ class ApiHelper {
 
 	getHighResImage() {
 		if (!this.inputJson) throw new Error(`No input data`)
-		if (!this.inputJson.product_images) return ''
+		if (!this.inputJson.product_images) return undefined
 		return this.inputJson.product_images[1024]
 			? this.inputJson.product_images[1024].replace('_SL1024_.', '')
-			: this.inputJson.product_images[500]?.replace('_SL500_.', '') || ''
+			: this.inputJson.product_images[500]?.replace('_SL500_.', '') || undefined
 	}
 
 	getReleaseDate() {

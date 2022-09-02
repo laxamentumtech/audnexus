@@ -35,7 +35,7 @@ interface CoreBook {
 	description: string
 	formatType: string
 	genres?: ApiGenre[]
-	image: string
+	image?: string
 	language: string
 	narrators?: NarratorOnBook[]
 	publisherName: string
