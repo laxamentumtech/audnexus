@@ -186,6 +186,14 @@ paths:
           explode: false
           schema:
             type: string
+        - schema:
+            type: number
+            enum:
+              - 0
+              - 1
+          in: query
+          name: update
+          description: Have server check for updated data upstream
       responses:
         '200':
           description: OK
