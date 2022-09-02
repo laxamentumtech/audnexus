@@ -2,7 +2,7 @@
 import { AudibleProduct } from '#config/typing/audible'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import { B07BS4RKGH, B017V4IM1G } from '#tests/datasets/audible/books/api'
-import { apiResponse, parsedBook } from '#tests/datasets/helpers/books'
+import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
 
 let asin: string
 let helper: ApiHelper
@@ -68,6 +68,13 @@ describe('ApiHelper should', () => {
 })
 
 describe('ApiHelper edge cases should', () => {
+	test('parse a book with no narrators', async () => {
+		helper = new ApiHelper('B079LRSMNN')
+		helper.inputJson = apiResponse.product
+		helper.inputJson!.narrators = undefined
+		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
+	})
+
 	test('get backup lower res image', () => {
 		helper.inputJson!.product_images[1024] = ''
 		expect(helper.getHighResImage()).toBe('https://m.media-amazon.com/images/I/51OIn2FgdtL.jpg')

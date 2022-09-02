@@ -356,6 +356,11 @@ export const parsedBookWithGenres: Book = {
 	genres
 }
 
+export const parsedBookWithoutNarrators: Book = {
+	...parsedBook,
+	narrators: []
+}
+
 export const changedParsedBook: ApiBook = {
 	asin,
 	authors,
