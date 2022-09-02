@@ -36,7 +36,7 @@
 
 ## 🧐 About <a name = "about"></a>
 
-*Nexus - noun: a connection or series of connections linking two or more things.*
+_Nexus - noun: a connection or series of connections linking two or more things._
 
 Looking around for audiobook metadata, we realized there's no solid (or open) single source of truth. Further, some solutions had community curated data, only to close their API. As such, this project has been created to enable development to include multiple sources of audiobook content in one response.
 
@@ -72,6 +72,7 @@ http://localhost:3000/books/${ASIN}
 ## 🔧 Running the tests <a name = "tests"></a>
 
 Tests for this project use the Jest framework. Tests can be done locally in a dev environment:
+
 - `pnpm test`
 
 After the tests have run, you may also browse the test coverage. This is generated in `coverage/lcov-report/index.html` under the project directory.
@@ -80,6 +81,14 @@ After the tests have run, you may also browse the test coverage. This is generat
 
 API usage documentation can be read here: https://audnex.us/
 
+Pre-rendered HTML documentation is also included in docs/index.html.
+
+HTML can be re-generated from the spec, using:
+
+```
+redoc-cli build docs/spec/audnexus.yaml -o docs/index.html
+```
+
 ## 🚀 Deployment <a name = "deployment"></a>
 
 Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, and use it to start the stack. Using something like Portainer for a Swarm GUI will make this much easier.
@@ -87,6 +96,7 @@ Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, 
 The stack defaults to 15 replicas for the node-server container. Customize this as needed.
 
 Environment variables to add:
+
 - `NODE_ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
 - `NODE_MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
 - `NODE_PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
@@ -101,9 +111,11 @@ https://${TRAEFIK_DOMAIN}/books/${ASIN}
 ```
 
 Be sure to setup an author name index for author search in mongodb. This looks something like:
+
 ```
 db.authors.createIndex( { name: "text" } )
 ```
+
 From inside the mongodb container terminal
 
 ## ⛏️ Built Using <a name = "built_using"></a>
