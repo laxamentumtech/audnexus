@@ -85,6 +85,11 @@ describe('ApiHelper edge cases should', () => {
 		expect(helper.getHighResImage()).toBe('')
 	})
 
+	test('handle no product_images object', () => {
+		helper.inputJson!.product_images = undefined
+		expect(helper.getHighResImage()).toBe('')
+	})
+
 	test('use issue_date if release_date is not available', () => {
 		helper.inputJson!.issue_date = helper.inputJson!.release_date
 		helper.inputJson!.release_date = ''
