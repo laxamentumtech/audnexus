@@ -32,22 +32,44 @@ class ApiHelper {
 		this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
 	}
 
-	hasRequiredKeys() {
+	/**
+	 * Checks if all required keys are present
+	 * These are the keys that are required to build the final data object
+	 * @returns validity as boolean, and error message as string
+	 */
+	hasRequiredKeys(): { isValid: boolean; message: string } {
+		let message = ''
 		const isValidKey = (key: string): boolean => {
 			if (!this.inputJson) throw new Error(`No input data`)
+
 			// Make sure key exists in inputJson
-			if (!Object.hasOwnProperty.call(this.inputJson, key)) return false
+			const keyExists = Object.hasOwnProperty.call(this.inputJson, key)
+
 			// Get value of key
 			const value = this.inputJson[key as keyof typeof this.inputJson]
-			// Allow 0 as a valid value
-			if (typeof value === 'number' && value === 0) return true
-			// Make sure key is not falsy
-			if (!value) return false
 
-			return true
+			// Allow 0 as a valid value
+			const isNumberAndZero = typeof value === 'number' && value === 0
+
+			// Break on non valid value
+			let isValidKey = true
+			switch (isValidKey) {
+				case !keyExists:
+					isValidKey = false
+					message = `Required key '${key}' does not exist in Audible API response for ASIN ${this.asin}`
+					break
+				case !value && !isNumberAndZero:
+					isValidKey = false
+					message = `Required key '${key}' does not have a valid value in Audible API response for ASIN ${this.asin}`
+					break
+				default:
+					isValidKey = true
+			}
+
+			return isValidKey
 		}
 
-		// Create new const for presence check within forloop
+		// Create new const for presence check
 		const requiredKeys = [
 			'asin',
 			'authors',
@@ -60,8 +82,12 @@ class ApiHelper {
 			'runtime_length_min',
 			'title'
 		]
+		const isValid = requiredKeys.every((key) => isValidKey(key))
 
-		return requiredKeys.every((key) => isValidKey(key))
+		return {
+			isValid,
+			message
+		}
 	}
 
 	/**
@@ -299,8 +325,9 @@ class ApiHelper {
 		this.inputJson = jsonRes.product
 
 		// Check all required keys present
-		if (!this.hasRequiredKeys()) {
-			throw new Error(`The API does not have all the keys required for parsing on ${this.asin}`)
+		const requiredKeys = this.hasRequiredKeys()
+		if (!requiredKeys.isValid) {
+			throw new Error(`${requiredKeys.message}`)
 		}
 
 		return this.getFinalData()

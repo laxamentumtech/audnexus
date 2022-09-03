@@ -77,7 +77,7 @@ describe('ApiHelper edge cases should', () => {
 
 	test('pass key check with a number value of 0', () => {
 		helper.inputJson!.runtime_length_min = 0
-		expect(helper.hasRequiredKeys()).toBe(true)
+		expect(helper.hasRequiredKeys().isValid).toBe(true)
 	})
 
 	test('get backup lower res image', () => {
@@ -139,7 +139,7 @@ describe('ApiHelper edge cases should', () => {
 
 	test('not pass key check when on falsy value', () => {
 		helper.inputJson!.asin = ''
-		expect(helper.hasRequiredKeys()).toBe(false)
+		expect(helper.hasRequiredKeys().isValid).toBe(false)
 	})
 })
 
@@ -188,7 +188,7 @@ describe('ApiHelper should throw error when', () => {
 		// Setup variable without title
 		const data = B07BS4RKGH as unknown as AudibleProduct
 		await expect(helper.parseResponse(data)).rejects.toThrowError(
-			`The API does not have all the keys required for parsing on ${asin}`
+			`Required key 'title' does not exist in Audible API response for ASIN ${asin}`
 		)
 	})
 })

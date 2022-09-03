@@ -141,7 +141,7 @@ describe('StitchHelper should throw error when', () => {
 		jest.spyOn(helper, 'fetchApiBook').mockImplementation()
 		helper.apiHelper.inputJson = { asin: 'B07JZQZQZQ' } as unknown as AudibleProduct['product']
 		await expect(helper.process()).rejects.toThrowError(
-			`Required keys not found in API response: ${asin}`
+			`Required key 'authors' does not exist in Audible API response for ASIN ${asin}`
 		)
 	})
 

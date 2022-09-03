@@ -100,8 +100,9 @@ class StitchHelper {
 		// First, we want to see if we can get all the data from the API
 		await this.fetchApiBook()
 		// Make sure we have a valid response
-		if (!this.apiHelper.hasRequiredKeys()) {
-			throw new Error(`Required keys not found in API response: ${this.asin}`)
+		const requiredKeys = this.apiHelper.hasRequiredKeys()
+		if (!requiredKeys.isValid) {
+			throw new Error(`${requiredKeys.message}`)
 		}
 		await this.parseApiResponse()
 
