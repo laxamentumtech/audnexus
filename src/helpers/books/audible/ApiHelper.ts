@@ -64,12 +64,21 @@ class ApiHelper {
 		return requiredKeys.every((key) => isValidKey(key))
 	}
 
+	/**
+	 * Check if the given category is a parent category.
+	 * Determined by checking against list of parent categories.
+	 * @param {Category} category category to check
+	 */
 	isParentCategory(category: Category): boolean {
 		return parentCategories.some((parentCategory) => {
 			return parentCategory.id === category.id && parentCategory.name === category.name
 		})
 	}
 
+	/**
+	 * Convert category object to ApiGenre object
+	 * @param {Category} category category to convert
+	 */
 	categoryToApiGenre(category: Category, type: string): ApiGenre {
 		return {
 			asin: category.id,
@@ -78,6 +87,11 @@ class ApiHelper {
 		}
 	}
 
+	/**
+	 * Find the parent categories (genres) of the given category array
+	 * @param {Category[]} categories array of categories to check
+	 * @returns {ApiGenre[]} array of parent categories converted to ApiGenre
+	 */
 	getGenres(categories: Category[]): ApiGenre[] {
 		// Genres ARE parent categories
 		const filtered = categories.filter(this.isParentCategory)
@@ -87,6 +101,11 @@ class ApiHelper {
 		})
 	}
 
+	/**
+	 * Find the sub categories (tags) of the given category array
+	 * @param {Category[]} categories array of categories to check
+	 * @returns {ApiGenre[]} array of sub categories converted to ApiGenre
+	 */
 	getTags(categories: Category[]): ApiGenre[] {
 		// Tags are NOT parent categories
 		const filtered = categories.filter((e) => !this.isParentCategory(e))
@@ -96,6 +115,9 @@ class ApiHelper {
 		})
 	}
 
+	/**
+	 * Transform the raw category data into a usable format
+	 */
 	getCategories(): Category[] | undefined {
 		if (!this.inputJson) throw new Error(`No input data`)
 		// Flatten category ladders to a single array of categories
@@ -104,6 +126,10 @@ class ApiHelper {
 		return [...new Map(categories.map((item) => [item.name, item])).values()]
 	}
 
+	/**
+	 * Get the highest resolution image url available,
+	 * or return undefined if no image is available
+	 */
 	getHighResImage() {
 		if (!this.inputJson) throw new Error(`No input data`)
 		if (!this.inputJson.product_images) return undefined
@@ -112,6 +138,15 @@ class ApiHelper {
 			: this.inputJson.product_images[500]?.replace('_SL500_.', '') || undefined
 	}
 
+	/**
+	 * Determine the date to use for the release date.
+	 * Either:
+	 *
+	 * 1. The release date of the product
+	 * 2. The issue date of the product
+	 *
+	 * Error on a date in the future.
+	 */
 	getReleaseDate() {
 		if (!this.inputJson) throw new Error(`No input data`)
 		const releaseDate = this.inputJson.release_date
@@ -123,6 +158,9 @@ class ApiHelper {
 		return releaseDate
 	}
 
+	/**
+	 * Transform series data into a usable format
+	 */
 	getSeries(series: AudibleSeries) {
 		if (!series.title) return undefined
 		const seriesJson: Series = {
@@ -137,6 +175,10 @@ class ApiHelper {
 		return seriesJson
 	}
 
+	/**
+	 * Determine if the series array contains a series, which matches publication_name.
+	 * This typically means the series in publication_name is the default series.
+	 */
 	getSeriesPrimary(allSeries: AudibleSeries[] | undefined) {
 		let seriesPrimary = {} as Series
 		allSeries?.forEach((series: AudibleSeries) => {
@@ -151,6 +193,10 @@ class ApiHelper {
 		return seriesPrimary
 	}
 
+	/**
+	 * Determine which series is NOT the primary series.
+	 * This is done by comparing the series name to the publication_name.
+	 */
 	getSeriesSecondary(allSeries: AudibleSeries[] | undefined) {
 		let seriesSecondary = {} as Series
 		allSeries?.forEach((series: AudibleSeries) => {
@@ -169,6 +215,10 @@ class ApiHelper {
 		return seriesSecondary
 	}
 
+	/**
+	 * Compile the final data object.
+	 * This is run after all other data has been parsed.
+	 */
 	getFinalData(): ApiBook {
 		if (!this.inputJson) throw new Error(`No input data`)
 		// Get flattened categories
