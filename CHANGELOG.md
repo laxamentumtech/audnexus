@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.7.1](https://github.com/djdembeck/audnexus/compare/v0.7.0...v0.7.1) (2022-09-03)
+
+
+### Bug Fixes
+
+* **helper:** :ambulance: refactor `StitchHelper` to check required keys BEFORE trying to parse ([351751e](https://github.com/djdembeck/audnexus/commit/351751eacc6c3efbe1bdc45543b0eb26e446b83e))
+
 ## [0.7.0](https://github.com/djdembeck/audnexus/compare/v0.6.0...v0.7.0) (2022-09-02)
 
 
