@@ -26,46 +26,52 @@ class StitchHelper {
 	}
 
 	/**
-	 * Runs fetchBook functions from api and scrape helpers
+	 * Fetch book from API and assign to class
 	 */
-	async fetchSources() {
+	async fetchApiBook() {
 		const apiResponse = this.apiHelper.fetchBook()
-		const scraperResponse = this.scrapeHelper.fetchBook()
-
-		// Run fetch tasks in parallel
 		try {
 			this.apiResponse = await apiResponse
-			// Skip scraping if API response has category ladders
-			if (this.apiResponse.product.category_ladders.length) {
-				return
-			}
-			this.scraperResponse = await scraperResponse
+			// Set the helper data
+			this.apiHelper.inputJson = this.apiResponse.product
 		} catch (err) {
-			throw new Error(`Error occured while fetching data from API or scraper: ${err}`)
+			throw new Error(`Error occured while fetching data from API: ${err}`)
 		}
 	}
 
 	/**
-	 * Runs parseResponse functions from api and scrape helpers
+	 * Fetch book from scraper and assign to class
 	 */
-	async parseResponses() {
-		const apiParsed = this.apiHelper.parseResponse(this.apiResponse)
-		// Skip scraper parsing if API response has category ladders
-		let scraperParsed: Promise<HtmlBook | undefined> | undefined = undefined
-		if (this.scraperResponse) {
-			console.debug(
-				`API response has no category ladders, parsing scraper response for: ${this.asin}`
-			)
-			scraperParsed = this.scrapeHelper.parseResponse(this.scraperResponse)
+	async fetchScraperBook() {
+		const scraperResponse = this.scrapeHelper.fetchBook()
+		try {
+			this.scraperResponse = await scraperResponse
+		} catch (err) {
+			throw new Error(`Error occured while fetching data from scraper: ${err}`)
 		}
+	}
 
-		// Run parse tasks in parallel
+	/**
+	 * Parse API response and assign to class
+	 */
+	async parseApiResponse() {
+		const apiParsed = this.apiHelper.parseResponse(this.apiResponse)
 		try {
 			this.apiParsed = await apiParsed
-			// Also create the partial json for genre use
-			this.scraperParsed = scraperParsed ? await scraperParsed : undefined
 		} catch (err) {
-			throw new Error(`Error occured while parsing data from API or scraper: ${err}`)
+			throw new Error(`Error occured while parsing data from API: ${err}`)
+		}
+	}
+
+	/**
+	 * Parse scraper response and assign to class
+	 */
+	async parseScraperResponse() {
+		const scraperParsed = this.scrapeHelper.parseResponse(this.scraperResponse)
+		try {
+			this.scraperParsed = await scraperParsed
+		} catch (err) {
+			throw new Error(`Error occured while parsing data from scraper: ${err}`)
 		}
 	}
 
@@ -85,13 +91,28 @@ class StitchHelper {
 	}
 
 	/**
-	 * Call functions in the class to parse final book JSON
+	 * Call fetch and parse functions only as necessary
+	 * (prefer API over scraper).
+	 * Returns the result of includeGenres()
 	 * @returns {Promise<Book>}
 	 */
 	async process(): Promise<Book> {
-		// Wait in order
-		await this.fetchSources()
-		await this.parseResponses()
+		// First, we want to see if we can get all the data from the API
+		await this.fetchApiBook()
+		// Make sure we have a valid response
+		if (!this.apiHelper.hasRequiredKeys()) {
+			throw new Error(`Required keys not found in API response: ${this.asin}`)
+		}
+		await this.parseApiResponse()
+
+		// Check if we need to scrape for genres
+		if (!this.apiResponse.product.category_ladders.length) {
+			console.debug(
+				`API response has no category ladders, parsing scraper response for: ${this.asin}`
+			)
+			await this.fetchScraperBook()
+			await this.parseScraperResponse()
+		}
 
 		// Return object with genres attached if it exists
 		return this.includeGenres()
