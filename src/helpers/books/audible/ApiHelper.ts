@@ -58,7 +58,6 @@ class ApiHelper {
 			let isValidKey = true
 			switch (isValidKey) {
 				case isPodcast:
-					isValidKey = true
 					break
 				case !keyExists:
 					isValidKey = false
@@ -68,8 +67,6 @@ class ApiHelper {
 					isValidKey = false
 					message = `Required key '${key}' does not have a valid value in Audible API response for ASIN ${this.asin}`
 					break
-				default:
-					isValidKey = true
 			}
 
 			return isValidKey
