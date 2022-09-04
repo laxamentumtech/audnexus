@@ -48,12 +48,18 @@ class ApiHelper {
 			// Get value of key
 			const value = this.inputJson[key as keyof typeof this.inputJson]
 
+			// Check if this looks like a podcast
+			const isPodcast = key === 'runtime_length_min' && this.inputJson.content_type === 'Podcast'
+
 			// Allow 0 as a valid value
 			const isNumberAndZero = typeof value === 'number' && value === 0
 
 			// Break on non valid value
 			let isValidKey = true
 			switch (isValidKey) {
+				case isPodcast:
+					isValidKey = true
+					break
 				case !keyExists:
 					isValidKey = false
 					message = `Required key '${key}' does not exist in Audible API response for ASIN ${this.asin}`
@@ -282,7 +288,7 @@ class ApiHelper {
 				rating: this.inputJson.rating.overall_distribution.display_average_rating.toString()
 			}),
 			releaseDate: this.getReleaseDate(),
-			runtimeLengthMin: this.inputJson.runtime_length_min,
+			runtimeLengthMin: this.inputJson.runtime_length_min ?? 0,
 			...(this.inputJson.series && {
 				seriesPrimary: series1,
 				...(series2 && {

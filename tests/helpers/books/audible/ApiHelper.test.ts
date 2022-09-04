@@ -1,7 +1,12 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { AudibleProduct } from '#config/typing/audible'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
-import { B07BS4RKGH, B017V4IM1G } from '#tests/datasets/audible/books/api'
+import {
+	B07BS4RKGH,
+	B017V4IM1G,
+	podcast,
+	setupMinimalParsed
+} from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
 
 let asin: string
@@ -64,6 +69,34 @@ describe('ApiHelper should', () => {
 
 	test('parse response', async () => {
 		await expect(helper.parseResponse(apiResponse)).resolves.toEqual(parsedBook)
+	})
+
+	test('parse response with podcast', async () => {
+		const genres = [
+			{
+				asin: '18580606011',
+				name: 'Science Fiction & Fantasy',
+				type: 'genre'
+			},
+			{
+				asin: '18580607011',
+				name: 'Fantasy',
+				type: 'tag'
+			},
+			{
+				asin: '18580628011',
+				name: 'Science Fiction',
+				type: 'tag'
+			}
+		]
+		const image = 'https://m.media-amazon.com/images/I/9125JjSWeCL.jpg'
+		const minimalParsed = setupMinimalParsed(
+			podcast.product,
+			podcast.product.merchandising_summary,
+			image,
+			genres
+		)
+		await expect(helper.parseResponse(podcast)).resolves.toEqual(minimalParsed)
 	})
 })
 
@@ -140,6 +173,11 @@ describe('ApiHelper edge cases should', () => {
 	test('not pass key check when on falsy value', () => {
 		helper.inputJson!.asin = ''
 		expect(helper.hasRequiredKeys().isValid).toBe(false)
+	})
+
+	test('allow podcast to pass key check', () => {
+		helper.inputJson = podcast.product
+		expect(helper.hasRequiredKeys().isValid).toBe(true)
 	})
 })
 

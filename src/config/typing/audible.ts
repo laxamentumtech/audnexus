@@ -47,11 +47,13 @@ export interface AudibleProduct {
 	product: {
 		asin: string
 		authors: AuthorOnBook[]
-		available_codecs: Codecs[]
+		available_codecs?: Codecs[]
 		category_ladders: Categories[]
 		content_delivery_type: string
 		content_type: string
+		continuity?: string
 		editorial_reviews?: string[]
+		episode_count?: number
 		format_type: string
 		has_children: boolean
 		is_adult_product: boolean
@@ -61,6 +63,7 @@ export interface AudibleProduct {
 		language: string
 		merchandising_summary: string
 		narrators?: NarratorOnBook[]
+		new_episode_added_date?: string
 		product_images?: { [key: string]: string }
 		program_participation?: string
 		publication_datetime?: string
@@ -69,7 +72,7 @@ export interface AudibleProduct {
 		publisher_summary: string
 		rating: Ratings
 		release_date: string
-		runtime_length_min: number
+		runtime_length_min?: number
 		series?: AudibleSeries[]
 		sku?: string
 		sku_lite?: string
