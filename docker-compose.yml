@@ -28,7 +28,7 @@ services:
       replicas: 15
 
   mongo:
-    image: mongo:5
+    image: mongo:6
     restart: always
     volumes:
       - /mnt/docker/mongo/data:/data/db
