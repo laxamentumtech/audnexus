@@ -36,7 +36,7 @@ export function setupMinimalParsed(
 		publisherName: response.publisher_name,
 		summary: response.publisher_summary,
 		releaseDate: new Date(response.release_date),
-		runtimeLengthMin: response.runtime_length_min,
+		runtimeLengthMin: response.runtime_length_min ?? 0,
 		title: response.title,
 		...(response.series?.[0] && {
 			seriesPrimary: {
@@ -668,6 +668,148 @@ export const B07BS4RKGH = {
 		'contributors',
 		'series',
 		'rating',
+		'media',
+		'product_attrs'
+	]
+}
+
+export const podcast: AudibleProduct = {
+	product: {
+		asin: 'B08JC5J5HR',
+		authors: [
+			{
+				name: 'Jackson Musker'
+			}
+		],
+		category_ladders: [
+			{
+				ladder: [
+					{
+						id: '18580606011',
+						name: 'Science Fiction & Fantasy'
+					},
+					{
+						id: '18580607011',
+						name: 'Fantasy'
+					}
+				],
+				root: 'Genres'
+			},
+			{
+				ladder: [
+					{
+						id: '18580606011',
+						name: 'Science Fiction & Fantasy'
+					},
+					{
+						id: '18580628011',
+						name: 'Science Fiction'
+					}
+				],
+				root: 'Genres'
+			}
+		],
+		content_delivery_type: 'PodcastParent',
+		content_type: 'Podcast',
+		continuity: 'serial',
+		episode_count: 12,
+		format_type: 'original_recording',
+		has_children: true,
+		is_adult_product: false,
+		is_listenable: false,
+		is_purchasability_suppressed: true,
+		issue_date: '2020-10-01',
+		language: 'english',
+		merchandising_summary:
+			'Wisecracking, marine biologist Bee Guerrero has signed up for the trip of a lifetime: a series of dives deep into the pitch-black waters of Saturn’s moon, Enceladus....',
+		narrators: [
+			{
+				name: 'Octavia Chavez-Richmond'
+			},
+			{
+				name: 'James Ludwig'
+			},
+			{
+				name: 'Pun Bandhu'
+			},
+			{
+				name: 'Lizan Mitchell'
+			},
+			{
+				name: 'a full cast'
+			}
+		],
+		new_episode_added_date: '2020-12-24T18:49:57.049Z',
+		product_images: {
+			'500': 'https://m.media-amazon.com/images/I/51izwaIIZ2L._SL500_.jpg',
+			'1024': 'https://m.media-amazon.com/images/I/9125JjSWeCL._SL1024_.jpg'
+		},
+		program_participation: 'Audible Original',
+		publication_datetime: '2020-10-01T07:00:00Z',
+		publisher_name: 'Audible Originals',
+		publisher_summary:
+			'<p>In this scripted Audible Original, wisecracking marine biologist and astronaut Bee Guerrero has signed up for the trip of a lifetime: a series of dives deep into the pitch-black waters of Saturn’s moon, Enceladus. </p> <p>Set in the near-future when global climate catastrophe has forced humans to search for solutions on new planets, <i>The Sea in the Sky</i> chronicles two astronauts’ journey, in what could be the final NASA-sponsored mission to space. In their search for life, Bee and Ty navigate uncharted waters, take on incredible risks and confront difficult truths about themselves. What will they find at the bottom of it all? </p> <p>At times epic and intimate, laugh-out-loud funny and achingly soulful, <i>The Sea in the Sky</i> plumbs the depths of science and faith, triumph and failure. The Audible Original drama is told via daily "dispatches" sent from the space shuttle back to Earth, together with original music and sound design, a never-before-heard space rap, and a full cast of actors. </p> <p>Dive into a world you need to hear to believe. </p> <p><i>Contains sensitive content. </i></p> <p>This original podcast is 12 episodes; please begin with the episode titled "Prologue". </p> <p>Note: this title contains fully immersive sound design and original composition. In order to enjoy the highest quality audio listening experience, please use headphones. If you choose to download this title, make sure it’s set to “High” in your settings.</p>',
+		rating: {
+			num_reviews: 517,
+			overall_distribution: {
+				average_rating: 4.489013184178985,
+				display_average_rating: '4.5',
+				display_stars: 4.5,
+				num_five_star_ratings: 1743,
+				num_four_star_ratings: 455,
+				num_one_star_ratings: 65,
+				num_ratings: 2503,
+				num_three_star_ratings: 156,
+				num_two_star_ratings: 84
+			},
+			performance_distribution: {
+				average_rating: 4.677432885906041,
+				display_average_rating: '4.7',
+				display_stars: 4.5,
+				num_five_star_ratings: 1909,
+				num_four_star_ratings: 304,
+				num_one_star_ratings: 40,
+				num_ratings: 2384,
+				num_three_star_ratings: 88,
+				num_two_star_ratings: 43
+			},
+			story_distribution: {
+				average_rating: 4.414799154334038,
+				display_average_rating: '4.4',
+				display_stars: 4.5,
+				num_five_star_ratings: 1568,
+				num_four_star_ratings: 462,
+				num_one_star_ratings: 82,
+				num_ratings: 2365,
+				num_three_star_ratings: 165,
+				num_two_star_ratings: 88
+			}
+		},
+		release_date: '2020-10-01',
+		sku: 'PD_30L0_000001',
+		sku_lite: 'PD_30L0_000001',
+		social_media_images: {
+			facebook:
+				'https://m.media-amazon.com/images/I/51izwaIIZ2L._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51izwaIIZ2L.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,1094,50.jpg',
+			twitter:
+				'https://m.media-amazon.com/images/I/51izwaIIZ2L._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C51izwaIIZ2L.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255_PJAdblSocialShare-PodcastIcon-Small,TopLeft,929,45.jpg'
+		},
+		thesaurus_subject_keywords: [
+			'podcast_fiction',
+			'audible_original',
+			'podcast_science_fiction',
+			'podcast_show'
+		],
+		title: 'The Sea in the Sky'
+	},
+	response_groups: [
+		'product_desc',
+		'always-returned',
+		'product_extended_attrs',
+		'contributors',
+		'series',
+		'rating',
+		'category_ladders',
 		'media',
 		'product_attrs'
 	]

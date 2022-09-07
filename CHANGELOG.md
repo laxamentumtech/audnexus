@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.8.0](https://github.com/djdembeck/audnexus/compare/v0.7.1...v0.8.0) (2022-09-07)
+
+
+### Features
+
+* **helper:** :sparkles: support podcasts ([9eaa00f](https://github.com/djdembeck/audnexus/commit/9eaa00fa72b2152dbf30dd6b309aeefe5c1242f4))
+
 ### [0.7.1](https://github.com/djdembeck/audnexus/compare/v0.7.0...v0.7.1) (2022-09-03)
 
 
