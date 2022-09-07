@@ -25,16 +25,6 @@ const server = fastify({
 	trustProxy: true
 })
 
-// Register routes
-server
-	.register(showBook)
-	.register(deleteBook)
-	.register(showChapter)
-	.register(deleteChapter)
-	.register(showAuthor)
-	.register(deleteAuthor)
-	.register(searchAuthor)
-
 // Register redis if it's present
 if (process.env.REDIS_URL) {
 	console.log('Using Redis')
@@ -58,6 +48,24 @@ server.register(rateLimit, {
 	max: 100,
 	timeWindow: '1 minute'
 })
+// Send 429 if rate limit is reached
+server.setErrorHandler(function (error, _request, reply) {
+	if (reply.statusCode === 429) {
+		error.message = 'Rate limit reached. Please try again later.'
+	}
+	reply.send(error)
+})
+
+// Register routes
+server
+	.register(showBook)
+	.register(deleteBook)
+	.register(showChapter)
+	.register(deleteChapter)
+	.register(showAuthor)
+	.register(deleteAuthor)
+	.register(searchAuthor)
+
 server.listen({ port: port, host: host }, async (err, address) => {
 	if (err) {
 		console.error(err)
