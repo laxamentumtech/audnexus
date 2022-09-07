@@ -1,4 +1,5 @@
 import cors from '@fastify/cors'
+import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
 import { fastify } from 'fastify'
 
@@ -20,23 +21,18 @@ const port = Number(process.env.PORT) || 3000
 const server = fastify({
 	logger: {
 		level: 'warn'
-	}
+	},
+	trustProxy: true
 })
-
-// Register routes
-server
-	.register(showBook)
-	.register(deleteBook)
-	.register(showChapter)
-	.register(deleteChapter)
-	.register(showAuthor)
-	.register(deleteAuthor)
-	.register(searchAuthor)
 
 // Register redis if it's present
 if (process.env.REDIS_URL) {
 	console.log('Using Redis')
-	server.register(redis, { url: process.env.REDIS_URL })
+	server.register(redis, {
+		connectTimeout: 500,
+		maxRetriesPerRequest: 1,
+		url: process.env.REDIS_URL
+	})
 }
 
 // Setup DB context
@@ -49,6 +45,31 @@ const ctx: Context = createDefaultContext(process.env.MONGODB_URI)
 server.register(cors, {
 	origin: true
 })
+
+// Rate limiting
+server.register(rateLimit, {
+	global: true,
+	max: Number(process.env.MAX_REQUESTS) || 100,
+	redis: process.env.REDIS_URL ? server.redis : undefined,
+	timeWindow: '1 minute'
+})
+// Send 429 if rate limit is reached
+server.setErrorHandler(function (error, _request, reply) {
+	if (reply.statusCode === 429) {
+		error.message = 'Rate limit reached. Please try again later.'
+	}
+	reply.send(error)
+})
+
+// Register routes
+server
+	.register(showBook)
+	.register(deleteBook)
+	.register(showChapter)
+	.register(deleteChapter)
+	.register(showAuthor)
+	.register(deleteAuthor)
+	.register(searchAuthor)
 
 server.listen({ port: port, host: host }, async (err, address) => {
 	if (err) {

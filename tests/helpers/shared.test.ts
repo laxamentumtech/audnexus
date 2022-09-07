@@ -35,6 +35,10 @@ describe('SharedHelper should', () => {
 		expect(helper.checkAsinValidity('B079LRSMNN')).toBe(true)
 		expect(helper.checkAsinValidity('12345678910')).toBe(false)
 		expect(helper.checkAsinValidity('B*79LRSMNN')).toBe(false)
+		expect(helper.checkAsinValidity('20XORININE')).toBe(false)
+		expect(helper.checkAsinValidity('1705047572')).toBe(true)
+		expect(helper.checkAsinValidity('B07Q769RZS')).toBe(true)
+		expect(helper.checkAsinValidity('B0B9YP4F9P')).toBe(true)
 	})
 
 	test('check data equality', () => {
