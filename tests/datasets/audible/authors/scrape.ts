@@ -31,6 +31,11 @@ export const authorParsedB0034NFIOI: AuthorProfile = {
 	description: '',
 	genres: [
 		{
+			asin: '18571951011',
+			name: 'Biographies & Memoirs',
+			type: 'genre'
+		},
+		{
 			asin: '18571910011',
 			name: 'Arts & Entertainment',
 			type: 'genre'
