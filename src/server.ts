@@ -1,4 +1,5 @@
 import cors from '@fastify/cors'
+import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
 import { fastify } from 'fastify'
 
@@ -20,7 +21,8 @@ const port = Number(process.env.PORT) || 3000
 const server = fastify({
 	logger: {
 		level: 'warn'
-	}
+	},
+	trustProxy: true
 })
 
 // Register routes
@@ -50,6 +52,12 @@ server.register(cors, {
 	origin: true
 })
 
+// Rate limiting
+server.register(rateLimit, {
+	global: true,
+	max: 100,
+	timeWindow: '1 minute'
+})
 server.listen({ port: port, host: host }, async (err, address) => {
 	if (err) {
 		console.error(err)
