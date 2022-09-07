@@ -7,7 +7,7 @@ import { PaprDocument } from '#config/typing/papr'
 import { ParsedObject } from '#config/typing/unions'
 
 class SharedHelper {
-	asin10Regex = /(?=.\d)[A-Z\d]{10}/
+	asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
 	asin11Regex = /(?=.\d)[A-Z\d]{11}/
 	/**
 	 * Creates URL to use in fetchBook
