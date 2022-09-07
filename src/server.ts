@@ -28,7 +28,11 @@ const server = fastify({
 // Register redis if it's present
 if (process.env.REDIS_URL) {
 	console.log('Using Redis')
-	server.register(redis, { url: process.env.REDIS_URL })
+	server.register(redis, {
+		connectTimeout: 500,
+		maxRetriesPerRequest: 1,
+		url: process.env.REDIS_URL
+	})
 }
 
 // Setup DB context
@@ -46,6 +50,7 @@ server.register(cors, {
 server.register(rateLimit, {
 	global: true,
 	max: 100,
+	redis: process.env.REDIS_URL ? server.redis : undefined,
 	timeWindow: '1 minute'
 })
 // Send 429 if rate limit is reached
