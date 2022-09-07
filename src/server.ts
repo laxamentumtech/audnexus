@@ -49,7 +49,7 @@ server.register(cors, {
 // Rate limiting
 server.register(rateLimit, {
 	global: true,
-	max: 100,
+	max: Number(process.env.MAX_REQUESTS) || 100,
 	redis: process.env.REDIS_URL ? server.redis : undefined,
 	timeWindow: '1 minute'
 })
