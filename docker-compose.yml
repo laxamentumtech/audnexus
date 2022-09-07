@@ -1,16 +1,17 @@
-version: "3.7"
+version: '3.7'
 
 services:
   node-server:
     image: ghcr.io/laxamentumtech/audnexus:develop
     restart: always
     environment:
-    - ADP_TOKEN=${NODE_ADP_TOKEN}
-    - MONGODB_URI=${NODE_MONGODB_URI}
-    - PRIVATE_KEY=${NODE_PRIVATE_KEY}
-    - REDIS_URL=${NODE_REDIS_URL}
+      - ADP_TOKEN=${NODE_ADP_TOKEN}
+      - MAX_REQUESTS=${NODE_MAX_REQUESTS}
+      - MONGODB_URI=${NODE_MONGODB_URI}
+      - PRIVATE_KEY=${NODE_PRIVATE_KEY}
+      - REDIS_URL=${NODE_REDIS_URL}
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       - mongo
       - redis
@@ -19,12 +20,12 @@ services:
       - internal
     deploy:
       labels:
-        - "traefik.enable=true"
-        - "traefik.docker.network=traefik-overlay"
-        - "traefik.http.routers.node-server.rule=Host(`${TRAEFIK_DOMAIN}`)"
-        - "traefik.http.routers.node-server.entrypoints=websecure"
-        - "traefik.http.routers.redirs.entrypoints=websecure"
-        - "traefik.http.services.node-server.loadbalancer.server.port=3000"
+        - 'traefik.enable=true'
+        - 'traefik.docker.network=traefik-overlay'
+        - 'traefik.http.routers.node-server.rule=Host(`${TRAEFIK_DOMAIN}`)'
+        - 'traefik.http.routers.node-server.entrypoints=websecure'
+        - 'traefik.http.routers.redirs.entrypoints=websecure'
+        - 'traefik.http.services.node-server.loadbalancer.server.port=3000'
       replicas: 15
 
   mongo:
@@ -45,15 +46,15 @@ services:
     image: traefik:v2.8
     restart: always
     command:
-      - "--providers.docker=true"
-      - "--entryPoints.websecure.address=:443"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.websecure.http.tls=true"
-      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=${TRAEFIK_EMAIL}"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - '--providers.docker=true'
+      - '--entryPoints.websecure.address=:443'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.websecure.http.tls=true'
+      - '--certificatesresolvers.myresolver.acme.tlschallenge=true'
+      - '--certificatesresolvers.myresolver.acme.email=${TRAEFIK_EMAIL}'
+      - '--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json'
     ports:
-      - "443:443"
+      - '443:443'
     volumes:
       - /mnt/docker/letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
