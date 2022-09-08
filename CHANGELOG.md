@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.9.0](https://github.com/djdembeck/audnexus/compare/v0.8.0...v0.9.0) (2022-09-08)
+
+
+### Features
+
+* enable basic rate limiting ([#480](https://github.com/djdembeck/audnexus/issues/480)) ([c6d277b](https://github.com/djdembeck/audnexus/commit/c6d277b028a49d5d62c8895dbf74d6cb41044dae))
+
 ## [0.8.0](https://github.com/djdembeck/audnexus/compare/v0.7.1...v0.8.0) (2022-09-07)
 
 

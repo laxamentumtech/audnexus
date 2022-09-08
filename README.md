@@ -98,6 +98,7 @@ The stack defaults to 15 replicas for the node-server container. Customize this 
 Environment variables to add:
 
 - `NODE_ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
+- `NODE_MAX_REQUESTS`: Maximum amount of requests per 1 minute period from a single source (default 100)
 - `NODE_MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
 - `NODE_PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
 - `NODE_REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
