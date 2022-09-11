@@ -31,7 +31,7 @@ specifiers:
   moment: 2.29.4
   mongodb: 4.9.1
   nodemon: 2.0.19
-  papr: 7.3.1
+  papr: 8.2.0
   prettier: 2.7.1
   standard-version: 9.5.0
   ts-jest: 29.0.0
@@ -53,7 +53,7 @@ dependencies:
   module-alias: 2.2.2
   moment: 2.29.4
   mongodb: 4.9.1
-  papr: 7.3.1_mongodb@4.9.1
+  papr: 8.2.0_mongodb@4.9.1
   typescript: 4.8.2
 
 devDependencies:
@@ -3516,8 +3516,8 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  /papr/7.3.1_mongodb@4.9.1:
-    resolution: {integrity: sha512-SiFVBWpGJ5blshpnpeM4U+cYuGzQD+7aXX7x3Ujm72xZpz976wpsgJKZhkrjh3yT1xmK03EW6ENc1aYvRvnnaw==}
+  /papr/8.2.0_mongodb@4.9.1:
+    resolution: {integrity: sha512-gGiOBAcS70WPPVubvw0g5Cq6xiKBPX5cW+mARc3AVxF4FvLyqTX/8bBsTCPIX2scEHcxO5Zshw+f26hPBsUxQg==}
     engines: {node: ^14.0.0 || >=15.0.0}
     peerDependencies:
       mongodb: '>=4.9.1'
