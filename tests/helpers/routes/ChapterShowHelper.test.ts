@@ -1,7 +1,7 @@
 jest.mock('#config/models/Chapter')
 jest.mock('#helpers/database/papr/audible/PaprAudibleChapterHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
-jest.mock('#helpers/shared')
+jest.mock('#helpers/utils/shared')
 jest.mock('#config/typing/checkers')
 
 import * as checkers from '#config/typing/checkers'
