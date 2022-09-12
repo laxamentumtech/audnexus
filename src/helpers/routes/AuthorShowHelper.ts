@@ -7,7 +7,7 @@ import { RequestGeneric } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 
 export default class AuthorShowHelper {
 	asin: string

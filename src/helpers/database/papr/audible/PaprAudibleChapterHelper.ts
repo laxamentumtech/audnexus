@@ -3,7 +3,7 @@ import { ApiChapter } from '#config/typing/books'
 import { isChapter, isChapterDocument } from '#config/typing/checkers'
 import { PaprChapterDocumentReturn, PaprChapterReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { RequestGeneric } from '#config/typing/requests'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 
 const projectionWithoutDbFields = {
 	_id: 0,

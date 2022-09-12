@@ -97,7 +97,6 @@ class SharedHelper {
 						return thisGenre
 					}
 				} else {
-					console.log(`Genre ${index} asin not available on: ${asin}`)
 				}
 			})
 			.filter((genre) => genre) as ApiGenre[] // Filter out undefined values

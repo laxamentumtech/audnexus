@@ -1,5 +1,5 @@
 import { Book } from '#config/typing/books'
-import fetch from '#helpers/fetchPlus'
+import fetch from '#helpers/utils/fetchPlus'
 
 class SeedHelper {
 	book: Book

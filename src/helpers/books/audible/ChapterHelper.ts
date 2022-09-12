@@ -3,8 +3,8 @@ import moment from 'moment'
 
 import { AudibleChapter, SingleChapter } from '#config/typing/audible'
 import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
-import fetch from '#helpers/fetchPlus'
-import SharedHelper from '#helpers/shared'
+import fetch from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
 
 class ChapterHelper {
 	asin: string

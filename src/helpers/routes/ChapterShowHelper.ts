@@ -7,7 +7,7 @@ import { RequestGeneric } from '#config/typing/requests'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 
 export default class ChapterShowHelper {
 	asin: string

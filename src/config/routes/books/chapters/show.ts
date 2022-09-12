@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 
 import { RequestGeneric } from '#config/typing/requests'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {

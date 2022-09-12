@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 
 import { RequestGeneric } from '#config/typing/requests'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGeneric>('/authors/:asin', async (request, reply) => {

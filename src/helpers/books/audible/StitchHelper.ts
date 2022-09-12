@@ -5,7 +5,7 @@ import { ApiBook, Book, HtmlBook } from '#config/typing/books'
 import { isBook } from '#config/typing/checkers'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 
 class StitchHelper {
 	apiHelper: ApiHelper

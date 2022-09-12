@@ -3,7 +3,7 @@ import { isAuthorDocument, isAuthorProfile } from '#config/typing/checkers'
 import { PaprAuthorDocumentReturn, PaprAuthorReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { AuthorProfile } from '#config/typing/people'
 import { RequestGeneric } from '#config/typing/requests'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 
 const projectionWithoutDbFields = {
 	_id: 0,

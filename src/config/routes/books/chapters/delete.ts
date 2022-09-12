@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 
 import { RequestGeneric } from '#config/typing/requests'
 import ChapterDeleteHelper from '#helpers/routes/ChapterDeleteHelper'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 
 async function _delete(fastify: FastifyInstance) {
 	fastify.delete<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {

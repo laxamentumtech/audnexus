@@ -2,8 +2,8 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 
 import { AuthorProfile } from '#config/typing/people'
-import fetch from '#helpers/fetchPlus'
-import SharedHelper from '#helpers/shared'
+import fetch from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
 
 class ScrapeHelper {
 	asin: string

@@ -1,8 +1,8 @@
 import * as cheerio from 'cheerio'
 
 import { HtmlBook } from '#config/typing/books'
-import fetch from '#helpers/fetchPlus'
-import SharedHelper from '#helpers/shared'
+import fetch from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
 
 class ScrapeHelper {
 	asin: string

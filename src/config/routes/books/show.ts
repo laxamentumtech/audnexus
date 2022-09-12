@@ -2,7 +2,7 @@ import { FastifyInstance } from 'fastify'
 
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGenericWithSeed>('/books/:asin', async (request, reply) => {
