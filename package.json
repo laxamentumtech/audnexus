@@ -42,7 +42,7 @@
 		"moment": "2.29.4",
 		"mongodb": "4.9.1",
 		"papr": "8.2.0",
-		"typescript": "4.8.2"
+		"typescript": "4.8.3"
 	},
 	"devDependencies": {
 		"@jest/types": "29.0.2",
