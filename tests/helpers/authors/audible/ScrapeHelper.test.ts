@@ -1,7 +1,6 @@
 import * as cheerio from 'cheerio'
 
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
-import { ErrorMessageHTTPFetch, ErrorMessageNotFound } from '#static/messages'
 import {
 	htmlResponse,
 	htmlResponseNameOnly,
@@ -70,13 +69,13 @@ describe('ScrapeHelper should throw error when', () => {
 			.spyOn(global, 'fetch')
 			.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 404 } as Response))
 		await expect(helper.fetchAuthor()).rejects.toThrow(
-			ErrorMessageHTTPFetch(asin, 404, 'Audible HTML')
+			`An error occured while fetching data from Audible HTML. Response: 404, ASIN: ${asin}`
 		)
 	})
 	test('author has no name', async () => {
 		const html = cheerio.load(htmlResponseNoData)
 		expect(helper.parseResponse(html)).rejects.toThrowError(
-			ErrorMessageNotFound(asin, 'author name')
+			`No author name found for ASIN: ${asin}`
 		)
 	})
 })

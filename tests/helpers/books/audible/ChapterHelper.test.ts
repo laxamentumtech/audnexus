@@ -1,6 +1,5 @@
 import { AudibleChapter } from '#config/typing/audible'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
-import { ErrorMessageMissingEnv, ErrorMessageRequiredKey } from '#static/messages'
 import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
 
 let asin: string
@@ -75,7 +74,7 @@ describe('ChapterHelper should throw error when', () => {
 		const bad_helper = function () {
 			new ChapterHelper(asin)
 		}
-		expect(bad_helper).toThrowError(ErrorMessageMissingEnv('ADP_TOKEN or PRIVATE_KEY'))
+		expect(bad_helper).toThrowError('Missing environment variable(s): ADP_TOKEN or PRIVATE_KEY')
 		// Restore environment
 		process.env = OLD_ENV
 	})
@@ -93,6 +92,8 @@ describe('ChapterHelper should throw error when', () => {
 				},
 				response_groups: ['chapter_info']
 			} as AudibleChapter)
-		).rejects.toThrowError(ErrorMessageRequiredKey(asin, 'chapters', 'exist for chapter'))
+		).rejects.toThrowError(
+			`Required key 'chapters' does not exist for chapter in Audible API response for ASIN ${asin}`
+		)
 	})
 })

@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { AudibleProduct } from '#config/typing/audible'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
-import { ErrorMessageHTTPFetch, ErrorMessageParse } from '#static/messages'
 import {
 	B07BS4RKGH,
 	B017V4IM1G,
@@ -213,13 +212,13 @@ describe('ApiHelper should throw error when', () => {
 		asin = ''
 		helper = new ApiHelper(asin)
 		await expect(helper.fetchBook()).rejects.toThrowError(
-			ErrorMessageHTTPFetch(asin, 403, 'Audible API')
+			`An error occured while fetching data from Audible API. Response: 403, ASIN: ${asin}`
 		)
 	})
 
 	test('input is undefined', async () => {
 		await expect(helper.parseResponse(undefined)).rejects.toThrowError(
-			ErrorMessageParse(asin, 'Audible API')
+			`An error occurred while parsing Audible API. ASIN: ${asin}`
 		)
 	})
 

@@ -5,7 +5,6 @@ jest.mock('#helpers/database/redis/RedisHelper')
 
 import * as checkers from '#config/typing/checkers'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
-import { ErrorMessageDataType } from '#static/messages'
 import {
 	authorWithoutProjection,
 	authorWithoutProjectionUpdatedNow,
@@ -100,20 +99,20 @@ describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a author type', async () => {
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValueOnce(false)
 		await expect(helper.getAuthorWithProjection()).rejects.toThrow(
-			ErrorMessageDataType(asin, 'AuthorProfile')
+			`Data type for ${asin} is not AuthorProfile`
 		)
 	})
 	test('getChaptersWithProjection sorted author is not an author type', async () => {
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValueOnce(true)
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValueOnce(false)
 		await expect(helper.getAuthorWithProjection()).rejects.toThrow(
-			ErrorMessageDataType(asin, 'AuthorProfile')
+			`Data type for ${asin} is not AuthorProfile`
 		)
 	})
 	test('createOrUpdateChapters is not an author type', async () => {
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValueOnce(false)
 		await expect(helper.createOrUpdateAuthor()).rejects.toThrow(
-			ErrorMessageDataType(asin, 'AuthorProfile')
+			`Data type for ${asin} is not AuthorProfile`
 		)
 	})
 })
