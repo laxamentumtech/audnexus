@@ -6,6 +6,7 @@ jest.mock('#config/typing/checkers')
 
 import * as checkers from '#config/typing/checkers'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
+import { ErrorMessageDataType } from '#static/messages'
 import {
 	chaptersWithoutProjection,
 	chaptersWithoutProjectionUpdatedNow,
@@ -117,20 +118,20 @@ describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a chapter type', async () => {
 		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.getChapterWithProjection()).rejects.toThrow(
-			`Data type is not a chapter ${asin}`
+			ErrorMessageDataType(asin, 'Chapter')
 		)
 	})
 	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
 		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(true)
 		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.getChapterWithProjection()).rejects.toThrow(
-			`Data type is not a chapter ${asin}`
+			ErrorMessageDataType(asin, 'Chapter')
 		)
 	})
 	test('createOrUpdateChapters is not a chapter type', async () => {
 		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.createOrUpdateChapters()).rejects.toThrow(
-			`Data type is not a chapter ${asin}`
+			ErrorMessageDataType(asin, 'Chapter')
 		)
 	})
 })

@@ -5,6 +5,7 @@ jest.mock('#helpers/database/redis/RedisHelper')
 
 import * as checkers from '#config/typing/checkers'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
+import { ErrorMessageDataType } from '#static/messages'
 import {
 	bookWithoutProjection,
 	bookWithoutProjectionUpdatedNow,
@@ -102,15 +103,15 @@ describe('BookShowHelper should', () => {
 describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a book type', async () => {
 		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
-		await expect(helper.getBookWithProjection()).rejects.toThrow(`Data type is not a book ${asin}`)
+		await expect(helper.getBookWithProjection()).rejects.toThrow(ErrorMessageDataType(asin, 'Book'))
 	})
 	test('getChaptersWithProjection sorted book is not a book type', async () => {
 		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(true)
 		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
-		await expect(helper.getBookWithProjection()).rejects.toThrow(`Data type is not a book ${asin}`)
+		await expect(helper.getBookWithProjection()).rejects.toThrow(ErrorMessageDataType(asin, 'Book'))
 	})
 	test('createOrUpdateChapters is not a book type', async () => {
 		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
-		await expect(helper.createOrUpdateBook()).rejects.toThrow(`Data type is not a book ${asin}`)
+		await expect(helper.createOrUpdateBook()).rejects.toThrow(ErrorMessageDataType(asin, 'Book'))
 	})
 })

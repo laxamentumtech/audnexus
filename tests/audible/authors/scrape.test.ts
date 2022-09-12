@@ -1,5 +1,6 @@
 import { AuthorProfile } from '#config/typing/people'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import { ErrorMessageHTTPFetch } from '#static/messages'
 import {
 	authorParsedB00G0WYW92,
 	authorParsedB0034NFIOI
@@ -42,7 +43,7 @@ describe('Audible Author HTML', () => {
 
 		it('threw an error', async () => {
 			await expect(helper.fetchAuthor()).rejects.toThrowError(
-				`An error occured while fetching Audible HTML. Response: 404, ASIN: ${asin}`
+				ErrorMessageHTTPFetch(asin, 404, 'Audible HTML')
 			)
 		})
 	})
