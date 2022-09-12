@@ -3,7 +3,15 @@ import { ApiChapter } from '#config/typing/books'
 import { isChapter, isChapterDocument } from '#config/typing/checkers'
 import { PaprChapterDocumentReturn, PaprChapterReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { RequestGeneric } from '#config/typing/requests'
+import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
+import {
+	ErrorMessageCreate,
+	ErrorMessageDelete,
+	ErrorMessageNotFoundInDb,
+	ErrorMessageUpdate,
+	NoticeUpdateAsin
+} from '#static/messages'
 
 const projectionWithoutDbFields = {
 	_id: 0,
@@ -32,9 +40,10 @@ export default class PaprAudibleChapterHelper {
 				data: (await this.findOneWithProjection()).data,
 				modified: true
 			}
-		} catch (err) {
-			console.error(err)
-			throw new Error(`An error occurred while creating chapter ${this.asin} in the DB`)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
+			throw new Error(ErrorMessageCreate(this.asin, 'chapter'))
 		}
 	}
 
@@ -49,9 +58,10 @@ export default class PaprAudibleChapterHelper {
 				data: deletedChapter,
 				modified: true
 			}
-		} catch (err) {
-			console.error(err)
-			throw new Error(`An error occurred while deleting chapter ${this.asin} in the DB`)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
+			throw new Error(ErrorMessageDelete(this.asin, 'chapter'))
 		}
 	}
 
@@ -128,7 +138,7 @@ export default class PaprAudibleChapterHelper {
 				}
 			}
 			if (this.chapterData.chapters.length) {
-				console.log(`Updating chapters for asin ${this.asin}`)
+				console.log(NoticeUpdateAsin(this.asin, 'chapters'))
 				// Update
 				return this.update()
 			}
@@ -150,7 +160,7 @@ export default class PaprAudibleChapterHelper {
 		try {
 			const found = await this.findOne()
 			if (!found.data) {
-				throw new Error(`Chapter ${this.asin} not found in the DB for update`)
+				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Chapter'))
 			}
 			await ChapterModel.updateOne(
 				{ asin: this.asin },
@@ -164,9 +174,10 @@ export default class PaprAudibleChapterHelper {
 			// Set modified to true to indicate that the data has been updated
 			updatedChapter.modified = true
 			return updatedChapter
-		} catch (err) {
-			console.error(err)
-			throw new Error(`An error occurred while updating chapter ${this.asin} in the DB`)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
+			throw new Error(ErrorMessageUpdate(this.asin, 'chapter'))
 		}
 	}
 }

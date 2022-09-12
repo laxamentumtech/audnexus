@@ -4,8 +4,16 @@ import { AudibleProduct, AudibleSeries, Category } from '#config/typing/audible'
 import { ApiBook, ApiGenre, Series } from '#config/typing/books'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 import fetch from '#helpers/utils/fetchPlus'
+import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import { parentCategories } from '#static/constants'
+import {
+	ErrorMessageHTTPFetch,
+	ErrorMessageNoData,
+	ErrorMessageNoResponse,
+	ErrorMessageReleaseDate,
+	ErrorMessageRequiredKey
+} from '#static/messages'
 
 class ApiHelper {
 	asin: string
@@ -40,7 +48,7 @@ class ApiHelper {
 	hasRequiredKeys(): { isValid: boolean; message: string } {
 		let message = ''
 		const isValidKey = (key: string): boolean => {
-			if (!this.inputJson) throw new Error(`No input data`)
+			if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 
 			// Make sure key exists in inputJson
 			const keyExists = Object.hasOwnProperty.call(this.inputJson, key)
@@ -61,11 +69,11 @@ class ApiHelper {
 					break
 				case !keyExists:
 					isValidKey = false
-					message = `Required key '${key}' does not exist in Audible API response for ASIN ${this.asin}`
+					message = ErrorMessageRequiredKey(this.asin, key, 'exist')
 					break
 				case !value && !isNumberAndZero:
 					isValidKey = false
-					message = `Required key '${key}' does not have a valid value in Audible API response for ASIN ${this.asin}`
+					message = ErrorMessageRequiredKey(this.asin, key, 'have a valid value')
 					break
 			}
 
@@ -148,7 +156,7 @@ class ApiHelper {
 	 * Transform the raw category data into a usable format
 	 */
 	getCategories(): Category[] | undefined {
-		if (!this.inputJson) throw new Error(`No input data`)
+		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		// Flatten category ladders to a single array of categories
 		const categories = this.inputJson.category_ladders.map((category) => category.ladder).flat()
 		// Remove duplicates from categories array
@@ -160,7 +168,7 @@ class ApiHelper {
 	 * or return undefined if no image is available
 	 */
 	getHighResImage() {
-		if (!this.inputJson) throw new Error(`No input data`)
+		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		if (!this.inputJson.product_images) return undefined
 		return this.inputJson.product_images[1024]
 			? this.inputJson.product_images[1024].replace('_SL1024_.', '')
@@ -177,13 +185,13 @@ class ApiHelper {
 	 * Error on a date in the future.
 	 */
 	getReleaseDate() {
-		if (!this.inputJson) throw new Error(`No input data`)
+		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		const releaseDate = this.inputJson.release_date
 			? new Date(this.inputJson.release_date)
 			: new Date(this.inputJson.issue_date)
 
 		// Check that release date isn't in the future
-		if (releaseDate > new Date()) throw new Error('Release date is in the future')
+		if (releaseDate > new Date()) throw new Error(ErrorMessageReleaseDate(this.asin))
 		return releaseDate
 	}
 
@@ -211,7 +219,7 @@ class ApiHelper {
 	getSeriesPrimary(allSeries: AudibleSeries[] | undefined) {
 		let seriesPrimary = {} as Series
 		allSeries?.forEach((series: AudibleSeries) => {
-			if (!this.inputJson) throw new Error(`No input data`)
+			if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 			const seriesJson = this.getSeries(series)
 			// Check and set primary series
 			if (this.inputJson.publication_name && seriesJson?.name === this.inputJson.publication_name) {
@@ -229,7 +237,7 @@ class ApiHelper {
 	getSeriesSecondary(allSeries: AudibleSeries[] | undefined) {
 		let seriesSecondary = {} as Series
 		allSeries?.forEach((series: AudibleSeries) => {
-			if (!this.inputJson) throw new Error(`No input data`)
+			if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 			const seriesJson = this.getSeries(series)
 			// Check and set secondary series
 			if (
@@ -249,7 +257,7 @@ class ApiHelper {
 	 * This is run after all other data has been parsed.
 	 */
 	getFinalData(): ApiBook {
-		if (!this.inputJson) throw new Error(`No input data`)
+		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		// Get flattened categories
 		const categories = this.getCategories()
 		// Find secondary series if available
@@ -310,8 +318,7 @@ class ApiHelper {
 				return json
 			})
 			.catch((error) => {
-				const message = `An error has occured while fetching from Audible API. Response: ${error.status}, ASIN: ${this.asin}`
-				throw new Error(message)
+				throw new Error(ErrorMessageHTTPFetch(this.asin, getErrorMessage(error), 'Audible API'))
 			})
 	}
 
@@ -323,14 +330,14 @@ class ApiHelper {
 	async parseResponse(jsonRes: AudibleProduct | undefined): Promise<ApiBook> {
 		// Base undefined check
 		if (!jsonRes) {
-			throw new Error('No API response to parse')
+			throw new Error(ErrorMessageNoResponse(this.asin, 'API'))
 		}
 		this.inputJson = jsonRes.product
 
 		// Check all required keys present
 		const requiredKeys = this.hasRequiredKeys()
 		if (!requiredKeys.isValid) {
-			throw new Error(`${requiredKeys.message}`)
+			throw new Error(requiredKeys.message)
 		}
 
 		return this.getFinalData()

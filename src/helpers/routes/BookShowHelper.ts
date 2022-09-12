@@ -9,6 +9,7 @@ import StitchHelper from '#helpers/books/audible/StitchHelper'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/utils/shared'
+import { ErrorMessageDataType } from '#static/messages'
 
 export default class BookShowHelper {
 	asin: string
@@ -48,13 +49,13 @@ export default class BookShowHelper {
 		// 1. Get the book with projections
 		const bookToReturn = await this.paprHelper.findOneWithProjection()
 		// Make saure we get a book type back
-		if (!isBook(bookToReturn.data)) throw new Error(`Data type is not a book ${this.asin}`)
+		if (!isBook(bookToReturn.data)) throw new Error(ErrorMessageDataType(this.asin, 'Book'))
 
 		// 2. Sort the object
 		const sort = this.sharedHelper.sortObjectByKeys(bookToReturn.data)
 		if (isBook(sort)) return sort
 
-		throw new Error(`Data type is not a book ${this.asin}`)
+		throw new Error(ErrorMessageDataType(this.asin, 'Book'))
 	}
 
 	/**
@@ -74,7 +75,7 @@ export default class BookShowHelper {
 
 		// Create or update the book
 		const bookToReturn = await this.paprHelper.createOrUpdate()
-		if (!isBook(bookToReturn.data)) throw new Error(`Data type is not a book ${this.asin}`)
+		if (!isBook(bookToReturn.data)) throw new Error(ErrorMessageDataType(this.asin, 'Book'))
 
 		// Get the book with projections
 		const data = await this.getBookWithProjection()

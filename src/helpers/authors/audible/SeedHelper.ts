@@ -1,5 +1,6 @@
 import { Book } from '#config/typing/books'
 import fetch from '#helpers/utils/fetchPlus'
+import getErrorMessage from '#helpers/utils/getErrorMessage'
 
 class SeedHelper {
 	book: Book
@@ -24,8 +25,9 @@ class SeedHelper {
 					return false
 				})
 			)
-		} catch (err) {
-			console.error(err)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
 		}
 	}
 }

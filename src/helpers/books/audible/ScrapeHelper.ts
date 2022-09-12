@@ -2,7 +2,9 @@ import * as cheerio from 'cheerio'
 
 import { HtmlBook } from '#config/typing/books'
 import fetch from '#helpers/utils/fetchPlus'
+import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
+import { ErrorMessageHTTPFetch } from '#static/messages'
 
 class ScrapeHelper {
 	asin: string
@@ -27,7 +29,7 @@ class ScrapeHelper {
 				return cheerio.load(text)
 			})
 			.catch((error) => {
-				const message = `An error has occured while scraping HTML ${error.status}: ${this.reqUrl}`
+				const message = ErrorMessageHTTPFetch(this.asin, getErrorMessage(error), 'HTML')
 				if (error.status !== 404) {
 					console.log(message)
 				}

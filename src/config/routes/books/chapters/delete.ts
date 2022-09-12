@@ -3,30 +3,32 @@ import { FastifyInstance } from 'fastify'
 import { RequestGeneric } from '#config/typing/requests'
 import ChapterDeleteHelper from '#helpers/routes/ChapterDeleteHelper'
 import SharedHelper from '#helpers/utils/shared'
+import { MessageBadAsin, MessageDeleted, MessageNotFoundInDb } from '#static/messages'
 
 async function _delete(fastify: FastifyInstance) {
 	fastify.delete<RequestGeneric>('/books/:asin/chapters', async (request, reply) => {
+		const asin = request.params.asin
 		// Setup common helper first
 		const sharedHelper = new SharedHelper()
 		// First, check ASIN validity
-		if (!sharedHelper.checkAsinValidity(request.params.asin)) {
+		if (!sharedHelper.checkAsinValidity(asin)) {
 			reply.code(400)
-			throw new Error('Bad ASIN')
+			throw new Error(MessageBadAsin)
 		}
 
 		// Setup helper
 		const { redis } = fastify
-		const helper = new ChapterDeleteHelper(request.params.asin, redis)
+		const helper = new ChapterDeleteHelper(asin, redis)
 
 		// Call helper handler
 		const isHandled = await helper.handler()
 
 		if (!isHandled) {
 			reply.code(404)
-			throw new Error(`${request.params.asin} not found in the database`)
+			throw new Error(MessageNotFoundInDb(asin))
 		}
 
-		return { message: `${request.params.asin} deleted` }
+		return { message: MessageDeleted(asin) }
 	})
 }
 
