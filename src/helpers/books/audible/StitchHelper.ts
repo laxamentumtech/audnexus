@@ -7,12 +7,7 @@ import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
-import {
-	ErrorMessageHTTPFetch,
-	ErrorMessageParse,
-	ErrorMessageSort,
-	NoticeChaptersFallback
-} from '#static/messages'
+import { ErrorMessageSort, NoticeChaptersFallback } from '#static/messages'
 
 class StitchHelper {
 	apiHelper: ApiHelper
@@ -42,7 +37,7 @@ class StitchHelper {
 			// Set the helper data
 			this.apiHelper.inputJson = this.apiResponse.product
 		} catch (error) {
-			throw new Error(ErrorMessageHTTPFetch(this.asin, getErrorMessage(error), 'Audible API'))
+			throw new Error(getErrorMessage(error))
 		}
 	}
 
@@ -54,7 +49,7 @@ class StitchHelper {
 		try {
 			this.scraperResponse = await scraperResponse
 		} catch (error) {
-			throw new Error(ErrorMessageHTTPFetch(this.asin, getErrorMessage(error), 'Audible HTML'))
+			throw new Error(getErrorMessage(error))
 		}
 	}
 
@@ -66,7 +61,7 @@ class StitchHelper {
 		try {
 			this.apiParsed = await apiParsed
 		} catch (error) {
-			throw new Error(ErrorMessageParse(this.asin, getErrorMessage(error), 'Audible API'))
+			throw new Error(getErrorMessage(error))
 		}
 	}
 
@@ -78,7 +73,7 @@ class StitchHelper {
 		try {
 			this.scraperParsed = await scraperParsed
 		} catch (error) {
-			throw new Error(ErrorMessageParse(this.asin, getErrorMessage(error), 'Audible HTML'))
+			throw new Error(getErrorMessage(error))
 		}
 	}
 

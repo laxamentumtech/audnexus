@@ -4,7 +4,6 @@ import moment from 'moment'
 import { AudibleChapter, SingleChapter } from '#config/typing/audible'
 import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
 import fetch from '#helpers/utils/fetchPlus'
-import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
 	ErrorMessageHTTPFetch,
@@ -107,7 +106,7 @@ class ChapterHelper {
 				return json
 			})
 			.catch((error) => {
-				console.log(ErrorMessageHTTPFetch(this.asin, getErrorMessage(error), 'chapters'))
+				console.log(ErrorMessageHTTPFetch(this.asin, error.status, 'chapters'))
 				return undefined
 			})
 	}

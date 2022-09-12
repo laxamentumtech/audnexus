@@ -3,7 +3,6 @@ import { htmlToText } from 'html-to-text'
 
 import { AuthorProfile } from '#config/typing/people'
 import fetch from '#helpers/utils/fetchPlus'
-import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
 	ErrorMessageHTTPFetch,
@@ -34,8 +33,7 @@ class ScrapeHelper {
 				return cheerio.load(text)
 			})
 			.catch((error) => {
-				const message = getErrorMessage(error)
-				throw new Error(ErrorMessageHTTPFetch(this.asin, message, 'Audible HTML'))
+				throw new Error(ErrorMessageHTTPFetch(this.asin, error.status, 'Audible HTML'))
 			})
 	}
 
@@ -61,7 +59,7 @@ class ScrapeHelper {
 			const name = html as unknown as Text
 			return name.data.trim()
 		} catch (error) {
-			throw new Error(ErrorMessageNotFound('author name', this.asin))
+			throw new Error(ErrorMessageNotFound(this.asin, 'author name'))
 		}
 	}
 
@@ -73,7 +71,7 @@ class ScrapeHelper {
 	async parseResponse(dom: cheerio.CheerioAPI | undefined): Promise<AuthorProfile> {
 		// Base undefined check
 		if (!dom) {
-			throw new Error(ErrorMessageNoResponse('HTML', this.asin))
+			throw new Error(ErrorMessageNoResponse(this.asin, 'HTML'))
 		}
 
 		// Description

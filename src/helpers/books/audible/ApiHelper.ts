@@ -4,13 +4,12 @@ import { AudibleProduct, AudibleSeries, Category } from '#config/typing/audible'
 import { ApiBook, ApiGenre, Series } from '#config/typing/books'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 import fetch from '#helpers/utils/fetchPlus'
-import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import { parentCategories } from '#static/constants'
 import {
 	ErrorMessageHTTPFetch,
 	ErrorMessageNoData,
-	ErrorMessageNoResponse,
+	ErrorMessageParse,
 	ErrorMessageReleaseDate,
 	ErrorMessageRequiredKey
 } from '#static/messages'
@@ -318,7 +317,7 @@ class ApiHelper {
 				return json
 			})
 			.catch((error) => {
-				throw new Error(ErrorMessageHTTPFetch(this.asin, getErrorMessage(error), 'Audible API'))
+				throw new Error(ErrorMessageHTTPFetch(this.asin, error.status, 'Audible API'))
 			})
 	}
 
@@ -330,7 +329,7 @@ class ApiHelper {
 	async parseResponse(jsonRes: AudibleProduct | undefined): Promise<ApiBook> {
 		// Base undefined check
 		if (!jsonRes) {
-			throw new Error(ErrorMessageNoResponse(this.asin, 'API'))
+			throw new Error(ErrorMessageParse(this.asin, 'Audible API'))
 		}
 		this.inputJson = jsonRes.product
 

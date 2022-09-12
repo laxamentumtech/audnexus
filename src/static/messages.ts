@@ -1,7 +1,7 @@
 // Errors for Helpers
 // Problem with HTTP fetch
-export const ErrorMessageHTTPFetch = (asin: string, error: string, source: string) =>
-	`An error occured while fetching ${source}. Response: ${error}, ASIN: ${asin}`
+export const ErrorMessageHTTPFetch = (asin: string, error: number, source: string) =>
+	`An error occured while fetching data from ${source}. Response: ${error}, ASIN: ${asin}`
 // Missing environment variable
 export const ErrorMessageMissingEnv = (env: string) => `Missing environment variable(s): ${env}`
 // Missing Class object data
@@ -14,35 +14,37 @@ export const ErrorMessageNotFound = (asin: string, source: string) =>
 export const ErrorMessageNoResponse = (asin: string, source: string) =>
 	`No response from ${source} to parse for ASIN: ${asin}`
 // Parse error generic
-export const ErrorMessageParse = (asin: string, error: string, source: string) =>
-	`An error occurred while parsing ${source}. Response: ${error}, ASIN: ${asin}`
+export const ErrorMessageParse = (asin: string, source: string) =>
+	`An error occurred while parsing ${source}. ASIN: ${asin}`
 // Release date is in the future
 export const ErrorMessageReleaseDate = (asin: string) =>
 	`Release date is in the future for ASIN: ${asin}`
 // Required key generic message
 export const ErrorMessageRequiredKey = (asin: string, key: string, source: string) =>
-	`Required key ${key} does not ${source} in Audible API response for ASIN ${asin}`
+	`Required key '${key}' does not ${source} in Audible API response for ASIN ${asin}`
 // Sorting error
-export const ErrorMessageSort = (asin: string) => `Error occured while sorting book json: ${asin}`
+export const ErrorMessageSort = (asin: string) =>
+	`An error occurred while sorting book json: ${asin}`
 // CRUD errors
 // Create error
 export const ErrorMessageCreate = (asin: string, type: string) =>
-	`Error occured while creating ${type} ${asin} in the DB`
+	`An error occurred while creating ${type} ${asin} in the DB`
 // Delete error
 export const ErrorMessageDelete = (asin: string, type: string) =>
-	`Error occured while deleting ${type} ${asin} in the DB`
+	`An error occurred while deleting ${type} ${asin} in the DB`
 // Update error
 export const ErrorMessageUpdate = (asin: string, type: string) =>
-	`Error occured while updating ${type} ${asin} in the DB`
+	`An error occurred while updating ${type} ${asin} in the DB`
 // Not found in DB
 export const ErrorMessageNotFoundInDb = (asin: string, type: string) =>
 	`${type} ${asin} not found in the DB for update`
 // REDIS errors
 // Delete error
 export const ErrorMessageRedisDelete = (key: string) =>
-	`Error occured while deleting ${key} in redis`
+	`An error occurred while deleting ${key} in redis`
 // Set error
-export const ErrorMessageRedisSet = (key: string) => `Error occured while setting ${key} in redis`
+export const ErrorMessageRedisSet = (key: string) =>
+	`An error occurred while setting ${key} in redis`
 // Route errors
 // Data type error
 export const ErrorMessageDataType = (asin: string, type: string) =>
