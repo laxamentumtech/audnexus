@@ -35,7 +35,7 @@
 		"fastify": "4.5.3",
 		"html-to-text": "8.2.1",
 		"isomorphic-fetch": "3.0.0",
-		"jest-mock-extended": "2.0.7",
+		"jest-mock-extended": "2.0.9",
 		"jsrsasign": "10.5.27",
 		"lodash": "4.17.21",
 		"module-alias": "2.2.2",
