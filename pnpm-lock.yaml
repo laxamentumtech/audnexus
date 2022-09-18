@@ -34,7 +34,7 @@ specifiers:
   papr: 8.2.0
   prettier: 2.7.1
   standard-version: 9.5.0
-  ts-jest: 29.0.0
+  ts-jest: 29.0.1
   ts-node: 10.9.1
   typescript: 4.8.3
 
@@ -75,7 +75,7 @@ devDependencies:
   nodemon: 2.0.19
   prettier: 2.7.1
   standard-version: 9.5.0
-  ts-jest: 29.0.0_z2wb52irtgvghopthzfkorx2ru
+  ts-jest: 29.0.1_z2wb52irtgvghopthzfkorx2ru
   ts-node: 10.9.1_kd37gzqjz2j3pt6xgh4gdbzcfy
 
 packages:
@@ -4381,8 +4381,8 @@ packages:
       typescript: 4.8.3
     dev: false
 
-  /ts-jest/29.0.0_z2wb52irtgvghopthzfkorx2ru:
-    resolution: {integrity: sha512-OxUaigbv5Aon3OMLY9HBtwkGMs1upWE/URrmmVQFzzOcGlEPVuWzGmXUIkWGt/95Dj/T6MGuTrHHGL6kT6Yn8g==}
+  /ts-jest/29.0.1_z2wb52irtgvghopthzfkorx2ru:
+    resolution: {integrity: sha512-htQOHshgvhn93QLxrmxpiQPk69+M1g7govO1g6kf6GsjCv4uvRV0znVmDrrvjUrVCnTYeY4FBxTYYYD4airyJA==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
     hasBin: true
     peerDependencies:
