@@ -32,7 +32,7 @@
 		"@fastify/redis": "6.0.0",
 		"cheerio": "1.0.0-rc.12",
 		"domhandler": "5.0.3",
-		"fastify": "4.5.3",
+		"fastify": "4.6.0",
 		"html-to-text": "8.2.1",
 		"isomorphic-fetch": "3.0.0",
 		"jest-mock-extended": "2.0.9",
