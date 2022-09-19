@@ -19,7 +19,7 @@ specifiers:
   eslint: 8.23.1
   eslint-config-prettier: 8.5.0
   eslint-plugin-jest: 27.0.4
-  eslint-plugin-simple-import-sort: 7.0.0
+  eslint-plugin-simple-import-sort: 8.0.0
   fastify: 4.5.3
   html-to-text: 8.2.1
   isomorphic-fetch: 3.0.0
@@ -70,7 +70,7 @@ devDependencies:
   eslint: 8.23.1
   eslint-config-prettier: 8.5.0_eslint@8.23.1
   eslint-plugin-jest: 27.0.4_i555port5zsskau645eqjxxxu4
-  eslint-plugin-simple-import-sort: 7.0.0_eslint@8.23.1
+  eslint-plugin-simple-import-sort: 8.0.0_eslint@8.23.1
   jest: 29.0.2_6dkrlomnkclucantvxab6wv2au
   nodemon: 2.0.19
   prettier: 2.7.1
@@ -1924,8 +1924,8 @@ packages:
       - typescript
     dev: true
 
-  /eslint-plugin-simple-import-sort/7.0.0_eslint@8.23.1:
-    resolution: {integrity: sha512-U3vEDB5zhYPNfxT5TYR7u01dboFZp+HNpnGhkDB2g/2E4wZ/g1Q9Ton8UwCLfRV9yAKyYqDh62oHOamvkFxsvw==}
+  /eslint-plugin-simple-import-sort/8.0.0_eslint@8.23.1:
+    resolution: {integrity: sha512-bXgJQ+lqhtQBCuWY/FUWdB27j4+lqcvXv5rUARkzbeWLwea+S5eBZEQrhnO+WgX3ZoJHVj0cn943iyXwByHHQw==}
     peerDependencies:
       eslint: '>=5.0.0'
     dependencies:
