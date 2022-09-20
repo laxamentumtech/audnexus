@@ -30,7 +30,7 @@ specifiers:
   module-alias: 2.2.2
   moment: 2.29.4
   mongodb: 4.9.1
-  nodemon: 2.0.19
+  nodemon: 2.0.20
   papr: 8.2.0
   prettier: 2.7.1
   standard-version: 9.5.0
@@ -72,7 +72,7 @@ devDependencies:
   eslint-plugin-jest: 27.0.4_agihzdubifvlsy3vxhvuafdnha
   eslint-plugin-simple-import-sort: 8.0.0_eslint@8.23.1
   jest: 29.0.3_6dkrlomnkclucantvxab6wv2au
-  nodemon: 2.0.19
+  nodemon: 2.0.20
   prettier: 2.7.1
   standard-version: 9.5.0
   ts-jest: 29.0.1_65hyrayhq2gvq5ygbjt44aaho4
@@ -3385,11 +3385,10 @@ packages:
   /node-releases/2.0.6:
     resolution: {integrity: sha512-PiVXnNuFm5+iYkLBNeq5211hvO38y63T0i2KKh2KnUs3RpzJ+JtODFjkD8yjLwnDkTYF1eKXheUwdssR+NRZdg==}
 
-  /nodemon/2.0.19:
-    resolution: {integrity: sha512-4pv1f2bMDj0Eeg/MhGqxrtveeQ5/G/UVe9iO6uTZzjnRluSA4PVWf8CW99LUPwGB3eNIA7zUFoP77YuI7hOc0A==}
+  /nodemon/2.0.20:
+    resolution: {integrity: sha512-Km2mWHKKY5GzRg6i1j5OxOHQtuvVsgskLfigG25yTtbyfRGn/GNvIbRyOf1PSCKJ2aT/58TiuUsuOU5UToVViw==}
     engines: {node: '>=8.10.0'}
     hasBin: true
-    requiresBuild: true
     dependencies:
       chokidar: 3.5.3
       debug: 3.2.7_supports-color@5.5.0
