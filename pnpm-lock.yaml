@@ -24,7 +24,7 @@ specifiers:
   html-to-text: 8.2.1
   isomorphic-fetch: 3.0.0
   jest: 29.0.3
-  jest-mock-extended: 2.0.9
+  jest-mock-extended: 3.0.1
   jsrsasign: 10.5.27
   lodash: 4.17.21
   module-alias: 2.2.2
@@ -47,7 +47,7 @@ dependencies:
   fastify: 4.6.0
   html-to-text: 8.2.1
   isomorphic-fetch: 3.0.0
-  jest-mock-extended: 2.0.9_jksntdpmkmo5cthob65gehuuvi
+  jest-mock-extended: 3.0.1_jksntdpmkmo5cthob65gehuuvi
   jsrsasign: 10.5.27
   lodash: 4.17.21
   module-alias: 2.2.2
@@ -2846,8 +2846,8 @@ packages:
       slash: 3.0.0
       stack-utils: 2.0.5
 
-  /jest-mock-extended/2.0.9_jksntdpmkmo5cthob65gehuuvi:
-    resolution: {integrity: sha512-eRZq7/FgwHbxOMm3Lo4DpQX6S2zi4OvwMVFHEb3FgDLp0Xy3P1WARkF93xxO5uD4nAHiEPYHZ25qVU9mAVxoLQ==}
+  /jest-mock-extended/3.0.1_jksntdpmkmo5cthob65gehuuvi:
+    resolution: {integrity: sha512-RF4Ow8pXvbRuEcCTj56oYHmig5311BSFvbEGxPNYL51wGKGu93MvVQgx0UpFmjqyBXIcElkZo2Rke88kR1iSKQ==}
     peerDependencies:
       jest: ^24.0.0 || ^25.0.0 || ^26.0.0 || ^27.0.0 || ^28.0.0 || ^29.0.0
       typescript: ^3.0.0 || ^4.0.0
