@@ -212,12 +212,14 @@ describe('ApiHelper should throw error when', () => {
 		asin = ''
 		helper = new ApiHelper(asin)
 		await expect(helper.fetchBook()).rejects.toThrowError(
-			`An error has occured while fetching from Audible API. Response: 403, ASIN: ${asin}`
+			`An error occured while fetching data from Audible API. Response: 403, ASIN: ${asin}`
 		)
 	})
 
 	test('input is undefined', async () => {
-		await expect(helper.parseResponse(undefined)).rejects.toThrowError('No API response to parse')
+		await expect(helper.parseResponse(undefined)).rejects.toThrowError(
+			`An error occurred while parsing Audible API. ASIN: ${asin}`
+		)
 	})
 
 	test('book has no title', async () => {

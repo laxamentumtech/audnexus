@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as cheerio from 'cheerio'
 
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 import {
 	htmlResponseGenreNoHref,
 	htmlResponseGenreOnly,

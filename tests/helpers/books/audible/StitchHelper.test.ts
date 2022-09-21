@@ -2,6 +2,7 @@ import { AudibleProduct } from '#config/typing/audible'
 import { Book } from '#config/typing/books'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
+import { ErrorMessageHTTPFetch, ErrorMessageParse } from '#static/messages'
 import {
 	apiResponse,
 	genresObject,
@@ -101,7 +102,7 @@ describe('StitchHelper should throw error when', () => {
 
 	test('fetching api book data fails completely', async () => {
 		await expect(helper.fetchApiBook()).rejects.toThrowError(
-			`Error occured while fetching data from API: Error: An error has occured while fetching from Audible API. Response: 400, ASIN: ${asin}`
+			`An error occured while fetching data from Audible API. Response: 400, ASIN: ${asin}`
 		)
 	})
 
@@ -112,15 +113,15 @@ describe('StitchHelper should throw error when', () => {
 	test('fetching scraper book data throws an error', async () => {
 		jest
 			.spyOn(helper.scrapeHelper, 'fetchBook')
-			.mockRejectedValueOnce(new Error('An error occured while fetching data from scraper'))
+			.mockRejectedValueOnce(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible HTML')))
 		await expect(helper.fetchScraperBook()).rejects.toThrowError(
-			`Error occured while fetching data from scraper: Error: An error occured while fetching data from scraper`
+			`An error occured while fetching data from Audible HTML. Response: 400, ASIN: ${asin}`
 		)
 	})
 
 	test('parsing api book data fails', async () => {
 		await expect(helper.parseApiResponse()).rejects.toThrowError(
-			'Error occured while parsing data from API: Error: No API response to parse'
+			`An error occurred while parsing Audible API. ASIN: ${asin}`
 		)
 	})
 
@@ -131,9 +132,9 @@ describe('StitchHelper should throw error when', () => {
 	test('parsing scraper book throws an error', async () => {
 		jest
 			.spyOn(helper.scrapeHelper, 'parseResponse')
-			.mockRejectedValueOnce(new Error('An error occured while parsing data from scraper'))
+			.mockRejectedValueOnce(new Error(ErrorMessageParse(asin, 'Audible HTML')))
 		await expect(helper.parseScraperResponse()).rejects.toThrowError(
-			'Error occured while parsing data from scraper: Error: An error occured while parsing data from scraper'
+			`An error occurred while parsing Audible HTML. ASIN: ${asin}`
 		)
 	})
 
@@ -151,7 +152,7 @@ describe('StitchHelper should throw error when', () => {
 			.mockImplementation(() => Promise.resolve(genresObject) as unknown as Book)
 		helper.scraperParsed = genresObject
 		await expect(helper.includeGenres()).rejects.toThrowError(
-			`Error occured while sorting book json: ${asin}`
+			`An error occurred while sorting book json: ${asin}`
 		)
 	})
 })

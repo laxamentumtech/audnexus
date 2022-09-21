@@ -74,7 +74,7 @@ describe('ChapterHelper should throw error when', () => {
 		const bad_helper = function () {
 			new ChapterHelper(asin)
 		}
-		expect(bad_helper).toThrowError('Missing environment vars for chapters')
+		expect(bad_helper).toThrowError('Missing environment variable(s): ADP_TOKEN or PRIVATE_KEY')
 		// Restore environment
 		process.env = OLD_ENV
 	})
@@ -92,6 +92,8 @@ describe('ChapterHelper should throw error when', () => {
 				},
 				response_groups: ['chapter_info']
 			} as AudibleChapter)
-		).rejects.toThrowError(`Required key: chapters, does not exist on: ${asin}`)
+		).rejects.toThrowError(
+			`Required key 'chapters' does not exist for chapter in Audible API response for ASIN ${asin}`
+		)
 	})
 })

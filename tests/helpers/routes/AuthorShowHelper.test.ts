@@ -99,20 +99,20 @@ describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a author type', async () => {
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValueOnce(false)
 		await expect(helper.getAuthorWithProjection()).rejects.toThrow(
-			`Data type is not an author ${asin}`
+			`Data type for ${asin} is not AuthorProfile`
 		)
 	})
 	test('getChaptersWithProjection sorted author is not an author type', async () => {
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValueOnce(true)
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValueOnce(false)
 		await expect(helper.getAuthorWithProjection()).rejects.toThrow(
-			`Data type is not an author ${asin}`
+			`Data type for ${asin} is not AuthorProfile`
 		)
 	})
 	test('createOrUpdateChapters is not an author type', async () => {
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValueOnce(false)
 		await expect(helper.createOrUpdateAuthor()).rejects.toThrow(
-			`Data type is not an author ${asin}`
+			`Data type for ${asin} is not AuthorProfile`
 		)
 	})
 })

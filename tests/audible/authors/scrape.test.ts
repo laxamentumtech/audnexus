@@ -42,7 +42,7 @@ describe('Audible Author HTML', () => {
 
 		it('threw an error', async () => {
 			await expect(helper.fetchAuthor()).rejects.toThrowError(
-				`An error occured while fetching Audible HTML. Response: 404, ASIN: ${asin}`
+				`An error occured while fetching data from Audible HTML. Response: 404, ASIN: ${asin}`
 			)
 		})
 	})

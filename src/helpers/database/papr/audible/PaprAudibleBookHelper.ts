@@ -3,7 +3,15 @@ import { Book } from '#config/typing/books'
 import { isBook, isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { RequestGenericWithSeed } from '#config/typing/requests'
-import SharedHelper from '#helpers/shared'
+import getErrorMessage from '#helpers/utils/getErrorMessage'
+import SharedHelper from '#helpers/utils/shared'
+import {
+	ErrorMessageCreate,
+	ErrorMessageDelete,
+	ErrorMessageNotFoundInDb,
+	ErrorMessageUpdate,
+	NoticeUpdateAsin
+} from '#static/messages'
 
 const projectionWithoutDbFields = {
 	_id: 0,
@@ -32,9 +40,10 @@ export default class PaprAudibleBookHelper {
 				data: (await this.findOneWithProjection()).data,
 				modified: true
 			}
-		} catch (err) {
-			console.error(err)
-			throw new Error(`An error occurred while creating book ${this.asin} in the DB`)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
+			throw new Error(ErrorMessageCreate(this.asin, 'book'))
 		}
 	}
 
@@ -49,9 +58,10 @@ export default class PaprAudibleBookHelper {
 				data: deletedBook,
 				modified: true
 			}
-		} catch (err) {
-			console.error(err)
-			throw new Error(`An error occurred while deleting book ${this.asin} in the DB`)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
+			throw new Error(ErrorMessageDelete(this.asin, 'book'))
 		}
 	}
 
@@ -133,7 +143,7 @@ export default class PaprAudibleBookHelper {
 			if (data.genres || (!data.genres && this.bookData.genres)) {
 				// Only update if it's not nuked data
 				if (this.bookData.genres?.length) {
-					console.log(`Updating book asin ${this.asin}`)
+					console.log(NoticeUpdateAsin(this.asin, 'book'))
 					// Update
 					return this.update()
 				}
@@ -156,7 +166,7 @@ export default class PaprAudibleBookHelper {
 		try {
 			const found = await this.findOne()
 			if (!found.data) {
-				throw new Error(`Book ${this.asin} not found in DB for update`)
+				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Book'))
 			}
 			await BookModel.updateOne(
 				{ asin: this.asin },
@@ -170,9 +180,10 @@ export default class PaprAudibleBookHelper {
 			// Set modified to true to indicate that the data has been updated
 			updatedBook.modified = true
 			return updatedBook
-		} catch (err) {
-			console.error(err)
-			throw new Error(`An error occurred while updating book ${this.asin} in the DB`)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
+			throw new Error(ErrorMessageUpdate(this.asin, 'book'))
 		}
 	}
 }

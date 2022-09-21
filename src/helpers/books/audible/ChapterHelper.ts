@@ -3,8 +3,13 @@ import moment from 'moment'
 
 import { AudibleChapter, SingleChapter } from '#config/typing/audible'
 import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
-import fetch from '#helpers/fetchPlus'
-import SharedHelper from '#helpers/shared'
+import fetch from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
+import {
+	ErrorMessageHTTPFetch,
+	ErrorMessageMissingEnv,
+	ErrorMessageRequiredKey
+} from '#static/messages'
 
 class ChapterHelper {
 	asin: string
@@ -24,7 +29,7 @@ class ChapterHelper {
 			this.privateKey = process.env.PRIVATE_KEY
 			this.privateKey = this.privateKey.replace(/\\n/g, '\n')
 		} else {
-			throw new Error('Missing environment vars for chapters')
+			throw new Error(ErrorMessageMissingEnv('ADP_TOKEN or PRIVATE_KEY'))
 		}
 	}
 
@@ -101,8 +106,7 @@ class ChapterHelper {
 				return json
 			})
 			.catch((error) => {
-				const message = `An error has occured while fetching chapters ${error.status}: ${this.reqUrl}`
-				console.log(message)
+				console.log(ErrorMessageHTTPFetch(this.asin, error.status, 'chapters'))
 				return undefined
 			})
 	}
@@ -131,7 +135,7 @@ class ChapterHelper {
 
 		requiredKeys.forEach((key) => {
 			if (!Object.prototype.hasOwnProperty.call(inputJson, key)) {
-				throw new Error(`Required key: ${key}, does not exist on: ${this.asin}`)
+				throw new Error(ErrorMessageRequiredKey(this.asin, key, 'exist for chapter'))
 			}
 		})
 

@@ -7,7 +7,8 @@ import { RequestGeneric } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
+import { ErrorMessageDataType } from '#static/messages'
 
 export default class AuthorShowHelper {
 	asin: string
@@ -43,13 +44,14 @@ export default class AuthorShowHelper {
 		// 1. Get the author with projections
 		const author = await this.paprHelper.findOneWithProjection()
 		// Make saure we get a authorprofile type back
-		if (!isAuthorProfile(author.data)) throw new Error(`Data type is not an author ${this.asin}`)
+		if (!isAuthorProfile(author.data))
+			throw new Error(ErrorMessageDataType(this.asin, 'AuthorProfile'))
 
 		// 2. Sort the object
 		const sort = this.sharedHelper.sortObjectByKeys(author.data)
 		if (isAuthorProfile(sort)) return sort
 
-		throw new Error(`Data type is not an author ${this.asin}`)
+		throw new Error(ErrorMessageDataType(this.asin, 'AuthorProfile'))
 	}
 
 	/**
@@ -70,7 +72,7 @@ export default class AuthorShowHelper {
 		// Create or update the author
 		const authorToReturn = await this.paprHelper.createOrUpdate()
 		if (!isAuthorProfile(authorToReturn.data))
-			throw new Error(`Data type is not an author ${this.asin}`)
+			throw new Error(ErrorMessageDataType(this.asin, 'AuthorProfile'))
 
 		// Get the author with projections
 		const data = await this.getAuthorWithProjection()

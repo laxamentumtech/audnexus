@@ -102,15 +102,19 @@ describe('BookShowHelper should', () => {
 describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a book type', async () => {
 		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
-		await expect(helper.getBookWithProjection()).rejects.toThrow(`Data type is not a book ${asin}`)
+		await expect(helper.getBookWithProjection()).rejects.toThrow(
+			`Data type for ${asin} is not Book`
+		)
 	})
 	test('getChaptersWithProjection sorted book is not a book type', async () => {
 		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(true)
 		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
-		await expect(helper.getBookWithProjection()).rejects.toThrow(`Data type is not a book ${asin}`)
+		await expect(helper.getBookWithProjection()).rejects.toThrow(
+			`Data type for ${asin} is not Book`
+		)
 	})
 	test('createOrUpdateChapters is not a book type', async () => {
 		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
-		await expect(helper.createOrUpdateBook()).rejects.toThrow(`Data type is not a book ${asin}`)
+		await expect(helper.createOrUpdateBook()).rejects.toThrow(`Data type for ${asin} is not Book`)
 	})
 })
