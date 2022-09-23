@@ -1,7 +1,7 @@
 jest.mock('#config/models/Chapter')
 jest.mock('#helpers/database/papr/audible/PaprAudibleChapterHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
-jest.mock('#helpers/shared')
+jest.mock('#helpers/utils/shared')
 jest.mock('#config/typing/checkers')
 
 import * as checkers from '#config/typing/checkers'
@@ -117,20 +117,20 @@ describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a chapter type', async () => {
 		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.getChapterWithProjection()).rejects.toThrow(
-			`Data type is not a chapter ${asin}`
+			`Data type for ${asin} is not Chapter`
 		)
 	})
 	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
 		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(true)
 		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.getChapterWithProjection()).rejects.toThrow(
-			`Data type is not a chapter ${asin}`
+			`Data type for ${asin} is not Chapter`
 		)
 	})
 	test('createOrUpdateChapters is not a chapter type', async () => {
 		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.createOrUpdateChapters()).rejects.toThrow(
-			`Data type is not a chapter ${asin}`
+			`Data type for ${asin} is not Chapter`
 		)
 	})
 })

@@ -5,7 +5,9 @@ import { ApiBook, Book, HtmlBook } from '#config/typing/books'
 import { isBook } from '#config/typing/checkers'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
-import SharedHelper from '#helpers/shared'
+import getErrorMessage from '#helpers/utils/getErrorMessage'
+import SharedHelper from '#helpers/utils/shared'
+import { ErrorMessageSort, NoticeChaptersFallback } from '#static/messages'
 
 class StitchHelper {
 	apiHelper: ApiHelper
@@ -34,8 +36,8 @@ class StitchHelper {
 			this.apiResponse = await apiResponse
 			// Set the helper data
 			this.apiHelper.inputJson = this.apiResponse.product
-		} catch (err) {
-			throw new Error(`Error occured while fetching data from API: ${err}`)
+		} catch (error) {
+			throw new Error(getErrorMessage(error))
 		}
 	}
 
@@ -46,8 +48,8 @@ class StitchHelper {
 		const scraperResponse = this.scrapeHelper.fetchBook()
 		try {
 			this.scraperResponse = await scraperResponse
-		} catch (err) {
-			throw new Error(`Error occured while fetching data from scraper: ${err}`)
+		} catch (error) {
+			throw new Error(getErrorMessage(error))
 		}
 	}
 
@@ -58,8 +60,8 @@ class StitchHelper {
 		const apiParsed = this.apiHelper.parseResponse(this.apiResponse)
 		try {
 			this.apiParsed = await apiParsed
-		} catch (err) {
-			throw new Error(`Error occured while parsing data from API: ${err}`)
+		} catch (error) {
+			throw new Error(getErrorMessage(error))
 		}
 	}
 
@@ -70,8 +72,8 @@ class StitchHelper {
 		const scraperParsed = this.scrapeHelper.parseResponse(this.scraperResponse)
 		try {
 			this.scraperParsed = await scraperParsed
-		} catch (err) {
-			throw new Error(`Error occured while parsing data from scraper: ${err}`)
+		} catch (error) {
+			throw new Error(getErrorMessage(error))
 		}
 	}
 
@@ -85,7 +87,7 @@ class StitchHelper {
 				...this.scraperParsed
 			})
 			if (isBook(sortedObject)) return sortedObject
-			throw new Error(`Error occured while sorting book json: ${this.asin}`)
+			throw new Error(ErrorMessageSort(this.asin))
 		}
 		return this.apiParsed as Book
 	}
@@ -102,15 +104,13 @@ class StitchHelper {
 		// Make sure we have a valid response
 		const requiredKeys = this.apiHelper.hasRequiredKeys()
 		if (!requiredKeys.isValid) {
-			throw new Error(`${requiredKeys.message}`)
+			throw new Error(requiredKeys.message)
 		}
 		await this.parseApiResponse()
 
 		// Check if we need to scrape for genres
 		if (!this.apiResponse.product.category_ladders.length) {
-			console.debug(
-				`API response has no category ladders, parsing scraper response for: ${this.asin}`
-			)
+			console.debug(NoticeChaptersFallback(this.asin))
 			await this.fetchScraperBook()
 			await this.parseScraperResponse()
 		}

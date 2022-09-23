@@ -2,6 +2,8 @@ import type { FastifyRedis } from '@fastify/redis'
 
 import { Book } from '#config/typing/books'
 import { ParsedObject } from '#config/typing/unions'
+import getErrorMessage from '#helpers/utils/getErrorMessage'
+import { ErrorMessageRedisDelete, ErrorMessageRedisSet } from '#static/messages'
 
 export default class RedisHelper {
 	instance: FastifyRedis | null
@@ -20,9 +22,10 @@ export default class RedisHelper {
 		try {
 			const deleted = await this.instance?.del(this.key)
 			return deleted
-		} catch (err) {
-			console.error(err)
-			throw new Error(`An error occurred while deleting ${this.key} in redis`)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
+			throw new Error(ErrorMessageRedisDelete(this.key))
 		}
 	}
 
@@ -36,8 +39,9 @@ export default class RedisHelper {
 				return this.convertStringToDate(parsed)
 			}
 			return JSON.parse(found)
-		} catch (err) {
-			console.error(err)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
 			return undefined
 		}
 	}
@@ -57,9 +61,10 @@ export default class RedisHelper {
 		try {
 			const set = await this.instance?.set(this.key, JSON.stringify(data, null, 2))
 			return set
-		} catch (err) {
-			console.error(err)
-			throw new Error(`An error occurred while setting ${this.key} in redis`)
+		} catch (error) {
+			const message = getErrorMessage(error)
+			console.error(message)
+			throw new Error(ErrorMessageRedisSet(this.key))
 		}
 	}
 }

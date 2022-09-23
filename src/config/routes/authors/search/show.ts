@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify'
 
 import Author from '#config/models/Author'
 import { RequestGenericSearch } from '#config/typing/requests'
+import { MessageNoSearchParams } from '#static/messages'
 
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGenericSearch>('/authors', async (request, reply) => {
@@ -9,7 +10,7 @@ async function _show(fastify: FastifyInstance) {
 
 		if (!name) {
 			reply.code(400)
-			throw new Error('No search params provided')
+			throw new Error(MessageNoSearchParams)
 		}
 
 		// Use projection search from mongo until papr implements it natively.

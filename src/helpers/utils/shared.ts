@@ -5,6 +5,7 @@ import lodash from 'lodash'
 import { ApiGenre } from '#config/typing/books'
 import { PaprDocument } from '#config/typing/papr'
 import { ParsedObject } from '#config/typing/unions'
+import { NoticeGenreNotAvailable } from '#static/messages'
 
 class SharedHelper {
 	asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
@@ -97,7 +98,7 @@ class SharedHelper {
 						return thisGenre
 					}
 				} else {
-					console.log(`Genre ${index} asin not available on: ${asin}`)
+					console.log(NoticeGenreNotAvailable(asin, index))
 				}
 			})
 			.filter((genre) => genre) as ApiGenre[] // Filter out undefined values

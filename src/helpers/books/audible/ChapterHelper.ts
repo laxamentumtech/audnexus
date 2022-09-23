@@ -3,14 +3,21 @@ import moment from 'moment'
 
 import { AudibleChapter, SingleChapter } from '#config/typing/audible'
 import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
-import fetch from '#helpers/fetchPlus'
-import SharedHelper from '#helpers/shared'
+import fetch from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
+import {
+	ErrorMessageHTTPFetch,
+	ErrorMessageMissingEnv,
+	ErrorMessageNoData,
+	ErrorMessageRequiredKey
+} from '#static/messages'
 
 class ChapterHelper {
-	asin: string
-	reqUrl: string
 	adpToken: string
+	asin: string
+	inputJson: AudibleChapter['content_metadata']['chapter_info'] | undefined
 	privateKey: string
+	reqUrl: string
 
 	constructor(asin: string) {
 		this.asin = asin
@@ -24,7 +31,7 @@ class ChapterHelper {
 			this.privateKey = process.env.PRIVATE_KEY
 			this.privateKey = this.privateKey.replace(/\\n/g, '\n')
 		} else {
-			throw new Error('Missing environment vars for chapters')
+			throw new Error(ErrorMessageMissingEnv('ADP_TOKEN or PRIVATE_KEY'))
 		}
 	}
 
@@ -101,10 +108,87 @@ class ChapterHelper {
 				return json
 			})
 			.catch((error) => {
-				const message = `An error has occured while fetching chapters ${error.status}: ${this.reqUrl}`
-				console.log(message)
+				console.log(ErrorMessageHTTPFetch(this.asin, error.status, 'chapters'))
 				return undefined
 			})
+	}
+
+	/**
+	 * Compile the final data object.
+	 * This is run after all other data has been parsed.
+	 */
+	getFinalData(): ApiChapter {
+		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ChapterHelper'))
+
+		return {
+			asin: this.asin,
+			brandIntroDurationMs: this.inputJson.brandIntroDurationMs,
+			brandOutroDurationMs: this.inputJson.brandOutroDurationMs,
+			chapters: this.inputJson.chapters.map((chapter: SingleChapter) => {
+				const chapJson: ApiSingleChapter = {
+					lengthMs: chapter.length_ms,
+					startOffsetMs: chapter.start_offset_ms,
+					startOffsetSec: chapter.start_offset_sec,
+					title: this.chapterTitleCleanup(chapter.title)
+				}
+				return chapJson
+			}),
+			isAccurate: this.inputJson.is_accurate,
+			runtimeLengthMs: this.inputJson.runtime_length_ms,
+			runtimeLengthSec: this.inputJson.runtime_length_sec
+		}
+	}
+
+	/**
+	 * Checks if all required keys are present
+	 * These are the keys that are required to build the final data object
+	 * @returns validity as boolean, and error message as string
+	 */
+	hasRequiredKeys(): { isValid: boolean; message: string } {
+		let message = ''
+		const isValidKey = (key: string): boolean => {
+			if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ChapterHelper'))
+
+			// Make sure key exists in inputJson
+			const keyExists = Object.hasOwnProperty.call(this.inputJson, key)
+
+			// Get value of key
+			const value = this.inputJson[key as keyof typeof this.inputJson]
+
+			// Allow 0 as a valid value
+			const isNumberAndZero = typeof value === 'number' && value === 0
+
+			// Break on non valid value
+			let isValidKey = true
+			switch (isValidKey) {
+				case !keyExists:
+					isValidKey = false
+					message = ErrorMessageRequiredKey(this.asin, key, 'exist for chapter')
+					break
+				case !value && !isNumberAndZero:
+					isValidKey = false
+					message = ErrorMessageRequiredKey(this.asin, key, 'have a valid value')
+					break
+			}
+
+			return isValidKey
+		}
+
+		// Create new const for presence check
+		const requiredKeys = [
+			'brandIntroDurationMs',
+			'brandOutroDurationMs',
+			'chapters',
+			'is_accurate',
+			'runtime_length_ms',
+			'runtime_length_sec'
+		]
+		const isValid = requiredKeys.every((key) => isValidKey(key))
+
+		return {
+			isValid,
+			message
+		}
 	}
 
 	/**
@@ -117,43 +201,15 @@ class ChapterHelper {
 		if (!jsonRes || !jsonRes.content_metadata.chapter_info) {
 			return undefined
 		}
-		const inputJson = jsonRes.content_metadata.chapter_info
+		this.inputJson = jsonRes.content_metadata.chapter_info
 
 		// Check all required keys present
-		const requiredKeys = [
-			'brandIntroDurationMs',
-			'brandOutroDurationMs',
-			'chapters',
-			'is_accurate',
-			'runtime_length_ms',
-			'runtime_length_sec'
-		]
-
-		requiredKeys.forEach((key) => {
-			if (!Object.prototype.hasOwnProperty.call(inputJson, key)) {
-				throw new Error(`Required key: ${key}, does not exist on: ${this.asin}`)
-			}
-		})
-
-		const finalJson: ApiChapter = {
-			asin: this.asin,
-			brandIntroDurationMs: inputJson.brandIntroDurationMs,
-			brandOutroDurationMs: inputJson.brandOutroDurationMs,
-			chapters: inputJson.chapters.map((chapter: SingleChapter) => {
-				const chapJson: ApiSingleChapter = {
-					lengthMs: chapter.length_ms,
-					startOffsetMs: chapter.start_offset_ms,
-					startOffsetSec: chapter.start_offset_sec,
-					title: this.chapterTitleCleanup(chapter.title)
-				}
-				return chapJson
-			}),
-			isAccurate: inputJson.is_accurate,
-			runtimeLengthMs: inputJson.runtime_length_ms,
-			runtimeLengthSec: inputJson.runtime_length_sec
+		const requiredKeys = this.hasRequiredKeys()
+		if (!requiredKeys.isValid) {
+			throw new Error(requiredKeys.message)
 		}
 
-		return finalJson
+		return this.getFinalData()
 	}
 
 	/**

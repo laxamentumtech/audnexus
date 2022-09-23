@@ -2,8 +2,13 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 
 import { AuthorProfile } from '#config/typing/people'
-import fetch from '#helpers/fetchPlus'
-import SharedHelper from '#helpers/shared'
+import fetch from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
+import {
+	ErrorMessageHTTPFetch,
+	ErrorMessageNoResponse,
+	ErrorMessageNotFound
+} from '#static/messages'
 
 class ScrapeHelper {
 	asin: string
@@ -28,8 +33,7 @@ class ScrapeHelper {
 				return cheerio.load(text)
 			})
 			.catch((error) => {
-				const message = `An error occured while fetching Audible HTML. Response: ${error.status}, ASIN: ${this.asin}`
-				throw new Error(message)
+				throw new Error(ErrorMessageHTTPFetch(this.asin, error.status, 'Audible HTML'))
 			})
 	}
 
@@ -55,7 +59,7 @@ class ScrapeHelper {
 			const name = html as unknown as Text
 			return name.data.trim()
 		} catch (error) {
-			throw new Error(`No author name found for ASIN: ${this.asin}`)
+			throw new Error(ErrorMessageNotFound(this.asin, 'author name'))
 		}
 	}
 
@@ -67,7 +71,7 @@ class ScrapeHelper {
 	async parseResponse(dom: cheerio.CheerioAPI | undefined): Promise<AuthorProfile> {
 		// Base undefined check
 		if (!dom) {
-			throw new Error('No response from HTML')
+			throw new Error(ErrorMessageNoResponse(this.asin, 'HTML'))
 		}
 
 		// Description

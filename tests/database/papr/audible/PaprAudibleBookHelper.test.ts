@@ -1,11 +1,11 @@
 jest.mock('#config/models/Book')
-jest.mock('#helpers/shared')
+jest.mock('#helpers/utils/shared')
 
 import BookModel, { BookDocument } from '#config/models/Book'
 import * as checkers from '#config/typing/checkers'
 import { RequestGenericWithSeed } from '#config/typing/requests'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
-import SharedHelper from '#helpers/shared'
+import SharedHelper from '#helpers/utils/shared'
 import {
 	bookWithoutGenresWithoutProjection,
 	bookWithoutProjection,

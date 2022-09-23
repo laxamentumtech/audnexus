@@ -25,69 +25,96 @@ const server = fastify({
 	trustProxy: true
 })
 
-// Register redis if it's present
-if (process.env.REDIS_URL) {
-	console.log('Using Redis')
-	server.register(redis, {
-		connectTimeout: 500,
-		maxRetriesPerRequest: 1,
-		url: process.env.REDIS_URL
-	})
-}
-
 // Setup DB context
 if (!process.env.MONGODB_URI) {
 	throw new Error('No MongoDB URI specified')
 }
 const ctx: Context = createDefaultContext(process.env.MONGODB_URI)
 
-// CORS
-server.register(cors, {
-	origin: true
-})
-
-// Rate limiting
-server.register(rateLimit, {
-	global: true,
-	max: Number(process.env.MAX_REQUESTS) || 100,
-	redis: process.env.REDIS_URL ? server.redis : undefined,
-	timeWindow: '1 minute'
-})
-// Send 429 if rate limit is reached
-server.setErrorHandler(function (error, _request, reply) {
-	if (reply.statusCode === 429) {
-		error.message = 'Rate limit reached. Please try again later.'
-	}
-	reply.send(error)
-})
-
-// Register routes
-server
-	.register(showBook)
-	.register(deleteBook)
-	.register(showChapter)
-	.register(deleteChapter)
-	.register(showAuthor)
-	.register(deleteAuthor)
-	.register(searchAuthor)
-
-server.listen({ port: port, host: host }, async (err, address) => {
-	if (err) {
-		console.error(err)
-		process.exit(1)
-	}
-	initialize({ client: await ctx.client.connect() })
-		.then(() => {
-			console.log(`Connected to DB`)
+/**
+ * Registers plugins for the server before booting it up
+ * Should be called before registering routes
+ */
+async function registerPlugins() {
+	// Register redis if it's present
+	if (process.env.REDIS_URL) {
+		console.log('Using Redis')
+		await server.register(redis, {
+			connectTimeout: 500,
+			maxRetriesPerRequest: 1,
+			url: process.env.REDIS_URL
 		})
-		.catch((err) => {
+	}
+
+	// CORS
+	await server.register(cors, {
+		origin: true
+	})
+
+	// Rate limiting
+	await server.register(rateLimit, {
+		global: true,
+		max: Number(process.env.MAX_REQUESTS) || 100,
+		redis: process.env.REDIS_URL ? server.redis : undefined,
+		timeWindow: '1 minute'
+	})
+	// Send 429 if rate limit is reached
+	server.setErrorHandler(function (error, _request, reply) {
+		if (reply.statusCode === 429) {
+			error.message = 'Rate limit reached. Please try again later.'
+		}
+		reply.send(error)
+	})
+}
+
+/**
+ * Registers routes for the server before booting it up
+ * Should be called after registering plugins
+ */
+async function registerRoutes() {
+	await server
+		.register(showBook)
+		.register(deleteBook)
+		.register(showChapter)
+		.register(deleteChapter)
+		.register(showAuthor)
+		.register(deleteAuthor)
+		.register(searchAuthor)
+}
+
+/**
+ * Starts the server
+ * Should be called after registering plugins and routes
+ */
+async function startServer() {
+	// Register plugins
+	await registerPlugins().then(() => console.log('Plugins registered'))
+
+	// Register routes
+	await registerRoutes().then(() => console.log('Routes registered'))
+
+	// Start main server
+	server.listen({ port: port, host: host }, async (err, address) => {
+		if (err) {
 			console.error(err)
 			process.exit(1)
-		})
-	console.log(`Server listening at ${address}`)
-})
+		}
+		initialize({ client: await ctx.client.connect() })
+			.then(() => {
+				console.log(`Connected to DB`)
+			})
+			.catch((err) => {
+				console.error(err)
+				process.exit(1)
+			})
+		console.log(`Server listening at ${address}`)
+	})
+}
 
-const startGracefulShutdown = () => {
+/**
+ * Shuts down the server and closes the DB connection
+ */
+async function stopServer() {
 	console.log('Closing HTTP server')
 	server.close(() => {
 		console.log('HTTP server closed')
@@ -105,5 +132,9 @@ const startGracefulShutdown = () => {
 	})
 }
 
-process.on('SIGTERM', startGracefulShutdown)
-process.on('SIGINT', startGracefulShutdown)
+// Start the server
+startServer()
+
+// Handle SIGTERM and SIGINT
+process.on('SIGTERM', stopServer)
+process.on('SIGINT', stopServer)

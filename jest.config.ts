@@ -1,11 +1,6 @@
 import type { Config } from '@jest/types'
 
 const config: Config.InitialOptions = {
-	globals: {
-		'ts-jest': {
-			tsconfig: '<rootDir>/tests/tsconfig.json'
-		}
-	},
 	moduleNameMapper: {
 		'#helpers/(.*)': '<rootDir>/src/helpers/$1',
 		'#config/(.*)': '<rootDir>/src/config/$1',
@@ -18,7 +13,12 @@ const config: Config.InitialOptions = {
 	roots: ['<rootDir>'],
 	testMatch: ['tests/**/*.+(ts|tsx|js)', '**/?(*.)+(spec|test).+(ts|tsx|js)'],
 	transform: {
-		'^.+\\.(ts|tsx)$': 'ts-jest'
+		'^.+\\.(ts|tsx)$': [
+			'ts-jest',
+			{
+				tsconfig: '<rootDir>/tests/tsconfig.json'
+			}
+		]
 	}
 }
 export default config
