@@ -1,6 +1,7 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { BookDocument } from '#config/models/Book'
+import { RequestGenericWithSeed } from '#config/typing/requests'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 
@@ -9,12 +10,13 @@ export default class BookDeleteHelper {
 	paprHelper: PaprAudibleBookHelper
 	redisHelper: RedisHelper
 	originalBook: BookDocument | null = null
-	constructor(asin: string, redis: FastifyRedis | null) {
+	constructor(
+		asin: string,
+		options: RequestGenericWithSeed['Querystring'],
+		redis: FastifyRedis | null
+	) {
 		this.asin = asin
-		this.paprHelper = new PaprAudibleBookHelper(this.asin, {
-			seedAuthors: undefined,
-			update: undefined
-		})
+		this.paprHelper = new PaprAudibleBookHelper(this.asin, options)
 		this.redisHelper = new RedisHelper(redis, 'book', this.asin)
 	}
 

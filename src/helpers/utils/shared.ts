@@ -121,6 +121,18 @@ class SharedHelper {
 	}
 
 	/**
+	 * Validate the region code.
+	 * @param {string} region the region code to validate
+	 */
+	isValidRegion(region: string): boolean {
+		const regionTLD = regionTLDs[region]
+		if (!regionTLD) {
+			return false
+		}
+		return true
+	}
+
+	/**
 	 * Get genres from a specific selector.
 	 * @param {cheeriom.Cheerio} dom the cheerio object to extract from
 	 * @param {string} selector the selector to extract from

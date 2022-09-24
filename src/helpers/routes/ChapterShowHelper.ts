@@ -21,11 +21,11 @@ export default class ChapterShowHelper {
 	chapterHelper: ChapterHelper
 	constructor(asin: string, options: RequestGeneric['Querystring'], redis: FastifyRedis | null) {
 		this.asin = asin
-		this.chapterHelper = new ChapterHelper(this.asin)
 		this.sharedHelper = new SharedHelper()
 		this.options = options
 		this.paprHelper = new PaprAudibleChapterHelper(this.asin, this.options)
 		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin)
+		this.chapterHelper = new ChapterHelper(this.asin, this.options.region)
 	}
 
 	/**

@@ -1,6 +1,7 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { ChapterDocument } from '#config/models/Chapter'
+import { RequestGeneric } from '#config/typing/requests'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 
@@ -9,11 +10,9 @@ export default class ChapterDeleteHelper {
 	paprHelper: PaprAudibleChapterHelper
 	redisHelper: RedisHelper
 	originalChapter: ChapterDocument | null = null
-	constructor(asin: string, redis: FastifyRedis | null) {
+	constructor(asin: string, options: RequestGeneric['Querystring'], redis: FastifyRedis | null) {
 		this.asin = asin
-		this.paprHelper = new PaprAudibleChapterHelper(this.asin, {
-			update: undefined
-		})
+		this.paprHelper = new PaprAudibleChapterHelper(this.asin, options)
 		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin)
 	}
 

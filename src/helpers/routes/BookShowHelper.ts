@@ -30,7 +30,7 @@ export default class BookShowHelper {
 		this.options = options
 		this.paprHelper = new PaprAudibleBookHelper(this.asin, this.options)
 		this.redisHelper = new RedisHelper(redis, 'book', this.asin)
-		this.stitchHelper = new StitchHelper(this.asin)
+		this.stitchHelper = new StitchHelper(this.asin, this.options.region)
 	}
 
 	/**

@@ -25,7 +25,7 @@ export default class AuthorShowHelper {
 		this.options = options
 		this.paprHelper = new PaprAudibleAuthorHelper(this.asin, this.options)
 		this.redisHelper = new RedisHelper(redis, 'book', this.asin)
-		this.scrapeHelper = new ScrapeHelper(this.asin)
+		this.scrapeHelper = new ScrapeHelper(this.asin, this.options.region)
 	}
 
 	/**
