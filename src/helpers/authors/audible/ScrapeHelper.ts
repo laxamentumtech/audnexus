@@ -97,7 +97,8 @@ class ScrapeHelper {
 			description,
 			genres,
 			image,
-			name
+			name,
+			region: this.region
 		}
 
 		return author

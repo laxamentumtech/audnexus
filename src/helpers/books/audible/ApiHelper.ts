@@ -295,6 +295,7 @@ class ApiHelper {
 			...(this.inputJson.rating && {
 				rating: this.inputJson.rating.overall_distribution.display_average_rating.toString()
 			}),
+			region: this.region,
 			releaseDate: this.getReleaseDate(),
 			runtimeLengthMin: this.inputJson.runtime_length_min ?? 0,
 			...(this.inputJson.series && {

@@ -138,6 +138,7 @@ class ChapterHelper {
 				return chapJson
 			}),
 			isAccurate: this.inputJson.is_accurate,
+			region: this.region,
 			runtimeLengthMs: this.inputJson.runtime_length_ms,
 			runtimeLengthSec: this.inputJson.runtime_length_sec
 		}
