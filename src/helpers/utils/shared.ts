@@ -6,6 +6,7 @@ import { ApiGenre } from '#config/typing/books'
 import { PaprDocument } from '#config/typing/papr'
 import { ParsedObject } from '#config/typing/unions'
 import { NoticeGenreNotAvailable } from '#static/messages'
+import { regionTLDs } from '#static/regions'
 
 class SharedHelper {
 	asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
@@ -15,8 +16,15 @@ class SharedHelper {
 	 * @param {string} ASIN The Audible ID to base the URL on
 	 * @returns {string} full url to fetch.
 	 */
-	buildUrl(ASIN: string, baseDomain: string, baseUrl: string, params?: string): string {
-		const argArr = [baseDomain, baseUrl, ASIN, params]
+	buildUrl(
+		ASIN: string,
+		baseDomain: string,
+		regionTLD: string,
+		baseUrl: string,
+		params?: string
+	): string {
+		const FQDN = `${baseDomain}.${regionTLD}`
+		const argArr = [FQDN, baseUrl, ASIN, params]
 		const reqUrl = argArr.join('/')
 		return reqUrl
 	}
