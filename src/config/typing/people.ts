@@ -13,6 +13,7 @@ export interface AuthorProfile extends Person {
 	description?: string
 	genres?: ApiGenre[]
 	image?: string
+	region: string
 }
 
 export type NarratorOnBook = Person

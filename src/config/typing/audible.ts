@@ -43,6 +43,10 @@ export interface AudibleSeries {
 	url?: string
 }
 
+export interface AudibleRegion {
+	[key: string]: string
+}
+
 export interface AudibleProduct {
 	product: {
 		asin: string
