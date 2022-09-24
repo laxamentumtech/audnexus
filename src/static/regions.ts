@@ -4,7 +4,7 @@ import { AudibleRegion } from '#config/typing/audible'
 
 // https://help.audible.com/s/article/what-is-an-audible-marketplace-and-which-is-best-for-me
 export const regionTLDs: AudibleRegion = {
-	au: '.com.au',
+	au: 'com.au',
 	ca: 'ca',
 	de: 'de',
 	es: 'es',
