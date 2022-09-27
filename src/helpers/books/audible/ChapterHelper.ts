@@ -11,7 +11,7 @@ import {
 	ErrorMessageNoData,
 	ErrorMessageRequiredKey
 } from '#static/messages'
-import { regionTLDs } from '#static/regions'
+import { regions } from '#static/regions'
 
 class ChapterHelper {
 	adpToken: string
@@ -26,7 +26,7 @@ class ChapterHelper {
 		this.region = region
 		const helper = new SharedHelper()
 		const baseDomain = 'https://api.audible'
-		const regionTLD = regionTLDs[region]
+		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/content'
 		const params = 'metadata?response_groups=chapter_info'
 		this.reqUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)

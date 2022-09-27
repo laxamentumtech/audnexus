@@ -6,7 +6,7 @@ import { ApiGenre } from '#config/typing/books'
 import { PaprDocument } from '#config/typing/papr'
 import { ParsedObject } from '#config/typing/unions'
 import { NoticeGenreNotAvailable } from '#static/messages'
-import { regionTLDs } from '#static/regions'
+import { regions } from '#static/regions'
 
 class SharedHelper {
 	asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
@@ -125,7 +125,7 @@ class SharedHelper {
 	 * @param {string} region the region code to validate
 	 */
 	isValidRegion(region: string): boolean {
-		const regionTLD = regionTLDs[region]
+		const regionTLD = regions[region].tld
 		if (!regionTLD) {
 			return false
 		}

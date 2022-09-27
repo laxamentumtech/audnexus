@@ -1,6 +1,6 @@
 // Errors for Helpers
 
-import { regionTLDs } from '#static/regions'
+import { regions } from '#static/regions'
 
 // Problem with HTTP fetch
 export const ErrorMessageHTTPFetch = (asin: string, error: number, source: string) =>
@@ -65,7 +65,7 @@ export const NoticeUpdateAsin = (asin: string, type: string) => `Updating ${type
 
 // Messages for routes
 export const MessageBadAsin = 'Bad ASIN'
-export const MessageBadRegion = `Invalid region. Valid regions are: ${Object.keys(regionTLDs).join(
+export const MessageBadRegion = `Invalid region. Valid regions are: ${Object.keys(regions).join(
 	', '
 )}`
 export const MessageDeleted = (asin: string) => `${asin} deleted`

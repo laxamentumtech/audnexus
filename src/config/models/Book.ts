@@ -1,7 +1,7 @@
 import { schema, types } from 'papr'
 
 import papr from '#config/papr'
-import { regionRegex, regionTLDs } from '#static/regions'
+import { regionRegex, regions } from '#static/regions'
 
 const bookSchema = schema(
 	{
@@ -33,7 +33,7 @@ const bookSchema = schema(
 		publisherName: types.string({ required: true }),
 		rating: types.string({ required: true }),
 		region: types.string({
-			enum: Object.keys(regionTLDs),
+			enum: Object.keys(regions),
 			pattern: regionRegex,
 			required: true
 		}),

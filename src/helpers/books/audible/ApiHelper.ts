@@ -13,7 +13,7 @@ import {
 	ErrorMessageReleaseDate,
 	ErrorMessageRequiredKey
 } from '#static/messages'
-import { regionTLDs } from '#static/regions'
+import { regions } from '#static/regions'
 
 class ApiHelper {
 	asin: string
@@ -25,7 +25,7 @@ class ApiHelper {
 		this.region = region
 		const helper = new SharedHelper()
 		const baseDomain = 'https://api.audible'
-		const regionTLD = regionTLDs[region]
+		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/catalog/products'
 		const paramArr = [
 			'category_ladders',
