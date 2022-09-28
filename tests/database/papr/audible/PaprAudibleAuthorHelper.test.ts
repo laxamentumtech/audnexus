@@ -26,6 +26,7 @@ const projectionWithoutDbFields = {
 beforeEach(() => {
 	asin = parsedAuthor.asin
 	options = {
+		region: 'us',
 		update: '1'
 	}
 	helper = new PaprAudibleAuthorHelper(asin, options)

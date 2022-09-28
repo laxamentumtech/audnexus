@@ -22,13 +22,15 @@ const genres = [
 const image =
 	'https://images-na.ssl-images-amazon.com/images/S/amzn-author-media-prod/a23ovhiu2v617aakia17mn7btk.jpg'
 const name = 'Jason Anspach'
+const region = 'us'
 
 export const parsedAuthor: AuthorProfile = {
 	asin,
 	description,
 	genres,
 	image,
-	name
+	name,
+	region
 }
 
 const authorWithIdInternal: WithId<AuthorProfile> = {
@@ -59,7 +61,8 @@ export const parsedAuthorWithoutGenres: AuthorProfile = {
 	asin,
 	description,
 	image,
-	name
+	name,
+	region
 }
 
 const authorWithoutGenresWithIdInternal: WithId<AuthorProfile> = {

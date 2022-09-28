@@ -22,7 +22,7 @@ describe('Audible API', () => {
 		let response: AudibleProduct['product']
 		beforeAll(async () => {
 			asin = 'B08G9PRS1K'
-			helper = new ApiHelper(asin)
+			helper = new ApiHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			response = fetched.product
 			// Make an object with the same keys as the response
@@ -38,7 +38,7 @@ describe('Audible API', () => {
 		let response: AudibleProduct['product']
 		beforeAll(async () => {
 			asin = 'B08C6YJ1LS'
-			helper = new ApiHelper(asin)
+			helper = new ApiHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			response = fetched.product
 			// Make an object with the same keys as the response
@@ -54,7 +54,7 @@ describe('Audible API', () => {
 		let response: ApiBook
 		beforeAll(async () => {
 			asin = 'B08C6YJ1LS'
-			helper = new ApiHelper(asin)
+			helper = new ApiHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed.genres) throw new Error('Parsed is undefined')
@@ -75,7 +75,7 @@ describe('Audible API', () => {
 		let response: ApiBook
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
-			helper = new ApiHelper(asin)
+			helper = new ApiHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed.genres) throw new Error('Parsed is undefined')

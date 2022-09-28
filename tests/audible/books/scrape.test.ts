@@ -16,7 +16,7 @@ describe('Audible HTML', () => {
 		let response: HtmlBook
 		beforeAll(async () => {
 			asin = 'B08G9PRS1K'
-			helper = new ScrapeHelper(asin)
+			helper = new ScrapeHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
@@ -32,7 +32,7 @@ describe('Audible HTML', () => {
 		let response: HtmlBook
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
-			helper = new ScrapeHelper(asin)
+			helper = new ScrapeHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
@@ -49,7 +49,7 @@ describe('Audible HTML', () => {
 		let response: HtmlBook
 		beforeAll(async () => {
 			asin = 'B08C6YJ1LS'
-			helper = new ScrapeHelper(asin)
+			helper = new ScrapeHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
@@ -66,7 +66,7 @@ describe('Audible HTML', () => {
 		let response: CheerioAPI | undefined
 		beforeAll(async () => {
 			asin = 'B00B5HZGUG'
-			helper = new ScrapeHelper(asin)
+			helper = new ScrapeHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			response = fetched
 		})
@@ -80,7 +80,7 @@ describe('Audible HTML', () => {
 		let response: HtmlBook | undefined
 		beforeAll(async () => {
 			asin = 'B0036I54I6'
-			helper = new ScrapeHelper(asin)
+			helper = new ScrapeHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			response = parsed

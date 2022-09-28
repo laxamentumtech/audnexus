@@ -10,7 +10,7 @@ let helper: ScrapeHelper
 beforeEach(() => {
 	asin = 'B079LRSMNN'
 	// Set up helpers
-	helper = new ScrapeHelper(asin)
+	helper = new ScrapeHelper(asin, 'us')
 })
 
 describe('ScrapeHelper should', () => {
@@ -35,7 +35,7 @@ describe('ScrapeHelper should', () => {
 
 	test('return error if no book', async () => {
 		asin = asin.slice(0, -1)
-		helper = new ScrapeHelper(asin)
+		helper = new ScrapeHelper(asin, 'us')
 		jest.restoreAllMocks()
 		jest
 			.spyOn(global, 'fetch')

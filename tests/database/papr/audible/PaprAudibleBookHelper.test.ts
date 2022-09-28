@@ -26,6 +26,7 @@ const projectionWithoutDbFields = {
 beforeEach(() => {
 	asin = parsedBook.asin
 	options = {
+		region: 'us',
 		seedAuthors: undefined,
 		update: '1'
 	}

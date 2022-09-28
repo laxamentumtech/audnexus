@@ -17,7 +17,7 @@ let helper: StitchHelper
 beforeEach(() => {
 	asin = 'B079LRSMNN'
 	// Set up helpers
-	helper = new StitchHelper(asin)
+	helper = new StitchHelper(asin, 'us')
 })
 
 describe('StitchHelper should', () => {

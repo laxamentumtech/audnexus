@@ -15,7 +15,7 @@ let helper: ApiHelper
 beforeEach(() => {
 	asin = 'B079LRSMNN'
 	// Set up helpers
-	helper = new ApiHelper(asin)
+	helper = new ApiHelper(asin, 'us')
 	helper.inputJson = apiResponse.product
 })
 
@@ -102,7 +102,7 @@ describe('ApiHelper should', () => {
 
 describe('ApiHelper edge cases should', () => {
 	test('parse a book with no narrators', async () => {
-		helper = new ApiHelper('B079LRSMNN')
+		helper = new ApiHelper('B079LRSMNN', 'us')
 		helper.inputJson = apiResponse.product
 		helper.inputJson.narrators = undefined
 		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
@@ -140,7 +140,7 @@ describe('ApiHelper edge cases should', () => {
 	})
 
 	test('parse a book with 2 series', async () => {
-		helper = new ApiHelper('B017V4IM1G')
+		helper = new ApiHelper('B017V4IM1G', 'us')
 		const data = await helper.parseResponse(B017V4IM1G)
 		expect(data.seriesPrimary).toEqual({
 			asin: B017V4IM1G.product.series![0].asin,
@@ -210,7 +210,7 @@ describe('ApiHelper should throw error when', () => {
 			} as Response)
 		)
 		asin = ''
-		helper = new ApiHelper(asin)
+		helper = new ApiHelper(asin, 'us')
 		await expect(helper.fetchBook()).rejects.toThrowError(
 			`An error occured while fetching data from Audible API. Response: 403, ASIN: ${asin}`
 		)
@@ -224,7 +224,7 @@ describe('ApiHelper should throw error when', () => {
 
 	test('book has no title', async () => {
 		asin = 'B07BS4RKGH'
-		helper = new ApiHelper(asin)
+		helper = new ApiHelper(asin, 'us')
 		// Setup variable without title
 		const data = B07BS4RKGH as unknown as AudibleProduct
 		await expect(helper.parseResponse(data)).rejects.toThrowError(

@@ -14,7 +14,7 @@ let helper: ScrapeHelper
 beforeEach(() => {
 	// Set up helpers
 	asin = 'B012DQ3BCM'
-	helper = new ScrapeHelper(asin)
+	helper = new ScrapeHelper(asin, 'us')
 })
 
 describe('ScrapeHelper should', () => {
@@ -55,7 +55,8 @@ describe('ScrapeHelper should', () => {
 			description: '',
 			genres: [],
 			image: '',
-			name: 'Jason Anspach'
+			name: 'Jason Anspach',
+			region: 'us'
 		})
 	})
 })
@@ -63,7 +64,7 @@ describe('ScrapeHelper should', () => {
 describe('ScrapeHelper should throw error when', () => {
 	test('no author', async () => {
 		asin = asin.slice(0, -1)
-		helper = new ScrapeHelper(asin)
+		helper = new ScrapeHelper(asin, 'us')
 		jest.restoreAllMocks()
 		jest
 			.spyOn(global, 'fetch')

@@ -16,7 +16,11 @@ let helper: BookShowHelper
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
-	helper = new BookShowHelper(asin, { seedAuthors: undefined, update: undefined }, null)
+	helper = new BookShowHelper(
+		asin,
+		{ region: 'us', seedAuthors: undefined, update: undefined },
+		null
+	)
 	jest
 		.spyOn(helper.paprHelper, 'createOrUpdate')
 		.mockResolvedValue({ data: parsedBook, modified: true })
@@ -71,7 +75,7 @@ describe('BookShowHelper should', () => {
 	})
 
 	test('run handler and update an existing book', async () => {
-		helper = new BookShowHelper(asin, { seedAuthors: undefined, update: '1' }, null)
+		helper = new BookShowHelper(asin, { region: 'us', seedAuthors: undefined, update: '1' }, null)
 		// Need to re-do mock since helper reset
 		jest
 			.spyOn(helper.paprHelper, 'findOne')

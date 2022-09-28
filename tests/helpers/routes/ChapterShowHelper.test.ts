@@ -17,7 +17,7 @@ let helper: ChapterShowHelper
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
-	helper = new ChapterShowHelper(asin, { update: undefined }, null)
+	helper = new ChapterShowHelper(asin, { region: 'us', update: undefined }, null)
 	jest
 		.spyOn(helper.paprHelper, 'createOrUpdate')
 		.mockResolvedValue({ data: parsedChapters, modified: true })
@@ -79,7 +79,7 @@ describe('ChapterShowHelper should', () => {
 	})
 
 	test('run handler and update an existing chapter', async () => {
-		helper = new ChapterShowHelper(asin, { update: '1' }, null)
+		helper = new ChapterShowHelper(asin, { region: 'us', update: '1' }, null)
 		// Need to re-do mock since helper reset
 		jest
 			.spyOn(helper.paprHelper, 'createOrUpdate')

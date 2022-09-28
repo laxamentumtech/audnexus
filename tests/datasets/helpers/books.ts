@@ -29,6 +29,7 @@ const narrators = [
 ]
 const publisherName = 'Podium Audio'
 const rating = '4.5'
+const region = 'us'
 const releaseDate = new Date('2018-02-20T00:00:00.000Z')
 const runtimeLengthMin = 1042
 const seriesPrimary = {
@@ -344,6 +345,7 @@ export const parsedBook: ApiBook = {
 	narrators,
 	publisherName,
 	rating,
+    region,
 	releaseDate,
 	runtimeLengthMin,
 	seriesPrimary,
@@ -371,6 +373,7 @@ export const changedParsedBook: ApiBook = {
 	narrators,
 	publisherName,
 	rating,
+	region,
 	releaseDate,
 	runtimeLengthMin,
 	seriesPrimary,
@@ -412,6 +415,7 @@ export const parsedBookWithoutGenres: ApiBook = {
 	narrators,
 	publisherName,
 	rating,
+	region,
 	releaseDate,
 	runtimeLengthMin,
 	seriesPrimary,

@@ -16,7 +16,7 @@ let helper: AuthorShowHelper
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
-	helper = new AuthorShowHelper(asin, { update: undefined }, null)
+	helper = new AuthorShowHelper(asin, { region: 'us', update: undefined }, null)
 	jest
 		.spyOn(helper.paprHelper, 'createOrUpdate')
 		.mockResolvedValue({ data: parsedAuthor, modified: true })
@@ -67,7 +67,7 @@ describe('AuthorShowHelper should', () => {
 	})
 
 	test('run handler and update an existing author', async () => {
-		helper = new AuthorShowHelper(asin, { update: '1' }, null)
+		helper = new AuthorShowHelper(asin, { region: 'us', update: '1' }, null)
 		// Need to re-do mock since helper reset
 		jest
 			.spyOn(helper.paprHelper, 'createOrUpdate')

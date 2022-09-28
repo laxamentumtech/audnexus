@@ -35,6 +35,7 @@ export function setupMinimalParsed(
 		rating: response.rating.overall_distribution.display_average_rating.toString(),
 		publisherName: response.publisher_name,
 		summary: response.publisher_summary,
+		region: 'us',
 		releaseDate: new Date(response.release_date),
 		runtimeLengthMin: response.runtime_length_min ?? 0,
 		title: response.title,
@@ -840,6 +841,7 @@ export const minimalB0036I54I6: Book = {
 	narrators: [],
 	publisherName: 'Stanford Audio',
 	rating: '3.9',
+	region: 'us',
 	releaseDate: new Date('1999-12-16T00:00:00.000Z'),
 	runtimeLengthMin: 114,
 	summary:
