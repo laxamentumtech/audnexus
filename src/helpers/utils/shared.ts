@@ -14,6 +14,10 @@ class SharedHelper {
 	/**
 	 * Creates URL to use in fetchBook
 	 * @param {string} ASIN The Audible ID to base the URL on
+	 * @param {string} baseDomain The base domain to use for the FQDN
+	 * @param {string} regionTLD The TLD of the region to use (without the dot)
+	 * @param {string} baseUrl The base path to use for the URL
+	 * @param {string} params Additional parameters to add to the URL
 	 * @returns {string} full url to fetch.
 	 */
 	buildUrl(
