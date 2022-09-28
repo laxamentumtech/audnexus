@@ -129,7 +129,7 @@ class SharedHelper {
 	 * @param {string} region the region code to validate
 	 */
 	isValidRegion(region: string): boolean {
-		const regionTLD = regions[region].tld
+		const regionTLD = regions[region]?.tld
 		if (!regionTLD) {
 			return false
 		}
