@@ -69,6 +69,26 @@ describe('SharedHelper should', () => {
 		).toBeUndefined()
 	})
 
+	test('validate region', () => {
+		expect(helper.isValidRegion('au')).toBe(true)
+		expect(helper.isValidRegion('ca')).toBe(true)
+		expect(helper.isValidRegion('de')).toBe(true)
+		expect(helper.isValidRegion('es')).toBe(true)
+		expect(helper.isValidRegion('fr')).toBe(true)
+		expect(helper.isValidRegion('in')).toBe(true)
+		expect(helper.isValidRegion('it')).toBe(true)
+		expect(helper.isValidRegion('jp')).toBe(true)
+		expect(helper.isValidRegion('uk')).toBe(true)
+		expect(helper.isValidRegion('us')).toBe(true)
+		expect(helper.isValidRegion('mx')).toBe(false)
+		expect(helper.isValidRegion('br')).toBe(false)
+		expect(helper.isValidRegion('cn')).toBe(false)
+		expect(helper.isValidRegion('ru')).toBe(false)
+		expect(helper.isValidRegion('sa')).toBe(false)
+		expect(helper.isValidRegion('za')).toBe(false)
+		expect(helper.isValidRegion('alskdjlak;sjfl;kas')).toBe(false)
+	})
+
 	test('collectGenres returns empty array if no genres', () => {
 		const asin = 'B012DQ3BCM'
 		const html = cheerio.load(htmlResponseNameOnly)
