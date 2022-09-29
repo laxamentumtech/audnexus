@@ -55,6 +55,7 @@ class ChapterHelper {
 	 * @returns {string} cleaned chapter
 	 */
 	chapterTitleCleanup(chapter: string): string {
+		const chapterNameLocale = regions[this.region].strings.chapterName
 		// Starting chapter title data
 		const originalTitle: string = chapter
 		// Strip trailing periods
@@ -69,7 +70,7 @@ class ChapterHelper {
 			const numTitle: number = parseInt(stripPeriod)
 			// Convert back to string for concat
 			const strTitle: string = numTitle.toString()
-			chapterTitle = `Chapter ${strTitle}`
+			chapterTitle = `${chapterNameLocale} ${strTitle}`
 		}
 
 		return chapterTitle
