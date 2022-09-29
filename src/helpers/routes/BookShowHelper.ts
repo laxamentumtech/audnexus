@@ -3,7 +3,7 @@ import { FastifyRedis } from '@fastify/redis'
 import { BookDocument } from '#config/models/Book'
 import { Book } from '#config/typing/books'
 import { isBook } from '#config/typing/checkers'
-import { RequestGenericWithSeed } from '#config/typing/requests'
+import { RequestGeneric } from '#config/typing/requests'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
@@ -17,14 +17,10 @@ export default class BookShowHelper {
 	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleBookHelper
 	redisHelper: RedisHelper
-	options: RequestGenericWithSeed['Querystring']
+	options: RequestGeneric['Querystring']
 	originalBook: BookDocument | null = null
 	stitchHelper: StitchHelper
-	constructor(
-		asin: string,
-		options: RequestGenericWithSeed['Querystring'],
-		redis: FastifyRedis | null
-	) {
+	constructor(asin: string, options: RequestGeneric['Querystring'], redis: FastifyRedis | null) {
 		this.asin = asin
 		this.sharedHelper = new SharedHelper()
 		this.options = options

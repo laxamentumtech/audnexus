@@ -5,23 +5,13 @@ interface Params {
 }
 
 interface Querystring {
+	name?: string
 	region: string
-	update: string | undefined
+	seedAuthors?: string
+	update?: string
 }
 
-export interface RequestGeneric extends RequestGenericInterface {
+export interface RequestGeneric<T = Querystring> extends RequestGenericInterface {
 	Params: Params
-	Querystring: Querystring
-}
-
-export interface RequestGenericWithSeed extends RequestGeneric {
-	Querystring: {
-		seedAuthors: string | undefined
-	} & Querystring
-}
-
-export interface RequestGenericSearch extends RequestGenericInterface {
-	Querystring: {
-		name: string | undefined
-	} & Querystring
+	Querystring: T
 }

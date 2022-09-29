@@ -3,7 +3,7 @@ jest.mock('#helpers/utils/shared')
 
 import BookModel, { BookDocument } from '#config/models/Book'
 import * as checkers from '#config/typing/checkers'
-import { RequestGenericWithSeed } from '#config/typing/requests'
+import { RequestGeneric } from '#config/typing/requests'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -15,7 +15,7 @@ import {
 
 let asin: string
 let helper: PaprAudibleBookHelper
-let options: RequestGenericWithSeed['Querystring']
+let options: RequestGeneric['Querystring']
 
 const projectionWithoutDbFields = {
 	_id: 0,

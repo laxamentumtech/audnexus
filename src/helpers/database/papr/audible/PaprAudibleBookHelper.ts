@@ -2,7 +2,7 @@ import BookModel, { BookDocument } from '#config/models/Book'
 import { Book } from '#config/typing/books'
 import { isBook, isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
-import { RequestGenericWithSeed } from '#config/typing/requests'
+import { RequestGeneric } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -22,9 +22,9 @@ const projectionWithoutDbFields = {
 export default class PaprAudibleBookHelper {
 	asin: string
 	bookData!: Book
-	options: RequestGenericWithSeed['Querystring']
+	options: RequestGeneric['Querystring']
 
-	constructor(asin: string, options: RequestGenericWithSeed['Querystring']) {
+	constructor(asin: string, options: RequestGeneric['Querystring']) {
 		this.asin = asin
 		this.options = options
 	}
