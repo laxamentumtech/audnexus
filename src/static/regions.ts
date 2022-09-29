@@ -11,17 +11,20 @@ export interface Regions {
 	[key: string]: Region
 }
 
+// Default chapterName
+const chapterName = 'Chapter'
+
 // https://help.audible.com/s/article/what-is-an-audible-marketplace-and-which-is-best-for-me
 export const regions: Regions = {
 	au: {
 		strings: {
-			chapterName: 'Chapter'
+			chapterName
 		},
 		tld: 'com.au'
 	},
 	ca: {
 		strings: {
-			chapterName: 'Chapter'
+			chapterName
 		},
 		tld: 'ca'
 	},
@@ -45,7 +48,7 @@ export const regions: Regions = {
 	},
 	in: {
 		strings: {
-			chapterName: 'Chapter'
+			chapterName
 		},
 		tld: 'in'
 	},
@@ -63,13 +66,13 @@ export const regions: Regions = {
 	},
 	us: {
 		strings: {
-			chapterName: 'Chapter'
+			chapterName
 		},
 		tld: 'com'
 	},
 	uk: {
 		strings: {
-			chapterName: 'Chapter'
+			chapterName
 		},
 		tld: 'co.uk'
 	}
