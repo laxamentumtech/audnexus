@@ -26,7 +26,7 @@ class RouteCommonHelper {
 	/**
 	 * Calls sharedHelper.isValidRegion
 	 */
-	checkRegionValidity(): boolean {
+	isValidRegion(): boolean {
 		if (!this.query.region) return false
 		return this.sharedHelper.isValidRegion(this.query.region)
 	}
@@ -50,7 +50,7 @@ class RouteCommonHelper {
 	 */
 	runValidations(): void {
 		if (!this.isValidAsin()) this.throwBadAsinError()
-		if (this.query.region && !this.checkRegionValidity()) this.throwBadRegionError()
+		if (this.query.region && !this.isValidRegion()) this.throwBadRegionError()
 	}
 
 	/**
