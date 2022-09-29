@@ -17,10 +17,10 @@ class RouteCommonHelper {
 	}
 
 	/**
-	 * Calls sharedHelper.checkAsinValidity
+	 * Calls sharedHelper.isValidAsin
 	 */
-	checkAsinValidity(): boolean {
-		return this.sharedHelper.checkAsinValidity(this.asin)
+	isValidAsin(): boolean {
+		return this.sharedHelper.isValidAsin(this.asin)
 	}
 
 	/**
@@ -49,7 +49,7 @@ class RouteCommonHelper {
 	 * Check if region is valid
 	 */
 	runValidations(): void {
-		if (!this.checkAsinValidity()) this.throwBadAsinError()
+		if (!this.isValidAsin()) this.throwBadAsinError()
 		if (this.query.region && !this.checkRegionValidity()) this.throwBadRegionError()
 	}
 

@@ -29,7 +29,7 @@ beforeEach(() => {
 		.spyOn(helper.paprHelper, 'findOneWithProjection')
 		.mockResolvedValue({ data: parsedAuthor, modified: false })
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
-	jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 	jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(true)
 })
 
@@ -47,7 +47,7 @@ describe('AuthorShowHelper should', () => {
 	})
 
 	test('returns original author if it was updated recently when trying to update', async () => {
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(true)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalAuthor = authorWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toBe(parsedAuthor)
 	})
@@ -80,7 +80,7 @@ describe('AuthorShowHelper should', () => {
 			.mockResolvedValue({ data: parsedAuthor, modified: false })
 		jest.spyOn(helper.scrapeHelper, 'process').mockResolvedValue(parsedAuthor)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(true)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
 	})

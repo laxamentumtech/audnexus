@@ -130,8 +130,8 @@ export default class PaprAudibleChapterHelper {
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
 			// If the objects are the exact same return right away
-			const equality = sharedHelper.checkDataEquality(data, this.chapterData)
-			if (equality) {
+			const isEqual = sharedHelper.isEqualData(data, this.chapterData)
+			if (isEqual) {
 				return {
 					data: data,
 					modified: false

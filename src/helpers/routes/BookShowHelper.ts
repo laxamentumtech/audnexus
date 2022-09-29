@@ -90,7 +90,7 @@ export default class BookShowHelper {
 		if (!this.originalBook) {
 			return false
 		}
-		return this.sharedHelper.checkIfRecentlyUpdated(this.originalBook)
+		return this.sharedHelper.isRecentlyUpdated(this.originalBook)
 	}
 
 	/**

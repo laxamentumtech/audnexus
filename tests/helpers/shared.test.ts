@@ -32,23 +32,23 @@ describe('SharedHelper should', () => {
 	})
 
 	test('validate ASINs', () => {
-		expect(helper.checkAsinValidity('B079LRSMNN')).toBe(true)
-		expect(helper.checkAsinValidity('12345678910')).toBe(false)
-		expect(helper.checkAsinValidity('B*79LRSMNN')).toBe(false)
-		expect(helper.checkAsinValidity('20XORININE')).toBe(false)
-		expect(helper.checkAsinValidity('1705047572')).toBe(true)
-		expect(helper.checkAsinValidity('B07Q769RZS')).toBe(true)
-		expect(helper.checkAsinValidity('B0B9YP4F9P')).toBe(true)
+		expect(helper.isValidAsin('B079LRSMNN')).toBe(true)
+		expect(helper.isValidAsin('12345678910')).toBe(false)
+		expect(helper.isValidAsin('B*79LRSMNN')).toBe(false)
+		expect(helper.isValidAsin('20XORININE')).toBe(false)
+		expect(helper.isValidAsin('1705047572')).toBe(true)
+		expect(helper.isValidAsin('B07Q769RZS')).toBe(true)
+		expect(helper.isValidAsin('B0B9YP4F9P')).toBe(true)
 	})
 
 	test('check data equality', () => {
-		expect(helper.checkDataEquality(parsedBook, parsedBook)).toBe(true)
-		expect(helper.checkDataEquality(changedParsedBook, parsedBook)).toBe(false)
+		expect(helper.isEqualData(parsedBook, parsedBook)).toBe(true)
+		expect(helper.isEqualData(changedParsedBook, parsedBook)).toBe(false)
 	})
 
 	test('check if recently updated', () => {
-		expect(helper.checkIfRecentlyUpdated(bookWithoutProjectionUpdatedNow)).toBe(true)
-		expect(helper.checkIfRecentlyUpdated(bookWithoutProjection)).toBe(false)
+		expect(helper.isRecentlyUpdated(bookWithoutProjectionUpdatedNow)).toBe(true)
+		expect(helper.isRecentlyUpdated(bookWithoutProjection)).toBe(false)
 	})
 
 	test('get genre asin from url', () => {

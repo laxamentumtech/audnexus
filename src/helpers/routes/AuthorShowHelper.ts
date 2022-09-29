@@ -91,7 +91,7 @@ export default class AuthorShowHelper {
 		if (!this.originalAuthor) {
 			return false
 		}
-		return this.sharedHelper.checkIfRecentlyUpdated(this.originalAuthor)
+		return this.sharedHelper.isRecentlyUpdated(this.originalAuthor)
 	}
 
 	/**

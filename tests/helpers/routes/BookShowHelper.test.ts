@@ -37,7 +37,7 @@ beforeEach(() => {
 		ok: true
 	} as Response)
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
-	jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 	jest.spyOn(checkers, 'isBook').mockReturnValue(true)
 })
 
@@ -55,7 +55,7 @@ describe('BookShowHelper should', () => {
 	})
 
 	test('returns original book if it was updated recently when trying to update', async () => {
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(true)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalBook = bookWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)
 	})
@@ -88,7 +88,7 @@ describe('BookShowHelper should', () => {
 			.mockResolvedValue({ data: parsedBook, modified: false })
 		jest.spyOn(helper.stitchHelper, 'process').mockResolvedValue(parsedBook)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		jest.spyOn(checkers, 'isBook').mockReturnValue(true)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
 	})

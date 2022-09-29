@@ -123,7 +123,7 @@ describe('PaprAudibleChapterHelper should', () => {
 		const test = { ...parsedChapters }
 		test.chapters = []
 		helper.setChapterData(test)
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate finds identical update data', async () => {
@@ -131,7 +131,7 @@ describe('PaprAudibleChapterHelper should', () => {
 		jest
 			.spyOn(ChapterModel, 'findOne')
 			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(true)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(true)
 		helper.setChapterData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})

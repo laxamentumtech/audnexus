@@ -116,7 +116,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 	test('createOrUpdate finds identical update data', async () => {
 		const obj = { data: parsedAuthor, modified: false }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(true)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(true)
 		helper.setAuthorData(parsedAuthor)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
@@ -129,7 +129,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 	})
 	test('createOrUpdate difference in genres', async () => {
 		const obj = { data: parsedAuthor, modified: true }
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		jest
 			.spyOn(AuthorModel, 'findOne')
 			.mockResolvedValueOnce(parsedAuthor as unknown as AuthorDocument)
@@ -140,7 +140,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 	})
 	test('createOrUpdate genres on old, but not on new', async () => {
 		const obj = { data: parsedAuthor, modified: false }
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		jest
 			.spyOn(AuthorModel, 'findOne')
 			.mockResolvedValueOnce(parsedAuthor as unknown as AuthorDocument)
@@ -151,7 +151,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 	})
 	test('createOrUpdate no genres on new or old', async () => {
 		const obj = { data: parsedAuthorWithoutGenres, modified: false }
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		jest
 			.spyOn(AuthorModel, 'findOne')
 			.mockResolvedValueOnce(parsedAuthorWithoutGenres as unknown as AuthorDocument)

@@ -115,7 +115,7 @@ describe('PaprAudibleBookHelper should', () => {
 	test('createOrUpdate finds identical update data', async () => {
 		const obj = { data: parsedBook, modified: false }
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(true)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(true)
 		helper.setBookData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
@@ -128,7 +128,7 @@ describe('PaprAudibleBookHelper should', () => {
 	})
 	test('createOrUpdate difference in genres', async () => {
 		const obj = { data: parsedBook, modified: true }
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(parsedBook as unknown as BookDocument)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(bookWithoutProjection)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
@@ -137,7 +137,7 @@ describe('PaprAudibleBookHelper should', () => {
 	})
 	test('createOrUpdate genres on old, but not on new', async () => {
 		const obj = { data: parsedBook, modified: false }
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(parsedBook as unknown as BookDocument)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(bookWithoutProjection)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
@@ -146,7 +146,7 @@ describe('PaprAudibleBookHelper should', () => {
 	})
 	test('createOrUpdate no genres on new or old', async () => {
 		const obj = { data: parsedBookWithoutGenres, modified: false }
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		jest
 			.spyOn(BookModel, 'findOne')
 			.mockResolvedValueOnce(parsedBookWithoutGenres as unknown as BookDocument)

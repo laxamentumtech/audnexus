@@ -97,7 +97,7 @@ export default class ChapterShowHelper {
 		if (!this.originalChapter) {
 			return false
 		}
-		return this.sharedHelper.checkIfRecentlyUpdated(this.originalChapter)
+		return this.sharedHelper.isRecentlyUpdated(this.originalChapter)
 	}
 
 	/**

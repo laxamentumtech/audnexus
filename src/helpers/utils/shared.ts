@@ -34,52 +34,6 @@ class SharedHelper {
 	}
 
 	/**
-	 * Checks asin length and format to verify it's valid
-	 * @param {string} asin 10 character identifier
-	 * @returns {boolean}
-	 */
-	checkAsinValidity(asin: string): boolean {
-		// First things first, check length
-		if (asin.length !== 10) {
-			return false
-		}
-
-		if (asin.match(this.asin10Regex)) {
-			return true
-		}
-		return false
-	}
-
-	/**
-	 * Checks whether the input data are identical
-	 * @param {ParsedObject} original
-	 * @param {ParsedObject} updated
-	 * @returns {boolean}
-	 */
-	checkDataEquality(original: ParsedObject, updated: ParsedObject): boolean {
-		if (lodash.isEqual(original, updated)) {
-			return true
-		}
-		return false
-	}
-
-	/**
-	 * Checks if the object was updated in the last 24 hours
-	 * @param obj object to check
-	 * @returns {boolean} true if updated in last 24 hours, false otherwise
-	 */
-	checkIfRecentlyUpdated(obj: PaprDocument): boolean {
-		const now = new Date()
-		const lastUpdated = new Date(obj.updatedAt)
-		const diff = now.getTime() - lastUpdated.getTime()
-		const diffDays = diff / (1000 * 3600 * 24)
-		if (diffDays < 1) {
-			return true
-		}
-		return false
-	}
-
-	/**
 	 * Checks the presence of genres on html page and formats them into JSON.
 	 * @param {string} asin the ASIN of the book or author
 	 * @param {NodeListOf<Element>} genres selected source from categoriesLabel
@@ -122,6 +76,52 @@ class SharedHelper {
 
 		// If there's no genre, return an empty array
 		return [] as ApiGenre[]
+	}
+
+	/**
+	 * Checks whether the input data are identical
+	 * @param {ParsedObject} original
+	 * @param {ParsedObject} updated
+	 * @returns {boolean}
+	 */
+	isEqualData(original: ParsedObject, updated: ParsedObject): boolean {
+		if (lodash.isEqual(original, updated)) {
+			return true
+		}
+		return false
+	}
+
+	/**
+	 * Checks if the object was updated in the last 24 hours
+	 * @param obj object to check
+	 * @returns {boolean} true if updated in last 24 hours, false otherwise
+	 */
+	isRecentlyUpdated(obj: PaprDocument): boolean {
+		const now = new Date()
+		const lastUpdated = new Date(obj.updatedAt)
+		const diff = now.getTime() - lastUpdated.getTime()
+		const diffDays = diff / (1000 * 3600 * 24)
+		if (diffDays < 1) {
+			return true
+		}
+		return false
+	}
+
+	/**
+	 * Checks asin length and format to verify it's valid
+	 * @param {string} asin 10 character identifier
+	 * @returns {boolean}
+	 */
+	isValidAsin(asin: string): boolean {
+		// First things first, check length
+		if (asin.length !== 10) {
+			return false
+		}
+
+		if (asin.match(this.asin10Regex)) {
+			return true
+		}
+		return false
 	}
 
 	/**
