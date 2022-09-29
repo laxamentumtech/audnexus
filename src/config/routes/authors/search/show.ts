@@ -1,11 +1,11 @@
 import { FastifyInstance } from 'fastify'
 
 import Author from '#config/models/Author'
-import { RequestGenericSearch } from '#config/typing/requests'
+import { RequestGeneric } from '#config/typing/requests'
 import { MessageNoSearchParams } from '#static/messages'
 
 async function _show(fastify: FastifyInstance) {
-	fastify.get<RequestGenericSearch>('/authors', async (request, reply) => {
+	fastify.get<RequestGeneric>('/authors', async (request, reply) => {
 		const name = request.query.name
 
 		if (!name) {
