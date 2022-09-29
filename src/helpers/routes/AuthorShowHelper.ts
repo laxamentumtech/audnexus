@@ -3,7 +3,7 @@ import { FastifyRedis } from '@fastify/redis'
 import type { AuthorDocument } from '#config/models/Author'
 import { isAuthorProfile } from '#config/typing/checkers'
 import { AuthorProfile } from '#config/typing/people'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
@@ -16,10 +16,10 @@ export default class AuthorShowHelper {
 	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleAuthorHelper
 	redisHelper: RedisHelper
-	options: RequestGeneric['Querystring']
+	options: ParsedQuerystring
 	scrapeHelper: ScrapeHelper
 	originalAuthor: AuthorDocument | null = null
-	constructor(asin: string, options: RequestGeneric['Querystring'], redis: FastifyRedis | null) {
+	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
 		this.asin = asin
 		this.sharedHelper = new SharedHelper()
 		this.options = options

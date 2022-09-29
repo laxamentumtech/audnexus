@@ -3,7 +3,7 @@ jest.mock('fastify')
 import type { FastifyReply } from 'fastify'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring, RequestGeneric } from '#config/typing/requests'
 import RouteCommonHelper from '#helpers/routes/RouteCommonHelper'
 
 type MockContext = {
@@ -40,7 +40,7 @@ describe('RouteCommonHelper should', () => {
 	test('return false if the region is not valid', () => {
 		// Since the constructor adds region, we have to remove it
 		helper = new RouteCommonHelper(asin, {}, ctx.client)
-		helper.query = {}
+		helper.query = {} as ParsedQuerystring
 		expect(helper.isValidRegion()).toBeFalsy()
 	})
 	test('run handler', () => {

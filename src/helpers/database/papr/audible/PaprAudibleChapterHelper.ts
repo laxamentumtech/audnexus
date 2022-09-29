@@ -2,7 +2,7 @@ import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
 import { isChapter, isChapterDocument } from '#config/typing/checkers'
 import { PaprChapterDocumentReturn, PaprChapterReturn, PaprDeleteReturn } from '#config/typing/papr'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -22,9 +22,9 @@ const projectionWithoutDbFields = {
 export default class PaprAudibleChapterHelper {
 	asin: string
 	chapterData!: ApiChapter
-	options: RequestGeneric['Querystring']
+	options: ParsedQuerystring
 
-	constructor(asin: string, options: RequestGeneric['Querystring']) {
+	constructor(asin: string, options: ParsedQuerystring) {
 		this.asin = asin
 		this.options = options
 	}

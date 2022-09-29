@@ -2,7 +2,7 @@ import AuthorModel, { AuthorDocument } from '#config/models/Author'
 import { isAuthorDocument, isAuthorProfile } from '#config/typing/checkers'
 import { PaprAuthorDocumentReturn, PaprAuthorReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { AuthorProfile } from '#config/typing/people'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -22,9 +22,9 @@ const projectionWithoutDbFields = {
 export default class PaprAudibleAuthorHelper {
 	asin: string
 	authorData!: AuthorProfile
-	options: RequestGeneric['Querystring']
+	options: ParsedQuerystring
 
-	constructor(asin: string, options: RequestGeneric['Querystring']) {
+	constructor(asin: string, options: ParsedQuerystring) {
 		this.asin = asin
 		this.options = options
 	}

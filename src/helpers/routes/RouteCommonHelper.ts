@@ -1,12 +1,12 @@
 import { FastifyReply } from 'fastify'
 
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring, RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/utils/shared'
 import { MessageBadAsin, MessageBadRegion } from '#static/messages'
 
 class RouteCommonHelper {
 	asin: string
-	query: RequestGeneric['Querystring']
+	query: ParsedQuerystring
 	reply: FastifyReply
 	sharedHelper: SharedHelper
 	constructor(asin: string, query: RequestGeneric['Querystring'], reply: FastifyReply) {
@@ -36,7 +36,7 @@ class RouteCommonHelper {
 	 * Reply object may be modified by validations
 	 * @returns {object} - Returns object with reply and options
 	 */
-	handler(): { options: RequestGeneric['Querystring']; reply: FastifyReply } {
+	handler(): { options: ParsedQuerystring; reply: FastifyReply } {
 		this.runValidations()
 		return {
 			options: this.query,
@@ -56,7 +56,7 @@ class RouteCommonHelper {
 	/**
 	 * Parse the query string
 	 */
-	parseOptions(query: RequestGeneric['Querystring']): RequestGeneric['Querystring'] {
+	parseOptions(query: RequestGeneric['Querystring']): ParsedQuerystring {
 		return {
 			...(query.name && { name: query.name }),
 			region: query.region ?? 'us',

@@ -3,14 +3,14 @@ jest.mock('#helpers/utils/shared')
 
 import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
 import * as checkers from '#config/typing/checkers'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import SharedHelper from '#helpers/utils/shared'
 import { chaptersWithoutProjection, parsedChapters } from '#tests/datasets/helpers/chapters'
 
 let asin: string
 let helper: PaprAudibleChapterHelper
-let options: RequestGeneric['Querystring']
+let options: ParsedQuerystring
 
 const projectionWithoutDbFields = {
 	_id: 0,

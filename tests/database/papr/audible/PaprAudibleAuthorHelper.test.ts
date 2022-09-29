@@ -3,7 +3,7 @@ jest.mock('#helpers/utils/shared')
 
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
 import * as checkers from '#config/typing/checkers'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -15,7 +15,7 @@ import {
 
 let asin: string
 let helper: PaprAudibleAuthorHelper
-let options: RequestGeneric['Querystring']
+let options: ParsedQuerystring
 
 const projectionWithoutDbFields = {
 	_id: 0,
