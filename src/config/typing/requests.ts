@@ -6,7 +6,7 @@ interface Params {
 
 interface Querystring {
 	name?: string
-	region: string
+	region?: string
 	seedAuthors?: string
 	update?: string
 }
