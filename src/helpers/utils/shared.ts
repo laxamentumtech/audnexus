@@ -125,6 +125,18 @@ class SharedHelper {
 	}
 
 	/**
+	 * Checks name length is greater than 2 characters
+	 * @param {string} name
+	 * @returns {boolean}
+	 */
+	isValidName(name: string | undefined): boolean {
+		if (name && name.length > 2) {
+			return true
+		}
+		return false
+	}
+
+	/**
 	 * Validate the region code.
 	 * @param {string} region the region code to validate
 	 */

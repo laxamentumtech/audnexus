@@ -1,34 +1,24 @@
 import { FastifyInstance } from 'fastify'
 
-import Author from '#config/models/Author'
 import { RequestGeneric } from '#config/typing/requests'
-import { MessageNoSearchParams } from '#static/messages'
+import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
+import RouteCommonHelper from '#helpers/routes/RouteCommonHelper'
 
 async function _show(fastify: FastifyInstance) {
 	fastify.get<RequestGeneric>('/authors', async (request, reply) => {
-		const name = request.query.name
+		// Setup common helper first
+		const routeHelper = new RouteCommonHelper('', request.query, reply)
+		// Run common helper handler
+		const handler = routeHelper.handler()
+		// If handler reply code is not 200, return error
+		if (handler.reply.statusCode !== 200) return handler.reply
 
-		if (!name) {
-			reply.code(400)
-			throw new Error(MessageNoSearchParams)
-		}
+		// Setup Helper
+		const { redis } = fastify
+		const helper = new AuthorShowHelper('', handler.options, redis)
 
-		// Use projection search from mongo until papr implements it natively.
-		// https://github.com/plexinc/papr/issues/98
-		if (name) {
-			// Find all results of name
-			const searchDbByName = await Promise.resolve(
-				Author.find(
-					{ $text: { $search: name } },
-					{
-						projection: { _id: 0, asin: 1, name: 1 },
-						limit: 25,
-						sort: { score: { $meta: 'textScore' } }
-					}
-				)
-			)
-			return searchDbByName
-		}
+		// Call helper for search
+		return helper.getAuthorsByName()
 	})
 }
 

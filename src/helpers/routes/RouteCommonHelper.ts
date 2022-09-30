@@ -2,7 +2,7 @@ import { FastifyReply } from 'fastify'
 
 import { ParsedQuerystring, RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/utils/shared'
-import { MessageBadAsin, MessageBadRegion } from '#static/messages'
+import { MessageBadAsin, MessageBadRegion, MessageNoSearchParams } from '#static/messages'
 
 class RouteCommonHelper {
 	asin: string
@@ -21,6 +21,13 @@ class RouteCommonHelper {
 	 */
 	isValidAsin(): boolean {
 		return this.sharedHelper.isValidAsin(this.asin)
+	}
+
+	/**
+	 * Check if name is valid (not empty)
+	 */
+	isValidName(): boolean {
+		return this.sharedHelper.isValidName(this.query.name)
 	}
 
 	/**
@@ -45,11 +52,13 @@ class RouteCommonHelper {
 	}
 
 	/**
-	 * Check if asin is valid
+	 * Check if asin is valid (when present)
+	 * Check if name is valid (when present)
 	 * Check if region is valid
 	 */
 	runValidations(): void {
-		if (!this.isValidAsin()) this.throwBadAsinError()
+		if (this.asin && !this.isValidAsin()) this.throwBadAsinError()
+		if (!this.asin && !this.isValidName()) this.throwBadNameError()
 		if (this.query.region && !this.isValidRegion()) this.throwBadRegionError()
 	}
 
@@ -72,6 +81,15 @@ class RouteCommonHelper {
 	throwBadAsinError(): void {
 		this.reply.code(400)
 		throw new Error(MessageBadAsin)
+	}
+
+	/**
+	 * Throw error if name is invalid
+	 * Sets reply code to 400
+	 */
+	throwBadNameError(): void {
+		this.reply.code(400)
+		throw new Error(MessageNoSearchParams)
 	}
 
 	/**

@@ -1,6 +1,11 @@
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
 import { isAuthorDocument, isAuthorProfile } from '#config/typing/checkers'
-import { PaprAuthorDocumentReturn, PaprAuthorReturn, PaprDeleteReturn } from '#config/typing/papr'
+import {
+	PaprAuthorDocumentReturn,
+	PaprAuthorReturn,
+	PaprAuthorSearch,
+	PaprDeleteReturn
+} from '#config/typing/papr'
 import { AuthorProfile } from '#config/typing/people'
 import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
@@ -10,6 +15,7 @@ import {
 	ErrorMessageDelete,
 	ErrorMessageNotFoundInDb,
 	ErrorMessageUpdate,
+	MessageNoSearchParams,
 	NoticeUpdateAsin
 } from '#static/messages'
 
@@ -65,6 +71,31 @@ export default class PaprAudibleAuthorHelper {
 			const message = getErrorMessage(error)
 			console.error(message)
 			throw new Error(ErrorMessageDelete(this.asin, 'author'))
+		}
+	}
+
+	/**
+	 * Searches for authors in the DB using options.name
+	 * Returns altered Documents using projection.
+	 */
+	async findByName(): Promise<PaprAuthorSearch> {
+		if (!this.options.name) {
+			throw new Error(MessageNoSearchParams)
+		}
+		// Use projection search from mongo until papr implements it natively.
+		// https://github.com/plexinc/papr/issues/98
+		const found = await AuthorModel.find(
+			{ $text: { $search: this.options.name } },
+			{
+				projection: { _id: 0, asin: 1, name: 1 },
+				limit: 25,
+				sort: { score: { $meta: 'textScore' } }
+			}
+		)
+
+		return {
+			data: found,
+			modified: false
 		}
 	}
 

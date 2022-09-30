@@ -19,6 +19,11 @@ export interface PaprAuthorDocumentReturn extends GenericReturn {
 	data: AuthorDocument | null
 }
 
+export interface PaprAuthorSearch {
+	data: { asin: string; name: string }[]
+	modified: boolean
+}
+
 export interface PaprBookReturn extends GenericReturn {
 	data: Book | null
 }

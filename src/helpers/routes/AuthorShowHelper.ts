@@ -55,6 +55,13 @@ export default class AuthorShowHelper {
 	}
 
 	/**
+	 * Search for an author in the database by name
+	 */
+	async getAuthorsByName() {
+		return (await this.paprHelper.findByName()).data
+	}
+
+	/**
 	 * Run the scraper to get the author data
 	 */
 	async getNewAuthorData() {
