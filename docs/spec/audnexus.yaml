@@ -330,7 +330,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Author'
         '400':
-          description: No search params provided
+          description: Invalid search parameters
           content:
             application/json:
               schema:
