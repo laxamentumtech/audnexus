@@ -6,11 +6,13 @@ import { genresObject, htmlResponse } from '#tests/datasets/helpers/books'
 
 let asin: string
 let helper: ScrapeHelper
+let region: string
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
+	region = 'us'
 	// Set up helpers
-	helper = new ScrapeHelper(asin, 'us')
+	helper = new ScrapeHelper(asin, region)
 })
 
 describe('ScrapeHelper should', () => {
@@ -35,7 +37,7 @@ describe('ScrapeHelper should', () => {
 
 	test('return error if no book', async () => {
 		asin = asin.slice(0, -1)
-		helper = new ScrapeHelper(asin, 'us')
+		helper = new ScrapeHelper(asin, region)
 		jest.restoreAllMocks()
 		jest
 			.spyOn(global, 'fetch')

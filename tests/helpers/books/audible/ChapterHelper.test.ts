@@ -1,14 +1,17 @@
 import { AudibleChapter } from '#config/typing/audible'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
+import { regions } from '#static/regions'
 import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
 
 let asin: string
 let helper: ChapterHelper
+let region: string
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
+	region = 'us'
 	// Set up helpers
-	helper = new ChapterHelper(asin, 'us')
+	helper = new ChapterHelper(asin, region)
 })
 
 describe('ChapterHelper should', () => {
@@ -44,7 +47,7 @@ describe('ChapterHelper should', () => {
 
 	test('return undefined if no chapters', async () => {
 		asin = asin.slice(0, -1)
-		helper = new ChapterHelper(asin, 'us')
+		helper = new ChapterHelper(asin, region)
 		await expect(helper.fetchChapter()).resolves.toBeUndefined()
 	})
 
@@ -59,6 +62,13 @@ describe('ChapterHelper should', () => {
 
 	test('process', async () => {
 		await expect(helper.process()).resolves.toEqual(parsedChapters)
+	})
+
+	describe('handle region: ', () => {
+		test.each(Object.keys(regions))('%s', (region) => {
+			helper = new ChapterHelper(asin, region)
+			expect(helper.chapterTitleCleanup('123')).toBe(`${regions[region].strings.chapterName} 123`)
+		})
 	})
 })
 
@@ -77,7 +87,7 @@ describe('ChapterHelper should throw error when', () => {
 		process.env.PRIVATE_KEY = undefined
 		// setup function to fail if environment variables are missing
 		const bad_helper = function () {
-			new ChapterHelper(asin, 'us')
+			new ChapterHelper(asin, region)
 		}
 		expect(bad_helper).toThrowError('Missing environment variable(s): ADP_TOKEN or PRIVATE_KEY')
 		// Restore environment

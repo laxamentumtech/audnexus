@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio'
 
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import { regions } from '#static/regions'
 import {
 	htmlResponse,
 	htmlResponseNameOnly,
@@ -10,11 +11,13 @@ import { parsedAuthor } from '#tests/datasets/helpers/authors'
 
 let asin: string
 let helper: ScrapeHelper
+let region: string
 
 beforeEach(() => {
 	// Set up helpers
 	asin = 'B012DQ3BCM'
-	helper = new ScrapeHelper(asin, 'us')
+	region = 'us'
+	helper = new ScrapeHelper(asin, region)
 })
 
 describe('ScrapeHelper should', () => {
@@ -56,7 +59,15 @@ describe('ScrapeHelper should', () => {
 			genres: [],
 			image: '',
 			name: 'Jason Anspach',
-			region: 'us'
+			region: region
+		})
+	})
+
+	describe('handle region: ', () => {
+		test.each(Object.keys(regions))('%s', async (region) => {
+			helper = new ScrapeHelper('B079LRSMNN', region)
+			const data = await helper.process()
+			expect(data.region).toEqual(region)
 		})
 	})
 })
@@ -64,7 +75,7 @@ describe('ScrapeHelper should', () => {
 describe('ScrapeHelper should throw error when', () => {
 	test('no author', async () => {
 		asin = asin.slice(0, -1)
-		helper = new ScrapeHelper(asin, 'us')
+		helper = new ScrapeHelper(asin, region)
 		jest.restoreAllMocks()
 		jest
 			.spyOn(global, 'fetch')

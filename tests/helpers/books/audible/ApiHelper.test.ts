@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { AudibleProduct } from '#config/typing/audible'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
+import { regions } from '#static/regions'
 import {
 	B07BS4RKGH,
 	B017V4IM1G,
@@ -11,11 +12,13 @@ import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/data
 
 let asin: string
 let helper: ApiHelper
+let region: string
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
+	region = 'us'
 	// Set up helpers
-	helper = new ApiHelper(asin, 'us')
+	helper = new ApiHelper(asin, region)
 	helper.inputJson = apiResponse.product
 })
 
@@ -98,11 +101,19 @@ describe('ApiHelper should', () => {
 		)
 		await expect(helper.parseResponse(podcast)).resolves.toEqual(minimalParsed)
 	})
+
+	describe('handle region: ', () => {
+		test.each(Object.keys(regions))('%s', async (region) => {
+			helper = new ApiHelper('B079LRSMNN', region)
+			const data = await helper.parseResponse(apiResponse)
+			expect(data.region).toEqual(region)
+		})
+	})
 })
 
 describe('ApiHelper edge cases should', () => {
 	test('parse a book with no narrators', async () => {
-		helper = new ApiHelper('B079LRSMNN', 'us')
+		helper = new ApiHelper('B079LRSMNN', region)
 		helper.inputJson = apiResponse.product
 		helper.inputJson.narrators = undefined
 		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
@@ -140,7 +151,7 @@ describe('ApiHelper edge cases should', () => {
 	})
 
 	test('parse a book with 2 series', async () => {
-		helper = new ApiHelper('B017V4IM1G', 'us')
+		helper = new ApiHelper('B017V4IM1G', region)
 		const data = await helper.parseResponse(B017V4IM1G)
 		expect(data.seriesPrimary).toEqual({
 			asin: B017V4IM1G.product.series![0].asin,
@@ -210,7 +221,7 @@ describe('ApiHelper should throw error when', () => {
 			} as Response)
 		)
 		asin = ''
-		helper = new ApiHelper(asin, 'us')
+		helper = new ApiHelper(asin, region)
 		await expect(helper.fetchBook()).rejects.toThrowError(
 			`An error occured while fetching data from Audible API. Response: 403, ASIN: ${asin}`
 		)
@@ -224,7 +235,7 @@ describe('ApiHelper should throw error when', () => {
 
 	test('book has no title', async () => {
 		asin = 'B07BS4RKGH'
-		helper = new ApiHelper(asin, 'us')
+		helper = new ApiHelper(asin, region)
 		// Setup variable without title
 		const data = B07BS4RKGH as unknown as AudibleProduct
 		await expect(helper.parseResponse(data)).rejects.toThrowError(
