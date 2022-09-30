@@ -67,6 +67,14 @@ describe('PaprAudibleAuthorHelper should', () => {
 		await expect(helper.delete()).resolves.toEqual(obj)
 		expect(AuthorModel.deleteOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
 	})
+	test('findByName', async () => {
+		helper = new PaprAudibleAuthorHelper('', { name: 'test', region: 'us' })
+		const obj = { data: [{ asin: asin, name: 'test' }], modified: false }
+		jest
+			.spyOn(AuthorModel, 'find')
+			.mockResolvedValue([{ asin: asin, name: 'test' }] as unknown as AuthorDocument[])
+		await expect(helper.findByName()).resolves.toEqual(obj)
+	})
 	test('findOne', async () => {
 		const obj = { data: authorWithoutProjection, modified: false }
 		await expect(helper.findOne()).resolves.toEqual(obj)
@@ -191,6 +199,9 @@ describe('PaprAudibleAuthorHelper should catch error when', () => {
 		await expect(helper.delete()).rejects.toThrowError(
 			`An error occurred while deleting author ${asin} in the DB`
 		)
+	})
+	test('findByName has no name', async () => {
+		await expect(helper.findByName()).rejects.toThrowError('Invalid search parameters')
 	})
 	test('update did not find existing', async () => {
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(null)

@@ -38,6 +38,14 @@ describe('AuthorShowHelper should', () => {
 		await expect(helper.getAuthorFromPapr()).resolves.toStrictEqual(authorWithoutProjection)
 	})
 
+	test('get authors by name from Papr', async () => {
+		const authors = [{ asin: 'B079LRSMNN', name: 'John Doe' }]
+		const obj = { data: authors, modified: false }
+		helper = new AuthorShowHelper('', { name: 'John Doe', region: 'us', update: undefined }, null)
+		jest.spyOn(helper.paprHelper, 'findByName').mockResolvedValue(obj)
+		await expect(helper.getAuthorsByName()).resolves.toStrictEqual(authors)
+	})
+
 	test('get new author data', async () => {
 		await expect(helper.getNewAuthorData()).resolves.toStrictEqual(parsedAuthor)
 	})

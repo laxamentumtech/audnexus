@@ -89,6 +89,15 @@ describe('SharedHelper should', () => {
 		expect(helper.isValidRegion('alskdjlak;sjfl;kas')).toBe(false)
 	})
 
+	test('validate name', () => {
+		expect(helper.isValidName('John Doe')).toBe(true)
+		expect(helper.isValidName('John')).toBe(true)
+		expect(helper.isValidName('Doe')).toBe(true)
+		expect(helper.isValidName('Jo')).toBe(false)
+		expect(helper.isValidName('D')).toBe(false)
+		expect(helper.isValidName('')).toBe(false)
+	})
+
 	test('collectGenres returns empty array if no genres', () => {
 		const asin = 'B012DQ3BCM'
 		const html = cheerio.load(htmlResponseNameOnly)
