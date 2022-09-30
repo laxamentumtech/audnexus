@@ -57,7 +57,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 		await expect(helper.create()).resolves.toEqual(obj)
 		expect(AuthorModel.insertOne).toHaveBeenCalledWith(parsedAuthor)
 		expect(AuthorModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin },
+			{ asin: asin, region: options.region },
 			{ projection: projectionWithoutDbFields }
 		)
 	})
@@ -65,26 +65,26 @@ describe('PaprAudibleAuthorHelper should', () => {
 		const obj = { data: { acknowledged: true, deletedCount: 1 }, modified: true }
 		jest.spyOn(AuthorModel, 'deleteOne').mockResolvedValue(obj.data)
 		await expect(helper.delete()).resolves.toEqual(obj)
-		expect(AuthorModel.deleteOne).toHaveBeenCalledWith({ asin: asin })
+		expect(AuthorModel.deleteOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
 	})
 	test('findOne', async () => {
 		const obj = { data: authorWithoutProjection, modified: false }
 		await expect(helper.findOne()).resolves.toEqual(obj)
-		expect(AuthorModel.findOne).toHaveBeenCalledWith({ asin: asin })
+		expect(AuthorModel.findOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
 	})
 	test('findOne returns null if it is not an AuthorDocument', async () => {
 		const obj = { data: null, modified: false }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(null)
 		jest.spyOn(checkers, 'isAuthorDocument').mockReturnValue(false)
 		await expect(helper.findOne()).resolves.toEqual(obj)
-		expect(AuthorModel.findOne).toHaveBeenCalledWith({ asin: asin })
+		expect(AuthorModel.findOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
 	})
 	test('findOneWithProjection', async () => {
 		const obj = { data: parsedAuthor, modified: false }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(AuthorModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin },
+			{ asin: asin, region: options.region },
 			{ projection: projectionWithoutDbFields }
 		)
 	})
@@ -94,7 +94,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(false)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(AuthorModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin },
+			{ asin: asin, region: options.region },
 			{ projection: projectionWithoutDbFields }
 		)
 	})
@@ -169,7 +169,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
 		await expect(helper.update()).resolves.toEqual(obj)
 		expect(AuthorModel.updateOne).toHaveBeenCalledWith(
-			{ asin: asin },
+			{ asin: asin, region: options.region },
 			{
 				$set: { ...parsedAuthor, createdAt: authorWithoutProjection._id.getTimestamp() },
 				$currentDate: { updatedAt: true }
