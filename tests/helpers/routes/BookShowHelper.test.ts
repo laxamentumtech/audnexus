@@ -16,7 +16,11 @@ let helper: BookShowHelper
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
-	helper = new BookShowHelper(asin, { seedAuthors: undefined, update: undefined }, null)
+	helper = new BookShowHelper(
+		asin,
+		{ region: 'us', seedAuthors: undefined, update: undefined },
+		null
+	)
 	jest
 		.spyOn(helper.paprHelper, 'createOrUpdate')
 		.mockResolvedValue({ data: parsedBook, modified: true })
@@ -33,7 +37,7 @@ beforeEach(() => {
 		ok: true
 	} as Response)
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
-	jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 	jest.spyOn(checkers, 'isBook').mockReturnValue(true)
 })
 
@@ -51,7 +55,7 @@ describe('BookShowHelper should', () => {
 	})
 
 	test('returns original book if it was updated recently when trying to update', async () => {
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(true)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalBook = bookWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)
 	})
@@ -71,7 +75,7 @@ describe('BookShowHelper should', () => {
 	})
 
 	test('run handler and update an existing book', async () => {
-		helper = new BookShowHelper(asin, { seedAuthors: undefined, update: '1' }, null)
+		helper = new BookShowHelper(asin, { region: 'us', seedAuthors: undefined, update: '1' }, null)
 		// Need to re-do mock since helper reset
 		jest
 			.spyOn(helper.paprHelper, 'findOne')
@@ -84,7 +88,7 @@ describe('BookShowHelper should', () => {
 			.mockResolvedValue({ data: parsedBook, modified: false })
 		jest.spyOn(helper.stitchHelper, 'process').mockResolvedValue(parsedBook)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		jest.spyOn(checkers, 'isBook').mockReturnValue(true)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
 	})

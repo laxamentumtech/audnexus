@@ -6,6 +6,7 @@ import { ApiGenre } from '#config/typing/books'
 import { PaprDocument } from '#config/typing/papr'
 import { ParsedObject } from '#config/typing/unions'
 import { NoticeGenreNotAvailable } from '#static/messages'
+import { regions } from '#static/regions'
 
 class SharedHelper {
 	asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
@@ -13,58 +14,23 @@ class SharedHelper {
 	/**
 	 * Creates URL to use in fetchBook
 	 * @param {string} ASIN The Audible ID to base the URL on
+	 * @param {string} baseDomain The base domain to use for the FQDN
+	 * @param {string} regionTLD The TLD of the region to use (without the dot)
+	 * @param {string} baseUrl The base path to use for the URL
+	 * @param {string} params Additional parameters to add to the URL
 	 * @returns {string} full url to fetch.
 	 */
-	buildUrl(ASIN: string, baseDomain: string, baseUrl: string, params?: string): string {
-		const argArr = [baseDomain, baseUrl, ASIN, params]
+	buildUrl(
+		ASIN: string,
+		baseDomain: string,
+		regionTLD: string,
+		baseUrl: string,
+		params?: string
+	): string {
+		const FQDN = `${baseDomain}.${regionTLD}`
+		const argArr = [FQDN, baseUrl, ASIN, params]
 		const reqUrl = argArr.join('/')
 		return reqUrl
-	}
-
-	/**
-	 * Checks asin length and format to verify it's valid
-	 * @param {string} asin 10 character identifier
-	 * @returns {boolean}
-	 */
-	checkAsinValidity(asin: string): boolean {
-		// First things first, check length
-		if (asin.length !== 10) {
-			return false
-		}
-
-		if (asin.match(this.asin10Regex)) {
-			return true
-		}
-		return false
-	}
-
-	/**
-	 * Checks whether the input data are identical
-	 * @param {ParsedObject} original
-	 * @param {ParsedObject} updated
-	 * @returns {boolean}
-	 */
-	checkDataEquality(original: ParsedObject, updated: ParsedObject): boolean {
-		if (lodash.isEqual(original, updated)) {
-			return true
-		}
-		return false
-	}
-
-	/**
-	 * Checks if the object was updated in the last 24 hours
-	 * @param obj object to check
-	 * @returns {boolean} true if updated in last 24 hours, false otherwise
-	 */
-	checkIfRecentlyUpdated(obj: PaprDocument): boolean {
-		const now = new Date()
-		const lastUpdated = new Date(obj.updatedAt)
-		const diff = now.getTime() - lastUpdated.getTime()
-		const diffDays = diff / (1000 * 3600 * 24)
-		if (diffDays < 1) {
-			return true
-		}
-		return false
 	}
 
 	/**
@@ -110,6 +76,76 @@ class SharedHelper {
 
 		// If there's no genre, return an empty array
 		return [] as ApiGenre[]
+	}
+
+	/**
+	 * Checks whether the input data are identical
+	 * @param {ParsedObject} original
+	 * @param {ParsedObject} updated
+	 * @returns {boolean}
+	 */
+	isEqualData(original: ParsedObject, updated: ParsedObject): boolean {
+		if (lodash.isEqual(original, updated)) {
+			return true
+		}
+		return false
+	}
+
+	/**
+	 * Checks if the object was updated in the last 24 hours
+	 * @param obj object to check
+	 * @returns {boolean} true if updated in last 24 hours, false otherwise
+	 */
+	isRecentlyUpdated(obj: PaprDocument): boolean {
+		const now = new Date()
+		const lastUpdated = new Date(obj.updatedAt)
+		const diff = now.getTime() - lastUpdated.getTime()
+		const diffDays = diff / (1000 * 3600 * 24)
+		if (diffDays < 1) {
+			return true
+		}
+		return false
+	}
+
+	/**
+	 * Checks asin length and format to verify it's valid
+	 * @param {string} asin 10 character identifier
+	 * @returns {boolean}
+	 */
+	isValidAsin(asin: string): boolean {
+		// First things first, check length
+		if (asin.length !== 10) {
+			return false
+		}
+
+		if (asin.match(this.asin10Regex)) {
+			return true
+		}
+		return false
+	}
+
+	/**
+	 * Checks name length is greater than 2 characters
+	 * @param {string} name
+	 * @returns {boolean}
+	 */
+	isValidName(name: string | undefined): boolean {
+		if (name && name.length > 2) {
+			return true
+		}
+		return false
+	}
+
+	/**
+	 * Validate the region code.
+	 * @param {string} region the region code to validate
+	 */
+	isValidRegion(region: string): boolean {
+		const regionTLD = regions[region]?.tld
+		if (!regionTLD) {
+			return false
+		}
+		return true
 	}
 
 	/**

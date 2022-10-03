@@ -1,23 +1,24 @@
 import { RequestGenericInterface } from 'fastify'
 
-export interface RequestGeneric extends RequestGenericInterface {
-	Querystring: {
-		update: string | undefined
-	}
-	Params: {
-		asin: string
-	}
+interface Params {
+	asin: string
 }
 
-export interface RequestGenericWithSeed extends RequestGeneric {
-	Querystring: {
-		seedAuthors: string | undefined
-		update: string | undefined
-	}
+interface Querystring {
+	name?: string
+	region?: string
+	seedAuthors?: string
+	update?: string
 }
 
-export interface RequestGenericSearch extends RequestGenericInterface {
-	Querystring: {
-		name: string | undefined
-	}
+export interface ParsedQuerystring {
+	name?: string
+	region: string
+	seedAuthors?: string
+	update?: string
+}
+
+export interface RequestGeneric<T = Querystring> extends RequestGenericInterface {
+	Params: Params
+	Querystring: T
 }

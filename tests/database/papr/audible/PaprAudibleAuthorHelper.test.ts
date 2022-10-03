@@ -3,7 +3,7 @@ jest.mock('#helpers/utils/shared')
 
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
 import * as checkers from '#config/typing/checkers'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -15,7 +15,7 @@ import {
 
 let asin: string
 let helper: PaprAudibleAuthorHelper
-let options: RequestGeneric['Querystring']
+let options: ParsedQuerystring
 
 const projectionWithoutDbFields = {
 	_id: 0,
@@ -26,6 +26,7 @@ const projectionWithoutDbFields = {
 beforeEach(() => {
 	asin = parsedAuthor.asin
 	options = {
+		region: 'us',
 		update: '1'
 	}
 	helper = new PaprAudibleAuthorHelper(asin, options)
@@ -56,7 +57,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 		await expect(helper.create()).resolves.toEqual(obj)
 		expect(AuthorModel.insertOne).toHaveBeenCalledWith(parsedAuthor)
 		expect(AuthorModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin },
+			{ asin: asin, region: options.region },
 			{ projection: projectionWithoutDbFields }
 		)
 	})
@@ -64,26 +65,34 @@ describe('PaprAudibleAuthorHelper should', () => {
 		const obj = { data: { acknowledged: true, deletedCount: 1 }, modified: true }
 		jest.spyOn(AuthorModel, 'deleteOne').mockResolvedValue(obj.data)
 		await expect(helper.delete()).resolves.toEqual(obj)
-		expect(AuthorModel.deleteOne).toHaveBeenCalledWith({ asin: asin })
+		expect(AuthorModel.deleteOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
+	})
+	test('findByName', async () => {
+		helper = new PaprAudibleAuthorHelper('', { name: 'test', region: 'us' })
+		const obj = { data: [{ asin: asin, name: 'test' }], modified: false }
+		jest
+			.spyOn(AuthorModel, 'find')
+			.mockResolvedValue([{ asin: asin, name: 'test' }] as unknown as AuthorDocument[])
+		await expect(helper.findByName()).resolves.toEqual(obj)
 	})
 	test('findOne', async () => {
 		const obj = { data: authorWithoutProjection, modified: false }
 		await expect(helper.findOne()).resolves.toEqual(obj)
-		expect(AuthorModel.findOne).toHaveBeenCalledWith({ asin: asin })
+		expect(AuthorModel.findOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
 	})
 	test('findOne returns null if it is not an AuthorDocument', async () => {
 		const obj = { data: null, modified: false }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(null)
 		jest.spyOn(checkers, 'isAuthorDocument').mockReturnValue(false)
 		await expect(helper.findOne()).resolves.toEqual(obj)
-		expect(AuthorModel.findOne).toHaveBeenCalledWith({ asin: asin })
+		expect(AuthorModel.findOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
 	})
 	test('findOneWithProjection', async () => {
 		const obj = { data: parsedAuthor, modified: false }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(AuthorModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin },
+			{ asin: asin, region: options.region },
 			{ projection: projectionWithoutDbFields }
 		)
 	})
@@ -93,7 +102,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(false)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(AuthorModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin },
+			{ asin: asin, region: options.region },
 			{ projection: projectionWithoutDbFields }
 		)
 	})
@@ -115,7 +124,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 	test('createOrUpdate finds identical update data', async () => {
 		const obj = { data: parsedAuthor, modified: false }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(true)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(true)
 		helper.setAuthorData(parsedAuthor)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
@@ -128,7 +137,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 	})
 	test('createOrUpdate difference in genres', async () => {
 		const obj = { data: parsedAuthor, modified: true }
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		jest
 			.spyOn(AuthorModel, 'findOne')
 			.mockResolvedValueOnce(parsedAuthor as unknown as AuthorDocument)
@@ -139,7 +148,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 	})
 	test('createOrUpdate genres on old, but not on new', async () => {
 		const obj = { data: parsedAuthor, modified: false }
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		jest
 			.spyOn(AuthorModel, 'findOne')
 			.mockResolvedValueOnce(parsedAuthor as unknown as AuthorDocument)
@@ -150,7 +159,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 	})
 	test('createOrUpdate no genres on new or old', async () => {
 		const obj = { data: parsedAuthorWithoutGenres, modified: false }
-		jest.spyOn(SharedHelper.prototype, 'checkDataEquality').mockReturnValue(false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		jest
 			.spyOn(AuthorModel, 'findOne')
 			.mockResolvedValueOnce(parsedAuthorWithoutGenres as unknown as AuthorDocument)
@@ -168,7 +177,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
 		await expect(helper.update()).resolves.toEqual(obj)
 		expect(AuthorModel.updateOne).toHaveBeenCalledWith(
-			{ asin: asin },
+			{ asin: asin, region: options.region },
 			{
 				$set: { ...parsedAuthor, createdAt: authorWithoutProjection._id.getTimestamp() },
 				$currentDate: { updatedAt: true }
@@ -190,6 +199,9 @@ describe('PaprAudibleAuthorHelper should catch error when', () => {
 		await expect(helper.delete()).rejects.toThrowError(
 			`An error occurred while deleting author ${asin} in the DB`
 		)
+	})
+	test('findByName has no name', async () => {
+		await expect(helper.findByName()).rejects.toThrowError('Invalid search parameters')
 	})
 	test('update did not find existing', async () => {
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(null)

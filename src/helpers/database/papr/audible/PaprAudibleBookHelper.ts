@@ -2,7 +2,7 @@ import BookModel, { BookDocument } from '#config/models/Book'
 import { Book } from '#config/typing/books'
 import { isBook, isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
-import { RequestGenericWithSeed } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -22,9 +22,9 @@ const projectionWithoutDbFields = {
 export default class PaprAudibleBookHelper {
 	asin: string
 	bookData!: Book
-	options: RequestGenericWithSeed['Querystring']
+	options: ParsedQuerystring
 
-	constructor(asin: string, options: RequestGenericWithSeed['Querystring']) {
+	constructor(asin: string, options: ParsedQuerystring) {
 		this.asin = asin
 		this.options = options
 	}
@@ -53,7 +53,10 @@ export default class PaprAudibleBookHelper {
 	 */
 	async delete(): Promise<PaprDeleteReturn> {
 		try {
-			const deletedBook = await BookModel.deleteOne({ asin: this.asin })
+			const deletedBook = await BookModel.deleteOne({
+				asin: this.asin,
+				region: this.options.region
+			})
 			return {
 				data: deletedBook,
 				modified: true
@@ -72,7 +75,8 @@ export default class PaprAudibleBookHelper {
 	 */
 	async findOne(): Promise<PaprBookDocumentReturn> {
 		const findOneBook = await BookModel.findOne({
-			asin: this.asin
+			asin: this.asin,
+			region: this.options.region
 		})
 
 		// Assign type to book data
@@ -92,7 +96,8 @@ export default class PaprAudibleBookHelper {
 	async findOneWithProjection(): Promise<PaprBookReturn> {
 		const findOneBook = await BookModel.findOne(
 			{
-				asin: this.asin
+				asin: this.asin,
+				region: this.options.region
 			},
 			{ projection: projectionWithoutDbFields }
 		)
@@ -130,8 +135,8 @@ export default class PaprAudibleBookHelper {
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
 			// If the objects are the exact same return right away
-			const equality = sharedHelper.checkDataEquality(data, this.bookData)
-			if (equality) {
+			const isEqual = sharedHelper.isEqualData(data, this.bookData)
+			if (isEqual) {
 				return {
 					data: data,
 					modified: false
@@ -169,7 +174,7 @@ export default class PaprAudibleBookHelper {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Book'))
 			}
 			await BookModel.updateOne(
-				{ asin: this.asin },
+				{ asin: this.asin, region: this.options.region },
 				{
 					$set: { ...this.bookData, createdAt: found.data._id.getTimestamp() },
 					$currentDate: { updatedAt: true }

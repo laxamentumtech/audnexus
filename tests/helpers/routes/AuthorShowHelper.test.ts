@@ -16,7 +16,7 @@ let helper: AuthorShowHelper
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
-	helper = new AuthorShowHelper(asin, { update: undefined }, null)
+	helper = new AuthorShowHelper(asin, { region: 'us', update: undefined }, null)
 	jest
 		.spyOn(helper.paprHelper, 'createOrUpdate')
 		.mockResolvedValue({ data: parsedAuthor, modified: true })
@@ -29,13 +29,21 @@ beforeEach(() => {
 		.spyOn(helper.paprHelper, 'findOneWithProjection')
 		.mockResolvedValue({ data: parsedAuthor, modified: false })
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
-	jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 	jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(true)
 })
 
 describe('AuthorShowHelper should', () => {
 	test('get a author from Papr', async () => {
 		await expect(helper.getAuthorFromPapr()).resolves.toStrictEqual(authorWithoutProjection)
+	})
+
+	test('get authors by name from Papr', async () => {
+		const authors = [{ asin: 'B079LRSMNN', name: 'John Doe' }]
+		const obj = { data: authors, modified: false }
+		helper = new AuthorShowHelper('', { name: 'John Doe', region: 'us', update: undefined }, null)
+		jest.spyOn(helper.paprHelper, 'findByName').mockResolvedValue(obj)
+		await expect(helper.getAuthorsByName()).resolves.toStrictEqual(authors)
 	})
 
 	test('get new author data', async () => {
@@ -47,7 +55,7 @@ describe('AuthorShowHelper should', () => {
 	})
 
 	test('returns original author if it was updated recently when trying to update', async () => {
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(true)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalAuthor = authorWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toBe(parsedAuthor)
 	})
@@ -67,7 +75,7 @@ describe('AuthorShowHelper should', () => {
 	})
 
 	test('run handler and update an existing author', async () => {
-		helper = new AuthorShowHelper(asin, { update: '1' }, null)
+		helper = new AuthorShowHelper(asin, { region: 'us', update: '1' }, null)
 		// Need to re-do mock since helper reset
 		jest
 			.spyOn(helper.paprHelper, 'createOrUpdate')
@@ -80,7 +88,7 @@ describe('AuthorShowHelper should', () => {
 			.mockResolvedValue({ data: parsedAuthor, modified: false })
 		jest.spyOn(helper.scrapeHelper, 'process').mockResolvedValue(parsedAuthor)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(true)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
 	})
@@ -95,7 +103,7 @@ describe('AuthorShowHelper should', () => {
 	})
 })
 
-describe('ChapterShowHelper should throw error when', () => {
+describe('AuthorShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a author type', async () => {
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValueOnce(false)
 		await expect(helper.getAuthorWithProjection()).rejects.toThrow(

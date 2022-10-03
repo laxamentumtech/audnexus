@@ -3,7 +3,7 @@ import { FastifyRedis } from '@fastify/redis'
 import type { AuthorDocument } from '#config/models/Author'
 import { isAuthorProfile } from '#config/typing/checkers'
 import { AuthorProfile } from '#config/typing/people'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
@@ -16,16 +16,16 @@ export default class AuthorShowHelper {
 	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleAuthorHelper
 	redisHelper: RedisHelper
-	options: RequestGeneric['Querystring']
+	options: ParsedQuerystring
 	scrapeHelper: ScrapeHelper
 	originalAuthor: AuthorDocument | null = null
-	constructor(asin: string, options: RequestGeneric['Querystring'], redis: FastifyRedis | null) {
+	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
 		this.asin = asin
 		this.sharedHelper = new SharedHelper()
 		this.options = options
 		this.paprHelper = new PaprAudibleAuthorHelper(this.asin, this.options)
 		this.redisHelper = new RedisHelper(redis, 'book', this.asin)
-		this.scrapeHelper = new ScrapeHelper(this.asin)
+		this.scrapeHelper = new ScrapeHelper(this.asin, this.options.region)
 	}
 
 	/**
@@ -52,6 +52,13 @@ export default class AuthorShowHelper {
 		if (isAuthorProfile(sort)) return sort
 
 		throw new Error(ErrorMessageDataType(this.asin, 'AuthorProfile'))
+	}
+
+	/**
+	 * Search for an author in the database by name
+	 */
+	async getAuthorsByName() {
+		return (await this.paprHelper.findByName()).data
 	}
 
 	/**
@@ -91,7 +98,7 @@ export default class AuthorShowHelper {
 		if (!this.originalAuthor) {
 			return false
 		}
-		return this.sharedHelper.checkIfRecentlyUpdated(this.originalAuthor)
+		return this.sharedHelper.isRecentlyUpdated(this.originalAuthor)
 	}
 
 	/**

@@ -2,7 +2,7 @@ import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
 import { isChapter, isChapterDocument } from '#config/typing/checkers'
 import { PaprChapterDocumentReturn, PaprChapterReturn, PaprDeleteReturn } from '#config/typing/papr'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -22,9 +22,9 @@ const projectionWithoutDbFields = {
 export default class PaprAudibleChapterHelper {
 	asin: string
 	chapterData!: ApiChapter
-	options: RequestGeneric['Querystring']
+	options: ParsedQuerystring
 
-	constructor(asin: string, options: RequestGeneric['Querystring']) {
+	constructor(asin: string, options: ParsedQuerystring) {
 		this.asin = asin
 		this.options = options
 	}
@@ -53,7 +53,10 @@ export default class PaprAudibleChapterHelper {
 	 */
 	async delete(): Promise<PaprDeleteReturn> {
 		try {
-			const deletedChapter = await ChapterModel.deleteOne({ asin: this.asin })
+			const deletedChapter = await ChapterModel.deleteOne({
+				asin: this.asin,
+				region: this.options.region
+			})
 			return {
 				data: deletedChapter,
 				modified: true
@@ -72,7 +75,8 @@ export default class PaprAudibleChapterHelper {
 	 */
 	async findOne(): Promise<PaprChapterDocumentReturn> {
 		const findOneChapter = await ChapterModel.findOne({
-			asin: this.asin
+			asin: this.asin,
+			region: this.options.region
 		})
 
 		// Assign type to chapter data
@@ -92,7 +96,8 @@ export default class PaprAudibleChapterHelper {
 	async findOneWithProjection(): Promise<PaprChapterReturn> {
 		const findOneChapter = await ChapterModel.findOne(
 			{
-				asin: this.asin
+				asin: this.asin,
+				region: this.options.region
 			},
 			{ projection: projectionWithoutDbFields }
 		)
@@ -130,8 +135,8 @@ export default class PaprAudibleChapterHelper {
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
 			// If the objects are the exact same return right away
-			const equality = sharedHelper.checkDataEquality(data, this.chapterData)
-			if (equality) {
+			const isEqual = sharedHelper.isEqualData(data, this.chapterData)
+			if (isEqual) {
 				return {
 					data: data,
 					modified: false
@@ -163,7 +168,7 @@ export default class PaprAudibleChapterHelper {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Chapter'))
 			}
 			await ChapterModel.updateOne(
-				{ asin: this.asin },
+				{ asin: this.asin, region: this.options.region },
 				{
 					$set: { ...this.chapterData, createdAt: found.data._id.getTimestamp() },
 					$currentDate: { updatedAt: true }

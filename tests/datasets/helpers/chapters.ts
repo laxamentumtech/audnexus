@@ -772,6 +772,7 @@ export const parsedChapters: ApiChapter = {
 		}
 	],
 	isAccurate: true,
+	region: 'us',
 	runtimeLengthMs: 62548009,
 	runtimeLengthSec: 62548
 }

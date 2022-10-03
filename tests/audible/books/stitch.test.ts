@@ -20,8 +20,8 @@ describe('Audible API and HTML Parsing', () => {
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
 			// Setup helpers
-			chapterHelper = new ChapterHelper(asin)
-			helper = new StitchHelper(asin)
+			chapterHelper = new ChapterHelper(asin, 'us')
+			helper = new StitchHelper(asin, 'us')
 			// Run helpers
 			const chapterData = await chapterHelper.process()
 			const newBook = await helper.process()
@@ -43,8 +43,8 @@ describe('Audible API and HTML Parsing', () => {
 		beforeAll(async () => {
 			asin = 'B08C6YJ1LS'
 			// Setup helpers
-			chapterHelper = new ChapterHelper(asin)
-			helper = new StitchHelper(asin)
+			chapterHelper = new ChapterHelper(asin, 'us')
+			helper = new StitchHelper(asin, 'us')
 			// Run helpers
 			const chapterData = await chapterHelper.process()
 			const newBook = await helper.process()
@@ -66,8 +66,8 @@ describe('Audible API and HTML Parsing', () => {
 		beforeAll(async () => {
 			asin = 'B0036I54I6'
 			// Setup helpers
-			chapterHelper = new ChapterHelper(asin)
-			helper = new StitchHelper(asin)
+			chapterHelper = new ChapterHelper(asin, 'us')
+			helper = new StitchHelper(asin, 'us')
 			// Run helpers
 			const chapterData = await chapterHelper.process()
 			const newBook = await helper.process()

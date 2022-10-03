@@ -13,11 +13,13 @@ import {
 
 let asin: string
 let helper: StitchHelper
+let region: string
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
+	region = 'us'
 	// Set up helpers
-	helper = new StitchHelper(asin)
+	helper = new StitchHelper(asin, region)
 })
 
 describe('StitchHelper should', () => {

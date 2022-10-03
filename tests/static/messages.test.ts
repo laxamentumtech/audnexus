@@ -15,7 +15,7 @@ describe('Message output should be', () => {
 		expect(MessageNoChapters(asin)).toBe(`${asin} has no chapters`)
 	})
 	test('MessageNoSearchParams', () => {
-		expect(MessageNoSearchParams).toBe('No search params provided')
+		expect(MessageNoSearchParams).toBe('Invalid search parameters')
 	})
 	test('MessageNotFoundInDb', () => {
 		expect(MessageNotFoundInDb(asin)).toBe(`${asin} not found in the database`)

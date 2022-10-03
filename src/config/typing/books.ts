@@ -13,6 +13,7 @@ export interface ApiChapter {
 	brandOutroDurationMs: number
 	chapters: ApiSingleChapter[]
 	isAccurate: boolean
+	region: string
 	runtimeLengthMs: number
 	runtimeLengthSec: number
 }
@@ -40,6 +41,7 @@ interface CoreBook {
 	narrators?: NarratorOnBook[]
 	publisherName: string
 	rating: string
+	region: string
 	releaseDate: Date
 	runtimeLengthMin: number
 	subtitle?: string

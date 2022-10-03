@@ -1,30 +1,23 @@
 import { FastifyInstance } from 'fastify'
 
-import { RequestGenericWithSeed } from '#config/typing/requests'
+import { RequestGeneric } from '#config/typing/requests'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
-import SharedHelper from '#helpers/utils/shared'
-import { MessageBadAsin } from '#static/messages'
+import RouteCommonHelper from '#helpers/routes/RouteCommonHelper'
 
 async function _show(fastify: FastifyInstance) {
-	fastify.get<RequestGenericWithSeed>('/books/:asin', async (request, reply) => {
+	fastify.get<RequestGeneric>('/books/:asin', async (request, reply) => {
 		const asin = request.params.asin
-		// Query params
-		const options: RequestGenericWithSeed['Querystring'] = {
-			seedAuthors: request.query.seedAuthors,
-			update: request.query.update
-		}
 
 		// Setup common helper first
-		const sharedHelper = new SharedHelper()
-		// First, check ASIN validity
-		if (!sharedHelper.checkAsinValidity(asin)) {
-			reply.code(400)
-			throw new Error(MessageBadAsin)
-		}
+		const routeHelper = new RouteCommonHelper(asin, request.query, reply)
+		// Run common helper handler
+		const handler = routeHelper.handler()
+		// If handler reply code is not 200, return error
+		if (handler.reply.statusCode !== 200) return handler.reply
 
 		// Setup Helper
 		const { redis } = fastify
-		const helper = new BookShowHelper(asin, options, redis)
+		const helper = new BookShowHelper(asin, handler.options, redis)
 
 		// Call helper handler
 		return helper.handler()
