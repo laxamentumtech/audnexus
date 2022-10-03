@@ -3,12 +3,11 @@ info:
   title: Audnexus
   description: |
     Aggegate audiobook data
-  contact:
-    url: 'https://github.com/djdembeck/Audnexus.bundle/issues'
+  contact: {}
   license:
     name: GPL v3
     url: 'https://www.gnu.org/licenses/gpl-3.0.en.html'
-  version: 0.7.0
+  version: 1.0.0
 externalDocs:
   description: Find out more about Audnexus
   url: 'https://github.com/djdembeck/audnexus'
@@ -59,6 +58,23 @@ paths:
             enum:
               - 0
               - 1
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
       responses:
         '200':
           description: OK
@@ -119,6 +135,23 @@ paths:
           explode: false
           schema:
             type: string
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
       responses:
         '200':
           description: OK
@@ -194,6 +227,23 @@ paths:
           in: query
           name: update
           description: Have server check for updated data upstream
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
       responses:
         '200':
           description: OK
@@ -292,7 +342,24 @@ paths:
                     error: Bad Request
                     message: Bad ASIN
       description: Deletes a single book's chapters
-      parameters: []
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
       tags:
         - Chapters
     parameters:
@@ -315,6 +382,23 @@ paths:
           explode: false
           schema:
             type: string
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
       responses:
         '200':
           description: OK
@@ -330,7 +414,7 @@ paths:
                 items:
                   $ref: '#/components/schemas/Author'
         '400':
-          description: Invalid search parameters
+          description: No search params provided
           content:
             application/json:
               schema:
@@ -372,6 +456,23 @@ paths:
           in: query
           description: Have server check for updated data upstream
           name: update
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
       responses:
         '200':
           description: OK
@@ -432,6 +533,23 @@ paths:
           explode: false
           schema:
             type: string
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
       responses:
         '200':
           description: OK
@@ -488,13 +606,26 @@ paths:
         in: path
         required: true
         description: Audible.com ID
+      - schema:
+          type: string
+          enum:
+            - au
+            - ca
+            - de
+            - es
+            - fr
+            - in
+            - it
+            - jp
+            - us
+            - uk
+          default: us
+        in: query
+        name: region
+        description: Region code
 components:
   schemas:
     Author:
-      required:
-        - asin
-        - description
-        - name
       type: object
       properties:
         aliases:
@@ -526,8 +657,27 @@ components:
           type: string
         name:
           type: string
+        region:
+          type: string
+          enum:
+            - au
+            - ca
+            - de
+            - es
+            - fr
+            - in
+            - it
+            - jp
+            - us
+            - uk
+          default: us
         series:
           type: string
+      required:
+        - asin
+        - description
+        - name
+        - region
     Book:
       type: object
       xml:
@@ -561,6 +711,20 @@ components:
         rating:
           multipleOf: 0.1
           type: number
+        region:
+          type: string
+          enum:
+            - au
+            - ca
+            - de
+            - es
+            - fr
+            - in
+            - it
+            - jp
+            - us
+            - uk
+          default: us
         releaseDate:
           type: string
           format: date
@@ -584,6 +748,7 @@ components:
         - language
         - publisherName
         - rating
+        - region
         - releaseDate
         - runtimeLengthMin
         - summary
@@ -595,6 +760,7 @@ components:
         - brandOutroDurationMs
         - chapters
         - isAccurate
+        - region
         - runtimeLengthMs
         - runtimeLengthSec
       type: object
@@ -611,6 +777,20 @@ components:
             $ref: '#/components/schemas/Chapter_chapters'
         isAccurate:
           type: boolean
+        region:
+          type: string
+          enum:
+            - au
+            - ca
+            - de
+            - es
+            - fr
+            - in
+            - it
+            - jp
+            - us
+            - uk
+          default: us
         runtimeLengthMs:
           type: number
         runtimeLengthSec:
