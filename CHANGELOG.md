@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.0.0](https://github.com/djdembeck/audnexus/compare/v0.9.1...v1.0.0) (2022-10-05)
+
+
+### ⚠ BREAKING CHANGES
+
+* multi region support (#498)
+
+### Features
+
+* multi region support ([#498](https://github.com/djdembeck/audnexus/issues/498)) ([4a38714](https://github.com/djdembeck/audnexus/commit/4a387146522865575df87b072821735d475afc63))
+
 ### [0.9.1](https://github.com/djdembeck/audnexus/compare/v0.9.0...v0.9.1) (2022-09-23)
 
 ## [0.9.0](https://github.com/djdembeck/audnexus/compare/v0.8.0...v0.9.0) (2022-09-08)
