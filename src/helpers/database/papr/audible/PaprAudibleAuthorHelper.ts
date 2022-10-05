@@ -61,7 +61,7 @@ export default class PaprAudibleAuthorHelper {
 		try {
 			const deletedAuthor = await AuthorModel.deleteOne({
 				asin: this.asin,
-				region: this.options.region
+				$or: [{ region: { $exists: false } }, { region: this.options.region }]
 			})
 			return {
 				data: deletedAuthor,
@@ -107,7 +107,7 @@ export default class PaprAudibleAuthorHelper {
 	async findOne(): Promise<PaprAuthorDocumentReturn> {
 		const findOneAuthor = await AuthorModel.findOne({
 			asin: this.asin,
-			region: this.options.region
+			$or: [{ region: { $exists: false } }, { region: this.options.region }]
 		})
 
 		// Assign type to author data
@@ -128,7 +128,7 @@ export default class PaprAudibleAuthorHelper {
 		const findOneAuthor = await AuthorModel.findOne(
 			{
 				asin: this.asin,
-				region: this.options.region
+				$or: [{ region: { $exists: false } }, { region: this.options.region }]
 			},
 			{ projection: projectionWithoutDbFields }
 		)
@@ -205,7 +205,7 @@ export default class PaprAudibleAuthorHelper {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Author'))
 			}
 			await AuthorModel.updateOne(
-				{ asin: this.asin, region: this.options.region },
+				{ asin: this.asin, $or: [{ region: { $exists: false } }, { region: this.options.region }] },
 				{
 					$set: { ...this.authorData, createdAt: found.data._id.getTimestamp() },
 					$currentDate: { updatedAt: true }

@@ -55,7 +55,7 @@ export default class PaprAudibleChapterHelper {
 		try {
 			const deletedChapter = await ChapterModel.deleteOne({
 				asin: this.asin,
-				region: this.options.region
+				$or: [{ region: { $exists: false } }, { region: this.options.region }]
 			})
 			return {
 				data: deletedChapter,
@@ -76,7 +76,7 @@ export default class PaprAudibleChapterHelper {
 	async findOne(): Promise<PaprChapterDocumentReturn> {
 		const findOneChapter = await ChapterModel.findOne({
 			asin: this.asin,
-			region: this.options.region
+			$or: [{ region: { $exists: false } }, { region: this.options.region }]
 		})
 
 		// Assign type to chapter data
@@ -97,7 +97,7 @@ export default class PaprAudibleChapterHelper {
 		const findOneChapter = await ChapterModel.findOne(
 			{
 				asin: this.asin,
-				region: this.options.region
+				$or: [{ region: { $exists: false } }, { region: this.options.region }]
 			},
 			{ projection: projectionWithoutDbFields }
 		)
@@ -168,7 +168,7 @@ export default class PaprAudibleChapterHelper {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Chapter'))
 			}
 			await ChapterModel.updateOne(
-				{ asin: this.asin, region: this.options.region },
+				{ asin: this.asin, $or: [{ region: { $exists: false } }, { region: this.options.region }] },
 				{
 					$set: { ...this.chapterData, createdAt: found.data._id.getTimestamp() },
 					$currentDate: { updatedAt: true }

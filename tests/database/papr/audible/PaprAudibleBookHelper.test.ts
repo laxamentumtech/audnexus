@@ -58,7 +58,7 @@ describe('PaprAudibleBookHelper should', () => {
 		await expect(helper.create()).resolves.toEqual(obj)
 		expect(BookModel.insertOne).toHaveBeenCalledWith(parsedBook)
 		expect(BookModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin, region: options.region },
+			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
 			{ projection: projectionWithoutDbFields }
 		)
 	})
@@ -66,26 +66,35 @@ describe('PaprAudibleBookHelper should', () => {
 		const obj = { data: { acknowledged: true, deletedCount: 1 }, modified: true }
 		jest.spyOn(BookModel, 'deleteOne').mockResolvedValue(obj.data)
 		await expect(helper.delete()).resolves.toEqual(obj)
-		expect(BookModel.deleteOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
+		expect(BookModel.deleteOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
 	})
 	test('findOne', async () => {
 		const obj = { data: bookWithoutProjection, modified: false }
 		await expect(helper.findOne()).resolves.toEqual(obj)
-		expect(BookModel.findOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
+		expect(BookModel.findOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
 	})
 	test('findOne returns null if it is not a BookDocument', async () => {
 		const obj = { data: null, modified: false }
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(null)
 		jest.spyOn(checkers, 'isBookDocument').mockReturnValueOnce(false)
 		await expect(helper.findOne()).resolves.toEqual(obj)
-		expect(BookModel.findOne).toHaveBeenCalledWith({ asin: asin, region: options.region })
+		expect(BookModel.findOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
 	})
 	test('findOneWithProjection', async () => {
 		const obj = { data: parsedBook, modified: false }
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(BookModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin, region: options.region },
+			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
 			{ projection: projectionWithoutDbFields }
 		)
 	})
@@ -95,7 +104,7 @@ describe('PaprAudibleBookHelper should', () => {
 		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(BookModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin, region: options.region },
+			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
 			{ projection: projectionWithoutDbFields }
 		)
 	})
@@ -164,7 +173,7 @@ describe('PaprAudibleBookHelper should', () => {
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
 		await expect(helper.update()).resolves.toEqual(obj)
 		expect(BookModel.updateOne).toHaveBeenCalledWith(
-			{ asin: asin, region: options.region },
+			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
 			{
 				$set: { ...parsedBook, createdAt: bookWithoutProjection?._id.getTimestamp() },
 				$currentDate: { updatedAt: true }
