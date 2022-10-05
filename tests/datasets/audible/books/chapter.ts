@@ -16,6 +16,7 @@ export function setupParsedChapter(object: AudibleChapter, asin: string): ApiCha
 			}
 		}),
 		isAccurate: info.is_accurate,
+		region: 'us',
 		runtimeLengthMs: info.runtime_length_ms,
 		runtimeLengthSec: info.runtime_length_sec
 	}
@@ -290,6 +291,7 @@ export const chapterParsed1721358595: ApiChapter = {
 		{ lengthMs: 61271, startOffsetMs: 11026476, startOffsetSec: 11026, title: 'End Credits' }
 	],
 	isAccurate: true,
+	region: 'us',
 	runtimeLengthMs: 11087747,
 	runtimeLengthSec: 11088
 }

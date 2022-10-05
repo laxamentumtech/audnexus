@@ -1,4 +1,7 @@
 // Errors for Helpers
+
+import { regions } from '#static/regions'
+
 // Problem with HTTP fetch
 export const ErrorMessageHTTPFetch = (asin: string, error: number, source: string) =>
 	`An error occured while fetching data from ${source}. Response: ${error}, ASIN: ${asin}`
@@ -62,7 +65,10 @@ export const NoticeUpdateAsin = (asin: string, type: string) => `Updating ${type
 
 // Messages for routes
 export const MessageBadAsin = 'Bad ASIN'
+export const MessageBadRegion = `Invalid region. Valid regions are: ${Object.keys(regions).join(
+	', '
+)}`
 export const MessageDeleted = (asin: string) => `${asin} deleted`
 export const MessageNoChapters = (asin: string) => `${asin} has no chapters`
-export const MessageNoSearchParams = 'No search params provided'
+export const MessageNoSearchParams = 'Invalid search parameters'
 export const MessageNotFoundInDb = (asin: string) => `${asin} not found in the database`

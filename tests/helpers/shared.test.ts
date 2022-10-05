@@ -21,34 +21,34 @@ beforeAll(() => {
 
 describe('SharedHelper should', () => {
 	test('build a URL', () => {
-		const baseDomain = 'https://api.audible.com'
+		const baseDomain = 'https://api.audible'
 		const baseUrl = '1.0/catalog/products'
 		const params =
 			'?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
-		const url = helper.buildUrl('123456789', baseDomain, baseUrl, params)
+		const url = helper.buildUrl('123456789', baseDomain, 'com', baseUrl, params)
 		expect(url).toBe(
 			'https://api.audible.com/1.0/catalog/products/123456789/?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
 		)
 	})
 
 	test('validate ASINs', () => {
-		expect(helper.checkAsinValidity('B079LRSMNN')).toBe(true)
-		expect(helper.checkAsinValidity('12345678910')).toBe(false)
-		expect(helper.checkAsinValidity('B*79LRSMNN')).toBe(false)
-		expect(helper.checkAsinValidity('20XORININE')).toBe(false)
-		expect(helper.checkAsinValidity('1705047572')).toBe(true)
-		expect(helper.checkAsinValidity('B07Q769RZS')).toBe(true)
-		expect(helper.checkAsinValidity('B0B9YP4F9P')).toBe(true)
+		expect(helper.isValidAsin('B079LRSMNN')).toBe(true)
+		expect(helper.isValidAsin('12345678910')).toBe(false)
+		expect(helper.isValidAsin('B*79LRSMNN')).toBe(false)
+		expect(helper.isValidAsin('20XORININE')).toBe(false)
+		expect(helper.isValidAsin('1705047572')).toBe(true)
+		expect(helper.isValidAsin('B07Q769RZS')).toBe(true)
+		expect(helper.isValidAsin('B0B9YP4F9P')).toBe(true)
 	})
 
 	test('check data equality', () => {
-		expect(helper.checkDataEquality(parsedBook, parsedBook)).toBe(true)
-		expect(helper.checkDataEquality(changedParsedBook, parsedBook)).toBe(false)
+		expect(helper.isEqualData(parsedBook, parsedBook)).toBe(true)
+		expect(helper.isEqualData(changedParsedBook, parsedBook)).toBe(false)
 	})
 
 	test('check if recently updated', () => {
-		expect(helper.checkIfRecentlyUpdated(bookWithoutProjectionUpdatedNow)).toBe(true)
-		expect(helper.checkIfRecentlyUpdated(bookWithoutProjection)).toBe(false)
+		expect(helper.isRecentlyUpdated(bookWithoutProjectionUpdatedNow)).toBe(true)
+		expect(helper.isRecentlyUpdated(bookWithoutProjection)).toBe(false)
 	})
 
 	test('get genre asin from url', () => {
@@ -67,6 +67,35 @@ describe('SharedHelper should', () => {
 		expect(
 			helper.getGenreAsinFromUrl('https://www.audible.com/cat/Science-Fiction/Military-Audiobooks/')
 		).toBeUndefined()
+	})
+
+	test('validate region', () => {
+		expect(helper.isValidRegion('au')).toBe(true)
+		expect(helper.isValidRegion('ca')).toBe(true)
+		expect(helper.isValidRegion('de')).toBe(true)
+		expect(helper.isValidRegion('es')).toBe(true)
+		expect(helper.isValidRegion('fr')).toBe(true)
+		expect(helper.isValidRegion('in')).toBe(true)
+		expect(helper.isValidRegion('it')).toBe(true)
+		expect(helper.isValidRegion('jp')).toBe(true)
+		expect(helper.isValidRegion('uk')).toBe(true)
+		expect(helper.isValidRegion('us')).toBe(true)
+		expect(helper.isValidRegion('mx')).toBe(false)
+		expect(helper.isValidRegion('br')).toBe(false)
+		expect(helper.isValidRegion('cn')).toBe(false)
+		expect(helper.isValidRegion('ru')).toBe(false)
+		expect(helper.isValidRegion('sa')).toBe(false)
+		expect(helper.isValidRegion('za')).toBe(false)
+		expect(helper.isValidRegion('alskdjlak;sjfl;kas')).toBe(false)
+	})
+
+	test('validate name', () => {
+		expect(helper.isValidName('John Doe')).toBe(true)
+		expect(helper.isValidName('John')).toBe(true)
+		expect(helper.isValidName('Doe')).toBe(true)
+		expect(helper.isValidName('Jo')).toBe(false)
+		expect(helper.isValidName('D')).toBe(false)
+		expect(helper.isValidName('')).toBe(false)
 	})
 
 	test('collectGenres returns empty array if no genres', () => {

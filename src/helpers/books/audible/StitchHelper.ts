@@ -19,12 +19,12 @@ class StitchHelper {
 	scraperParsed: HtmlBook | undefined
 	scraperResponse: CheerioAPI | undefined
 
-	constructor(asin: string) {
+	constructor(asin: string, region: string) {
 		this.asin = asin
 		// Set up helpers
-		this.apiHelper = new ApiHelper(asin)
+		this.apiHelper = new ApiHelper(asin, region)
 		this.sharedHelper = new SharedHelper()
-		this.scrapeHelper = new ScrapeHelper(asin)
+		this.scrapeHelper = new ScrapeHelper(asin, region)
 	}
 
 	/**

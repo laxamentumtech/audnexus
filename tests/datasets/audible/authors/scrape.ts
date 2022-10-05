@@ -23,7 +23,8 @@ export const authorParsedB00G0WYW92: AuthorProfile = {
 	],
 	image:
 		'https://images-na.ssl-images-amazon.com/images/S/amzn-author-media-prod/dcqug62o4s52ubd61ogont4t3l.jpg',
-	name: 'Andy Weir'
+	name: 'Andy Weir',
+	region: 'us'
 }
 
 export const authorParsedB0034NFIOI: AuthorProfile = {
@@ -42,7 +43,8 @@ export const authorParsedB0034NFIOI: AuthorProfile = {
 		}
 	],
 	image: '',
-	name: 'Simon Pegg'
+	name: 'Simon Pegg',
+	region: 'us'
 }
 
 export const htmlResponse =

@@ -13,7 +13,7 @@ describe('Audible Author HTML', () => {
 	describe('When scraping Andy Weir from Audible', () => {
 		beforeAll(async () => {
 			asin = 'B00G0WYW92'
-			helper = new ScrapeHelper(asin)
+			helper = new ScrapeHelper(asin, 'us')
 			response = await helper.process()
 		})
 
@@ -25,7 +25,7 @@ describe('Audible Author HTML', () => {
 	describe('When scraping an author with no description or image from Audible', () => {
 		beforeAll(async () => {
 			asin = 'B0034NFIOI'
-			helper = new ScrapeHelper(asin)
+			helper = new ScrapeHelper(asin, 'us')
 			response = await helper.process()
 		})
 
@@ -37,7 +37,7 @@ describe('Audible Author HTML', () => {
 	describe('When fetching a book as an author from Audible', () => {
 		beforeAll(() => {
 			asin = '103940202X'
-			helper = new ScrapeHelper(asin)
+			helper = new ScrapeHelper(asin, 'us')
 		})
 
 		it('threw an error', async () => {

@@ -1,8 +1,13 @@
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
 import { isAuthorDocument, isAuthorProfile } from '#config/typing/checkers'
-import { PaprAuthorDocumentReturn, PaprAuthorReturn, PaprDeleteReturn } from '#config/typing/papr'
+import {
+	PaprAuthorDocumentReturn,
+	PaprAuthorReturn,
+	PaprAuthorSearch,
+	PaprDeleteReturn
+} from '#config/typing/papr'
 import { AuthorProfile } from '#config/typing/people'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -10,6 +15,7 @@ import {
 	ErrorMessageDelete,
 	ErrorMessageNotFoundInDb,
 	ErrorMessageUpdate,
+	MessageNoSearchParams,
 	NoticeUpdateAsin
 } from '#static/messages'
 
@@ -22,9 +28,9 @@ const projectionWithoutDbFields = {
 export default class PaprAudibleAuthorHelper {
 	asin: string
 	authorData!: AuthorProfile
-	options: RequestGeneric['Querystring']
+	options: ParsedQuerystring
 
-	constructor(asin: string, options: RequestGeneric['Querystring']) {
+	constructor(asin: string, options: ParsedQuerystring) {
 		this.asin = asin
 		this.options = options
 	}
@@ -53,7 +59,10 @@ export default class PaprAudibleAuthorHelper {
 	 */
 	async delete(): Promise<PaprDeleteReturn> {
 		try {
-			const deletedAuthor = await AuthorModel.deleteOne({ asin: this.asin })
+			const deletedAuthor = await AuthorModel.deleteOne({
+				asin: this.asin,
+				$or: [{ region: { $exists: false } }, { region: this.options.region }]
+			})
 			return {
 				data: deletedAuthor,
 				modified: true
@@ -66,13 +75,39 @@ export default class PaprAudibleAuthorHelper {
 	}
 
 	/**
+	 * Searches for authors in the DB using options.name
+	 * Returns altered Documents using projection.
+	 */
+	async findByName(): Promise<PaprAuthorSearch> {
+		if (!this.options.name) {
+			throw new Error(MessageNoSearchParams)
+		}
+		// Use projection search from mongo until papr implements it natively.
+		// https://github.com/plexinc/papr/issues/98
+		const found = await AuthorModel.find(
+			{ $text: { $search: this.options.name } },
+			{
+				projection: { _id: 0, asin: 1, name: 1 },
+				limit: 25,
+				sort: { score: { $meta: 'textScore' } }
+			}
+		)
+
+		return {
+			data: found,
+			modified: false
+		}
+	}
+
+	/**
 	 * Finds an author in the DB
 	 * using asin from the constructor.
 	 * Returns unaltered Document.
 	 */
 	async findOne(): Promise<PaprAuthorDocumentReturn> {
 		const findOneAuthor = await AuthorModel.findOne({
-			asin: this.asin
+			asin: this.asin,
+			$or: [{ region: { $exists: false } }, { region: this.options.region }]
 		})
 
 		// Assign type to author data
@@ -92,7 +127,8 @@ export default class PaprAudibleAuthorHelper {
 	async findOneWithProjection(): Promise<PaprAuthorReturn> {
 		const findOneAuthor = await AuthorModel.findOne(
 			{
-				asin: this.asin
+				asin: this.asin,
+				$or: [{ region: { $exists: false } }, { region: this.options.region }]
 			},
 			{ projection: projectionWithoutDbFields }
 		)
@@ -130,8 +166,8 @@ export default class PaprAudibleAuthorHelper {
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
 			// If the objects are the exact same return right away
-			const equality = sharedHelper.checkDataEquality(data, this.authorData)
-			if (equality) {
+			const isEqual = sharedHelper.isEqualData(data, this.authorData)
+			if (isEqual) {
 				return {
 					data: data,
 					modified: false
@@ -169,7 +205,7 @@ export default class PaprAudibleAuthorHelper {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Author'))
 			}
 			await AuthorModel.updateOne(
-				{ asin: this.asin },
+				{ asin: this.asin, $or: [{ region: { $exists: false } }, { region: this.options.region }] },
 				{
 					$set: { ...this.authorData, createdAt: found.data._id.getTimestamp() },
 					$currentDate: { updatedAt: true }

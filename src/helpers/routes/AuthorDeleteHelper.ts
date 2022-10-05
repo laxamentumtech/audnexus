@@ -1,6 +1,7 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { AuthorDocument } from '#config/models/Author'
+import { ParsedQuerystring } from '#config/typing/requests'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 
@@ -9,11 +10,9 @@ export default class AuthorDeleteHelper {
 	paprHelper: PaprAudibleAuthorHelper
 	redisHelper: RedisHelper
 	originalAuthor: AuthorDocument | null = null
-	constructor(asin: string, redis: FastifyRedis | null) {
+	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
 		this.asin = asin
-		this.paprHelper = new PaprAudibleAuthorHelper(this.asin, {
-			update: undefined
-		})
+		this.paprHelper = new PaprAudibleAuthorHelper(this.asin, options)
 		this.redisHelper = new RedisHelper(redis, 'author', this.asin)
 	}
 

@@ -1,6 +1,7 @@
 import { schema, types } from 'papr'
 
 import papr from '#config/papr'
+import { regionRegex, regions } from '#static/regions'
 
 const bookSchema = schema(
 	{
@@ -31,6 +32,11 @@ const bookSchema = schema(
 		),
 		publisherName: types.string({ required: true }),
 		rating: types.string({ required: true }),
+		region: types.string({
+			enum: Object.keys(regions),
+			pattern: regionRegex,
+			required: true
+		}),
 		releaseDate: types.date({ required: true }),
 		runtimeLengthMin: types.number({ required: true }),
 		seriesPrimary: types.object({
@@ -47,7 +53,12 @@ const bookSchema = schema(
 		summary: types.string({ required: true }),
 		title: types.string({ required: true })
 	},
-	{ timestamps: true }
+	{
+		defaults: {
+			region: 'us'
+		},
+		timestamps: true
+	}
 )
 
 export type BookDocument = typeof bookSchema[0]

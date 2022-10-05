@@ -9,17 +9,21 @@ import {
 	ErrorMessageNoResponse,
 	ErrorMessageNotFound
 } from '#static/messages'
+import { regions } from '#static/regions'
 
 class ScrapeHelper {
 	asin: string
 	helper: SharedHelper
 	reqUrl: string
-	constructor(asin: string) {
+	region: string
+	constructor(asin: string, region: string) {
 		this.asin = asin
+		this.region = region
 		this.helper = new SharedHelper()
-		const baseDomain = 'https://www.audible.com'
+		const baseDomain = 'https://www.audible'
+		const regionTLD = regions[region].tld
 		const baseUrl = 'author'
-		this.reqUrl = this.helper.buildUrl(asin, baseDomain, baseUrl)
+		this.reqUrl = this.helper.buildUrl(asin, baseDomain, regionTLD, baseUrl)
 	}
 
 	/**
@@ -93,7 +97,8 @@ class ScrapeHelper {
 			description,
 			genres,
 			image,
-			name
+			name,
+			region: this.region
 		}
 
 		return author

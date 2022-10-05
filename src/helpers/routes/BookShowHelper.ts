@@ -3,7 +3,7 @@ import { FastifyRedis } from '@fastify/redis'
 import { BookDocument } from '#config/models/Book'
 import { Book } from '#config/typing/books'
 import { isBook } from '#config/typing/checkers'
-import { RequestGenericWithSeed } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
@@ -17,20 +17,16 @@ export default class BookShowHelper {
 	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleBookHelper
 	redisHelper: RedisHelper
-	options: RequestGenericWithSeed['Querystring']
+	options: ParsedQuerystring
 	originalBook: BookDocument | null = null
 	stitchHelper: StitchHelper
-	constructor(
-		asin: string,
-		options: RequestGenericWithSeed['Querystring'],
-		redis: FastifyRedis | null
-	) {
+	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
 		this.asin = asin
 		this.sharedHelper = new SharedHelper()
 		this.options = options
 		this.paprHelper = new PaprAudibleBookHelper(this.asin, this.options)
 		this.redisHelper = new RedisHelper(redis, 'book', this.asin)
-		this.stitchHelper = new StitchHelper(this.asin)
+		this.stitchHelper = new StitchHelper(this.asin, this.options.region)
 	}
 
 	/**
@@ -94,7 +90,7 @@ export default class BookShowHelper {
 		if (!this.originalBook) {
 			return false
 		}
-		return this.sharedHelper.checkIfRecentlyUpdated(this.originalBook)
+		return this.sharedHelper.isRecentlyUpdated(this.originalBook)
 	}
 
 	/**

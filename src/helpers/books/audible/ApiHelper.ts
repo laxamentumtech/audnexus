@@ -13,15 +13,19 @@ import {
 	ErrorMessageReleaseDate,
 	ErrorMessageRequiredKey
 } from '#static/messages'
+import { regions } from '#static/regions'
 
 class ApiHelper {
 	asin: string
 	reqUrl: string
 	inputJson: AudibleProduct['product'] | undefined
-	constructor(asin: string) {
+	region: string
+	constructor(asin: string, region: string) {
 		this.asin = asin
+		this.region = region
 		const helper = new SharedHelper()
-		const baseDomain = 'https://api.audible.com'
+		const baseDomain = 'https://api.audible'
+		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/catalog/products'
 		const paramArr = [
 			'category_ladders',
@@ -36,7 +40,7 @@ class ApiHelper {
 		]
 		const paramStr = helper.getParamString(paramArr)
 		const params = `?response_groups=${paramStr}`
-		this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
+		this.reqUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
 	}
 
 	/**
@@ -291,6 +295,7 @@ class ApiHelper {
 			...(this.inputJson.rating && {
 				rating: this.inputJson.rating.overall_distribution.display_average_rating.toString()
 			}),
+			region: this.region,
 			releaseDate: this.getReleaseDate(),
 			runtimeLengthMin: this.inputJson.runtime_length_min ?? 0,
 			...(this.inputJson.series && {

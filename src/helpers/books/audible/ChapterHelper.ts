@@ -11,6 +11,7 @@ import {
 	ErrorMessageNoData,
 	ErrorMessageRequiredKey
 } from '#static/messages'
+import { regions } from '#static/regions'
 
 class ChapterHelper {
 	adpToken: string
@@ -18,14 +19,17 @@ class ChapterHelper {
 	inputJson: AudibleChapter['content_metadata']['chapter_info'] | undefined
 	privateKey: string
 	reqUrl: string
+	region: string
 
-	constructor(asin: string) {
+	constructor(asin: string, region: string) {
 		this.asin = asin
+		this.region = region
 		const helper = new SharedHelper()
-		const baseDomain = 'https://api.audible.com'
+		const baseDomain = 'https://api.audible'
+		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/content'
 		const params = 'metadata?response_groups=chapter_info'
-		this.reqUrl = helper.buildUrl(asin, baseDomain, baseUrl, params)
+		this.reqUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
 		if (process.env.ADP_TOKEN && process.env.PRIVATE_KEY) {
 			this.adpToken = process.env.ADP_TOKEN
 			this.privateKey = process.env.PRIVATE_KEY
@@ -51,6 +55,7 @@ class ChapterHelper {
 	 * @returns {string} cleaned chapter
 	 */
 	chapterTitleCleanup(chapter: string): string {
+		const chapterNameLocale = regions[this.region].strings.chapterName
 		// Starting chapter title data
 		const originalTitle: string = chapter
 		// Strip trailing periods
@@ -65,7 +70,7 @@ class ChapterHelper {
 			const numTitle: number = parseInt(stripPeriod)
 			// Convert back to string for concat
 			const strTitle: string = numTitle.toString()
-			chapterTitle = `Chapter ${strTitle}`
+			chapterTitle = `${chapterNameLocale} ${strTitle}`
 		}
 
 		return chapterTitle
@@ -134,6 +139,7 @@ class ChapterHelper {
 				return chapJson
 			}),
 			isAccurate: this.inputJson.is_accurate,
+			region: this.region,
 			runtimeLengthMs: this.inputJson.runtime_length_ms,
 			runtimeLengthSec: this.inputJson.runtime_length_sec
 		}

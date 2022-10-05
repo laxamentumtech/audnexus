@@ -4,17 +4,19 @@ import { HtmlBook } from '#config/typing/books'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageHTTPFetch } from '#static/messages'
+import { regions } from '#static/regions'
 
 class ScrapeHelper {
 	asin: string
 	helper: SharedHelper
 	reqUrl: string
-	constructor(asin: string) {
+	constructor(asin: string, region: string) {
 		this.asin = asin
 		this.helper = new SharedHelper()
-		const baseDomain = 'https://www.audible.com'
+		const baseDomain = 'https://www.audible'
+		const regionTLD = regions[region].tld
 		const baseUrl = 'pd'
-		this.reqUrl = this.helper.buildUrl(asin, baseDomain, baseUrl)
+		this.reqUrl = this.helper.buildUrl(asin, baseDomain, regionTLD, baseUrl)
 	}
 
 	/**

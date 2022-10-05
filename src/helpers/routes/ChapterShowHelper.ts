@@ -3,7 +3,7 @@ import { FastifyRedis } from '@fastify/redis'
 import { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter } from '#config/typing/books'
 import { isChapter } from '#config/typing/checkers'
-import { RequestGeneric } from '#config/typing/requests'
+import { ParsedQuerystring } from '#config/typing/requests'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
@@ -16,16 +16,16 @@ export default class ChapterShowHelper {
 	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleChapterHelper
 	redisHelper: RedisHelper
-	options: RequestGeneric['Querystring']
+	options: ParsedQuerystring
 	originalChapter: ChapterDocument | null = null
 	chapterHelper: ChapterHelper
-	constructor(asin: string, options: RequestGeneric['Querystring'], redis: FastifyRedis | null) {
+	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
 		this.asin = asin
-		this.chapterHelper = new ChapterHelper(this.asin)
 		this.sharedHelper = new SharedHelper()
 		this.options = options
 		this.paprHelper = new PaprAudibleChapterHelper(this.asin, this.options)
 		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin)
+		this.chapterHelper = new ChapterHelper(this.asin, this.options.region)
 	}
 
 	/**
@@ -97,7 +97,7 @@ export default class ChapterShowHelper {
 		if (!this.originalChapter) {
 			return false
 		}
-		return this.sharedHelper.checkIfRecentlyUpdated(this.originalChapter)
+		return this.sharedHelper.isRecentlyUpdated(this.originalChapter)
 	}
 
 	/**

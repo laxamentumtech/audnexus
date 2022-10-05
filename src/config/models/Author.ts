@@ -1,6 +1,7 @@
 import { schema, types } from 'papr'
 
 import papr from '#config/papr'
+import { regionRegex, regions } from '#static/regions'
 
 const authorSchema = schema(
 	{
@@ -25,9 +26,19 @@ const authorSchema = schema(
 		),
 		location: types.string(),
 		name: types.string({ required: true }),
+		region: types.string({
+			enum: Object.keys(regions),
+			pattern: regionRegex,
+			required: true
+		}),
 		series: types.array(types.objectId())
 	},
-	{ timestamps: true }
+	{
+		defaults: {
+			region: 'us'
+		},
+		timestamps: true
+	}
 )
 
 export type AuthorDocument = typeof authorSchema[0]

@@ -17,7 +17,7 @@ let helper: ChapterShowHelper
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
-	helper = new ChapterShowHelper(asin, { update: undefined }, null)
+	helper = new ChapterShowHelper(asin, { region: 'us', update: undefined }, null)
 	jest
 		.spyOn(helper.paprHelper, 'createOrUpdate')
 		.mockResolvedValue({ data: parsedChapters, modified: true })
@@ -30,7 +30,7 @@ beforeEach(() => {
 		.spyOn(helper.paprHelper, 'findOneWithProjection')
 		.mockResolvedValue({ data: parsedChapters, modified: false })
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
-	jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 	jest.spyOn(checkers, 'isChapter').mockReturnValue(true)
 })
 
@@ -53,7 +53,7 @@ describe('ChapterShowHelper should', () => {
 	})
 
 	test('returns original chapter if it was updated recently when trying to update', async () => {
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(true)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalChapter = chaptersWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedChapters)
 	})
@@ -79,7 +79,7 @@ describe('ChapterShowHelper should', () => {
 	})
 
 	test('run handler and update an existing chapter', async () => {
-		helper = new ChapterShowHelper(asin, { update: '1' }, null)
+		helper = new ChapterShowHelper(asin, { region: 'us', update: '1' }, null)
 		// Need to re-do mock since helper reset
 		jest
 			.spyOn(helper.paprHelper, 'createOrUpdate')
@@ -92,7 +92,7 @@ describe('ChapterShowHelper should', () => {
 			.mockResolvedValue({ data: parsedChapters, modified: false })
 		jest.spyOn(helper.chapterHelper, 'process').mockResolvedValue(parsedChapters)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
-		jest.spyOn(helper.sharedHelper, 'checkIfRecentlyUpdated').mockReturnValue(false)
+		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		jest.spyOn(checkers, 'isChapter').mockReturnValue(true)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedChapters)
 	})

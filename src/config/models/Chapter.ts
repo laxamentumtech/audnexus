@@ -1,6 +1,7 @@
 import { schema, types } from 'papr'
 
 import papr from '#config/papr'
+import { regionRegex, regions } from '#static/regions'
 
 const chapterSchema = schema(
 	{
@@ -17,10 +18,20 @@ const chapterSchema = schema(
 			{ required: true }
 		),
 		isAccurate: types.boolean({ required: true }),
+		region: types.string({
+			enum: Object.keys(regions),
+			pattern: regionRegex,
+			required: true
+		}),
 		runtimeLengthMs: types.number({ required: true }),
 		runtimeLengthSec: types.number({ required: true })
 	},
-	{ timestamps: true }
+	{
+		defaults: {
+			region: 'us'
+		},
+		timestamps: true
+	}
 )
 
 export type ChapterDocument = typeof chapterSchema[0]
