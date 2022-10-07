@@ -25,7 +25,7 @@ export default class BookShowHelper {
 		this.sharedHelper = new SharedHelper()
 		this.options = options
 		this.paprHelper = new PaprAudibleBookHelper(this.asin, this.options)
-		this.redisHelper = new RedisHelper(redis, 'book', this.asin)
+		this.redisHelper = new RedisHelper(redis, 'book', this.asin, options.region)
 		this.stitchHelper = new StitchHelper(this.asin, this.options.region)
 	}
 

@@ -13,7 +13,7 @@ export default class BookDeleteHelper {
 	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
 		this.asin = asin
 		this.paprHelper = new PaprAudibleBookHelper(this.asin, options)
-		this.redisHelper = new RedisHelper(redis, 'book', this.asin)
+		this.redisHelper = new RedisHelper(redis, 'book', this.asin, options.region)
 	}
 
 	async getBookFromPapr(): Promise<BookDocument | null> {

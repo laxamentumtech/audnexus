@@ -24,7 +24,7 @@ export default class ChapterShowHelper {
 		this.sharedHelper = new SharedHelper()
 		this.options = options
 		this.paprHelper = new PaprAudibleChapterHelper(this.asin, this.options)
-		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin)
+		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin, options.region)
 		this.chapterHelper = new ChapterHelper(this.asin, this.options.region)
 	}
 

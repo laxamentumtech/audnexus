@@ -13,7 +13,7 @@ export default class AuthorDeleteHelper {
 	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
 		this.asin = asin
 		this.paprHelper = new PaprAudibleAuthorHelper(this.asin, options)
-		this.redisHelper = new RedisHelper(redis, 'author', this.asin)
+		this.redisHelper = new RedisHelper(redis, 'author', this.asin, options.region)
 	}
 
 	async getAuthorFromPapr(): Promise<AuthorDocument | null> {
