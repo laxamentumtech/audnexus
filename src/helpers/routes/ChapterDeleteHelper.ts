@@ -13,7 +13,7 @@ export default class ChapterDeleteHelper {
 	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
 		this.asin = asin
 		this.paprHelper = new PaprAudibleChapterHelper(this.asin, options)
-		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin)
+		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin, options.region)
 	}
 
 	async getChaptersFromPapr(): Promise<ChapterDocument | null> {

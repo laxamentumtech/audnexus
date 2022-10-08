@@ -8,9 +8,9 @@ import { ErrorMessageRedisDelete, ErrorMessageRedisSet } from '#static/messages'
 export default class RedisHelper {
 	instance: FastifyRedis | null
 	key: string
-	constructor(instance: FastifyRedis | null, key: string, id: string) {
+	constructor(instance: FastifyRedis | null, key: string, id: string, region: string) {
 		this.instance = instance
-		this.key = `${key}-${id}`
+		this.key = `${region}-${key}-${id}`
 	}
 
 	convertStringToDate(parsed: Book) {
