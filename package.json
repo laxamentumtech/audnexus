@@ -28,7 +28,7 @@
 	"license": "GPL-3.0",
 	"dependencies": {
 		"@fastify/cors": "8.1.0",
-		"@fastify/rate-limit": "7.4.0",
+		"@fastify/rate-limit": "7.5.0",
 		"@fastify/redis": "6.0.1",
 		"cheerio": "1.0.0-rc.12",
 		"domhandler": "5.0.3",
