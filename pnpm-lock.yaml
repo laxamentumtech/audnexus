@@ -1,7 +1,7 @@
 lockfileVersion: 5.4
 
 specifiers:
-  '@fastify/cors': 8.1.0
+  '@fastify/cors': 8.1.1
   '@fastify/rate-limit': 7.5.0
   '@fastify/redis': 6.0.1
   '@jest/types': 29.2.1
@@ -39,7 +39,7 @@ specifiers:
   typescript: 4.8.4
 
 dependencies:
-  '@fastify/cors': 8.1.0
+  '@fastify/cors': 8.1.1
   '@fastify/rate-limit': 7.5.0
   '@fastify/redis': 6.0.1
   cheerio: 1.0.0-rc.12
@@ -1166,11 +1166,11 @@ packages:
       fast-uri: 2.1.0
     dev: false
 
-  /@fastify/cors/8.1.0:
-    resolution: {integrity: sha512-1OmjwyxQZ8GePxa5t1Rpsn2qS56+1ouKMvZufpgJWhXtoCeM/ffA+PsNW8pyslPr4W0E27gVoFqtvHwhXW1U2w==}
+  /@fastify/cors/8.1.1:
+    resolution: {integrity: sha512-YpkNonoJtn7Zcq2uyh0bFPcjW+njWZ9rz5gl8o5NDUvpBIPjg5m/3IHvsq91Pp/fFhLL7XgVOUyk+gMl8tb5FQ==}
     dependencies:
       fastify-plugin: 4.3.0
-      mnemonist: 0.39.2
+      mnemonist: 0.39.4
     dev: false
 
   /@fastify/deepmerge/1.1.0:
@@ -4146,8 +4146,8 @@ packages:
   /minimist/1.2.7:
     resolution: {integrity: sha512-bzfL1YUZsP41gmu/qjrEk0Q6i2ix/cVeAhbCbqH9u3zYutS1cLg00qhrD0M2MVdCcx4Sc0UpP2eBWo9rotpq6g==}
 
-  /mnemonist/0.39.2:
-    resolution: {integrity: sha512-n3ZCEosuMH03DVivZ9N0fcXPWiZrBLEdfSlEJ+S/mJxmk3zuo1ur0dj9URDczFyP1VS3wfiyKzqLLDXoPJ6rPA==}
+  /mnemonist/0.39.4:
+    resolution: {integrity: sha512-WlE2Ugow1ENH5un0OthjsjpJb/nbkUQ/jUOHtZUqh58JNzEHNxkm0tIFRAoExsANW/fTN/rxBUMFY/7jPDvxdQ==}
     dependencies:
       obliterator: 2.0.4
     dev: false
