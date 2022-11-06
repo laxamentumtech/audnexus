@@ -7,7 +7,7 @@ specifiers:
   '@jest/types': 29.2.1
   '@types/html-to-text': 8.1.1
   '@types/isomorphic-fetch': 0.0.36
-  '@types/jest': 29.2.0
+  '@types/jest': 29.2.1
   '@types/jsrsasign': 10.5.4
   '@types/lodash': 4.14.186
   '@types/node': 18.11.8
@@ -60,7 +60,7 @@ devDependencies:
   '@jest/types': 29.2.1
   '@types/html-to-text': 8.1.1
   '@types/isomorphic-fetch': 0.0.36
-  '@types/jest': 29.2.0
+  '@types/jest': 29.2.1
   '@types/jsrsasign': 10.5.4
   '@types/lodash': 4.14.186
   '@types/node': 18.11.8
@@ -1592,8 +1592,8 @@ packages:
     dependencies:
       '@types/istanbul-lib-report': 3.0.0
 
-  /@types/jest/29.2.0:
-    resolution: {integrity: sha512-KO7bPV21d65PKwv3LLsD8Jn3E05pjNjRZvkm+YTacWhVmykAb07wW6IkZUmQAltwQafNcDUEUrMO2h3jeBSisg==}
+  /@types/jest/29.2.1:
+    resolution: {integrity: sha512-nKixEdnGDqFOZkMTF74avFNr3yRqB1ZJ6sRZv5/28D5x2oLN14KApv7F9mfDT/vUic0L3tRCsh3XWpWjtJisUQ==}
     dependencies:
       expect: 29.2.2
       pretty-format: 29.2.1
