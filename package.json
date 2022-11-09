@@ -50,7 +50,7 @@
 		"@types/isomorphic-fetch": "0.0.36",
 		"@types/jest": "29.2.2",
 		"@types/jsrsasign": "10.5.4",
-		"@types/lodash": "4.14.187",
+		"@types/lodash": "4.14.188",
 		"@types/node": "18.11.9",
 		"@typescript-eslint/eslint-plugin": "5.38.1",
 		"@typescript-eslint/parser": "5.38.1",
