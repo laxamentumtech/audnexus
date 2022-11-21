@@ -29,7 +29,7 @@ specifiers:
   lodash: 4.17.21
   module-alias: 2.2.2
   moment: 2.29.4
-  mongodb: 4.11.0
+  mongodb: 4.12.0
   nodemon: 2.0.20
   papr: 9.2.1
   prettier: 2.7.1
@@ -52,8 +52,8 @@ dependencies:
   lodash: 4.17.21
   module-alias: 2.2.2
   moment: 2.29.4
-  mongodb: 4.11.0
-  papr: 9.2.1_mongodb@4.11.0
+  mongodb: 4.12.0
+  papr: 9.2.1_mongodb@4.12.0
   typescript: 4.9.3
 
 devDependencies:
@@ -693,6 +693,7 @@ packages:
 
   /@aws-sdk/util-base64-browser/3.188.0:
     resolution: {integrity: sha512-qlH+5NZBLiyKziL335BEPedYxX6j+p7KFRWXvDQox9S+s+gLCayednpK+fteOhBenCcR9fUZOVuAPScy1I8qCg==}
+    deprecated: The package @aws-sdk/util-base64-browser has been renamed to @aws-sdk/util-base64. Please install the renamed package.
     dependencies:
       tslib: 2.4.1
     dev: false
@@ -701,6 +702,7 @@ packages:
   /@aws-sdk/util-base64-node/3.201.0:
     resolution: {integrity: sha512-ydZqNpB3l5kiicInpPDExPb5xHI7uyVIa1vMupnuIrJ412iNb0F2+K8LlFynzw6fSJShVKnqFcWOYRA96z1iIw==}
     engines: {node: '>=14.0.0'}
+    deprecated: The package @aws-sdk/util-base64-node has been renamed to @aws-sdk/util-base64. Please install the renamed package.
     dependencies:
       '@aws-sdk/util-buffer-from': 3.201.0
       tslib: 2.4.1
@@ -4269,12 +4271,11 @@ packages:
       whatwg-url: 11.0.0
     dev: false
 
-  /mongodb/4.11.0:
-    resolution: {integrity: sha512-9l9n4Nk2BYZzljW3vHah3Z0rfS5npKw6ktnkmFgTcnzaXH1DRm3pDl6VMHu84EVb1lzmSaJC4OzWZqTkB5i2wg==}
+  /mongodb/4.12.0:
+    resolution: {integrity: sha512-ssWod7DqVE4faluZESdOqYhV1BI5CQA5c31sr+zxDLJDBX9EA5VJLo8RNSItPTwxExmuGn/T6MbETQWjywNehA==}
     engines: {node: '>=12.9.0'}
     dependencies:
       bson: 4.7.0
-      denque: 2.1.0
       mongodb-connection-string-url: 2.5.4
       socks: 2.7.1
     optionalDependencies:
@@ -4474,13 +4475,13 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  /papr/9.2.1_mongodb@4.11.0:
+  /papr/9.2.1_mongodb@4.12.0:
     resolution: {integrity: sha512-Re8bBmw5iS81Yyn+Oeov9H3KRWz5PTf91UVuRi1nax3QlDSvfmyG+Ge2qw+nZThoaOuQbgr21F0N9w7BQn0uHg==}
     engines: {node: ^14.0.0 || >=15.0.0}
     peerDependencies:
       mongodb: '>=4.11.0'
     dependencies:
-      mongodb: 4.11.0
+      mongodb: 4.12.0
     dev: false
 
   /parent-module/1.0.1:
