@@ -14,7 +14,7 @@ specifiers:
   '@typescript-eslint/eslint-plugin': 5.38.1
   '@typescript-eslint/parser': 5.38.1
   cheerio: 1.0.0-rc.12
-  concurrently: 7.5.0
+  concurrently: 7.6.0
   domhandler: 5.0.3
   eslint: 8.24.0
   eslint-config-prettier: 8.5.0
@@ -66,7 +66,7 @@ devDependencies:
   '@types/node': 18.11.9
   '@typescript-eslint/eslint-plugin': 5.38.1_gp73t3prs7mc42mwdlusicztxq
   '@typescript-eslint/parser': 5.38.1_zea7lsic7rryqsxn44jhihuxfi
-  concurrently: 7.5.0
+  concurrently: 7.6.0
   eslint: 8.24.0
   eslint-config-prettier: 8.5.0_eslint@8.24.0
   eslint-plugin-jest: 27.0.4_rjb7q6sp2bwrb5xw47oupdkruy
@@ -2326,8 +2326,8 @@ packages:
       typedarray: 0.0.6
     dev: true
 
-  /concurrently/7.5.0:
-    resolution: {integrity: sha512-5E3mwiS+i2JYBzr5BpXkFxOnleZTMsG+WnE/dCG4/P+oiVXrbmrBwJ2ozn4SxwB2EZDrKR568X+puVohxz3/Mg==}
+  /concurrently/7.6.0:
+    resolution: {integrity: sha512-BKtRgvcJGeZ4XttiDiNcFiRlxoAeZOseqUvyYRUp/Vtd+9p1ULmeoSqGsDA+2ivdeDFpqrJvGvmI+StKfKl5hw==}
     engines: {node: ^12.20.0 || ^14.13.0 || >=16.0.0}
     hasBin: true
     dependencies:
