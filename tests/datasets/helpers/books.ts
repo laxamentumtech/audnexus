@@ -345,7 +345,7 @@ export const parsedBook: ApiBook = {
 	narrators,
 	publisherName,
 	rating,
-    region,
+	region,
 	releaseDate,
 	runtimeLengthMin,
 	seriesPrimary,
