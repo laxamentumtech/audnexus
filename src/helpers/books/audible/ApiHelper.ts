@@ -16,10 +16,10 @@ import { regions } from '#static/regions'
 
 class ApiHelper {
 	asin: string
-	reqUrl: string
+	categories: Category[][] | undefined
 	inputJson: AudibleProduct['product'] | undefined
 	region: string
-	categories: Category[][] | undefined
+	reqUrl: string
 	constructor(asin: string, region: string) {
 		this.asin = asin
 		this.region = region
