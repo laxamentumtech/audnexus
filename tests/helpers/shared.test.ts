@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as cheerio from 'cheerio'
 
+import { ParsedObject } from '#config/typing/unions'
 import SharedHelper from '#helpers/utils/shared'
 import {
 	htmlResponseGenreNoHref,
@@ -123,5 +124,18 @@ describe('SharedHelper should', () => {
 			.toArray()
 			.map((element) => html(element))
 		expect(helper.collectGenres(asin, genres, 'genre')).toEqual([parsedAuthor.genres![0]])
+	})
+
+	test('sortObjectByKeys', () => {
+		const obj = {
+			b: 1,
+			a: 2,
+			c: 3
+		} as unknown as ParsedObject
+		expect(helper.sortObjectByKeys(obj)).toEqual({
+			a: 2,
+			b: 1,
+			c: 3
+		})
 	})
 })

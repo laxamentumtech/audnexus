@@ -57,4 +57,16 @@ describe('ScrapeHelper should', () => {
 	test('return undefined if no genres', async () => {
 		await expect(helper.parseResponse(cheerio.load(''))).resolves.toBeUndefined()
 	})
+
+	test('log non-404 status code', async () => {
+		jest.restoreAllMocks()
+		jest.spyOn(global.console, 'log')
+		jest
+			.spyOn(global, 'fetch')
+			.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 500 } as Response))
+		await expect(helper.fetchBook()).resolves.toBeUndefined()
+		expect(console.log).toHaveBeenCalledWith(
+			'An error occured while fetching data from HTML. Response: 500, ASIN: B079LRSMNN'
+		)
+	})
 })
