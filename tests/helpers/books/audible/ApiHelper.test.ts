@@ -232,18 +232,24 @@ describe('ApiHelper edge cases should', () => {
 		helper.inputJson = podcast.product
 		expect(helper.hasRequiredKeys().isValid).toBe(true)
 	})
+
+	test('return false on empty input to isGenre', async () => {
+		expect(helper.isGenre(null)).toBeFalsy()
+	})
 })
 
 describe('ApiHelper should throw error when', () => {
 	test('no input data', () => {
 		expect(() => helper.hasRequiredKeys()).toThrowError('No input data')
 		expect(() => helper.getCategories()).toThrowError('No input data')
+		expect(() => helper.getGenres()).toThrowError('No input data')
 		expect(() => helper.getHighResImage()).toThrowError('No input data')
 		expect(() => helper.getReleaseDate()).toThrowError('No input data')
 		expect(() => helper.getSeriesPrimary(mockResponse.product.series)).toThrowError('No input data')
 		expect(() => helper.getSeriesSecondary(mockResponse.product.series)).toThrowError(
 			'No input data'
 		)
+		expect(() => helper.getTags()).toThrowError('No input data')
 		expect(() => helper.getFinalData()).toThrowError('No input data')
 	})
 
