@@ -116,12 +116,23 @@ class ApiHelper {
 		}
 	}
 
+	isCategory(category: unknown): category is Category {
+		return (
+			typeof category === 'object' &&
+			category !== null &&
+			Object.hasOwnProperty.call(category, 'id') &&
+			Object.hasOwnProperty.call(category, 'name')
+		)
+	}
+
 	isGenre(genre: unknown): genre is ApiGenre {
-		if (!genre) return false
-		const genreKeys = ['asin', 'name', 'type']
-		const genreKeysExist = Object.keys(genre).every((key) => genreKeys.includes(key))
-		const genreKeysValid = Object.values(genre).every((value) => value !== undefined)
-		return genreKeysExist && genreKeysValid
+		return (
+			typeof genre === 'object' &&
+			genre !== null &&
+			Object.hasOwnProperty.call(genre, 'asin') &&
+			Object.hasOwnProperty.call(genre, 'name') &&
+			Object.hasOwnProperty.call(genre, 'type')
+		)
 	}
 
 	/**
@@ -134,14 +145,13 @@ class ApiHelper {
 
 		// Genres ARE parent categories
 		// First item from each ladder is parent category (genre)
-		const rawGenres = this.categories.map((ladder) => ladder.shift())
-		const genres = [...new Map(rawGenres.map((item) => [item?.name, item])).values()]
+		const rawGenres = this.categories.map((ladder) => ladder.shift()).filter(this.isCategory)
+		const genres = [...new Map(rawGenres.map((item) => [item.name, item])).values()]
 
 		// Transform categories to ApiGenres
 		// Filter out undefined values
 		return genres
 			.map((category) => {
-				if (!category) return
 				return this.categoryToApiGenre(category, 'genre')
 			})
 			.filter(this.isGenre)
@@ -163,7 +173,6 @@ class ApiHelper {
 		// Filter out undefined values
 		return tags
 			.map((category) => {
-				if (!category) return
 				return this.categoryToApiGenre(category, 'tag')
 			})
 			.filter(this.isGenre)
