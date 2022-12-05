@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.0.2](https://github.com/djdembeck/audnexus/compare/v1.0.1...v1.0.2) (2022-12-05)
+
+
+### Bug Fixes
+
+* **helper:** :bug: non `us` genres would be filtered out ([c09bba1](https://github.com/djdembeck/audnexus/commit/c09bba13bec9411c35de8f7a7a7f10d454db9289)), closes [#517](https://github.com/djdembeck/audnexus/issues/517)
+
 ### [1.0.1](https://github.com/djdembeck/audnexus/compare/v1.0.0...v1.0.1) (2022-10-08)
 
 

@@ -1,6 +1,6 @@
 {
 	"name": "audnexus",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "An API for aggregating audiobook data",
 	"repository": {
 		"type": "git",
