@@ -19,7 +19,7 @@ let helper: ApiHelper
 let mockResponse: AudibleProduct
 let region: string
 let url: string
-const deepCopy = (obj: Object) => JSON.parse(JSON.stringify(obj))
+const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(async () => {
 	// Variables

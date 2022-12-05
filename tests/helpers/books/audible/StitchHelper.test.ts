@@ -2,12 +2,13 @@ jest.mock('#helpers/books/audible/ApiHelper')
 jest.mock('#helpers/utils/shared')
 jest.mock('#helpers/books/audible/ScrapeHelper')
 
+import * as cheerio from 'cheerio'
+
 import { AudibleProduct } from '#config/typing/audible'
 import { Book } from '#config/typing/books'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import { ErrorMessageHTTPFetch, ErrorMessageParse, ErrorMessageRequiredKey } from '#static/messages'
-import * as cheerio from 'cheerio'
 import {
 	apiResponse,
 	genresObject,
@@ -21,7 +22,7 @@ let helper: StitchHelper
 let mockApiResponse: AudibleProduct
 let mockHTMLResponse: cheerio.CheerioAPI
 let region: string
-const deepCopy = (obj: Object) => JSON.parse(JSON.stringify(obj))
+const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
