@@ -5,7 +5,6 @@ import { ApiBook, ApiGenre, Series } from '#config/typing/books'
 import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
-import { parentCategories } from '#static/constants'
 import {
 	ErrorMessageHTTPFetch,
 	ErrorMessageNoData,
@@ -17,9 +16,10 @@ import { regions } from '#static/regions'
 
 class ApiHelper {
 	asin: string
-	reqUrl: string
+	categories: Category[][] | undefined
 	inputJson: AudibleProduct['product'] | undefined
 	region: string
+	reqUrl: string
 	constructor(asin: string, region: string) {
 		this.asin = asin
 		this.region = region
@@ -105,17 +105,6 @@ class ApiHelper {
 	}
 
 	/**
-	 * Check if the given category is a parent category.
-	 * Determined by checking against list of parent categories.
-	 * @param {Category} category category to check
-	 */
-	isParentCategory(category: Category): boolean {
-		return parentCategories.some((parentCategory) => {
-			return parentCategory.id === category.id && parentCategory.name === category.name
-		})
-	}
-
-	/**
 	 * Convert category object to ApiGenre object
 	 * @param {Category} category category to convert
 	 */
@@ -127,18 +116,45 @@ class ApiHelper {
 		}
 	}
 
+	isCategory(category: unknown): category is Category {
+		return (
+			typeof category === 'object' &&
+			category !== null &&
+			Object.hasOwnProperty.call(category, 'id') &&
+			Object.hasOwnProperty.call(category, 'name')
+		)
+	}
+
+	isGenre(genre: unknown): genre is ApiGenre {
+		return (
+			typeof genre === 'object' &&
+			genre !== null &&
+			Object.hasOwnProperty.call(genre, 'asin') &&
+			Object.hasOwnProperty.call(genre, 'name') &&
+			Object.hasOwnProperty.call(genre, 'type')
+		)
+	}
+
 	/**
 	 * Find the parent categories (genres) of the given category array
 	 * @param {Category[]} categories array of categories to check
 	 * @returns {ApiGenre[]} array of parent categories converted to ApiGenre
 	 */
-	getGenres(categories: Category[]): ApiGenre[] {
+	getGenres(): ApiGenre[] {
+		if (!this.categories) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+
 		// Genres ARE parent categories
-		const filtered = categories.filter(this.isParentCategory)
+		// First item from each ladder is parent category (genre)
+		const rawGenres = this.categories.map((ladder) => ladder.shift()).filter(this.isCategory)
+		const genres = [...new Map(rawGenres.map((item) => [item.name, item])).values()]
+
 		// Transform categories to ApiGenres
-		return filtered.map((category) => {
-			return this.categoryToApiGenre(category, 'genre')
-		})
+		// Filter out undefined values
+		return genres
+			.map((category) => {
+				return this.categoryToApiGenre(category, 'genre')
+			})
+			.filter(this.isGenre)
 	}
 
 	/**
@@ -146,24 +162,30 @@ class ApiHelper {
 	 * @param {Category[]} categories array of categories to check
 	 * @returns {ApiGenre[]} array of sub categories converted to ApiGenre
 	 */
-	getTags(categories: Category[]): ApiGenre[] {
+	getTags(): ApiGenre[] {
+		if (!this.categories) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+
 		// Tags are NOT parent categories
-		const filtered = categories.filter((e) => !this.isParentCategory(e))
+		const rawTags = this.categories.flat()
+		const tags = [...new Map(rawTags.map((item) => [item.name, item])).values()]
+
 		// Transform categories to ApiGenres
-		return filtered.map((category) => {
-			return this.categoryToApiGenre(category, 'tag')
-		})
+		// Filter out undefined values
+		return tags
+			.map((category) => {
+				return this.categoryToApiGenre(category, 'tag')
+			})
+			.filter(this.isGenre)
 	}
 
 	/**
 	 * Transform the raw category data into a usable format
 	 */
-	getCategories(): Category[] | undefined {
+	getCategories() {
 		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
-		// Flatten category ladders to a single array of categories
-		const categories = this.inputJson.category_ladders.map((category) => category.ladder).flat()
-		// Remove duplicates from categories array
-		return [...new Map(categories.map((item) => [item.name, item])).values()]
+
+		// Set category ladders to class variable
+		this.categories = this.inputJson.category_ladders.map(({ ladder }) => ladder)
 	}
 
 	/**
@@ -262,7 +284,7 @@ class ApiHelper {
 	getFinalData(): ApiBook {
 		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		// Get flattened categories
-		const categories = this.getCategories()
+		this.getCategories()
 		// Find secondary series if available
 		const series1 = this.getSeriesPrimary(this.inputJson.series)
 		const series2 = this.getSeriesSecondary(this.inputJson.series)
@@ -279,8 +301,8 @@ class ApiHelper {
 				wordwrap: false
 			}).trim(),
 			formatType: this.inputJson.format_type,
-			...(categories && {
-				genres: [...this.getGenres(categories), ...this.getTags(categories)]
+			...(this.categories && {
+				genres: [...this.getGenres(), ...this.getTags()]
 			}),
 			image: this.getHighResImage(),
 			language: this.inputJson.language,
