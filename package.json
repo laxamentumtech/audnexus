@@ -33,7 +33,7 @@
 		"cheerio": "1.0.0-rc.12",
 		"domhandler": "5.0.3",
 		"fastify": "4.11.0",
-		"html-to-text": "8.2.1",
+		"html-to-text": "9.0.3",
 		"isomorphic-fetch": "3.0.0",
 		"jest-mock-extended": "3.0.1",
 		"jsrsasign": "10.6.1",
@@ -46,7 +46,7 @@
 	},
 	"devDependencies": {
 		"@jest/types": "29.3.1",
-		"@types/html-to-text": "8.1.1",
+		"@types/html-to-text": "9.0.0",
 		"@types/isomorphic-fetch": "0.0.36",
 		"@types/jest": "29.2.5",
 		"@types/jsrsasign": "10.5.4",
