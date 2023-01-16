@@ -63,7 +63,7 @@
 		"nodemon": "2.0.20",
 		"prettier": "2.8.2",
 		"standard-version": "9.5.0",
-		"ts-jest": "29.0.3",
+		"ts-jest": "29.0.4",
 		"ts-node": "10.9.1"
 	},
 	"_moduleAliases": {
