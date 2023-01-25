@@ -22,10 +22,6 @@ describe('ChapterHelper should', () => {
 		)
 	})
 
-	test('build path', () => {
-		expect(helper.buildPath()).toBe(`/1.0/content/${asin}/metadata?response_groups=chapter_info`)
-	})
-
 	test('cleanup chapter titles', () => {
 		// Regular title isn't changed
 		expect(helper.chapterTitleCleanup('Chapter 1')).toBe('Chapter 1')

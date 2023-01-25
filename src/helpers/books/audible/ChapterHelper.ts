@@ -27,16 +27,6 @@ class ChapterHelper {
 	}
 
 	/**
-	 * Creates path string used by signRequest
-	 * @returns {string} concat path to be used by signRequest
-	 */
-	buildPath(): string {
-		const baseUrl = '1.0/content'
-		const params = 'metadata?response_groups=chapter_info'
-		return `/${baseUrl}/${this.asin}/${params}`
-	}
-
-	/**
 	 * Performs various checks on chapter names and cleans them up
 	 * @param {string} chapter
 	 * @returns {string} cleaned chapter
