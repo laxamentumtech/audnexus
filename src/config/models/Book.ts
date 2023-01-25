@@ -61,6 +61,6 @@ const bookSchema = schema(
 	}
 )
 
-export type BookDocument = typeof bookSchema[0]
+export type BookDocument = (typeof bookSchema)[0]
 const Book = papr.model('books', bookSchema)
 export default Book
