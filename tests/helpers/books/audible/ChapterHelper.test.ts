@@ -134,4 +134,17 @@ describe('ChapterHelper should throw error when', () => {
 				"Required key 'brandIntroDurationMs' does not have a valid value in Audible API response for ASIN B079LRSMNN"
 		})
 	})
+	test('error fetching Chapter data', async () => {
+		// Mock Fetch to fail once
+		jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
+			Promise.reject({
+				status: 403
+			})
+		)
+		jest.spyOn(global.console, 'log')
+		await expect(helper.fetchChapter()).resolves.toBeUndefined()
+		expect(console.log).toHaveBeenCalledWith(
+			`An error occured while fetching data from chapters. Response: 403, ASIN: ${asin}`
+		)
+	})
 })

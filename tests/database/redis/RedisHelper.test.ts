@@ -34,6 +34,7 @@ describe('RedisHelper should', () => {
 		await expect(helper.deleteOne()).resolves.toBeUndefined()
 		await expect(helper.findOne()).resolves.toBeUndefined()
 		await expect(helper.findOrCreate(parsedBook)).resolves.toBe(parsedBook)
+		await expect(helper.setExpiration()).resolves.toBeUndefined()
 		await expect(helper.setOne(parsedBook)).resolves.toBeUndefined()
 	})
 	test('deleteOne book', async () => {
@@ -78,6 +79,11 @@ describe('RedisHelper should', () => {
 			JSON.stringify(parsedBook, null, 2)
 		)
 	})
+	test('setExpiration', async () => {
+		jest.spyOn(ctx.client, 'expire').mockResolvedValue(1)
+		await expect(helper.setExpiration()).resolves.toBeUndefined()
+		expect(ctx.client.expire).toHaveBeenCalledWith(`${region}-book-${asin}`, 432000)
+	})
 })
 
 describe('RedisHelper should catch error when', () => {
@@ -108,6 +114,19 @@ describe('RedisHelper should catch error when', () => {
 		expect(ctx.client.set).toHaveBeenCalledWith(
 			`${region}-book-${asin}`,
 			JSON.stringify(parsedBook, null, 2)
+		)
+	})
+	test('setExpiration rejects', async () => {
+		jest.spyOn(global.console, 'error')
+		jest
+			.spyOn(ctx.client, 'expire')
+			.mockRejectedValue(
+				new Error(`An error occurred while setting expiration for ${region}-book-${asin} in redis`)
+			)
+		await expect(helper.setExpiration()).resolves.toBeUndefined()
+		expect(ctx.client.expire).toHaveBeenCalledWith(`${region}-book-${asin}`, 432000)
+		expect(console.error).toHaveBeenCalledWith(
+			`An error occurred while setting expiration for ${region}-book-${asin} in redis`
 		)
 	})
 })
