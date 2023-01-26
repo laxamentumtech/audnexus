@@ -1,13 +1,10 @@
-jest.mock('#helpers/books/audible/ApiHelper')
-jest.mock('#helpers/utils/shared')
-jest.mock('#helpers/books/audible/ScrapeHelper')
-
 import * as cheerio from 'cheerio'
 
 import { AudibleProduct } from '#config/typing/audible'
 import { Book } from '#config/typing/books'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
+import * as fetchPlus from '#helpers/utils/fetchPlus'
 import { ErrorMessageHTTPFetch, ErrorMessageParse, ErrorMessageRequiredKey } from '#static/messages'
 import {
 	apiResponse,
@@ -16,6 +13,11 @@ import {
 	parsedBook,
 	parsedBookWithGenres
 } from '#tests/datasets/helpers/books'
+
+jest.mock('#helpers/books/audible/ApiHelper')
+jest.mock('#helpers/utils/shared')
+jest.mock('#helpers/books/audible/ScrapeHelper')
+jest.mock('#helpers/utils/fetchPlus')
 
 let asin: string
 let helper: StitchHelper
@@ -131,7 +133,7 @@ describe('SitchHelper should handle fallback', () => {
 describe('StitchHelper should throw error when', () => {
 	beforeEach(() => {
 		// Mock Fetch to fail
-		jest.spyOn(global, 'fetch').mockImplementation(() => Promise.reject({ status: 400, ok: false }))
+		jest.spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 400 }))
 		jest
 			.spyOn(helper.apiHelper, 'fetchBook')
 			.mockRejectedValue(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible API')))

@@ -1,15 +1,35 @@
+import type { AxiosResponse } from 'axios'
+
 import { AudibleChapter } from '#config/typing/audible'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
+import * as fetchPlus from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared';
 import { regions } from '#static/regions'
 import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
 
+jest.mock('#helpers/utils/fetchPlus')
+jest.mock('#helpers/utils/shared')
+
 let asin: string
 let helper: ChapterHelper
+let mockResponse: AudibleChapter
 let region: string
+let url: string
+const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(() => {
+    // Variables
 	asin = 'B079LRSMNN'
 	region = 'us'
+    url = `https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info`
+    mockResponse = deepCopy(apiChapters)
+    // Set up spys
+    jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
+    jest
+		.spyOn(fetchPlus, 'default')
+		.mockImplementation(() =>
+			Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse)
+		)
 	// Set up helpers
 	helper = new ChapterHelper(asin, region)
 })
@@ -17,9 +37,7 @@ beforeEach(() => {
 describe('ChapterHelper should', () => {
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
-		expect(helper.reqUrl).toBe(
-			`https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info`
-		)
+		expect(helper.reqUrl).toBe(url)
 	})
 
 	test('cleanup chapter titles', () => {
@@ -37,7 +55,15 @@ describe('ChapterHelper should', () => {
 
 	test('return undefined if no chapters', async () => {
 		asin = asin.slice(0, -1)
+        jest
+		.spyOn(fetchPlus, 'default')
+		.mockImplementation(() =>
+			Promise.resolve({ data: undefined, status: 404 } as AxiosResponse)
+		)
+        url = `https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info`
+        jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
 		helper = new ChapterHelper(asin, region)
+
 		await expect(helper.fetchChapter()).resolves.toBeUndefined()
 	})
 
