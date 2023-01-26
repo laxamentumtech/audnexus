@@ -54,13 +54,11 @@ These instructions will get you a copy of the project up and running on your loc
     - Mongo 4 or greater
     - Node/NPM 16 or greater
     - Redis
-- Registered Audible device keys, `ADP_TOKEN` and `PRIVATE_KEY`, for chapters. You will need Python and `audible` for this. [More on that here](https://audible.readthedocs.io/en/latest/auth/register.html)
 
 ### Installing locally
 
 - Install Mongo, Node and Redis on your system
 - `pnpm install` from project directory to get dependencies
-- Set `ADP_TOKEN` and `PRIVATE_KEY` environment variables as mentioned above if you are using the chapters endpoint.
 - `pnpm run watch-debug` to start the server
 
 Test an API call with
@@ -97,10 +95,8 @@ The stack defaults to 15 replicas for the node-server container. Customize this 
 
 Environment variables to add:
 
-- `NODE_ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
 - `NODE_MAX_REQUESTS`: Maximum amount of requests per 1 minute period from a single source (default 100)
 - `NODE_MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
-- `NODE_PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
 - `NODE_REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
 - `TRAEFIK_DOMAIN`: FQDN for the API server
 - `TRAEFIK_EMAIL`: Email to register SSL cert with

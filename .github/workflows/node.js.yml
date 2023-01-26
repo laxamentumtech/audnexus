@@ -12,9 +12,6 @@ on:
 
 jobs:
   build:
-    env:
-      ADP_TOKEN: ${{ secrets.ADP_TOKEN }}
-      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
     runs-on: ubuntu-latest
     strategy:
       matrix:

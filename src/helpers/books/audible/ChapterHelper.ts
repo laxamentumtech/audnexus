@@ -1,23 +1,17 @@
-import jsrsasign from 'jsrsasign'
-import moment from 'moment'
-
 import { AudibleChapter, SingleChapter } from '#config/typing/audible'
 import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
 	ErrorMessageHTTPFetch,
-	ErrorMessageMissingEnv,
 	ErrorMessageNoData,
 	ErrorMessageRequiredKey
 } from '#static/messages'
 import { regions } from '#static/regions'
 
 class ChapterHelper {
-	adpToken: string
 	asin: string
 	inputJson: AudibleChapter['content_metadata']['chapter_info'] | undefined
-	privateKey: string
 	reqUrl: string
 	region: string
 
@@ -30,23 +24,6 @@ class ChapterHelper {
 		const baseUrl = '1.0/content'
 		const params = 'metadata?response_groups=chapter_info'
 		this.reqUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
-		if (process.env.ADP_TOKEN && process.env.PRIVATE_KEY) {
-			this.adpToken = process.env.ADP_TOKEN
-			this.privateKey = process.env.PRIVATE_KEY
-			this.privateKey = this.privateKey.replace(/\\n/g, '\n')
-		} else {
-			throw new Error(ErrorMessageMissingEnv('ADP_TOKEN or PRIVATE_KEY'))
-		}
-	}
-
-	/**
-	 * Creates path string used by signRequest
-	 * @returns {string} concat path to be used by signRequest
-	 */
-	buildPath(): string {
-		const baseUrl = '1.0/content'
-		const params = 'metadata?response_groups=chapter_info'
-		return `/${baseUrl}/${this.asin}/${params}`
 	}
 
 	/**
@@ -77,39 +54,13 @@ class ChapterHelper {
 	}
 
 	/**
-	 * Creates the x-adp-signature header required to auth the API call
-	 * @param {string} adpToken from Audible-api auth file
-	 * @param {string} privateKey from Audible-api auth file
-	 * @returns {string} encoded 'x-adp-signature' header
-	 */
-	signRequest(adpToken: string, privateKey: string): string {
-		const method = 'GET'
-		const path = this.buildPath()
-		const body = ''
-		const date = moment.utc().format()
-		const data = `${method}\n${path}\n${date}\n${body}\n${adpToken}`
-		const sig = new jsrsasign.KJUR.crypto.Signature({ alg: 'SHA256withRSA' })
-		sig.init(privateKey)
-		const hash = sig.signString(data)
-		const signedEncoded = jsrsasign.hextob64(hash)
-
-		return `${signedEncoded}:${date}`
-	}
-
-	/**
 	 * Fetches chapter Audible API JSON
 	 * @returns {Promise<AudibleChapter>} data from parseResponse() function.
 	 */
 	async fetchChapter(): Promise<AudibleChapter | undefined> {
-		return fetch(this.reqUrl, {
-			headers: {
-				'x-adp-token': this.adpToken,
-				'x-adp-alg': 'SHA256withRSA:1.0',
-				'x-adp-signature': this.signRequest(this.adpToken, this.privateKey)
-			}
-		})
+		return fetch(this.reqUrl)
 			.then(async (response) => {
-				const json: AudibleChapter = await response.json()
+				const json: AudibleChapter = response.data
 				return json
 			})
 			.catch((error) => {

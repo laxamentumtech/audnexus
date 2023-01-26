@@ -340,7 +340,7 @@ class ApiHelper {
 	async fetchBook(): Promise<AudibleProduct> {
 		return fetch(this.reqUrl)
 			.then(async (response) => {
-				const json: AudibleProduct = await response.json()
+				const json: AudibleProduct = response.data
 				return json
 			})
 			.catch((error) => {

@@ -18,11 +18,15 @@ class SeedHelper {
 		try {
 			return await Promise.all(
 				this.book.authors.map(async (author) => {
-					if (author.asin) {
-						const request = await fetch('http://localhost:3000/authors/' + author.asin)
-						return request.ok
+					try {
+						if (author.asin) {
+							await fetch('http://localhost:3000/authors/' + author.asin)
+							return true
+						}
+						return false
+					} catch (error) {
+						return false
 					}
-					return false
 				})
 			)
 		} catch (error) {

@@ -1,31 +1,41 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import type { AxiosResponse } from 'axios'
 import * as cheerio from 'cheerio'
 
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
+import * as fetchPlus from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
 import { genresObject, htmlResponse } from '#tests/datasets/helpers/books'
+
+jest.mock('#helpers/utils/fetchPlus')
+jest.mock('#helpers/utils/shared')
 
 let asin: string
 let helper: ScrapeHelper
+let mockResponse: string
 let region: string
+let url: string
+const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(() => {
+	// Variables
 	asin = 'B079LRSMNN'
 	region = 'us'
+	url = `https://www.audible.com/pd/${asin}/`
+	mockResponse = deepCopy(htmlResponse)
+	// Set up spys
+	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
+	jest
+		.spyOn(fetchPlus, 'default')
+		.mockImplementation(() => Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse))
 	// Set up helpers
 	helper = new ScrapeHelper(asin, region)
 })
 
 describe('ScrapeHelper should', () => {
-	beforeEach(() => {
-		jest
-			.spyOn(global, 'fetch')
-			.mockImplementationOnce(() =>
-				Promise.resolve({ ok: true, status: 200, text: () => htmlResponse } as unknown as Response)
-			)
-	})
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
-		expect(helper.reqUrl).toBe(`https://www.audible.com/pd/${asin}/`)
+		expect(helper.reqUrl).toBe(url)
 	})
 
 	test('fetch book', async () => {
@@ -39,13 +49,17 @@ describe('ScrapeHelper should', () => {
 		asin = asin.slice(0, -1)
 		helper = new ScrapeHelper(asin, region)
 		jest.restoreAllMocks()
-		jest
-			.spyOn(global, 'fetch')
-			.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 404 } as Response))
+		jest.spyOn(fetchPlus, 'default').mockImplementationOnce(() => Promise.reject({ status: 404 }))
 		await expect(helper.fetchBook()).resolves.toBeUndefined()
 	})
 
 	test('parse response', async () => {
+		jest
+			.spyOn(SharedHelper.prototype, 'collectGenres')
+			.mockReturnValueOnce([genresObject.genres[0]])
+		jest
+			.spyOn(SharedHelper.prototype, 'collectGenres')
+			.mockReturnValueOnce([genresObject.genres[1]])
 		const book = await helper.fetchBook()
 		await expect(helper.parseResponse(book)).resolves.toEqual(genresObject)
 	})
@@ -55,15 +69,14 @@ describe('ScrapeHelper should', () => {
 	})
 
 	test('return undefined if no genres', async () => {
+		jest.spyOn(SharedHelper.prototype, 'collectGenres').mockReturnValue([])
 		await expect(helper.parseResponse(cheerio.load(''))).resolves.toBeUndefined()
 	})
 
 	test('log non-404 status code', async () => {
 		jest.restoreAllMocks()
 		jest.spyOn(global.console, 'log')
-		jest
-			.spyOn(global, 'fetch')
-			.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 500 } as Response))
+		jest.spyOn(fetchPlus, 'default').mockImplementationOnce(() => Promise.reject({ status: 500 }))
 		await expect(helper.fetchBook()).resolves.toBeUndefined()
 		expect(console.log).toHaveBeenCalledWith(
 			'An error occured while fetching data from HTML. Response: 500, ASIN: B079LRSMNN'
