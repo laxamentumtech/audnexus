@@ -142,8 +142,8 @@ describe('PaprAudibleChapterHelper should', () => {
 	test('createOrUpdate needs to create', async () => {
 		const obj = { data: parsedChapters, modified: true }
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
-        jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValueOnce(null)
-        jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedChapters)
+		jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValueOnce(null)
+		jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedChapters)
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValue(chaptersWithoutProjection)
 		helper.setChapterData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
