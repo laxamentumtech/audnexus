@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.2.0](https://github.com/djdembeck/audnexus/compare/v1.1.0...v1.2.0) (2023-01-26)
+
+
+### Features
+
+* **helper:** :zap: set redis expire time to 5 days ([d65dbeb](https://github.com/djdembeck/audnexus/commit/d65dbeb74eccc4a458b7ebe79037e68f052cced5))
+* **helper:** :zap: use destructuring instead of DB projections to get the data returned without DB fields ([17f68e0](https://github.com/djdembeck/audnexus/commit/17f68e0b480a8e3314c45e5f9c8582535405c7b2))
+
 ## [1.1.0](https://github.com/djdembeck/audnexus/compare/v1.0.2...v1.1.0) (2023-01-26)
 
 
