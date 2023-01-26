@@ -12,12 +12,6 @@ let asin: string
 let helper: PaprAudibleChapterHelper
 let options: ParsedQuerystring
 
-const projectionWithoutDbFields = {
-	_id: 0,
-	createdAt: 0,
-	updatedAt: 0
-}
-
 beforeEach(() => {
 	asin = parsedChapters.asin
 	options = {
@@ -38,6 +32,7 @@ beforeEach(() => {
 	jest.spyOn(ChapterModel, 'insertOne').mockResolvedValue(chaptersWithoutProjection)
 	jest.spyOn(checkers, 'isChapter').mockReturnValue(true)
 	jest.spyOn(checkers, 'isChapterDocument').mockReturnValue(true)
+	jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedChapters)
 })
 
 describe('PaprAudibleChapterHelper should', () => {
@@ -54,10 +49,10 @@ describe('PaprAudibleChapterHelper should', () => {
 
 		await expect(helper.create()).resolves.toEqual(obj)
 		expect(ChapterModel.insertOne).toHaveBeenCalledWith(parsedChapters)
-		expect(ChapterModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{ projection: projectionWithoutDbFields }
-		)
+		expect(ChapterModel.findOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
 	})
 	test('delete', async () => {
 		const obj = { data: { acknowledged: true, deletedCount: 1 }, modified: true }
@@ -92,20 +87,20 @@ describe('PaprAudibleChapterHelper should', () => {
 			.spyOn(ChapterModel, 'findOne')
 			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
-		expect(ChapterModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{ projection: projectionWithoutDbFields }
-		)
+		expect(ChapterModel.findOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
 	})
 	test('findOneWithProjection returns null if it is not a ApiChapter', async () => {
 		const obj = { data: null, modified: false }
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
 		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
-		expect(ChapterModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{ projection: projectionWithoutDbFields }
-		)
+		expect(ChapterModel.findOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
 	})
 	test('setChapterData', () => {
 		const chapterData = parsedChapters
@@ -146,10 +141,10 @@ describe('PaprAudibleChapterHelper should', () => {
 	})
 	test('createOrUpdate needs to create', async () => {
 		const obj = { data: parsedChapters, modified: true }
-		jest
-			.spyOn(ChapterModel, 'findOne')
-			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
+        jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValueOnce(null)
+        jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedChapters)
+		jest.spyOn(ChapterModel, 'findOne').mockResolvedValue(chaptersWithoutProjection)
 		helper.setChapterData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
