@@ -1,6 +1,6 @@
-jest.mock('#helpers/utils/fetchPlus')
-jest.mock('#helpers/utils/shared')
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import type { AxiosResponse } from 'axios'
+
 import { AudibleProduct } from '#config/typing/audible'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
@@ -13,6 +13,9 @@ import {
 	setupMinimalParsed
 } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
+
+jest.mock('#helpers/utils/fetchPlus')
+jest.mock('#helpers/utils/shared')
 
 let asin: string
 let helper: ApiHelper
@@ -34,9 +37,7 @@ beforeEach(async () => {
 	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
 	jest
 		.spyOn(fetchPlus, 'default')
-		.mockImplementation(() =>
-			Promise.resolve({ ok: true, status: 200, json: () => mockResponse } as unknown as Response)
-		)
+		.mockImplementation(() => Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse))
 	// Set up helpers
 	helper = new ApiHelper(asin, region)
 })
@@ -205,22 +206,6 @@ describe('ApiHelper edge cases should', () => {
 		})
 	})
 
-	test('retry fetching book data', async () => {
-		// Mock Fetch to fail once
-		jest
-			.spyOn(global, 'fetch')
-			.mockImplementationOnce(() => Promise.reject())
-			.mockImplementationOnce(() =>
-				Promise.resolve({
-					json: () => Promise.resolve(mockResponse),
-					ok: true,
-					status: 200
-				} as Response)
-			)
-		const data = await helper.fetchBook()
-		expect(data).toEqual(mockResponse)
-	})
-
 	test('not pass key check when on falsy value', async () => {
 		const data = await helper.fetchBook()
 		await helper.parseResponse(data)
@@ -264,10 +249,8 @@ describe('ApiHelper should throw error when', () => {
 		// Mock Fetch to fail once
 		jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
 			Promise.reject({
-				json: () => Promise.resolve(mockResponse),
-				ok: false,
 				status: 403
-			} as Response)
+			})
 		)
 		asin = ''
 		helper = new ApiHelper(asin, region)

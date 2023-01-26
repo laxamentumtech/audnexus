@@ -1,36 +1,51 @@
+import type { AxiosResponse } from 'axios'
 import * as cheerio from 'cheerio'
 
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import * as fetchPlus from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
 import {
 	htmlResponse,
 	htmlResponseNameOnly,
 	htmlResponseNoData
 } from '#tests/datasets/audible/authors/scrape'
-import { parsedAuthor } from '#tests/datasets/helpers/authors'
+import { genres, parsedAuthor } from '#tests/datasets/helpers/authors'
+
+jest.mock('#helpers/utils/fetchPlus')
+jest.mock('#helpers/utils/shared')
 
 let asin: string
 let helper: ScrapeHelper
+let mockResponse: string
 let region: string
+let url: string
+const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(() => {
-	// Set up helpers
+	// Variables
 	asin = 'B012DQ3BCM'
 	region = 'us'
+	url = `https://www.audible.com/author/${asin}/`
+	mockResponse = deepCopy(htmlResponse)
+	// Set up spys
+	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
+	jest.spyOn(SharedHelper.prototype, 'collectGenres').mockReturnValue(genres)
+	// Set up helpers
 	helper = new ScrapeHelper(asin, region)
 })
 
 describe('ScrapeHelper should', () => {
 	beforeEach(() => {
 		jest
-			.spyOn(global, 'fetch')
-			.mockImplementationOnce(() =>
-				Promise.resolve({ ok: true, status: 200, text: () => htmlResponse } as unknown as Response)
+			.spyOn(fetchPlus, 'default')
+			.mockImplementation(() =>
+				Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse)
 			)
 	})
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
-		expect(helper.reqUrl).toBe('https://www.audible.com/author/B012DQ3BCM/')
+		expect(helper.reqUrl).toBe(url)
 	})
 
 	test('fetch author', async () => {
@@ -52,6 +67,7 @@ describe('ScrapeHelper should', () => {
 	})
 
 	test('return a name when author has no bio, genres or image', async () => {
+		jest.spyOn(SharedHelper.prototype, 'collectGenres').mockReturnValue([])
 		const html = cheerio.load(htmlResponseNameOnly)
 		await expect(helper.parseResponse(html)).resolves.toEqual({
 			asin: 'B012DQ3BCM',
@@ -77,9 +93,11 @@ describe('ScrapeHelper should throw error when', () => {
 		asin = asin.slice(0, -1)
 		helper = new ScrapeHelper(asin, region)
 		jest.restoreAllMocks()
-		jest
-			.spyOn(global, 'fetch')
-			.mockImplementationOnce(() => Promise.resolve({ ok: false, status: 404 } as Response))
+		jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
+			Promise.reject({
+				status: 404
+			})
+		)
 		await expect(helper.fetchAuthor()).rejects.toThrow(
 			`An error occured while fetching data from Audible HTML. Response: 404, ASIN: ${asin}`
 		)

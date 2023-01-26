@@ -41,6 +41,6 @@ const authorSchema = schema(
 	}
 )
 
-export type AuthorDocument = typeof authorSchema[0]
+export type AuthorDocument = (typeof authorSchema)[0]
 const Author = papr.model('authors', authorSchema)
 export default Author

@@ -1,54 +1,45 @@
+import type { AxiosResponse } from 'axios'
+
+import { ApiBook } from '#config/typing/books'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
+import * as fetchPlus from '#helpers/utils/fetchPlus'
 import { parsedBook } from '#tests/datasets/helpers/books'
 
+jest.mock('#helpers/utils/fetchPlus')
+
 let helper: SeedHelper
+let mockResponse: ApiBook
+const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(() => {
+	// Variables
+	mockResponse = deepCopy(parsedBook)
+	jest
+		.spyOn(fetchPlus, 'default')
+		.mockImplementation(() => Promise.resolve({ status: 200 } as AxiosResponse))
 	// Set up helpers
-	helper = new SeedHelper(parsedBook)
+	helper = new SeedHelper(mockResponse)
 })
 
 describe('SeedHelper should', () => {
 	test('setup constructor correctly', () => {
-		expect(helper.book).toBe(parsedBook)
+		expect(helper.book).toBe(mockResponse)
 	})
 
 	test('seed all', async () => {
-		// Mock Fetch
-		global.fetch = jest.fn().mockImplementation(() =>
-			Promise.resolve({
-				status: 200,
-				ok: true
-			})
-		)
 		const seedAll = await helper.seedAll()
 		expect(seedAll).toEqual([true, true])
-		expect(fetch).toHaveBeenCalledTimes(2)
 	})
 
 	test('return false when no author asin', async () => {
-		// Mock Fetch
-		global.fetch = jest.fn().mockImplementation(() =>
-			Promise.resolve({
-				status: 200,
-				ok: true
-			})
-		)
 		helper.book.authors[0].asin = undefined
 		const seedAll = await helper.seedAll()
 		expect(seedAll).toEqual([false, true])
-		expect(fetch).toHaveBeenCalledTimes(1)
 	})
 
 	test('log error if http error', async () => {
-		// Mock Fetch
-		global.fetch = jest.fn().mockImplementation(() =>
-			Promise.reject({
-				status: 400,
-				ok: false
-			})
-		)
-		await expect(helper.seedAll()).resolves.toBeUndefined()
+		jest.spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 400 }))
+		await expect(helper.seedAll()).resolves.toEqual([false, false])
 	})
 
 	test('return false if no author asin', async () => {

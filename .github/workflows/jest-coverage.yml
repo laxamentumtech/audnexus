@@ -5,9 +5,6 @@ on:
       - main
 jobs:
   coverage:
-    env:
-      ADP_TOKEN: ${{ secrets.ADP_TOKEN }}
-      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
     permissions:
           checks: write
           pull-requests: write

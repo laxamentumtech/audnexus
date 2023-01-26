@@ -1,15 +1,19 @@
-jest.mock('#config/models/Book')
-jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
-jest.mock('#helpers/books/audible/StitchHelper')
-jest.mock('#helpers/database/redis/RedisHelper')
+import type { AxiosResponse } from 'axios'
 
 import * as checkers from '#config/typing/checkers'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
+import * as fetchPlus from '#helpers/utils/fetchPlus'
 import {
 	bookWithoutProjection,
 	bookWithoutProjectionUpdatedNow,
 	parsedBook
 } from '#tests/datasets/helpers/books'
+
+jest.mock('#config/models/Book')
+jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
+jest.mock('#helpers/books/audible/StitchHelper')
+jest.mock('#helpers/database/redis/RedisHelper')
+jest.mock('#helpers/utils/fetchPlus')
 
 let asin: string
 let helper: BookShowHelper
@@ -32,10 +36,9 @@ beforeEach(() => {
 	jest
 		.spyOn(helper.paprHelper, 'findOneWithProjection')
 		.mockResolvedValue({ data: parsedBook, modified: false })
-	jest.spyOn(global, 'fetch').mockResolvedValue({
-		status: 200,
-		ok: true
-	} as Response)
+	jest
+		.spyOn(fetchPlus, 'default')
+		.mockImplementation(() => Promise.resolve({ status: 200 } as AxiosResponse))
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
 	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 	jest.spyOn(checkers, 'isBook').mockReturnValue(true)

@@ -34,6 +34,6 @@ const chapterSchema = schema(
 	}
 )
 
-export type ChapterDocument = typeof chapterSchema[0]
+export type ChapterDocument = (typeof chapterSchema)[0]
 const Chapter = papr.model('chapters', chapterSchema)
 export default Chapter
