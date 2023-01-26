@@ -26,7 +26,7 @@ class ScrapeHelper {
 	async fetchBook(): Promise<cheerio.CheerioAPI | undefined> {
 		return fetch(this.reqUrl)
 			.then(async (response) => {
-				const text = await response.text()
+				const text = await response.data
 				return cheerio.load(text)
 			})
 			.catch((error) => {

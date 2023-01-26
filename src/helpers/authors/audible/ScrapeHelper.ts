@@ -33,7 +33,7 @@ class ScrapeHelper {
 	async fetchAuthor(): Promise<cheerio.CheerioAPI> {
 		return fetch(this.reqUrl)
 			.then(async (response) => {
-				const text = await response.text()
+				const text = await response.data
 				return cheerio.load(text)
 			})
 			.catch((error) => {

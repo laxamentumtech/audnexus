@@ -60,7 +60,7 @@ class ChapterHelper {
 	async fetchChapter(): Promise<AudibleChapter | undefined> {
 		return fetch(this.reqUrl)
 			.then(async (response) => {
-				const json: AudibleChapter = await response.json()
+				const json: AudibleChapter = response.data
 				return json
 			})
 			.catch((error) => {
