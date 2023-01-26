@@ -1,0 +1,22 @@
+name: 'jest-coverage'
+on:
+  pull_request:
+    branches:
+      - main
+jobs:
+  coverage:
+    permissions:
+          checks: write
+          pull-requests: write
+          contents: read
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2.2.4
+        with:
+          version: latest
+      - uses: ArtiomTr/jest-coverage-report-action@v2
+        with:
+          test-script: pnpm test
+          package-manager: pnpm
