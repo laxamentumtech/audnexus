@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as cheerio from 'cheerio'
 
+import { PaprDocument } from '#config/typing/papr'
 import { ParsedObject } from '#config/typing/unions'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -124,6 +125,20 @@ describe('SharedHelper should', () => {
 			.toArray()
 			.map((element) => html(element))
 		expect(helper.collectGenres(asin, genres, 'genre')).toEqual([parsedAuthor.genres![0]])
+	})
+
+	test('destructureDocument returns null if no document', () => {
+		expect(helper.destructureDocument(null)).toBeNull()
+	})
+
+	test('destructureDocument returns modified document', () => {
+		const document = {
+			_id: '123',
+			createdAt: '123',
+			updatedAt: '123',
+			...parsedBook
+		} as unknown as PaprDocument
+		expect(helper.destructureDocument(document)).toEqual(parsedBook)
 	})
 
 	test('sortObjectByKeys', () => {

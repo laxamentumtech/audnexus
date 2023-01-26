@@ -20,8 +20,8 @@ class SeedHelper {
 				this.book.authors.map(async (author) => {
 					try {
 						if (author.asin) {
-							await fetch('http://localhost:3000/authors/' + author.asin)
-							return true
+							const response = await fetch('http://localhost:3000/authors/' + author.asin)
+							return response.status === 200
 						}
 						return false
 					} catch (error) {

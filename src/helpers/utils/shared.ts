@@ -79,6 +79,22 @@ class SharedHelper {
 	}
 
 	/**
+	 * Removes _id, createdAt, updatedAt from PaprDocument
+	 * @param document
+	 * @returns ParsedObject | null
+	 */
+	destructureDocument(document: PaprDocument | null): ParsedObject | null {
+		if (!document) return null
+		try {
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+			const clone = (({ _id, createdAt, updatedAt, ...data }) => ({ ...data }))(document)
+			return clone
+		} catch (error) {
+			return null
+		}
+	}
+
+	/**
 	 * Checks whether the input data are identical
 	 * @param {ParsedObject} original
 	 * @param {ParsedObject} updated
