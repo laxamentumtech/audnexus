@@ -17,12 +17,6 @@ let asin: string
 let helper: PaprAudibleAuthorHelper
 let options: ParsedQuerystring
 
-const projectionWithoutDbFields = {
-	_id: 0,
-	createdAt: 0,
-	updatedAt: 0
-}
-
 beforeEach(() => {
 	asin = parsedAuthor.asin
 	options = {
@@ -42,6 +36,7 @@ beforeEach(() => {
 	jest.spyOn(AuthorModel, 'insertOne').mockResolvedValue(authorWithoutProjection)
 	jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(true)
 	jest.spyOn(checkers, 'isAuthorDocument').mockReturnValue(true)
+	jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedAuthor)
 })
 
 describe('PaprAudibleAuthorHelper should', () => {
@@ -56,10 +51,10 @@ describe('PaprAudibleAuthorHelper should', () => {
 
 		await expect(helper.create()).resolves.toEqual(obj)
 		expect(AuthorModel.insertOne).toHaveBeenCalledWith(parsedAuthor)
-		expect(AuthorModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{ projection: projectionWithoutDbFields }
-		)
+		expect(AuthorModel.findOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
 	})
 	test('delete', async () => {
 		const obj = { data: { acknowledged: true, deletedCount: 1 }, modified: true }
@@ -100,20 +95,20 @@ describe('PaprAudibleAuthorHelper should', () => {
 		const obj = { data: parsedAuthor, modified: false }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
-		expect(AuthorModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{ projection: projectionWithoutDbFields }
-		)
+		expect(AuthorModel.findOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
 	})
 	test('findOneWithProjection returns null if it is not an AuthorProfile', async () => {
 		const obj = { data: null, modified: false }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(null)
 		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(false)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
-		expect(AuthorModel.findOne).toHaveBeenCalledWith(
-			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{ projection: projectionWithoutDbFields }
-		)
+		expect(AuthorModel.findOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
 	})
 	test('setAuthorData', () => {
 		const authorData = parsedAuthor
@@ -140,7 +135,9 @@ describe('PaprAudibleAuthorHelper should', () => {
 	test('createOrUpdate needs to create', async () => {
 		const obj = { data: parsedAuthor, modified: true }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(null)
-		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
+		jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValueOnce(null)
+		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(authorWithoutProjection)
+		jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedAuthor)
 		helper.setAuthorData(parsedAuthor)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
@@ -169,6 +166,9 @@ describe('PaprAudibleAuthorHelper should', () => {
 	test('createOrUpdate no genres on new or old', async () => {
 		const obj = { data: parsedAuthorWithoutGenres, modified: false }
 		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
+		jest
+			.spyOn(SharedHelper.prototype, 'destructureDocument')
+			.mockReturnValue(parsedAuthorWithoutGenres)
 		jest
 			.spyOn(AuthorModel, 'findOne')
 			.mockResolvedValueOnce(parsedAuthorWithoutGenres as unknown as AuthorDocument)
