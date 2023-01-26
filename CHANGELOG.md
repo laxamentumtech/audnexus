@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.1.0](https://github.com/djdembeck/audnexus/compare/v1.0.2...v1.1.0) (2023-01-26)
+
+
+### Features
+
+* :alien: chapters no longer need auth ([6eb12b0](https://github.com/djdembeck/audnexus/commit/6eb12b0503de4e8be8c96b017e85c91c02014573))
+
 ### [1.0.2](https://github.com/djdembeck/audnexus/compare/v1.0.1...v1.0.2) (2022-12-05)
 
 
