@@ -13,16 +13,11 @@ import {
 	NoticeUpdateAsin
 } from '#static/messages'
 
-const projectionWithoutDbFields = {
-	_id: 0,
-	createdAt: 0,
-	updatedAt: 0
-}
-
 export default class PaprAudibleChapterHelper {
 	asin: string
 	chapterData!: ApiChapter
 	options: ParsedQuerystring
+	sharedHelper = new SharedHelper()
 
 	constructor(asin: string, options: ParsedQuerystring) {
 		this.asin = asin
@@ -94,16 +89,15 @@ export default class PaprAudibleChapterHelper {
 	 * Returns altered Document using projection.
 	 */
 	async findOneWithProjection(): Promise<PaprChapterReturn> {
-		const findOneChapter = await ChapterModel.findOne(
-			{
-				asin: this.asin,
-				$or: [{ region: { $exists: false } }, { region: this.options.region }]
-			},
-			{ projection: projectionWithoutDbFields }
-		)
+		const findOneChapter = await ChapterModel.findOne({
+			asin: this.asin,
+			$or: [{ region: { $exists: false } }, { region: this.options.region }]
+		})
 
+		// Remove database fields from data
+		const destructured = this.sharedHelper.destructureDocument(findOneChapter)
 		// Assign type to chapter data
-		const data: ApiChapter | null = isChapter(findOneChapter) ? findOneChapter : null
+		const data: ApiChapter | null = isChapter(destructured) ? destructured : null
 
 		return {
 			data: data,
@@ -128,14 +122,13 @@ export default class PaprAudibleChapterHelper {
 	 * 3. The new chapters have a valid length
 	 */
 	async createOrUpdate(): Promise<PaprChapterReturn> {
-		const sharedHelper = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
 
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
 			// If the objects are the exact same return right away
-			const isEqual = sharedHelper.isEqualData(data, this.chapterData)
+			const isEqual = this.sharedHelper.isEqualData(data, this.chapterData)
 			if (isEqual) {
 				return {
 					data: data,

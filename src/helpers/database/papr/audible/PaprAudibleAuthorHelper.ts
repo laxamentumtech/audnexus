@@ -19,16 +19,11 @@ import {
 	NoticeUpdateAsin
 } from '#static/messages'
 
-const projectionWithoutDbFields = {
-	_id: 0,
-	createdAt: 0,
-	updatedAt: 0
-}
-
 export default class PaprAudibleAuthorHelper {
 	asin: string
 	authorData!: AuthorProfile
 	options: ParsedQuerystring
+	sharedHelper = new SharedHelper()
 
 	constructor(asin: string, options: ParsedQuerystring) {
 		this.asin = asin
@@ -125,16 +120,15 @@ export default class PaprAudibleAuthorHelper {
 	 * Returns altered Document using projection.
 	 */
 	async findOneWithProjection(): Promise<PaprAuthorReturn> {
-		const findOneAuthor = await AuthorModel.findOne(
-			{
-				asin: this.asin,
-				$or: [{ region: { $exists: false } }, { region: this.options.region }]
-			},
-			{ projection: projectionWithoutDbFields }
-		)
+		const findOneAuthor = await AuthorModel.findOne({
+			asin: this.asin,
+			$or: [{ region: { $exists: false } }, { region: this.options.region }]
+		})
 
+		// Remove database fields from data
+		const destructured = this.sharedHelper.destructureDocument(findOneAuthor)
 		// Assign type to author data
-		const data: AuthorProfile | null = isAuthorProfile(findOneAuthor) ? findOneAuthor : null
+		const data: AuthorProfile | null = isAuthorProfile(destructured) ? destructured : null
 
 		return {
 			data: data,
@@ -159,14 +153,13 @@ export default class PaprAudibleAuthorHelper {
 	 * 3. Genres exist or are different
 	 */
 	async createOrUpdate(): Promise<PaprAuthorReturn> {
-		const sharedHelper = new SharedHelper()
 		const findInDb = await this.findOneWithProjection()
 
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
 			// If the objects are the exact same return right away
-			const isEqual = sharedHelper.isEqualData(data, this.authorData)
+			const isEqual = this.sharedHelper.isEqualData(data, this.authorData)
 			if (isEqual) {
 				return {
 					data: data,
