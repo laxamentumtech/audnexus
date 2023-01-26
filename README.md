@@ -107,13 +107,28 @@ Once the stack is up, test an API call with
 https://${TRAEFIK_DOMAIN}/books/${ASIN}
 ```
 
-Be sure to setup an author name index for author search in mongodb. This looks something like:
+### Set up DB indexes to keep item lookups fast and to support searches.
 
-```
-db.authors.createIndex( { name: "text" } )
-```
+1. Connect to the DB either from inside the mongodb container terminal or a MongoDB Compass/MongoSH session.
 
-From inside the mongodb container terminal
+2. Switch to the correct DB: 
+    ```
+    use audnexus
+    ```
+
+3. Create the recommended indexes:
+    ```
+    db.authors.createIndex( { asin: 1, region: 1 } )
+    ```
+    ```
+    db.books.createIndex( { asin: 1, region: 1 } )
+    ```
+    ```
+    db.chapters.createIndex( { asin: 1, region: 1 } )
+    ```
+    ```
+    db.authors.createIndex( { name: "text" } )
+    ```
 
 ## ⛏️ Built Using <a name = "built_using"></a>
 
