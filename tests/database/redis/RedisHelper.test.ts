@@ -38,12 +38,12 @@ describe('RedisHelper should', () => {
 	})
 	test('deleteOne book', async () => {
 		jest.spyOn(ctx.client, 'del').mockResolvedValue(1)
-		await expect(helper.deleteOne()).resolves.toBe(1)
+		await expect(helper.deleteOne()).resolves.toBe(true)
 		expect(ctx.client.del).toHaveBeenCalledWith(`${region}-book-${asin}`)
 	})
 	test('did not deleteOne book', async () => {
 		jest.spyOn(ctx.client, 'del').mockResolvedValue(0)
-		await expect(helper.deleteOne()).resolves.toBeFalsy()
+		await expect(helper.deleteOne()).resolves.toBe(false)
 		expect(ctx.client.del).toHaveBeenCalledWith(`${region}-book-${asin}`)
 	})
 	test('findOne book and return it', async () => {
