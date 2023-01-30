@@ -6,7 +6,7 @@ specifiers:
   '@fastify/redis': 6.1.0
   '@jest/types': 29.4.0
   '@types/html-to-text': 9.0.0
-  '@types/jest': 29.2.6
+  '@types/jest': 29.4.0
   '@types/jsrsasign': 10.5.4
   '@types/lodash': 4.14.191
   '@types/node': 18.11.18
@@ -54,7 +54,7 @@ dependencies:
 devDependencies:
   '@jest/types': 29.4.0
   '@types/html-to-text': 9.0.0
-  '@types/jest': 29.2.6
+  '@types/jest': 29.4.0
   '@types/jsrsasign': 10.5.4
   '@types/lodash': 4.14.191
   '@types/node': 18.11.18
@@ -1655,8 +1655,8 @@ packages:
     dependencies:
       '@types/istanbul-lib-report': 3.0.0
 
-  /@types/jest/29.2.6:
-    resolution: {integrity: sha512-XEUC/Tgw3uMh6Ho8GkUtQ2lPhY5Fmgyp3TdlkTJs1W9VgNxs+Ow/x3Elh8lHQKqCbZL0AubQuqWjHVT033Hhrw==}
+  /@types/jest/29.4.0:
+    resolution: {integrity: sha512-VaywcGQ9tPorCX/Jkkni7RWGFfI11whqzs8dvxF41P17Z+z872thvEvlIbznjPJ02kl1HMX3LmLOonsj2n7HeQ==}
     dependencies:
       expect: 29.4.1
       pretty-format: 29.4.1
