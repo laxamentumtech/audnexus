@@ -7,7 +7,7 @@ specifiers:
   '@jest/types': 29.4.0
   '@types/html-to-text': 9.0.0
   '@types/jest': 29.4.0
-  '@types/jsrsasign': 10.5.4
+  '@types/jsrsasign': 10.5.5
   '@types/lodash': 4.14.191
   '@types/node': 18.11.18
   '@typescript-eslint/eslint-plugin': 5.38.1
@@ -55,7 +55,7 @@ devDependencies:
   '@jest/types': 29.4.0
   '@types/html-to-text': 9.0.0
   '@types/jest': 29.4.0
-  '@types/jsrsasign': 10.5.4
+  '@types/jsrsasign': 10.5.5
   '@types/lodash': 4.14.191
   '@types/node': 18.11.18
   '@typescript-eslint/eslint-plugin': 5.38.1_cuxjxdu52gev6c5eli3csqxa6u
@@ -1666,8 +1666,8 @@ packages:
     resolution: {integrity: sha512-wOuvG1SN4Us4rez+tylwwwCV1psiNVOkJeM3AUWUNWg/jDQY2+HE/444y5gc+jBmRqASOm2Oeh5c1axHobwRKQ==}
     dev: true
 
-  /@types/jsrsasign/10.5.4:
-    resolution: {integrity: sha512-05S2f4lGaWgCwFHsa3OEirc4VJf/sJRfhofzxUbuFbmm6NbffPXZrnJqquQAtS3g4C8Z0L9NHgW0znmtDxNoTQ==}
+  /@types/jsrsasign/10.5.5:
+    resolution: {integrity: sha512-M2Et4hgTigFoArTu6ylK3hYFEH+UuXfgFXRXZ+flpCfux8j7fQ2D+0zEwiu6ehx0h5otaauhLSFzMzEtNA784A==}
     dev: true
 
   /@types/lodash/4.14.191:
