@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
-import { ApiGenre } from '#config/typing/books'
+import { ApiGenre, ApiGenreSchema } from '#config/types'
 import { PaprDocument } from '#config/typing/papr'
 import { ParsedObject } from '#config/typing/unions'
 import { NoticeGenreNotAvailable } from '#static/messages'
@@ -56,12 +56,17 @@ class SharedHelper {
 					if (genre.text() && catAsin) {
 						// Cleanup the name of the genre
 						const cleanedName = htmlToText(genre.text(), { wordwrap: false })
-						const thisGenre: ApiGenre = {
-							asin: catAsin,
-							name: cleanedName,
-							type: type
+						// Create the genre object
+						try {
+							const success = ApiGenreSchema.parse({
+								asin: catAsin,
+								name: cleanedName,
+								type: type
+							})
+							return success
+						} catch (error) {
+							console.log(error)
 						}
-						return thisGenre
 					}
 				} else {
 					console.log(NoticeGenreNotAvailable(asin, index))

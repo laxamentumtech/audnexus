@@ -1,5 +1,11 @@
-import { AudibleProduct } from '#config/typing/audible'
-import { ApiGenre, Book } from '#config/typing/books'
+import {
+	ApiGenre,
+	ApiSeries,
+	AudibleProduct,
+	AudibleProductSchema,
+	Book,
+	BookSchema
+} from '#config/types'
 
 export interface MinimalResponse {
 	asin: string
@@ -23,7 +29,26 @@ export function setupMinimalParsed(
 	image: string,
 	genres: ApiGenre[]
 ): Book {
-	return {
+	let seriesPrimary: ApiSeries | undefined
+	let seriesSecondary: ApiSeries | undefined
+	// Only return series for MultiPartBook, makes linter happy
+	if (response.content_delivery_type === 'MultiPartBook') {
+		if (response.series?.[0]) {
+			seriesPrimary = {
+				asin: response.series[0].asin,
+				name: response.series[0].title,
+				position: response.series[0].sequence
+			}
+		}
+		if (response.series?.[1]) {
+			seriesSecondary = {
+				asin: response.series[1].asin,
+				name: response.series[1].title,
+				position: response.series[1].sequence
+			}
+		}
+	}
+	return BookSchema.parse({
 		asin: response.asin,
 		authors: response.authors,
 		description,
@@ -39,21 +64,13 @@ export function setupMinimalParsed(
 		releaseDate: new Date(response.release_date),
 		runtimeLengthMin: response.runtime_length_min ?? 0,
 		title: response.title,
-		...(response.series?.[0] && {
-			seriesPrimary: {
-				asin: response.series[0].asin,
-				name: response.series[0].title,
-				position: response.series[0].sequence
-			}
+		...(seriesPrimary && {
+			seriesPrimary
 		}),
-		...(response.series?.[1] && {
-			seriesSecondary: {
-				asin: response.series[1].asin,
-				name: response.series[1].title,
-				position: response.series[1].sequence
-			}
+		...(seriesSecondary && {
+			seriesSecondary
 		})
-	}
+	})
 }
 
 export function setupMinimalResponse(response: AudibleProduct['product']): MinimalResponse {
@@ -74,7 +91,7 @@ export function setupMinimalResponse(response: AudibleProduct['product']): Minim
 	}
 }
 
-export const B08G9PRS1K: AudibleProduct = {
+export const B08G9PRS1K = AudibleProductSchema.parse({
 	product: {
 		asin: 'B08G9PRS1K',
 		authors: [{ asin: 'B00G0WYW92', name: 'Andy Weir' }],
@@ -234,11 +251,11 @@ export const B08G9PRS1K: AudibleProduct = {
 		'media',
 		'product_attrs'
 	]
-}
+})
 
 export const minimalB08G9PRS1K: MinimalResponse = setupMinimalResponse(B08G9PRS1K.product)
 
-export const B08C6YJ1LS: AudibleProduct = {
+export const B08C6YJ1LS = AudibleProductSchema.parse({
 	product: {
 		asin: 'B08C6YJ1LS',
 		authors: [
@@ -378,11 +395,11 @@ export const B08C6YJ1LS: AudibleProduct = {
 		'media',
 		'product_attrs'
 	]
-}
+})
 
 export const minimalB08C6YJ1LS: MinimalResponse = setupMinimalResponse(B08C6YJ1LS.product)
 
-export const B017V4IM1G: AudibleProduct = {
+export const B017V4IM1G = AudibleProductSchema.parse({
 	product: {
 		asin: 'B017V4IM1G',
 		authors: [{ asin: 'B000AP9A6K', name: 'J.K. Rowling' }],
@@ -537,7 +554,7 @@ export const B017V4IM1G: AudibleProduct = {
 		'media',
 		'product_attrs'
 	]
-}
+})
 
 export const B07BS4RKGH = {
 	product: {
@@ -674,7 +691,7 @@ export const B07BS4RKGH = {
 	]
 }
 
-export const podcast: AudibleProduct = {
+export const podcast = AudibleProductSchema.parse({
 	product: {
 		asin: 'B08JC5J5HR',
 		authors: [
@@ -814,7 +831,7 @@ export const podcast: AudibleProduct = {
 		'media',
 		'product_attrs'
 	]
-}
+})
 
 export const minimalB0036I54I6: Book = {
 	asin: 'B0036I54I6',
