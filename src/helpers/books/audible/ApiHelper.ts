@@ -1,8 +1,19 @@
 import { htmlToText } from 'html-to-text'
 
-import { AudibleProduct, AudibleSeries, Category } from '#config/typing/audible'
-import { ApiBook, ApiGenre, Series } from '#config/typing/books'
-import { AuthorOnBook, NarratorOnBook } from '#config/typing/people'
+import {
+	ApiAuthorOnBook,
+	ApiBook,
+	ApiBookSchema,
+	ApiGenre,
+	ApiNarratorOnBook,
+	ApiSeries,
+	AudibleCategory,
+	AudibleProduct,
+	AudibleProductSchema,
+	AudibleSeries,
+	AudibleSeriesSchema
+} from '#config/types'
+import { ApiGenreSchema, ApiSeriesSchema } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -16,8 +27,8 @@ import { regions } from '#static/regions'
 
 class ApiHelper {
 	asin: string
-	categories: Category[][] | undefined
-	inputJson: AudibleProduct['product'] | undefined
+	categories: AudibleCategory[][] | undefined
+	audibleResponse: AudibleProduct['product'] | undefined
 	region: string
 	reqUrl: string
 	constructor(asin: string, region: string) {
@@ -44,79 +55,24 @@ class ApiHelper {
 	}
 
 	/**
-	 * Checks if all required keys are present
-	 * These are the keys that are required to build the final data object
-	 * @returns validity as boolean, and error message as string
-	 */
-	hasRequiredKeys(): { isValid: boolean; message: string } {
-		let message = ''
-		const isValidKey = (key: string): boolean => {
-			if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
-
-			// Make sure key exists in inputJson
-			const keyExists = Object.hasOwnProperty.call(this.inputJson, key)
-
-			// Get value of key
-			const value = this.inputJson[key as keyof typeof this.inputJson]
-
-			// Check if this looks like a podcast
-			const isPodcast = key === 'runtime_length_min' && this.inputJson.content_type === 'Podcast'
-
-			// Allow 0 as a valid value
-			const isNumberAndZero = typeof value === 'number' && value === 0
-
-			// Break on non valid value
-			let isValidKey = true
-			switch (isValidKey) {
-				case isPodcast:
-					break
-				case !keyExists:
-					isValidKey = false
-					message = ErrorMessageRequiredKey(this.asin, key, 'exist')
-					break
-				case !value && !isNumberAndZero:
-					isValidKey = false
-					message = ErrorMessageRequiredKey(this.asin, key, 'have a valid value')
-					break
-			}
-
-			return isValidKey
-		}
-
-		// Create new const for presence check
-		const requiredKeys = [
-			'asin',
-			'authors',
-			'format_type',
-			'language',
-			'merchandising_summary',
-			'publisher_name',
-			'publisher_summary',
-			'release_date',
-			'runtime_length_min',
-			'title'
-		]
-		const isValid = requiredKeys.every((key) => isValidKey(key))
-
-		return {
-			isValid,
-			message
-		}
-	}
-
-	/**
 	 * Convert category object to ApiGenre object
-	 * @param {Category} category category to convert
+	 * @param {AudibleCategory} category category to convert
 	 */
-	categoryToApiGenre(category: Category, type: string): ApiGenre {
-		return {
+	categoryToApiGenre(category: AudibleCategory, type: string): ApiGenre {
+		const convertedObject = {
 			asin: category.id,
 			name: category.name,
 			type: type
 		}
+		try {
+			const success = ApiGenreSchema.parse(convertedObject)
+			return success
+		} catch (error) {
+			throw new Error(ErrorMessageParse(this.asin, 'ApiHelper'))
+		}
 	}
 
-	isCategory(category: unknown): category is Category {
+	isCategory(category: unknown): category is AudibleCategory {
 		return (
 			typeof category === 'object' &&
 			category !== null &&
@@ -137,7 +93,7 @@ class ApiHelper {
 
 	/**
 	 * Find the parent categories (genres) of the given category array
-	 * @param {Category[]} categories array of categories to check
+	 * @param {AudibleCategory[]} categories array of categories to check
 	 * @returns {ApiGenre[]} array of parent categories converted to ApiGenre
 	 */
 	getGenres(): ApiGenre[] {
@@ -159,7 +115,7 @@ class ApiHelper {
 
 	/**
 	 * Find the sub categories (tags) of the given category array
-	 * @param {Category[]} categories array of categories to check
+	 * @param {AudibleCategory[]} categories array of categories to check
 	 * @returns {ApiGenre[]} array of sub categories converted to ApiGenre
 	 */
 	getTags(): ApiGenre[] {
@@ -182,10 +138,10 @@ class ApiHelper {
 	 * Transform the raw category data into a usable format
 	 */
 	getCategories() {
-		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 
 		// Set category ladders to class variable
-		this.categories = this.inputJson.category_ladders.map(({ ladder }) => ladder)
+		this.categories = this.audibleResponse.category_ladders.map(({ ladder }) => ladder)
 	}
 
 	/**
@@ -193,11 +149,11 @@ class ApiHelper {
 	 * or return undefined if no image is available
 	 */
 	getHighResImage() {
-		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
-		if (!this.inputJson.product_images) return undefined
-		return this.inputJson.product_images[1024]
-			? this.inputJson.product_images[1024].replace('_SL1024_.', '')
-			: this.inputJson.product_images[500]?.replace('_SL500_.', '') || undefined
+		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+		if (!this.audibleResponse.product_images) return undefined
+		return this.audibleResponse.product_images[1024]
+			? this.audibleResponse.product_images[1024].replace('_SL1024_.', '')
+			: this.audibleResponse.product_images[500]?.replace('_SL500_.', '') || undefined
 	}
 
 	/**
@@ -210,10 +166,10 @@ class ApiHelper {
 	 * Error on a date in the future.
 	 */
 	getReleaseDate() {
-		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
-		const releaseDate = this.inputJson.release_date
-			? new Date(this.inputJson.release_date)
-			: new Date(this.inputJson.issue_date)
+		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+		const releaseDate = this.audibleResponse.release_date
+			? new Date(this.audibleResponse.release_date)
+			: new Date(this.audibleResponse.issue_date)
 
 		// Check that release date isn't in the future
 		if (releaseDate > new Date()) throw new Error(ErrorMessageReleaseDate(this.asin))
@@ -223,9 +179,11 @@ class ApiHelper {
 	/**
 	 * Transform series data into a usable format
 	 */
-	getSeries(series: AudibleSeries) {
-		if (!series.title) return undefined
-		const seriesJson: Series = {
+	getSeries(series: AudibleSeries): ApiSeries | undefined {
+		// Check if series is valid
+		if (!AudibleSeriesSchema.safeParse(series).success) return undefined
+		// Rearrange series data into ApiSeries format
+		const seriesJson = {
 			...(series.asin && {
 				asin: series.asin
 			}),
@@ -234,47 +192,61 @@ class ApiHelper {
 				position: series.sequence
 			})
 		}
-		return seriesJson
+		// Check if series is valid
+		const seriesReturn = ApiSeriesSchema.safeParse(seriesJson)
+		// Return series if valid, otherwise return undefined
+		return seriesReturn.success ? seriesReturn.data : undefined
 	}
 
 	/**
 	 * Determine if the series array contains a series, which matches publication_name.
 	 * This typically means the series in publication_name is the default series.
 	 */
-	getSeriesPrimary(allSeries: AudibleSeries[] | undefined) {
-		let seriesPrimary = {} as Series
+	getSeriesPrimary(allSeries: AudibleSeries[] | undefined): ApiSeries | undefined {
+		let seriesPrimary = {} as ApiSeries
 		allSeries?.forEach((series: AudibleSeries) => {
-			if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+			// Only return series for MultiPartBook, makes linter happy
+			if (this.audibleResponse.content_delivery_type !== 'MultiPartBook') return undefined
 			const seriesJson = this.getSeries(series)
 			// Check and set primary series
-			if (this.inputJson.publication_name && seriesJson?.name === this.inputJson.publication_name) {
+			if (
+				this.audibleResponse.publication_name &&
+				seriesJson?.name === this.audibleResponse.publication_name
+			) {
 				seriesPrimary = seriesJson
 			}
 		})
-		if (!seriesPrimary.name) return undefined
-		return seriesPrimary
+		// Check if series is valid
+		const seriesReturn = ApiSeriesSchema.safeParse(seriesPrimary)
+		// Return series if valid, otherwise return undefined
+		return seriesReturn.success ? seriesReturn.data : undefined
 	}
 
 	/**
 	 * Determine which series is NOT the primary series.
 	 * This is done by comparing the series name to the publication_name.
 	 */
-	getSeriesSecondary(allSeries: AudibleSeries[] | undefined) {
-		let seriesSecondary = {} as Series
+	getSeriesSecondary(allSeries: AudibleSeries[] | undefined): ApiSeries | undefined {
+		let seriesSecondary = {} as ApiSeries
 		allSeries?.forEach((series: AudibleSeries) => {
-			if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+			// Only return series for MultiPartBook, makes linter happy
+			if (this.audibleResponse.content_delivery_type !== 'MultiPartBook') return undefined
 			const seriesJson = this.getSeries(series)
 			// Check and set secondary series
 			if (
 				allSeries.length > 1 &&
 				seriesJson &&
-				seriesJson.name !== this.inputJson.publication_name
+				seriesJson.name !== this.audibleResponse.publication_name
 			) {
-				seriesSecondary = seriesJson
+				seriesSecondary = ApiSeriesSchema.parse(seriesJson)
 			}
 		})
-		if (!seriesSecondary.name) return undefined
-		return seriesSecondary
+		// Check if series is valid
+		const seriesReturn = ApiSeriesSchema.safeParse(seriesSecondary)
+		// Return series if valid, otherwise return undefined
+		return seriesReturn.success ? seriesReturn.data : undefined
 	}
 
 	/**
@@ -282,54 +254,60 @@ class ApiHelper {
 	 * This is run after all other data has been parsed.
 	 */
 	getFinalData(): ApiBook {
-		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		// Get flattened categories
 		this.getCategories()
 		// Find secondary series if available
-		const series1 = this.getSeriesPrimary(this.inputJson.series)
-		const series2 = this.getSeriesSecondary(this.inputJson.series)
-		return {
-			asin: this.inputJson.asin,
-			authors: this.inputJson.authors.map((person: AuthorOnBook) => {
-				const authorJson: AuthorOnBook = {
+		let series1: ApiSeries | undefined
+		let series2: ApiSeries | undefined
+		// Only return series for MultiPartBook, makes linter happy
+		if (this.audibleResponse.content_delivery_type === 'MultiPartBook') {
+			series1 = this.getSeriesPrimary(this.audibleResponse.series)
+			series2 = this.getSeriesSecondary(this.audibleResponse.series)
+		}
+		// Parse final data
+		return ApiBookSchema.parse({
+			asin: this.audibleResponse.asin,
+			authors: this.audibleResponse.authors.map((person: ApiAuthorOnBook) => {
+				const authorJson: ApiAuthorOnBook = {
 					asin: person.asin,
 					name: person.name
 				}
 				return authorJson
 			}),
-			description: htmlToText(this.inputJson['merchandising_summary'], {
+			description: htmlToText(this.audibleResponse['merchandising_summary'], {
 				wordwrap: false
 			}).trim(),
-			formatType: this.inputJson.format_type,
+			formatType: this.audibleResponse.format_type,
 			...(this.categories && {
 				genres: [...this.getGenres(), ...this.getTags()]
 			}),
 			image: this.getHighResImage(),
-			language: this.inputJson.language,
+			language: this.audibleResponse.language,
 			narrators:
-				this.inputJson.narrators?.map((person: NarratorOnBook) => {
-					const narratorJson: NarratorOnBook = {
+				this.audibleResponse.narrators?.map((person: ApiNarratorOnBook) => {
+					const narratorJson: ApiNarratorOnBook = {
 						name: person.name
 					}
 					return narratorJson
 				}) || [],
-			publisherName: this.inputJson.publisher_name,
-			...(this.inputJson.rating && {
-				rating: this.inputJson.rating.overall_distribution.display_average_rating.toString()
+			publisherName: this.audibleResponse.publisher_name,
+			...(this.audibleResponse.rating && {
+				rating: this.audibleResponse.rating.overall_distribution.display_average_rating.toString()
 			}),
 			region: this.region,
 			releaseDate: this.getReleaseDate(),
-			runtimeLengthMin: this.inputJson.runtime_length_min ?? 0,
-			...(this.inputJson.series && {
+			runtimeLengthMin: this.audibleResponse.runtime_length_min ?? 0,
+			...(series1 && {
 				seriesPrimary: series1,
 				...(series2 && {
 					seriesSecondary: series2
 				})
 			}),
-			subtitle: this.inputJson.subtitle,
-			summary: this.inputJson.publisher_summary,
-			title: this.inputJson.title
-		}
+			subtitle: this.audibleResponse.subtitle,
+			summary: this.audibleResponse.publisher_summary,
+			title: this.audibleResponse.title
+		})
 	}
 
 	/**
@@ -350,22 +328,32 @@ class ApiHelper {
 
 	/**
 	 * Parses fetched Audible API data
-	 * @param {AudibleProduct} jsonRes fetched json response from api.audible.com
+	 * @param {AudibleProduct} jsonResponse fetched json response from api.audible.com
 	 * @returns {Promise<ApiBook>} relevant data to keep
 	 */
-	async parseResponse(jsonRes: AudibleProduct | undefined): Promise<ApiBook> {
+	async parseResponse(jsonResponse: AudibleProduct | undefined): Promise<ApiBook> {
 		// Base undefined check
-		if (!jsonRes) {
+		if (!jsonResponse) {
 			throw new Error(ErrorMessageParse(this.asin, 'Audible API'))
 		}
-		this.inputJson = jsonRes.product
 
-		// Check all required keys present
-		const requiredKeys = this.hasRequiredKeys()
-		if (!requiredKeys.isValid) {
-			throw new Error(requiredKeys.message)
+		// Parse response with zod
+		try {
+			const response = AudibleProductSchema.parse(jsonResponse)
+			this.audibleResponse = response.product
+		} catch (error) {
+			const response = AudibleProductSchema.safeParse(jsonResponse)
+			if (!response.success) {
+				// Get the key 'path' from the first issue
+				const issuesPath = response.error.issues[0].path
+				// Get the last key from the path, which is the key that is missing
+				const key = issuesPath[issuesPath.length - 1]
+				// Throw error with the missing key
+				throw new Error(ErrorMessageRequiredKey(this.asin, String(key), 'exist'))
+			}
 		}
 
+		// Return final data
 		return this.getFinalData()
 	}
 }
