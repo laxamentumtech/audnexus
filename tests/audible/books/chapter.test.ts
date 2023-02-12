@@ -1,5 +1,4 @@
-import { AudibleChapter } from '#config/typing/audible'
-import { ApiChapter } from '#config/typing/books'
+import { ApiChapter, AudibleChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import {
 	chapterParsed1721358595,

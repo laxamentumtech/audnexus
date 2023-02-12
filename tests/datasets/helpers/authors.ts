@@ -1,7 +1,7 @@
 import { ObjectId, WithId } from 'mongodb'
 
 import { AuthorDocument } from '#config/models/Author'
-import type { AuthorProfile } from '#config/typing/people'
+import type { ApiAuthorProfile } from '#config/types'
 
 const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
 const asin = 'B012DQ3BCM'
@@ -24,7 +24,7 @@ const image =
 const name = 'Jason Anspach'
 const region = 'us'
 
-export const parsedAuthor: AuthorProfile = {
+export const parsedAuthor: ApiAuthorProfile = {
 	asin,
 	description,
 	genres,
@@ -33,12 +33,12 @@ export const parsedAuthor: AuthorProfile = {
 	region
 }
 
-const authorWithIdInternal: WithId<AuthorProfile> = {
+const authorWithIdInternal: WithId<ApiAuthorProfile> = {
 	_id,
 	...parsedAuthor
 }
 
-export const authorWithId = (): WithId<AuthorProfile> => {
+export const authorWithId = (): WithId<ApiAuthorProfile> => {
 	return {
 		_id,
 		...parsedAuthor
@@ -57,7 +57,7 @@ export const authorWithoutProjectionUpdatedNow: AuthorDocument = {
 	updatedAt: new Date()
 }
 
-export const parsedAuthorWithoutGenres: AuthorProfile = {
+export const parsedAuthorWithoutGenres: ApiAuthorProfile = {
 	asin,
 	description,
 	image,
@@ -65,7 +65,7 @@ export const parsedAuthorWithoutGenres: AuthorProfile = {
 	region
 }
 
-const authorWithoutGenresWithIdInternal: WithId<AuthorProfile> = {
+const authorWithoutGenresWithIdInternal: WithId<ApiAuthorProfile> = {
 	_id,
 	...parsedAuthorWithoutGenres
 }

@@ -1,5 +1,4 @@
-import { AudibleChapter } from '#config/typing/audible'
-import { ApiChapter } from '#config/typing/books'
+import { ApiChapter, AudibleChapter } from '#config/types'
 
 export function setupParsedChapter(object: AudibleChapter, asin: string): ApiChapter {
 	const info = object.content_metadata.chapter_info

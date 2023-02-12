@@ -1,4 +1,4 @@
-import { ApiGenre, Book } from '#config/typing/books'
+import { ApiGenre, Book } from '#config/types'
 import { B08C6YJ1LS, B017V4IM1G, setupMinimalParsed } from '#tests/datasets/audible/books/api'
 
 let description: string

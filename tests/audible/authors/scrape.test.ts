@@ -1,4 +1,4 @@
-import { AuthorProfile } from '#config/typing/people'
+import { ApiAuthorProfile } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import {
 	authorParsedB00G0WYW92,
@@ -7,7 +7,7 @@ import {
 
 let asin: string
 let helper: ScrapeHelper
-let response: AuthorProfile
+let response: ApiAuthorProfile
 
 describe('Audible Author HTML', () => {
 	describe('When scraping Andy Weir from Audible', () => {

@@ -45,7 +45,7 @@ beforeEach(async () => {
 describe('ApiHelper should', () => {
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
-		expect(helper.reqUrl).toBe(url)
+		expect(helper.requestUrl).toBe(url)
 	})
 
 	test.todo('check required keys')
