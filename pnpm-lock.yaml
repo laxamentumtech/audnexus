@@ -26,7 +26,7 @@ specifiers:
   jest-mock-extended: 3.0.1
   lodash: 4.17.21
   module-alias: 2.2.2
-  mongodb: 4.13.0
+  mongodb: 4.14.0
   nodemon: 2.0.20
   papr: 9.2.1
   prettier: 2.8.3
@@ -47,8 +47,8 @@ dependencies:
   jest-mock-extended: 3.0.1_gelezmms3va3pnkofxaadhcvma
   lodash: 4.17.21
   module-alias: 2.2.2
-  mongodb: 4.13.0
-  papr: 9.2.1_mongodb@4.13.0
+  mongodb: 4.14.0
+  papr: 9.2.1_mongodb@4.14.0
   typescript: 4.9.5
 
 devDependencies:
@@ -4293,8 +4293,8 @@ packages:
       whatwg-url: 11.0.0
     dev: false
 
-  /mongodb/4.13.0:
-    resolution: {integrity: sha512-+taZ/bV8d1pYuHL4U+gSwkhmDrwkWbH1l4aah4YpmpscMwgFBkufIKxgP/G7m87/NUuQzc2Z75ZTI7ZOyqZLbw==}
+  /mongodb/4.14.0:
+    resolution: {integrity: sha512-coGKkWXIBczZPr284tYKFLg+KbGPPLlSbdgfKAb6QqCFt5bo5VFZ50O3FFzsw4rnkqjwT6D8Qcoo9nshYKM7Mg==}
     engines: {node: '>=12.9.0'}
     dependencies:
       bson: 4.7.2
@@ -4471,13 +4471,13 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  /papr/9.2.1_mongodb@4.13.0:
+  /papr/9.2.1_mongodb@4.14.0:
     resolution: {integrity: sha512-Re8bBmw5iS81Yyn+Oeov9H3KRWz5PTf91UVuRi1nax3QlDSvfmyG+Ge2qw+nZThoaOuQbgr21F0N9w7BQn0uHg==}
     engines: {node: ^14.0.0 || >=15.0.0}
     peerDependencies:
       mongodb: '>=4.11.0'
     dependencies:
-      mongodb: 4.13.0
+      mongodb: 4.14.0
     dev: false
 
   /parent-module/1.0.1:
