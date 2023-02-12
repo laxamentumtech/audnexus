@@ -1,6 +1,5 @@
 import type { AxiosResponse } from 'axios'
 
-import * as checkers from '#config/typing/checkers'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import {
@@ -41,7 +40,6 @@ beforeEach(() => {
 		.mockImplementation(() => Promise.resolve({ status: 200 } as AxiosResponse))
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
 	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
-	jest.spyOn(checkers, 'isBook').mockReturnValue(true)
 })
 
 describe('BookShowHelper should', () => {
@@ -92,7 +90,6 @@ describe('BookShowHelper should', () => {
 		jest.spyOn(helper.stitchHelper, 'process').mockResolvedValue(parsedBook)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
 		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
-		jest.spyOn(checkers, 'isBook').mockReturnValue(true)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
 	})
 
@@ -108,20 +105,16 @@ describe('BookShowHelper should', () => {
 
 describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a book type', async () => {
-		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
 		await expect(helper.getBookWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not Book`
 		)
 	})
 	test('getChaptersWithProjection sorted book is not a book type', async () => {
-		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(true)
-		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
 		await expect(helper.getBookWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not Book`
 		)
 	})
 	test('createOrUpdateChapters is not a book type', async () => {
-		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
 		await expect(helper.createOrUpdateBook()).rejects.toThrow(`Data type for ${asin} is not Book`)
 	})
 })

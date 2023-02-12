@@ -4,7 +4,6 @@ jest.mock('#helpers/database/redis/RedisHelper')
 jest.mock('#helpers/utils/shared')
 jest.mock('#config/typing/checkers')
 
-import * as checkers from '#config/typing/checkers'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import {
 	chaptersWithoutProjection,
@@ -31,7 +30,6 @@ beforeEach(() => {
 		.mockResolvedValue({ data: parsedChapters, modified: false })
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
 	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
-	jest.spyOn(checkers, 'isChapter').mockReturnValue(true)
 })
 
 describe('ChapterShowHelper should', () => {
@@ -93,7 +91,6 @@ describe('ChapterShowHelper should', () => {
 		jest.spyOn(helper.chapterHelper, 'process').mockResolvedValue(parsedChapters)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
 		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
-		jest.spyOn(checkers, 'isChapter').mockReturnValue(true)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedChapters)
 	})
 
@@ -115,20 +112,16 @@ describe('ChapterShowHelper should', () => {
 
 describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a chapter type', async () => {
-		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.getChapterWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not Chapter`
 		)
 	})
 	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
-		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(true)
-		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.getChapterWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not Chapter`
 		)
 	})
 	test('createOrUpdateChapters is not a chapter type', async () => {
-		jest.spyOn(checkers, 'isChapter').mockReturnValueOnce(false)
 		await expect(helper.createOrUpdateChapters()).rejects.toThrow(
 			`Data type for ${asin} is not Chapter`
 		)
