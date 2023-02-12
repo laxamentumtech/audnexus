@@ -1,6 +1,6 @@
 import BookModel, { BookDocument } from '#config/models/Book'
-import { Book } from '#config/typing/books'
-import { isBook, isBookDocument } from '#config/typing/checkers'
+import { ApiBookSchema, Book } from '#config/types'
+import { isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
@@ -94,10 +94,10 @@ export default class PaprAudibleBookHelper {
 			$or: [{ region: { $exists: false } }, { region: this.options.region }]
 		})
 
-		// Remove database fields from data
-		const destructured = this.sharedHelper.destructureDocument(findOneBook)
-		// Assign type to book data
-		const data: Book | null = isBook(destructured) ? destructured : null
+		// Parse data to ensure it's the correct type and remove any extra fields
+		const dataParsed = ApiBookSchema.safeParse(findOneBook)
+		// Assign data to variable if it's valid, otherwise assign null
+		const data = dataParsed.success ? dataParsed.data : null
 
 		return {
 			data: data,

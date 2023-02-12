@@ -1,6 +1,6 @@
 import type { FastifyRedis } from '@fastify/redis'
 
-import { Book } from '#config/typing/books'
+import { Book } from '#config/types'
 import { ParsedObject } from '#config/typing/unions'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import { ErrorMessageRedisDelete, ErrorMessageRedisSet } from '#static/messages'

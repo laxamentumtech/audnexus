@@ -1,6 +1,6 @@
 import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
-import { ApiChapter } from '#config/typing/books'
-import { isChapter, isChapterDocument } from '#config/typing/checkers'
+import { ApiChapter, ApiChapterSchema } from '#config/types'
+import { isChapterDocument } from '#config/typing/checkers'
 import { PaprChapterDocumentReturn, PaprChapterReturn, PaprDeleteReturn } from '#config/typing/papr'
 import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
@@ -94,10 +94,10 @@ export default class PaprAudibleChapterHelper {
 			$or: [{ region: { $exists: false } }, { region: this.options.region }]
 		})
 
-		// Remove database fields from data
-		const destructured = this.sharedHelper.destructureDocument(findOneChapter)
-		// Assign type to chapter data
-		const data: ApiChapter | null = isChapter(destructured) ? destructured : null
+		// Parse data to ensure it's the correct type and remove any extra fields
+		const dataParsed = ApiChapterSchema.safeParse(findOneChapter)
+		// Assign data to variable if it's valid, otherwise assign null
+		const data = dataParsed.success ? dataParsed.data : null
 
 		return {
 			data: data,
