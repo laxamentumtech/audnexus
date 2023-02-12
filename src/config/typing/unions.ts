@@ -1,4 +1,3 @@
-import { ApiChapter, Book } from '#config/typing/books'
-import { AuthorProfile } from '#config/typing/people'
+import { ApiAuthorProfile, ApiChapter, Book } from '#config/types'
 
-export type ParsedObject = Book | AuthorProfile | ApiChapter
+export type ParsedObject = Book | ApiAuthorProfile | ApiChapter

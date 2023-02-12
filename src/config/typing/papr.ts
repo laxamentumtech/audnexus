@@ -3,16 +3,22 @@ import { DeleteResult } from 'mongodb'
 import { AuthorDocument } from '#config/models/Author'
 import { BookDocument } from '#config/models/Book'
 import { ChapterDocument } from '#config/models/Chapter'
-import { ApiChapter, Book } from '#config/typing/books'
-import { AuthorProfile } from '#config/typing/people'
+import { ApiAuthorProfile, ApiChapter, Book } from '#config/types'
 
 interface GenericReturn {
-	data: AuthorProfile | AuthorDocument | Book | BookDocument | ApiChapter | ChapterDocument | null
+	data:
+		| ApiAuthorProfile
+		| AuthorDocument
+		| Book
+		| BookDocument
+		| ApiChapter
+		| ChapterDocument
+		| null
 	modified: boolean
 }
 
 export interface PaprAuthorReturn extends GenericReturn {
-	data: AuthorProfile | null
+	data: ApiAuthorProfile | null
 }
 
 export interface PaprAuthorDocumentReturn extends GenericReturn {

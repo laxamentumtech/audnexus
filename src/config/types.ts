@@ -1,8 +1,10 @@
 import { z } from 'zod'
 
+import { asin10Regex, asin11Regex } from '#helpers/utils/shared'
+
 // Reusable types
-const asin = z.string().regex(/^(B[\dA-Z]{9}|\d{9}(X|\d))$/)
-const genreAsin = z.string().regex(/(?=.\d)[A-Z\d]{11}/)
+const asin = z.string().regex(asin10Regex)
+const genreAsin = z.string().regex(asin11Regex)
 const nameOrTitle = z.string().min(1)
 
 // Chapters
@@ -236,3 +238,13 @@ export const AudibleChapterSchema = z.object({
 	response_groups: z.array(z.string())
 })
 export type AudibleChapter = z.infer<typeof AudibleChapterSchema>
+
+// Requests
+export const ApiQueryStringSchema = z.object({
+	name: z.string().optional(),
+	region: z.string().length(2).default('us'),
+	seedAuthors: z.enum(['0', '1']).optional(),
+	update: z.enum(['0', '1']).optional()
+})
+
+export type ApiQueryString = z.infer<typeof ApiQueryStringSchema>

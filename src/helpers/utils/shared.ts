@@ -8,9 +8,10 @@ import { ParsedObject } from '#config/typing/unions'
 import { NoticeGenreNotAvailable } from '#static/messages'
 import { regions } from '#static/regions'
 
+export const asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
+export const asin11Regex = /(?=.\d)[A-Z\d]{11}/
+
 class SharedHelper {
-	asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
-	asin11Regex = /(?=.\d)[A-Z\d]{11}/
 	/**
 	 * Creates URL to use in fetchBook
 	 * @param {string} ASIN The Audible ID to base the URL on
@@ -123,7 +124,7 @@ class SharedHelper {
 			return false
 		}
 
-		if (asin.match(this.asin10Regex)) {
+		if (asin.match(asin10Regex)) {
 			return true
 		}
 		return false
@@ -171,7 +172,7 @@ class SharedHelper {
 	 * @returns {string} ASIN.
 	 */
 	getGenreAsinFromUrl(url: string): string | undefined {
-		return url.match(this.asin11Regex)?.[0]
+		return url.match(asin11Regex)?.[0]
 	}
 
 	/**
