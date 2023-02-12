@@ -1,13 +1,14 @@
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 
-import { AuthorProfile } from '#config/typing/people'
+import { ApiAuthorProfile, ApiAuthorProfileSchema } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
 	ErrorMessageHTTPFetch,
 	ErrorMessageNoResponse,
-	ErrorMessageNotFound
+	ErrorMessageNotFound,
+	ErrorMessageRequiredKey
 } from '#static/messages'
 import { regions } from '#static/regions'
 
@@ -72,7 +73,7 @@ class ScrapeHelper {
 	 * @param {JSDOM} dom the fetched dom object
 	 * @returns {HtmlBook} genre and series.
 	 */
-	async parseResponse(dom: cheerio.CheerioAPI | undefined): Promise<AuthorProfile> {
+	async parseResponse(dom: cheerio.CheerioAPI | undefined): Promise<ApiAuthorProfile> {
 		// Base undefined check
 		if (!dom) {
 			throw new Error(ErrorMessageNoResponse(this.asin, 'HTML'))
@@ -91,24 +92,34 @@ class ScrapeHelper {
 		// Name
 		const name = this.getName(dom)
 
-		// Object to return
-		const author: AuthorProfile = {
+		// Parse response with zod
+		const response = ApiAuthorProfileSchema.safeParse({
 			asin: this.asin,
 			description,
 			genres,
 			image,
 			name,
 			region: this.region
+		})
+		// Handle error if response is not valid
+		if (!response.success) {
+			// Get the key 'path' from the first issue
+			const issuesPath = response.error.issues[0].path
+			// Get the last key from the path, which is the key that is missing
+			const key = issuesPath[issuesPath.length - 1]
+			// Throw error with the missing key
+			throw new Error(ErrorMessageRequiredKey(this.asin, String(key), 'exist'))
 		}
 
-		return author
+		// Return the parsed response data if it is valid
+		return response.data
 	}
 
 	/**
 	 * Call functions in the class to parse final book JSON
-	 * @returns {Promise<AuthorProfile>}
+	 * @returns {Promise<ApiAuthorProfile>}
 	 */
-	async process(): Promise<AuthorProfile> {
+	async process(): Promise<ApiAuthorProfile> {
 		const authorResponse = await this.fetchAuthor()
 
 		return this.parseResponse(authorResponse)

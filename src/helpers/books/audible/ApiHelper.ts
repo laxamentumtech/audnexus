@@ -30,7 +30,7 @@ class ApiHelper {
 	categories: AudibleCategory[][] | undefined
 	audibleResponse: AudibleProduct['product'] | undefined
 	region: string
-	reqUrl: string
+	requestUrl: string
 	constructor(asin: string, region: string) {
 		this.asin = asin
 		this.region = region
@@ -51,7 +51,7 @@ class ApiHelper {
 		]
 		const paramStr = helper.getParamString(paramArr)
 		const params = `?response_groups=${paramStr}`
-		this.reqUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
+		this.requestUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
 	}
 
 	/**
@@ -312,11 +312,11 @@ class ApiHelper {
 
 	/**
 	 * Fetches Audible API JSON
-	 * @param {scraperUrl} reqUrl the full url to fetch.
+	 * @param {scraperUrl} requestUrl the full url to fetch.
 	 * @returns {Promise<AudibleProduct>} response from Audible API
 	 */
 	async fetchBook(): Promise<AudibleProduct> {
-		return fetch(this.reqUrl)
+		return fetch(this.requestUrl)
 			.then(async (response) => {
 				const json: AudibleProduct = response.data
 				return json
@@ -338,20 +338,19 @@ class ApiHelper {
 		}
 
 		// Parse response with zod
-		try {
-			const response = AudibleProductSchema.parse(jsonResponse)
-			this.audibleResponse = response.product
-		} catch (error) {
-			const response = AudibleProductSchema.safeParse(jsonResponse)
-			if (!response.success) {
-				// Get the key 'path' from the first issue
-				const issuesPath = response.error.issues[0].path
-				// Get the last key from the path, which is the key that is missing
-				const key = issuesPath[issuesPath.length - 1]
-				// Throw error with the missing key
-				throw new Error(ErrorMessageRequiredKey(this.asin, String(key), 'exist'))
-			}
+		const response = AudibleProductSchema.safeParse(jsonResponse)
+		// Handle error if response is not valid
+		if (!response.success) {
+			// Get the key 'path' from the first issue
+			const issuesPath = response.error.issues[0].path
+			// Get the last key from the path, which is the key that is missing
+			const key = issuesPath[issuesPath.length - 1]
+			// Throw error with the missing key
+			throw new Error(ErrorMessageRequiredKey(this.asin, String(key), 'exist'))
 		}
+
+		// Set response to class variable on success
+		this.audibleResponse = response.data.product
 
 		// Return final data
 		return this.getFinalData()
