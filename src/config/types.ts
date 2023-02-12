@@ -12,6 +12,7 @@ const ApiSingleChapterSchema = z.object({
 	startOffsetSec: z.number().or(z.literal(0)),
 	title: nameOrTitle
 })
+export type ApiSingleChapter = z.infer<typeof ApiSingleChapterSchema>
 
 export const ApiChapterSchema = z.object({
 	asin,
@@ -98,7 +99,7 @@ export type Book = z.infer<typeof BookSchema>
 
 // What we expect to keep from Audible's HTML pages
 export const HtmlBookSchema = z.object({
-	genres: z.array(ApiGenreSchema)
+	genres: z.array(ApiGenreSchema).min(1)
 })
 export type HtmlBook = z.infer<typeof HtmlBookSchema>
 
