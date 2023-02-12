@@ -1,8 +1,7 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { ChapterDocument } from '#config/models/Chapter'
-import { ApiChapter } from '#config/typing/books'
-import { isChapter } from '#config/typing/checkers'
+import { ApiChapter, ApiChapterSchema } from '#config/types'
 import { ParsedQuerystring } from '#config/typing/requests'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
@@ -44,14 +43,15 @@ export default class ChapterShowHelper {
 		// 1. Get the chapter with projections
 		const chapterToReturn = await this.paprHelper.findOneWithProjection()
 		// Make sure we get a chapter type back
-		if (!isChapter(chapterToReturn.data))
-			throw new Error(ErrorMessageDataType(this.asin, 'Chapter'))
+		if (chapterToReturn.data === null) throw new Error(ErrorMessageDataType(this.asin, 'Chapter'))
 
 		// 2. Sort the object
 		const sort = this.sharedHelper.sortObjectByKeys(chapterToReturn.data)
-		if (isChapter(sort)) return sort
-
-		throw new Error(ErrorMessageDataType(this.asin, 'Chapter'))
+		// Parse the data to make sure it's the correct type
+		const parsed = ApiChapterSchema.safeParse(sort)
+		// If the data is not the correct type, throw an error
+		if (!parsed.success) throw new Error(ErrorMessageDataType(this.asin, 'Chapter'))
+		return parsed.data
 	}
 
 	/**
@@ -77,8 +77,7 @@ export default class ChapterShowHelper {
 
 		// Create or update the chapter
 		const chapterToReturn = await this.paprHelper.createOrUpdate()
-		if (!isChapter(chapterToReturn.data))
-			throw new Error(ErrorMessageDataType(this.asin, 'Chapter'))
+		if (chapterToReturn.data === null) throw new Error(ErrorMessageDataType(this.asin, 'Chapter'))
 
 		// Geth the chapter with projections
 		const data = await this.getChapterWithProjection()
@@ -129,8 +128,11 @@ export default class ChapterShowHelper {
 
 			// 2. Check it it is cached
 			const redisChapter = await this.redisHelper.findOrCreate(data)
-			if (redisChapter && isChapter(redisChapter)) return redisChapter
-
+			if (redisChapter) {
+				// Parse the data to make sure it's the correct type
+				const parsed = ApiChapterSchema.safeParse(redisChapter)
+				if (parsed.success) return parsed.data
+			}
 			// 3. Return the chapter from DB
 			return data
 		}

@@ -1,17 +1,18 @@
 import { FastifyReply } from 'fastify'
 
+import { ApiQueryString, ApiQueryStringSchema } from '#config/types'
 import { ParsedQuerystring, RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/utils/shared'
 import { MessageBadAsin, MessageBadRegion, MessageNoSearchParams } from '#static/messages'
 
 class RouteCommonHelper {
 	asin: string
-	query: ParsedQuerystring
+	query: ApiQueryString
 	reply: FastifyReply
 	sharedHelper: SharedHelper
 	constructor(asin: string, query: RequestGeneric['Querystring'], reply: FastifyReply) {
 		this.asin = asin
-		this.query = this.parseOptions(query)
+		this.query = ApiQueryStringSchema.parse(query)
 		this.reply = reply
 		this.sharedHelper = new SharedHelper()
 	}
@@ -60,18 +61,6 @@ class RouteCommonHelper {
 		if (this.asin && !this.isValidAsin()) this.throwBadAsinError()
 		if (!this.asin && !this.isValidName()) this.throwBadNameError()
 		if (this.query.region && !this.isValidRegion()) this.throwBadRegionError()
-	}
-
-	/**
-	 * Parse the query string
-	 */
-	parseOptions(query: RequestGeneric['Querystring']): ParsedQuerystring {
-		return {
-			...(query.name && { name: query.name }),
-			region: query.region ?? 'us',
-			...(query.seedAuthors && { seedAuthors: query.seedAuthors }),
-			...(query.update && { update: query.update })
-		}
 	}
 
 	/**

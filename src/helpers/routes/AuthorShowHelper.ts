@@ -1,8 +1,7 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import type { AuthorDocument } from '#config/models/Author'
-import { isAuthorProfile } from '#config/typing/checkers'
-import { AuthorProfile } from '#config/typing/people'
+import { ApiAuthorProfile, ApiAuthorProfileSchema } from '#config/types'
 import { ParsedQuerystring } from '#config/typing/requests'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
@@ -12,7 +11,7 @@ import { ErrorMessageDataType } from '#static/messages'
 
 export default class AuthorShowHelper {
 	asin: string
-	authorInternal: AuthorProfile | undefined = undefined
+	authorInternal: ApiAuthorProfile | undefined = undefined
 	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleAuthorHelper
 	redisHelper: RedisHelper
@@ -40,18 +39,19 @@ export default class AuthorShowHelper {
 	 * making sure the data is the correct type.
 	 * Then, sort the data and return it.
 	 */
-	async getAuthorWithProjection(): Promise<AuthorProfile> {
+	async getAuthorWithProjection(): Promise<ApiAuthorProfile> {
 		// 1. Get the author with projections
 		const author = await this.paprHelper.findOneWithProjection()
-		// Make saure we get a authorprofile type back
-		if (!isAuthorProfile(author.data))
-			throw new Error(ErrorMessageDataType(this.asin, 'AuthorProfile'))
+		// Make sure we get a authorprofile type back
+		if (author.data === null) throw new Error(ErrorMessageDataType(this.asin, 'ApiAuthorProfile'))
 
 		// 2. Sort the object
 		const sort = this.sharedHelper.sortObjectByKeys(author.data)
-		if (isAuthorProfile(sort)) return sort
-
-		throw new Error(ErrorMessageDataType(this.asin, 'AuthorProfile'))
+		// Parse the data to make sure it's the correct type
+		const parsed = ApiAuthorProfileSchema.safeParse(sort)
+		// If the data is not the correct type, throw an error
+		if (!parsed.success) throw new Error(ErrorMessageDataType(this.asin, 'ApiAuthorProfile'))
+		return parsed.data
 	}
 
 	/**
@@ -72,14 +72,14 @@ export default class AuthorShowHelper {
 	 * Get new author data and pass it to the create or update papr function.
 	 * Then, set redis cache and return the author.
 	 */
-	async createOrUpdateAuthor(): Promise<AuthorProfile> {
+	async createOrUpdateAuthor(): Promise<ApiAuthorProfile> {
 		// Place the new author data into the papr helper
 		this.paprHelper.setAuthorData(await this.getNewAuthorData())
 
 		// Create or update the author
 		const authorToReturn = await this.paprHelper.createOrUpdate()
-		if (!isAuthorProfile(authorToReturn.data))
-			throw new Error(ErrorMessageDataType(this.asin, 'AuthorProfile'))
+		if (authorToReturn.data === null)
+			throw new Error(ErrorMessageDataType(this.asin, 'ApiAuthorProfile'))
 
 		// Get the author with projections
 		const data = await this.getAuthorWithProjection()
@@ -104,7 +104,7 @@ export default class AuthorShowHelper {
 	/**
 	 * Actions to run when an update is requested
 	 */
-	async updateActions(): Promise<AuthorProfile> {
+	async updateActions(): Promise<ApiAuthorProfile> {
 		// 1. Check if it is updated recently
 		if (this.isUpdatedRecently()) return this.getAuthorWithProjection()
 
@@ -115,7 +115,7 @@ export default class AuthorShowHelper {
 	/**
 	 * Main handler for the author show route
 	 */
-	async handler(): Promise<AuthorProfile> {
+	async handler(): Promise<ApiAuthorProfile> {
 		this.originalAuthor = await this.getAuthorFromPapr()
 
 		// If the author is already present
@@ -130,7 +130,11 @@ export default class AuthorShowHelper {
 
 			// 2. Check it it is cached
 			const redisAuthor = await this.redisHelper.findOrCreate(data)
-			if (redisAuthor && isAuthorProfile(redisAuthor)) return redisAuthor
+			if (redisAuthor) {
+				// Parse the data to make sure it's the correct type
+				const parsedData = ApiAuthorProfileSchema.safeParse(redisAuthor)
+				if (parsedData.success) return parsedData.data
+			}
 
 			// 3. Return the author from DB
 			return data

@@ -1,8 +1,7 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { BookDocument } from '#config/models/Book'
-import { Book } from '#config/typing/books'
-import { isBook } from '#config/typing/checkers'
+import { Book, BookSchema } from '#config/types'
 import { ParsedQuerystring } from '#config/typing/requests'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
@@ -45,13 +44,16 @@ export default class BookShowHelper {
 		// 1. Get the book with projections
 		const bookToReturn = await this.paprHelper.findOneWithProjection()
 		// Make saure we get a book type back
-		if (!isBook(bookToReturn.data)) throw new Error(ErrorMessageDataType(this.asin, 'Book'))
+		if (bookToReturn.data === null) throw new Error(ErrorMessageDataType(this.asin, 'Book'))
 
 		// 2. Sort the object
 		const sort = this.sharedHelper.sortObjectByKeys(bookToReturn.data)
-		if (isBook(sort)) return sort
-
-		throw new Error(ErrorMessageDataType(this.asin, 'Book'))
+		// Parse the data to make sure it's the correct type
+		const parsed = BookSchema.safeParse(sort)
+		// If the data is not the correct type, throw an error
+		if (!parsed.success) throw new Error(ErrorMessageDataType(this.asin, 'Book'))
+		// Return the data
+		return parsed.data
 	}
 
 	/**
@@ -71,7 +73,7 @@ export default class BookShowHelper {
 
 		// Create or update the book
 		const bookToReturn = await this.paprHelper.createOrUpdate()
-		if (!isBook(bookToReturn.data)) throw new Error(ErrorMessageDataType(this.asin, 'Book'))
+		if (bookToReturn.data === null) throw new Error(ErrorMessageDataType(this.asin, 'Book'))
 
 		// Get the book with projections
 		const data = await this.getBookWithProjection()
@@ -131,7 +133,11 @@ export default class BookShowHelper {
 
 			// 2. Check it it is cached
 			const redisBook = await this.redisHelper.findOrCreate(data)
-			if (redisBook && isBook(redisBook)) return redisBook
+			if (redisBook) {
+				// Parse the data to make sure it's the correct type
+				const parsedData = BookSchema.safeParse(redisBook)
+				if (parsedData.success) return parsedData.data
+			}
 
 			// 3. Return the book from DB
 			return data

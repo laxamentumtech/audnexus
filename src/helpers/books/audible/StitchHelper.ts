@@ -1,7 +1,6 @@
 import type { CheerioAPI } from 'cheerio'
 
-import { ApiBook, AudibleProduct, Book, HtmlBook } from '#config/types'
-import { isBook } from '#config/typing/checkers'
+import { ApiBook, AudibleProduct, Book, BookSchema, HtmlBook } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
@@ -85,7 +84,8 @@ class StitchHelper {
 				...this.apiParsed,
 				...this.scraperParsed
 			})
-			if (isBook(sortedObject)) return sortedObject
+			const parsed = BookSchema.safeParse(sortedObject)
+			if (parsed.success) return parsed.data
 			throw new Error(ErrorMessageSort(this.asin))
 		}
 		return this.apiParsed as Book
