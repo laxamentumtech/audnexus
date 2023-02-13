@@ -34,15 +34,28 @@ describe('Audible Author HTML', () => {
 		})
 	})
 
-	describe('When fetching a book as an author from Audible', () => {
+	describe('When fetching a 404 author from Audible', () => {
 		beforeAll(() => {
 			asin = '103940202X'
 			helper = new ScrapeHelper(asin, 'us')
 		})
 
-		it('threw an error', async () => {
+		it.only('threw an error', async () => {
 			await expect(helper.fetchAuthor()).rejects.toThrowError(
 				`An error occured while fetching data from Audible HTML. Response: 404, ASIN: ${asin}`
+			)
+		})
+	})
+	describe('When fetching a book as an author from Audible', () => {
+		beforeAll(() => {
+			asin = 'B079LRSMNN'
+			helper = new ScrapeHelper(asin, 'us')
+		})
+
+		it.only('threw an error', async () => {
+			const response = await helper.fetchAuthor()
+			await expect(helper.parseResponse(response)).rejects.toThrowError(
+				`Item not available in region 'us' for ASIN: ${asin}`
 			)
 		})
 	})

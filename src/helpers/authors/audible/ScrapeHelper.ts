@@ -59,13 +59,22 @@ class ScrapeHelper {
 	}
 
 	getName(dom: cheerio.CheerioAPI): string {
+		let nameText: Text
+		let name: string
+		// First try to get valid author text
 		try {
 			const html = dom('h1.bc-text-bold')[0].children[0]
-			const name = html as unknown as Text
-			return name.data.trim()
+			nameText = html as unknown as Text
+			name = nameText.data.trim()
 		} catch (error) {
 			throw new Error(ErrorMessageNotFound(this.asin, 'author name'))
 		}
+
+		// Method might retrieve header text instead of valid author
+		if (name === 'Showing titles\n in All Categories') {
+			throw new Error(ErrorMessageRegion(this.asin, this.region))
+		}
+		return name
 	}
 
 	/**
