@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AxiosResponse } from 'axios'
 
-import { AudibleProduct, AudibleProductSchema } from '#config/types'
+import { AudibleCategory, AudibleProduct, AudibleProductSchema, AudibleSeries } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
@@ -81,7 +81,16 @@ describe('ApiHelper should', () => {
 		expect(
 			helper.getSeriesPrimary([{ asin: '123', title: '', sequence: '1', url: '' }])
 		).toBeUndefined()
-		expect(helper.getSeriesPrimary(mockResponse.product.series)).toEqual({
+		expect(
+			helper.getSeriesPrimary([
+				{
+					asin: 'B079YXK1GL',
+					sequence: '1-2',
+					title: "Galaxy's Edge Series",
+					url: '/pd/Galaxys-Edge-Series-Audiobook/B079YXK1GL'
+				}
+			])
+		).toEqual({
 			asin: 'B079YXK1GL',
 			name: "Galaxy's Edge Series",
 			position: '1-2'
@@ -156,6 +165,27 @@ describe('ApiHelper edge cases should', () => {
 	// 	expect(helper.hasRequiredKeys().isValid).toBe(true)
 	// })
 
+	test('series should be undefined if no series', async () => {
+		const obj = {
+			asin: '123',
+			title: '',
+			sequence: '1'
+		}
+		expect(helper.getSeries(obj)).toBeUndefined()
+	})
+
+	test('getSeriesX should return undefined if not a multi part book', async () => {
+		const obj = {
+			asin: '123',
+			title: '',
+			sequence: '1'
+		}
+		helper.audibleResponse = mockResponse.product
+		helper.audibleResponse.content_delivery_type = 'SinglePartBook'
+		expect(helper.getSeriesPrimary([obj])).toBeUndefined()
+		expect(helper.getSeriesSecondary([obj])).toBeUndefined()
+	})
+
 	test('get backup lower res image', async () => {
 		helper.audibleResponse = mockResponse.product
 		helper.audibleResponse!.product_images![1024] = ''
@@ -181,11 +211,6 @@ describe('ApiHelper edge cases should', () => {
 		expect(helper.getReleaseDate()).toBeInstanceOf(Date)
 	})
 
-	test('handle empty series array', () => {
-		expect(helper.getSeriesPrimary(undefined)).toBeUndefined()
-		expect(helper.getSeriesSecondary(undefined)).toBeUndefined()
-	})
-
 	test('parse a book with 2 series', async () => {
 		// Make lint happy
 		if (B017V4IM1G.product.content_delivery_type !== 'MultiPartBook') return undefined
@@ -203,13 +228,6 @@ describe('ApiHelper edge cases should', () => {
 		})
 	})
 
-	// test('not pass key check when on falsy value', async () => {
-	// 	const data = await helper.fetchBook()
-	// 	await helper.parseResponse(data)
-	// 	helper.audibleResponse!.asin = ''
-	// 	expect(helper.hasRequiredKeys().isValid).toBe(false)
-	// })
-
 	// test('allow podcast to pass key check', () => {
 	// 	helper.audibleResponse = podcast.product
 	// 	expect(helper.hasRequiredKeys().isValid).toBe(true)
@@ -226,10 +244,12 @@ describe('ApiHelper should throw error when', () => {
 		expect(() => helper.getGenres()).toThrowError('No input data')
 		expect(() => helper.getHighResImage()).toThrowError('No input data')
 		expect(() => helper.getReleaseDate()).toThrowError('No input data')
-		// expect(() => helper.getSeriesPrimary(mockResponse.product.series)).toThrowError('No input data')
-		// expect(() => helper.getSeriesSecondary(mockResponse.product.series)).toThrowError(
-		// 	'No input data'
-		// )
+		expect(() => helper.getSeriesPrimary(['1'] as unknown as AudibleSeries[])).toThrowError(
+			'No input data'
+		)
+		expect(() => helper.getSeriesSecondary(['1'] as unknown as AudibleSeries[])).toThrowError(
+			'No input data'
+		)
 		expect(() => helper.getTags()).toThrowError('No input data')
 		expect(() => helper.getFinalData()).toThrowError('No input data')
 	})
@@ -238,6 +258,16 @@ describe('ApiHelper should throw error when', () => {
 		helper.audibleResponse = mockResponse.product
 		helper.audibleResponse!.release_date = '2080-01-01'
 		expect(() => helper.getReleaseDate()).toThrowError('Release date is in the future')
+	})
+
+	test('category is invalid', () => {
+		const obj = {
+			id: '1',
+			name: ''
+		} as AudibleCategory
+		expect(() => helper.categoryToApiGenre(obj, 'genre')).toThrowError(
+			`An error occurred while parsing ApiHelper. ASIN: ${asin}`
+		)
 	})
 
 	test('error fetching book data', async () => {
