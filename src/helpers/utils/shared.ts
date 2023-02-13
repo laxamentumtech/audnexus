@@ -58,16 +58,13 @@ class SharedHelper {
 						// Cleanup the name of the genre
 						const cleanedName = htmlToText(genre.text(), { wordwrap: false })
 						// Create the genre object
-						try {
-							const success = ApiGenreSchema.parse({
-								asin: catAsin,
-								name: cleanedName,
-								type: type
-							})
-							return success
-						} catch (error) {
-							console.log(error)
-						}
+						const parsed = ApiGenreSchema.safeParse({
+							asin: catAsin,
+							name: cleanedName,
+							type: type
+						})
+						if (parsed.success) return parsed.data
+						console.log(parsed.error)
 					}
 				} else {
 					console.log(NoticeGenreNotAvailable(asin, index))
