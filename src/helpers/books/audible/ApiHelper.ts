@@ -8,6 +8,7 @@ import {
 	ApiNarratorOnBook,
 	ApiSeries,
 	AudibleCategory,
+	AudibleCategorySchema,
 	AudibleProduct,
 	AudibleProductSchema,
 	AudibleSeries,
@@ -64,31 +65,21 @@ class ApiHelper {
 			name: category.name,
 			type: type
 		}
-		try {
-			const success = ApiGenreSchema.parse(convertedObject)
-			return success
-		} catch (error) {
-			throw new Error(ErrorMessageParse(this.asin, 'ApiHelper'))
-		}
+
+		// Parse the resulting object to ensure it matches the ApiGenre type
+		const parsed = ApiGenreSchema.safeParse(convertedObject)
+		// Return the parsed object if it matches the type
+		if (parsed.success) return parsed.data
+		// Throw an error if it doesn't match the type
+		throw new Error(ErrorMessageParse(this.asin, 'ApiHelper'))
 	}
 
 	isCategory(category: unknown): category is AudibleCategory {
-		return (
-			typeof category === 'object' &&
-			category !== null &&
-			Object.hasOwnProperty.call(category, 'id') &&
-			Object.hasOwnProperty.call(category, 'name')
-		)
+		return AudibleCategorySchema.safeParse(category).success
 	}
 
 	isGenre(genre: unknown): genre is ApiGenre {
-		return (
-			typeof genre === 'object' &&
-			genre !== null &&
-			Object.hasOwnProperty.call(genre, 'asin') &&
-			Object.hasOwnProperty.call(genre, 'name') &&
-			Object.hasOwnProperty.call(genre, 'type')
-		)
+		return ApiGenreSchema.safeParse(genre).success
 	}
 
 	/**
@@ -192,19 +183,17 @@ class ApiHelper {
 				position: series.sequence
 			})
 		}
-		// Check if series is valid
-		const seriesReturn = ApiSeriesSchema.safeParse(seriesJson)
-		// Return series if valid, otherwise return undefined
-		return seriesReturn.success ? seriesReturn.data : undefined
+		// Return series if valid
+		return ApiSeriesSchema.parse(seriesJson)
 	}
 
 	/**
 	 * Determine if the series array contains a series, which matches publication_name.
 	 * This typically means the series in publication_name is the default series.
 	 */
-	getSeriesPrimary(allSeries: AudibleSeries[] | undefined): ApiSeries | undefined {
-		let seriesPrimary = {} as ApiSeries
-		allSeries?.forEach((series: AudibleSeries) => {
+	getSeriesPrimary(allSeries: AudibleSeries[]): ApiSeries | undefined {
+		let seriesPrimary = {}
+		allSeries.forEach((series: AudibleSeries) => {
 			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 			// Only return series for MultiPartBook, makes linter happy
 			if (this.audibleResponse.content_delivery_type !== 'MultiPartBook') return undefined
@@ -227,9 +216,9 @@ class ApiHelper {
 	 * Determine which series is NOT the primary series.
 	 * This is done by comparing the series name to the publication_name.
 	 */
-	getSeriesSecondary(allSeries: AudibleSeries[] | undefined): ApiSeries | undefined {
-		let seriesSecondary = {} as ApiSeries
-		allSeries?.forEach((series: AudibleSeries) => {
+	getSeriesSecondary(allSeries: AudibleSeries[]): ApiSeries | undefined {
+		let seriesSecondary = {}
+		allSeries.forEach((series: AudibleSeries) => {
 			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 			// Only return series for MultiPartBook, makes linter happy
 			if (this.audibleResponse.content_delivery_type !== 'MultiPartBook') return undefined
@@ -240,7 +229,7 @@ class ApiHelper {
 				seriesJson &&
 				seriesJson.name !== this.audibleResponse.publication_name
 			) {
-				seriesSecondary = ApiSeriesSchema.parse(seriesJson)
+				seriesSecondary = seriesJson
 			}
 		})
 		// Check if series is valid
@@ -261,7 +250,10 @@ class ApiHelper {
 		let series1: ApiSeries | undefined
 		let series2: ApiSeries | undefined
 		// Only return series for MultiPartBook, makes linter happy
-		if (this.audibleResponse.content_delivery_type === 'MultiPartBook') {
+		if (
+			this.audibleResponse.content_delivery_type === 'MultiPartBook' &&
+			this.audibleResponse.series
+		) {
 			series1 = this.getSeriesPrimary(this.audibleResponse.series)
 			series2 = this.getSeriesSecondary(this.audibleResponse.series)
 		}
