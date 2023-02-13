@@ -315,6 +315,12 @@ describe('ApiHelper should throw error when', () => {
 		)
 	})
 
+	test('input has no data', async () => {
+		await expect(helper.parseResponse({ product: {} } as AudibleProduct)).rejects.toThrowError(
+			`Item not available in region '${region}' for ASIN: ${asin}`
+		)
+	})
+
 	test('book has no title', async () => {
 		asin = 'B07BS4RKGH'
 		helper = new ApiHelper(asin, region)
