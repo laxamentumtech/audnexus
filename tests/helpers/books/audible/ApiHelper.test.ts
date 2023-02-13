@@ -188,12 +188,12 @@ describe('ApiHelper edge cases should', () => {
 		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
 	})
 
-	// test('pass key check with a number value of 0', async () => {
-	// 	const data = await helper.fetchBook()
-	// 	await helper.parseResponse(data)
-	// 	helper.audibleResponse!.runtime_length_min = 0
-	// 	expect(helper.hasRequiredKeys().isValid).toBe(true)
-	// })
+	test('pass key check with a number value of 0', async () => {
+		const data = mockResponse
+		mockResponse.product.runtime_length_min = 0
+		const parsed = await helper.parseResponse(data)
+		expect(parsed).toBeDefined()
+	})
 
 	test('series should be undefined if no series', async () => {
 		const obj = {
@@ -257,11 +257,6 @@ describe('ApiHelper edge cases should', () => {
 			position: B017V4IM1G.product.series![1].sequence
 		})
 	})
-
-	// test('allow podcast to pass key check', () => {
-	// 	helper.audibleResponse = podcast.product
-	// 	expect(helper.hasRequiredKeys().isValid).toBe(true)
-	// })
 
 	test('return false on empty input to isGenre', async () => {
 		expect(helper.isGenre(null)).toBeFalsy()
