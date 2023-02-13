@@ -3,8 +3,8 @@ import { z } from 'zod'
 import { asin10Regex, asin11Regex } from '#helpers/utils/shared'
 
 // Reusable types
-const asin = z.string().regex(asin10Regex)
-const genreAsin = z.string().regex(asin11Regex)
+const asin = z.string().regex(new RegExp(asin10Regex, 'g'))
+const genreAsin = z.string().regex(new RegExp(asin11Regex, 'g'))
 const nameOrTitle = z.string().min(1)
 
 // Chapters
@@ -178,7 +178,7 @@ const baseShape = z.object({
 	sku_lite: z.string().optional(),
 	social_media_images: z.record(z.string()),
 	subtitle: z.string().optional(),
-	thesaurus_subject_keywords: z.array(z.string()),
+	thesaurus_subject_keywords: z.array(z.string()).optional(),
 	title: nameOrTitle
 })
 
