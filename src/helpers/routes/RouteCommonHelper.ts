@@ -1,7 +1,6 @@
 import { FastifyReply } from 'fastify'
 
 import { ApiQueryString, ApiQueryStringSchema } from '#config/types'
-import { ParsedQuerystring, RequestGeneric } from '#config/typing/requests'
 import SharedHelper from '#helpers/utils/shared'
 import { MessageBadAsin, MessageBadRegion, MessageNoSearchParams } from '#static/messages'
 
@@ -10,7 +9,7 @@ class RouteCommonHelper {
 	query: ApiQueryString
 	reply: FastifyReply
 	sharedHelper: SharedHelper
-	constructor(asin: string, query: RequestGeneric['Querystring'], reply: FastifyReply) {
+	constructor(asin: string, query: unknown, reply: FastifyReply) {
 		this.asin = asin
 		this.query = ApiQueryStringSchema.parse(query)
 		this.reply = reply
@@ -44,7 +43,7 @@ class RouteCommonHelper {
 	 * Reply object may be modified by validations
 	 * @returns {object} - Returns object with reply and options
 	 */
-	handler(): { options: ParsedQuerystring; reply: FastifyReply } {
+	handler(): { options: ApiQueryString; reply: FastifyReply } {
 		this.runValidations()
 		return {
 			options: this.query,

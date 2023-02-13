@@ -1,8 +1,7 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { ChapterDocument } from '#config/models/Chapter'
-import { ApiChapter, ApiChapterSchema } from '#config/types'
-import { ParsedQuerystring } from '#config/typing/requests'
+import { ApiChapter, ApiChapterSchema, ApiQueryString } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
@@ -15,10 +14,10 @@ export default class ChapterShowHelper {
 	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleChapterHelper
 	redisHelper: RedisHelper
-	options: ParsedQuerystring
+	options: ApiQueryString
 	originalChapter: ChapterDocument | null = null
 	chapterHelper: ChapterHelper
-	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
+	constructor(asin: string, options: ApiQueryString, redis: FastifyRedis | null) {
 		this.asin = asin
 		this.sharedHelper = new SharedHelper()
 		this.options = options

@@ -1,8 +1,7 @@
 import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
-import { ApiChapter, ApiChapterSchema } from '#config/types'
+import { ApiChapter, ApiChapterSchema, ApiQueryString } from '#config/types'
 import { isChapterDocument } from '#config/typing/checkers'
 import { PaprChapterDocumentReturn, PaprChapterReturn, PaprDeleteReturn } from '#config/typing/papr'
-import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -16,10 +15,10 @@ import {
 export default class PaprAudibleChapterHelper {
 	asin: string
 	chapterData!: ApiChapter
-	options: ParsedQuerystring
+	options: ApiQueryString
 	sharedHelper = new SharedHelper()
 
-	constructor(asin: string, options: ParsedQuerystring) {
+	constructor(asin: string, options: ApiQueryString) {
 		this.asin = asin
 		this.options = options
 	}

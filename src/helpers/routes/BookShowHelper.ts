@@ -1,8 +1,7 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { BookDocument } from '#config/models/Book'
-import { Book, BookSchema } from '#config/types'
-import { ParsedQuerystring } from '#config/typing/requests'
+import { ApiQueryString, Book, BookSchema } from '#config/types'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
@@ -16,10 +15,10 @@ export default class BookShowHelper {
 	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleBookHelper
 	redisHelper: RedisHelper
-	options: ParsedQuerystring
+	options: ApiQueryString
 	originalBook: BookDocument | null = null
 	stitchHelper: StitchHelper
-	constructor(asin: string, options: ParsedQuerystring, redis: FastifyRedis | null) {
+	constructor(asin: string, options: ApiQueryString, redis: FastifyRedis | null) {
 		this.asin = asin
 		this.sharedHelper = new SharedHelper()
 		this.options = options

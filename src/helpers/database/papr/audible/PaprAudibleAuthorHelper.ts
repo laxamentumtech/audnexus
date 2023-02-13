@@ -1,5 +1,5 @@
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
-import { ApiAuthorProfile, ApiAuthorProfileSchema } from '#config/types'
+import { ApiAuthorProfile, ApiAuthorProfileSchema, ApiQueryString } from '#config/types'
 import { isAuthorDocument } from '#config/typing/checkers'
 import {
 	PaprAuthorDocumentReturn,
@@ -7,7 +7,6 @@ import {
 	PaprAuthorSearch,
 	PaprDeleteReturn
 } from '#config/typing/papr'
-import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -22,10 +21,10 @@ import {
 export default class PaprAudibleAuthorHelper {
 	asin: string
 	authorData!: ApiAuthorProfile
-	options: ParsedQuerystring
+	options: ApiQueryString
 	sharedHelper = new SharedHelper()
 
-	constructor(asin: string, options: ParsedQuerystring) {
+	constructor(asin: string, options: ApiQueryString) {
 		this.asin = asin
 		this.options = options
 	}

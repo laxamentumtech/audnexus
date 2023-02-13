@@ -4,7 +4,6 @@ import lodash from 'lodash'
 
 import { ApiGenre, ApiGenreSchema } from '#config/types'
 import { PaprDocument } from '#config/typing/papr'
-import { ParsedObject } from '#config/typing/unions'
 import { NoticeGenreNotAvailable } from '#static/messages'
 import { regions } from '#static/regions'
 
@@ -83,11 +82,11 @@ class SharedHelper {
 
 	/**
 	 * Checks whether the input data are identical
-	 * @param {ParsedObject} original
-	 * @param {ParsedObject} updated
+	 * @param {unknown} original
+	 * @param {unknown} updated
 	 * @returns {boolean}
 	 */
-	isEqualData(original: ParsedObject, updated: ParsedObject): boolean {
+	isEqualData(original: unknown, updated: unknown): boolean {
 		if (lodash.isEqual(original, updated)) {
 			return true
 		}
@@ -186,11 +185,11 @@ class SharedHelper {
 	 * @param {object} data the object to sort
 	 * @returns the sorted object
 	 */
-	sortObjectByKeys(data: ParsedObject) {
-		const obj = data as unknown as { [key: string]: unknown }
+	sortObjectByKeys(data: object) {
+		const obj = data as Record<string, unknown>
 		return Object.keys(data)
 			.sort()
-			.reduce((r, k) => Object.assign(r, { [k]: obj[k] }), {}) as ParsedObject
+			.reduce((r, k) => Object.assign(r, { [k]: obj[k] }), {})
 	}
 }
 

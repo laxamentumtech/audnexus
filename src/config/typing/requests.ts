@@ -1,24 +1,12 @@
 import { RequestGenericInterface } from 'fastify'
 
+import { ApiQueryString } from '#config/types'
+
 interface Params {
 	asin: string
 }
 
-interface Querystring {
-	name?: string
-	region?: string
-	seedAuthors?: string
-	update?: string
-}
-
-export interface ParsedQuerystring {
-	name?: string
-	region: string
-	seedAuthors?: string
-	update?: string
-}
-
-export interface RequestGeneric<T = Querystring> extends RequestGenericInterface {
+export interface RequestGeneric<T = ApiQueryString> extends RequestGenericInterface {
 	Params: Params
 	Querystring: T
 }

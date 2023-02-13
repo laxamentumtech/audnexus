@@ -1,7 +1,6 @@
 import type { FastifyRedis } from '@fastify/redis'
 
 import { Book } from '#config/types'
-import { ParsedObject } from '#config/typing/unions'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import { ErrorMessageRedisDelete, ErrorMessageRedisSet } from '#static/messages'
 
@@ -37,10 +36,10 @@ export default class RedisHelper {
 
 	/**
 	 * Find one key from Redis
-	 * @returns {ParsedObject | undefined} - ParsedObject if found, undefined if not
+	 * @returns {object | undefined} - object if found, undefined if not
 	 * @throws {Error} - If there's an error
 	 */
-	async findOne(): Promise<ParsedObject | undefined> {
+	async findOne(): Promise<object | undefined> {
 		try {
 			const found = await this.instance?.get(this.key)
 			if (!found) return undefined
@@ -59,11 +58,11 @@ export default class RedisHelper {
 
 	/**
 	 * Find one key from Redis, if not found, create it
-	 * @param {ParsedObject | undefined} data - Data to create if not found
-	 * @returns {ParsedObject | undefined} - ParsedObject if found, undefined if not
+	 * @param {object | undefined} data - Data to create if not found
+	 * @returns {object | undefined} - object if found, undefined if not
 	 * @throws {Error} - If there's an error
 	 */
-	async findOrCreate(data: ParsedObject | undefined): Promise<ParsedObject | undefined> {
+	async findOrCreate(data: object | undefined): Promise<object | undefined> {
 		const found = await this.findOne()
 		// Return if found
 		if (found) return found
@@ -89,11 +88,11 @@ export default class RedisHelper {
 
 	/**
 	 * Set one key in Redis
-	 * @param {ParsedObject} data - Data to set
+	 * @param {object} data - Data to set
 	 * @returns {string | undefined} - Status if set, null if not
 	 * @throws {Error} - If there's an error
 	 */
-	async setOne(data: ParsedObject): Promise<string | undefined> {
+	async setOne(data: object): Promise<string | undefined> {
 		try {
 			const set = await this.instance?.set(this.key, JSON.stringify(data, null, 2))
 			this.setExpiration()

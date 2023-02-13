@@ -1,8 +1,7 @@
 import BookModel, { BookDocument } from '#config/models/Book'
-import { ApiBookSchema, Book } from '#config/types'
+import { ApiBookSchema, ApiQueryString, Book } from '#config/types'
 import { isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
-import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -16,10 +15,10 @@ import {
 export default class PaprAudibleBookHelper {
 	asin: string
 	bookData!: Book
-	options: ParsedQuerystring
+	options: ApiQueryString
 	sharedHelper = new SharedHelper()
 
-	constructor(asin: string, options: ParsedQuerystring) {
+	constructor(asin: string, options: ApiQueryString) {
 		this.asin = asin
 		this.options = options
 	}
