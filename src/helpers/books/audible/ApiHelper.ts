@@ -21,6 +21,7 @@ import {
 	ErrorMessageHTTPFetch,
 	ErrorMessageNoData,
 	ErrorMessageParse,
+	ErrorMessageRegion,
 	ErrorMessageReleaseDate,
 	ErrorMessageRequiredKey
 } from '#static/messages'
@@ -337,6 +338,11 @@ class ApiHelper {
 			const issuesPath = response.error.issues[0].path
 			// Get the last key from the path, which is the key that is missing
 			const key = issuesPath[issuesPath.length - 1]
+
+			// If the key is content_delivery_type, then the item is not available in the region
+			if (key === 'content_delivery_type')
+				throw new Error(ErrorMessageRegion(this.asin, this.region))
+
 			// Throw error with the missing key
 			throw new Error(ErrorMessageRequiredKey(this.asin, String(key), 'exist'))
 		}

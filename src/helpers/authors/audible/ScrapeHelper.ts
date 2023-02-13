@@ -8,7 +8,7 @@ import {
 	ErrorMessageHTTPFetch,
 	ErrorMessageNoResponse,
 	ErrorMessageNotFound,
-	ErrorMessageRequiredKey
+	ErrorMessageRegion
 } from '#static/messages'
 import { regions } from '#static/regions'
 
@@ -103,12 +103,8 @@ class ScrapeHelper {
 		})
 		// Handle error if response is not valid
 		if (!response.success) {
-			// Get the key 'path' from the first issue
-			const issuesPath = response.error.issues[0].path
-			// Get the last key from the path, which is the key that is missing
-			const key = issuesPath[issuesPath.length - 1]
-			// Throw error with the missing key
-			throw new Error(ErrorMessageRequiredKey(this.asin, String(key), 'exist'))
+			// If the key is content_delivery_type, then the item is not available in the region
+			throw new Error(ErrorMessageRegion(this.asin, this.region))
 		}
 
 		// Return the parsed response data if it is valid
