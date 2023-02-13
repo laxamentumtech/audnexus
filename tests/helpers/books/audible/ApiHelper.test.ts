@@ -97,6 +97,36 @@ describe('ApiHelper should', () => {
 		})
 	})
 
+	test('get series secondary', async () => {
+		// Make lint happy
+		if (mockResponse.product.content_delivery_type !== 'MultiPartBook') return undefined
+		helper.audibleResponse = mockResponse.product
+		// Should return undefined if no series name
+		expect(
+			helper.getSeriesSecondary([{ asin: '123', title: '', sequence: '1', url: '' }])
+		).toBeUndefined()
+		expect(
+			helper.getSeriesSecondary([
+				{
+					asin: 'B079YXK1GL',
+					sequence: '1-2',
+					title: "Galaxy's Edge Series",
+					url: '/pd/Galaxys-Edge-Series-Audiobook/B079YXK1GL'
+				},
+				{
+					asin: 'B079YXK1GL',
+					sequence: '1-2',
+					title: "NOT Galaxy's Edge Series",
+					url: '/pd/Galaxys-Edge-Series-Audiobook/B079YXK1GL'
+				}
+			])
+		).toEqual({
+			asin: 'B079YXK1GL',
+			name: "NOT Galaxy's Edge Series",
+			position: '1-2'
+		})
+	})
+
 	test.todo('get series without position')
 
 	test('fetch book data', async () => {

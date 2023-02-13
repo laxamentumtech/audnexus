@@ -3,6 +3,7 @@ jest.mock('#helpers/database/papr/audible/PaprAudibleAuthorHelper')
 jest.mock('#helpers/authors/audible/ScrapeHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
 
+import { ApiAuthorProfile } from '#config/types'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import {
 	authorWithoutProjection,
@@ -55,7 +56,7 @@ describe('AuthorShowHelper should', () => {
 	test('returns original author if it was updated recently when trying to update', async () => {
 		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalAuthor = authorWithoutProjectionUpdatedNow
-		await expect(helper.updateActions()).resolves.toBe(parsedAuthor)
+		await expect(helper.updateActions()).resolves.toStrictEqual(parsedAuthor)
 	})
 
 	test('isUpdatedRecently returns false if no originalAuthor is present', () => {
@@ -101,19 +102,28 @@ describe('AuthorShowHelper should', () => {
 })
 
 describe('AuthorShowHelper should throw error when', () => {
-	test('getChaptersWithProjection is not a author type', async () => {
+	test('getAuthorWithProjection is not a author type', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'findOneWithProjection')
+			.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.getAuthorWithProjection()).rejects.toThrow(
-			`Data type for ${asin} is not AuthorProfile`
+			`Data type for ${asin} is not ApiAuthorProfile`
 		)
 	})
-	test('getChaptersWithProjection sorted author is not an author type', async () => {
+	test('getAuthorWithProjection sorted author is not a author type', async () => {
+		jest
+			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
+			.mockReturnValue(null as unknown as ApiAuthorProfile)
 		await expect(helper.getAuthorWithProjection()).rejects.toThrow(
-			`Data type for ${asin} is not AuthorProfile`
+			`Data type for ${asin} is not ApiAuthorProfile`
 		)
 	})
-	test('createOrUpdateChapters is not an author type', async () => {
+	test('createOrUpdateAuthor is not a author type', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'createOrUpdate')
+			.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.createOrUpdateAuthor()).rejects.toThrow(
-			`Data type for ${asin} is not AuthorProfile`
+			`Data type for ${asin} is not ApiAuthorProfile`
 		)
 	})
 })

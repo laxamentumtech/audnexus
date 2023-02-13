@@ -1,5 +1,6 @@
 import type { AxiosResponse } from 'axios'
 
+import { Book } from '#config/types'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import {
@@ -103,18 +104,25 @@ describe('BookShowHelper should', () => {
 	})
 })
 
-describe('ChapterShowHelper should throw error when', () => {
-	test('getChaptersWithProjection is not a book type', async () => {
+describe('BookShowHelper should throw error when', () => {
+	test('getBookWithProjection is not a book type', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'findOneWithProjection')
+			.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.getBookWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not Book`
 		)
 	})
-	test('getChaptersWithProjection sorted book is not a book type', async () => {
+	test('getBookWithProjection sorted book is not a book type', async () => {
+		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as Book)
 		await expect(helper.getBookWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not Book`
 		)
 	})
-	test('createOrUpdateChapters is not a book type', async () => {
+	test('createOrUpdateBook is not a book type', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'createOrUpdate')
+			.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.createOrUpdateBook()).rejects.toThrow(`Data type for ${asin} is not Book`)
 	})
 })

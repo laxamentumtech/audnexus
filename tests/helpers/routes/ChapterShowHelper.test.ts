@@ -4,6 +4,7 @@ jest.mock('#helpers/database/redis/RedisHelper')
 jest.mock('#helpers/utils/shared')
 jest.mock('#config/typing/checkers')
 
+import { ApiChapter } from '#config/types'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import {
 	chaptersWithoutProjection,
@@ -112,16 +113,25 @@ describe('ChapterShowHelper should', () => {
 
 describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a chapter type', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'findOneWithProjection')
+			.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.getChapterWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not Chapter`
 		)
 	})
 	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
+		jest
+			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
+			.mockReturnValue(null as unknown as ApiChapter)
 		await expect(helper.getChapterWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not Chapter`
 		)
 	})
 	test('createOrUpdateChapters is not a chapter type', async () => {
+		jest
+			.spyOn(helper.paprHelper, 'createOrUpdate')
+			.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.createOrUpdateChapters()).rejects.toThrow(
 			`Data type for ${asin} is not Chapter`
 		)
