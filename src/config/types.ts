@@ -107,7 +107,7 @@ export type HtmlBook = z.infer<typeof HtmlBookSchema>
 
 // Audible
 export const AudibleCategorySchema = z.object({
-	id: z.string(),
+	id: genreAsin,
 	name: nameOrTitle
 })
 export type AudibleCategory = z.infer<typeof AudibleCategorySchema>
