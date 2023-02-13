@@ -2,8 +2,8 @@ jest.mock('#config/models/Author')
 jest.mock('#helpers/utils/shared')
 
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
+import { ApiQueryString } from '#config/types'
 import * as checkers from '#config/typing/checkers'
-import { ParsedQuerystring } from '#config/typing/requests'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -15,7 +15,7 @@ import {
 
 let asin: string
 let helper: PaprAudibleAuthorHelper
-let options: ParsedQuerystring
+let options: ApiQueryString
 
 beforeEach(() => {
 	asin = parsedAuthor.asin

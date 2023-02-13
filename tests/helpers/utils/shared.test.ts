@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import * as cheerio from 'cheerio'
 
-import { ParsedObject } from '#config/typing/unions'
 import SharedHelper from '#helpers/utils/shared'
 import {
 	htmlResponseGenreNoHref,
@@ -131,7 +130,7 @@ describe('SharedHelper should', () => {
 			b: 1,
 			a: 2,
 			c: 3
-		} as unknown as ParsedObject
+		} as Record<string, unknown>
 		expect(helper.sortObjectByKeys(obj)).toEqual({
 			a: 2,
 			b: 1,
