@@ -27,130 +27,119 @@ export const chapterResponseB017V4IM1G: AudibleChapter = {
 			brandIntroDurationMs: 2043,
 			brandOutroDurationMs: 5061,
 			chapters: [
+				{ length_ms: 29043, start_offset_ms: 0, start_offset_sec: 0, title: 'Opening Credits' },
 				{
-					length_ms: 23743,
-					start_offset_ms: 0,
-					start_offset_sec: 0,
-					title: 'Opening Credits'
-				},
-				{
-					length_ms: 1732381,
-					start_offset_ms: 23743,
-					start_offset_sec: 24,
+					length_ms: 1732701,
+					start_offset_ms: 29043,
+					start_offset_sec: 29,
 					title: 'Chapter 1: The Boy Who Lived'
 				},
 				{
-					length_ms: 1308583,
-					start_offset_ms: 1756124,
-					start_offset_sec: 1756,
+					length_ms: 1306447,
+					start_offset_ms: 1761744,
+					start_offset_sec: 1762,
 					title: 'Chapter 2: The Vanishing Glass'
 				},
 				{
-					length_ms: 1457191,
-					start_offset_ms: 3064707,
-					start_offset_sec: 3065,
+					length_ms: 1455705,
+					start_offset_ms: 3068191,
+					start_offset_sec: 3068,
 					title: 'Chapter 3: The Letters from No One'
 				},
 				{
-					length_ms: 1465875,
-					start_offset_ms: 4521898,
-					start_offset_sec: 4522,
+					length_ms: 1463600,
+					start_offset_ms: 4523896,
+					start_offset_sec: 4524,
 					title: 'Chapter 4: The Keeper of the Keys'
 				},
 				{
-					length_ms: 2637183,
-					start_offset_ms: 5987773,
-					start_offset_sec: 5988,
+					length_ms: 2635650,
+					start_offset_ms: 5987496,
+					start_offset_sec: 5987,
 					title: 'Chapter 5: Diagon Alley'
 				},
 				{
-					length_ms: 2296639,
-					start_offset_ms: 8624956,
-					start_offset_sec: 8625,
+					length_ms: 2294595,
+					start_offset_ms: 8623146,
+					start_offset_sec: 8623,
 					title: 'Chapter 6: The Journey from Platform Nine and Three-Quarters'
 				},
 				{
-					length_ms: 1731279,
-					start_offset_ms: 10921595,
-					start_offset_sec: 10922,
+					length_ms: 1729236,
+					start_offset_ms: 10917741,
+					start_offset_sec: 10918,
 					title: 'Chapter 7: The Sorting Hat'
 				},
 				{
-					length_ms: 1113721,
-					start_offset_ms: 12652874,
-					start_offset_sec: 12653,
+					length_ms: 1112607,
+					start_offset_ms: 12646977,
+					start_offset_sec: 12647,
 					title: 'Chapter 8: The Potions Master'
 				},
 				{
-					length_ms: 1860614,
-					start_offset_ms: 13766595,
-					start_offset_sec: 13767,
+					length_ms: 1858339,
+					start_offset_ms: 13759584,
+					start_offset_sec: 13760,
 					title: 'Chapter 9: The Midnight Duel'
 				},
 				{
-					length_ms: 1534931,
-					start_offset_ms: 15627209,
-					start_offset_sec: 15627,
-					title: 'Chapter 10: Halloween'
+					length_ms: 1532609,
+					start_offset_ms: 15617923,
+					start_offset_sec: 15618,
+					title: "Chapter 10: Hallowe'en"
 				},
 				{
-					length_ms: 1275657,
-					start_offset_ms: 17162140,
-					start_offset_sec: 17162,
+					length_ms: 1274821,
+					start_offset_ms: 17150532,
+					start_offset_sec: 17151,
 					title: 'Chapter 11: Quidditch'
 				},
 				{
-					length_ms: 2139951,
-					start_offset_ms: 18437797,
-					start_offset_sec: 18438,
+					length_ms: 2138650,
+					start_offset_ms: 18425353,
+					start_offset_sec: 18425,
 					title: 'Chapter 12: The Mirror of Erised'
 				},
 				{
-					length_ms: 1189186,
-					start_offset_ms: 20577748,
-					start_offset_sec: 20578,
+					length_ms: 1187422,
+					start_offset_ms: 20564003,
+					start_offset_sec: 20564,
 					title: 'Chapter 13: Nicolas Flamel'
 				},
 				{
-					length_ms: 1277561,
-					start_offset_ms: 21766934,
-					start_offset_sec: 21767,
+					length_ms: 1275890,
+					start_offset_ms: 21751425,
+					start_offset_sec: 21751,
 					title: 'Chapter 14: Norbert the Norwegian Ridgeback'
 				},
 				{
-					length_ms: 1942952,
-					start_offset_ms: 23044495,
-					start_offset_sec: 23044,
+					length_ms: 1942024,
+					start_offset_ms: 23027315,
+					start_offset_sec: 23027,
 					title: 'Chapter 15: The Forbidden Forest'
 				},
 				{
-					length_ms: 2476036,
-					start_offset_ms: 24987447,
-					start_offset_sec: 24987,
+					length_ms: 2474086,
+					start_offset_ms: 24969339,
+					start_offset_sec: 24969,
 					title: 'Chapter 16: Through the Trapdoor'
 				},
 				{
-					length_ms: 2370000,
-					start_offset_ms: 27463483,
-					start_offset_sec: 27463,
+					length_ms: 2362258,
+					start_offset_ms: 27443425,
+					start_offset_sec: 27443,
 					title: 'Chapter 17: The Man with Two Faces'
 				},
 				{
-					length_ms: 49000,
-					start_offset_ms: 29833483,
-					start_offset_sec: 29833,
-					title: 'Preview: Harry Potter and the Chamber of Secrets'
-				},
-				{
-					length_ms: 39852,
-					start_offset_ms: 29882483,
-					start_offset_sec: 29882,
-					title: 'End Credits'
+					length_ms: 102491,
+					start_offset_ms: 29805683,
+					start_offset_sec: 29806,
+					title: 'The Story Continues in Harry Potter and the Chamber of Secrets'
 				}
 			],
 			is_accurate: true,
-			runtime_length_ms: 29922335,
-			runtime_length_sec: 29922
+			runtime_length_ms: 29908174,
+			runtime_length_sec: 29908
 		}
 	},
 	response_groups: ['always-returned', 'chapter_info']
