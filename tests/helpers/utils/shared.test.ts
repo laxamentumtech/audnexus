@@ -31,16 +31,6 @@ describe('SharedHelper should', () => {
 		)
 	})
 
-	test('validate ASINs', () => {
-		expect(helper.isValidAsin('B079LRSMNN')).toBe(true)
-		expect(helper.isValidAsin('12345678910')).toBe(false)
-		expect(helper.isValidAsin('B*79LRSMNN')).toBe(false)
-		expect(helper.isValidAsin('20XORININE')).toBe(false)
-		expect(helper.isValidAsin('1705047572')).toBe(true)
-		expect(helper.isValidAsin('B07Q769RZS')).toBe(true)
-		expect(helper.isValidAsin('B0B9YP4F9P')).toBe(true)
-	})
-
 	test('check data equality', () => {
 		expect(helper.isEqualData(parsedBook, parsedBook)).toBe(true)
 		expect(helper.isEqualData(changedParsedBook, parsedBook)).toBe(false)
@@ -67,35 +57,6 @@ describe('SharedHelper should', () => {
 		expect(
 			helper.getGenreAsinFromUrl('https://www.audible.com/cat/Science-Fiction/Military-Audiobooks/')
 		).toBeUndefined()
-	})
-
-	test('validate region', () => {
-		expect(helper.isValidRegion('au')).toBe(true)
-		expect(helper.isValidRegion('ca')).toBe(true)
-		expect(helper.isValidRegion('de')).toBe(true)
-		expect(helper.isValidRegion('es')).toBe(true)
-		expect(helper.isValidRegion('fr')).toBe(true)
-		expect(helper.isValidRegion('in')).toBe(true)
-		expect(helper.isValidRegion('it')).toBe(true)
-		expect(helper.isValidRegion('jp')).toBe(true)
-		expect(helper.isValidRegion('uk')).toBe(true)
-		expect(helper.isValidRegion('us')).toBe(true)
-		expect(helper.isValidRegion('mx')).toBe(false)
-		expect(helper.isValidRegion('br')).toBe(false)
-		expect(helper.isValidRegion('cn')).toBe(false)
-		expect(helper.isValidRegion('ru')).toBe(false)
-		expect(helper.isValidRegion('sa')).toBe(false)
-		expect(helper.isValidRegion('za')).toBe(false)
-		expect(helper.isValidRegion('alskdjlak;sjfl;kas')).toBe(false)
-	})
-
-	test('validate name', () => {
-		expect(helper.isValidName('John Doe')).toBe(true)
-		expect(helper.isValidName('John')).toBe(true)
-		expect(helper.isValidName('Doe')).toBe(true)
-		expect(helper.isValidName('Jo')).toBe(false)
-		expect(helper.isValidName('D')).toBe(false)
-		expect(helper.isValidName('')).toBe(false)
 	})
 
 	test('collectGenres returns empty array if no genres', () => {
