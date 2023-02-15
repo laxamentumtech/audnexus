@@ -55,6 +55,8 @@ export const ErrorMessageRedisSet = (key: string) =>
 	`An error occurred while setting ${key} in redis`
 
 // Route errors
+// Bad Query
+export const ErrorMessageBadQuery = (query: string) => `Bad query: ${query}`
 // Data type error
 export const ErrorMessageDataType = (asin: string, type: string) =>
 	`Data type for ${asin} is not ${type}`

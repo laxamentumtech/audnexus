@@ -2,13 +2,9 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
-import { ApiGenre, ApiGenreSchema } from '#config/types'
+import { ApiGenre, ApiGenreSchema, asin11Regex } from '#config/types'
 import { PaprDocument } from '#config/typing/papr'
 import { NoticeGenreNotAvailable } from '#static/messages'
-import { regions } from '#static/regions'
-
-export const asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
-export const asin11Regex = /(?=.\d)[A-Z\d]{11}/
 
 class SharedHelper {
 	/**
@@ -107,47 +103,6 @@ class SharedHelper {
 			return true
 		}
 		return false
-	}
-
-	/**
-	 * Checks asin length and format to verify it's valid
-	 * @param {string} asin 10 character identifier
-	 * @returns {boolean}
-	 */
-	isValidAsin(asin: string): boolean {
-		// First things first, check length
-		if (asin.length !== 10) {
-			return false
-		}
-
-		if (asin.match(asin10Regex)) {
-			return true
-		}
-		return false
-	}
-
-	/**
-	 * Checks name length is greater than 2 characters
-	 * @param {string} name
-	 * @returns {boolean}
-	 */
-	isValidName(name: string | undefined): boolean {
-		if (name && name.length > 2) {
-			return true
-		}
-		return false
-	}
-
-	/**
-	 * Validate the region code.
-	 * @param {string} region the region code to validate
-	 */
-	isValidRegion(region: string): boolean {
-		const regionTLD = regions[region]?.tld
-		if (!regionTLD) {
-			return false
-		}
-		return true
 	}
 
 	/**
