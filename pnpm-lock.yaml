@@ -21,7 +21,7 @@ specifiers:
   eslint-plugin-jest: 27.0.4
   eslint-plugin-simple-import-sort: 8.0.0
   fastify: 4.13.0
-  html-to-text: 9.0.3
+  html-to-text: 9.0.4
   jest: 29.4.2
   jest-mock-extended: 3.0.1
   lodash: 4.17.21
@@ -43,7 +43,7 @@ dependencies:
   cheerio: 1.0.0-rc.12
   domhandler: 5.0.3
   fastify: 4.13.0
-  html-to-text: 9.0.3
+  html-to-text: 9.0.4
   jest-mock-extended: 3.0.1_gelezmms3va3pnkofxaadhcvma
   lodash: 4.17.21
   module-alias: 2.2.2
@@ -3356,8 +3356,8 @@ packages:
   /html-escaper/2.0.2:
     resolution: {integrity: sha512-H2iMtd0I4Mt5eYiapRdIDjp+XzelXQ0tFE4JS7YFwFevXXMmOp9myNrUvCg0D6ws8iqkRPBfKHgbwig1SmlLfg==}
 
-  /html-to-text/9.0.3:
-    resolution: {integrity: sha512-hxDF1kVCF2uw4VUJ3vr2doc91pXf2D5ngKcNviSitNkhP9OMOaJkDrFIFL6RMvko7NisWTEiqGpQ9LAxcVok1w==}
+  /html-to-text/9.0.4:
+    resolution: {integrity: sha512-ckrQ5N2yZS7qSgKxUbqrBZ02NxD5cSy7KuYjCNIf+HWbdzY3fbjYjQsoRIl6TiaZ4+XWOi0ggFP8/pmgCK/o+A==}
     engines: {node: '>=14'}
     dependencies:
       '@selderee/plugin-htmlparser2': 0.10.0
