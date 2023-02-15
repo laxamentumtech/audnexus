@@ -1,28 +1,37 @@
 import { z } from 'zod'
 
-import { asin10Regex, asin11Regex } from '#helpers/utils/shared'
+import { regions } from '#static/regions'
+
+// List of regions
+const regionTLDs = Object.keys(regions) as [string, ...string[]]
+
+export const asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
+export const asin11Regex = /\d{11}/gm
 
 // Reusable types
-const asin = z.string().regex(new RegExp(asin10Regex, 'g'))
-const genreAsin = z.string().regex(new RegExp(asin11Regex, 'g'))
-const nameOrTitle = z.string().min(1)
+export const AsinSchema = z.string().regex(asin10Regex)
+// Using different regex for 11 digit ASINs because zod validation needs quantifier
+export const GenreAsinSchema = z.string().regex(new RegExp(/^\d{11}$/gm))
+export const NameSchema = z.string().min(2)
+export const TitleSchema = z.string().min(1)
+export const RegionSchema = z.enum(regionTLDs).default('us')
 
 // Chapters
 const ApiSingleChapterSchema = z.object({
 	lengthMs: z.number().or(z.literal(0)),
 	startOffsetMs: z.number().or(z.literal(0)),
 	startOffsetSec: z.number().or(z.literal(0)),
-	title: nameOrTitle
+	title: TitleSchema
 })
 export type ApiSingleChapter = z.infer<typeof ApiSingleChapterSchema>
 
 export const ApiChapterSchema = z.object({
-	asin,
+	asin: AsinSchema,
 	brandIntroDurationMs: z.number().or(z.literal(0)),
 	brandOutroDurationMs: z.number().or(z.literal(0)),
 	chapters: z.array(ApiSingleChapterSchema),
 	isAccurate: z.boolean(),
-	region: z.string(),
+	region: RegionSchema,
 	runtimeLengthMs: z.number().or(z.literal(0)),
 	runtimeLengthSec: z.number().or(z.literal(0))
 })
@@ -30,23 +39,23 @@ export type ApiChapter = z.infer<typeof ApiChapterSchema>
 
 // Genres
 export const ApiGenreSchema = z.object({
-	asin: genreAsin,
-	name: nameOrTitle,
+	asin: GenreAsinSchema,
+	name: NameSchema,
 	type: z.string()
 })
 export type ApiGenre = z.infer<typeof ApiGenreSchema>
 
 // Series
 export const ApiSeriesSchema = z.object({
-	asin: asin.optional(),
-	name: nameOrTitle,
+	asin: AsinSchema.optional(),
+	name: NameSchema,
 	position: z.string().optional()
 })
 export type ApiSeries = z.infer<typeof ApiSeriesSchema>
 
 // People
 const PersonSchema = z.object({
-	name: nameOrTitle
+	name: NameSchema
 })
 
 export const ApiAuthorOnBookSchema = PersonSchema.extend({
@@ -55,11 +64,11 @@ export const ApiAuthorOnBookSchema = PersonSchema.extend({
 export type ApiAuthorOnBook = z.infer<typeof ApiAuthorOnBookSchema>
 
 export const ApiAuthorProfileSchema = PersonSchema.extend({
-	asin,
+	asin: AsinSchema,
 	description: z.string().optional(),
 	genres: z.array(ApiGenreSchema).optional(),
 	image: z.string().optional(),
-	region: z.string()
+	region: RegionSchema
 })
 export type ApiAuthorProfile = z.infer<typeof ApiAuthorProfileSchema>
 
@@ -68,7 +77,7 @@ export type ApiNarratorOnBook = z.infer<typeof ApiNarratorOnBookSchema>
 
 // Books
 const ApiCoreBookSchema = z.object({
-	asin,
+	asin: AsinSchema,
 	authors: z.array(ApiAuthorOnBookSchema),
 	description: z.string(),
 	formatType: z.string(),
@@ -78,12 +87,12 @@ const ApiCoreBookSchema = z.object({
 	narrators: z.array(ApiNarratorOnBookSchema).optional(),
 	publisherName: z.string(),
 	rating: z.string(),
-	region: z.string(),
+	region: RegionSchema,
 	releaseDate: z.date(),
 	runtimeLengthMin: z.number().or(z.literal(0)),
 	subtitle: z.string().optional(),
 	summary: z.string(),
-	title: nameOrTitle
+	title: TitleSchema
 })
 
 // What we expect to keep from Audible's API
@@ -107,8 +116,8 @@ export type HtmlBook = z.infer<typeof HtmlBookSchema>
 
 // Audible
 export const AudibleCategorySchema = z.object({
-	id: genreAsin,
-	name: nameOrTitle
+	id: GenreAsinSchema,
+	name: NameSchema
 })
 export type AudibleCategory = z.infer<typeof AudibleCategorySchema>
 
@@ -121,7 +130,7 @@ const AudibleCodecSchema = z.object({
 	enhanced_codec: z.string(),
 	format: z.string(),
 	is_kindle_enhanced: z.boolean(),
-	name: nameOrTitle
+	name: NameSchema
 })
 
 const AudibleRatingItemSchema = z.object({
@@ -144,8 +153,8 @@ const AudibleRatingSchema = z.object({
 })
 
 export const AudibleSeriesSchema = z.object({
-	asin: asin.optional(),
-	title: nameOrTitle,
+	asin: AsinSchema.optional(),
+	title: TitleSchema,
 	sequence: z.string().optional(),
 	url: z.string().optional()
 })
@@ -153,7 +162,7 @@ export type AudibleSeries = z.infer<typeof AudibleSeriesSchema>
 
 // This is the base shape of the data we get from Audible's API for all content
 const baseShape = z.object({
-	asin,
+	asin: AsinSchema,
 	authors: z.array(ApiAuthorOnBookSchema),
 	available_codecs: z.array(AudibleCodecSchema).optional(),
 	category_ladders: z.array(AudibleCategoriesSchema),
@@ -179,7 +188,7 @@ const baseShape = z.object({
 	social_media_images: z.record(z.string()),
 	subtitle: z.string().optional(),
 	thesaurus_subject_keywords: z.array(z.string()).optional(),
-	title: nameOrTitle
+	title: TitleSchema
 })
 
 // This is the shape of the data we get from Audible's API for podcast content
@@ -220,7 +229,7 @@ export const AudibleSingleChapterSchema = z.object({
 	length_ms: z.number().or(z.literal(0)),
 	start_offset_ms: z.number().or(z.literal(0)),
 	start_offset_sec: z.number().or(z.literal(0)),
-	title: nameOrTitle
+	title: TitleSchema
 })
 export type AudibleSingleChapter = z.infer<typeof AudibleSingleChapterSchema>
 
@@ -241,8 +250,8 @@ export type AudibleChapter = z.infer<typeof AudibleChapterSchema>
 
 // Requests
 export const ApiQueryStringSchema = z.object({
-	name: z.string().optional(),
-	region: z.string().length(2).default('us'),
+	name: NameSchema.optional(),
+	region: RegionSchema,
 	seedAuthors: z.enum(['0', '1']).optional(),
 	update: z.enum(['0', '1']).optional()
 })
