@@ -1,6 +1,4 @@
-import { AudibleProduct } from '#config/typing/audible'
-import type { Book } from '#config/typing/books'
-import { ApiBook } from '#config/typing/books'
+import type { ApiBook, AudibleProduct, Book } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import type { MinimalResponse } from '#tests/datasets/audible/books/api'
 import {

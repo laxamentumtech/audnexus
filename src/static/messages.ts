@@ -19,6 +19,9 @@ export const ErrorMessageNoResponse = (asin: string, source: string) =>
 // Parse error generic
 export const ErrorMessageParse = (asin: string, source: string) =>
 	`An error occurred while parsing ${source}. ASIN: ${asin}`
+// Item not available in region
+export const ErrorMessageRegion = (asin: string, region: string) =>
+	`Item not available in region '${region}' for ASIN: ${asin}`
 // Release date is in the future
 export const ErrorMessageReleaseDate = (asin: string) =>
 	`Release date is in the future for ASIN: ${asin}`
@@ -28,6 +31,7 @@ export const ErrorMessageRequiredKey = (asin: string, key: string, source: strin
 // Sorting error
 export const ErrorMessageSort = (asin: string) =>
 	`An error occurred while sorting book json: ${asin}`
+
 // CRUD errors
 // Create error
 export const ErrorMessageCreate = (asin: string, type: string) =>
@@ -41,6 +45,7 @@ export const ErrorMessageUpdate = (asin: string, type: string) =>
 // Not found in DB
 export const ErrorMessageNotFoundInDb = (asin: string, type: string) =>
 	`${type} ${asin} not found in the DB for update`
+
 // REDIS errors
 // Delete error
 export const ErrorMessageRedisDelete = (key: string) =>
@@ -48,7 +53,10 @@ export const ErrorMessageRedisDelete = (key: string) =>
 // Set error
 export const ErrorMessageRedisSet = (key: string) =>
 	`An error occurred while setting ${key} in redis`
+
 // Route errors
+// Bad Query
+export const ErrorMessageBadQuery = (query: string) => `Bad query: ${query}`
 // Data type error
 export const ErrorMessageDataType = (asin: string, type: string) =>
 	`Data type for ${asin} is not ${type}`
