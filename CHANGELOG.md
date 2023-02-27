@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/djdembeck/audnexus/compare/v1.2.0...v1.3.0) (2023-02-27)
+
+
+### Bug Fixes
+
+* **helper:** :bug: Audible could possibly redirect invalid author asin to search page ([7997fd8](https://github.com/djdembeck/audnexus/commit/7997fd831a36786bc82f66002679e5944617665b))
+* **types:** :bug: fix regexes in zod types ([4161ad6](https://github.com/djdembeck/audnexus/commit/4161ad6c229c94d5c0c4723a3a948ed3d430e1f9))
+
 ## [1.2.0](https://github.com/djdembeck/audnexus/compare/v1.1.0...v1.2.0) (2023-01-26)
 
 
