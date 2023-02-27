@@ -1,6 +1,6 @@
-import { AuthorProfile } from '#config/typing/people'
+import { ApiAuthorProfile } from '#config/types'
 
-export const authorParsedB00G0WYW92: AuthorProfile = {
+export const authorParsedB00G0WYW92: ApiAuthorProfile = {
 	asin: 'B00G0WYW92',
 	description:
 		'ANDY WEIR built a two-decade career as a software engineer until the success of his first published novel, The Martian, allowed him to live out his dream of writing full-time. He is a lifelong space nerd and a devoted hobbyist of such subjects as relativistic physics, orbital mechanics, and the history of manned spaceflight. He also mixes a mean cocktail. He lives in California.',
@@ -27,7 +27,7 @@ export const authorParsedB00G0WYW92: AuthorProfile = {
 	region: 'us'
 }
 
-export const authorParsedB0034NFIOI: AuthorProfile = {
+export const authorParsedB0034NFIOI: ApiAuthorProfile = {
 	asin: 'B0034NFIOI',
 	description: '',
 	genres: [

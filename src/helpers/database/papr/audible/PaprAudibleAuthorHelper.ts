@@ -1,13 +1,12 @@
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
-import { isAuthorDocument, isAuthorProfile } from '#config/typing/checkers'
+import { ApiAuthorProfile, ApiAuthorProfileSchema, ApiQueryString } from '#config/types'
+import { isAuthorDocument } from '#config/typing/checkers'
 import {
 	PaprAuthorDocumentReturn,
 	PaprAuthorReturn,
 	PaprAuthorSearch,
 	PaprDeleteReturn
 } from '#config/typing/papr'
-import { AuthorProfile } from '#config/typing/people'
-import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -21,11 +20,11 @@ import {
 
 export default class PaprAudibleAuthorHelper {
 	asin: string
-	authorData!: AuthorProfile
-	options: ParsedQuerystring
+	authorData!: ApiAuthorProfile
+	options: ApiQueryString
 	sharedHelper = new SharedHelper()
 
-	constructor(asin: string, options: ParsedQuerystring) {
+	constructor(asin: string, options: ApiQueryString) {
 		this.asin = asin
 		this.options = options
 	}
@@ -125,10 +124,10 @@ export default class PaprAudibleAuthorHelper {
 			$or: [{ region: { $exists: false } }, { region: this.options.region }]
 		})
 
-		// Remove database fields from data
-		const destructured = this.sharedHelper.destructureDocument(findOneAuthor)
-		// Assign type to author data
-		const data: AuthorProfile | null = isAuthorProfile(destructured) ? destructured : null
+		// Parse data to ensure it's the correct type and remove any extra fields
+		const dataParsed = ApiAuthorProfileSchema.safeParse(findOneAuthor)
+		// Assign data to variable if it's valid, otherwise assign null
+		const data = dataParsed.success ? dataParsed.data : null
 
 		return {
 			data: data,
@@ -139,7 +138,7 @@ export default class PaprAudibleAuthorHelper {
 	/**
 	 * Set authorData in the class object
 	 */
-	setAuthorData(authorData: AuthorProfile) {
+	setAuthorData(authorData: ApiAuthorProfile) {
 		this.authorData = authorData
 	}
 

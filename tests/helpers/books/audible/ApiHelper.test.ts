@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AxiosResponse } from 'axios'
 
-import { AudibleProduct } from '#config/typing/audible'
+import { AudibleCategory, AudibleProduct, AudibleProductSchema, AudibleSeries } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
@@ -31,7 +31,7 @@ beforeEach(async () => {
 	const params =
 		'category_ladders,contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
 	url = `https://api.audible.com/1.0/catalog/products/${asin}/?response_groups=` + params
-	mockResponse = deepCopy(apiResponse)
+	mockResponse = AudibleProductSchema.parse(deepCopy(apiResponse))
 	// Set up spys
 	jest.spyOn(SharedHelper.prototype, 'getParamString').mockReturnValue(params)
 	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
@@ -45,26 +45,25 @@ beforeEach(async () => {
 describe('ApiHelper should', () => {
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
-		expect(helper.reqUrl).toBe(url)
+		expect(helper.requestUrl).toBe(url)
 	})
 
 	test.todo('check required keys')
 
 	test('get high res image', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
+		helper.audibleResponse = mockResponse.product
 		expect(helper.getHighResImage()).toBe('https://m.media-amazon.com/images/I/91spdScZuIL.jpg')
 	})
 
 	test('get release date', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
+		helper.audibleResponse = mockResponse.product
 		expect(helper.getReleaseDate()).toBeInstanceOf(Date)
 	})
 
 	test('get series', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
+		// Make lint happy
+		if (mockResponse.product.content_delivery_type !== 'MultiPartBook') return undefined
+		helper.audibleResponse = mockResponse.product
 		// Should return undefined if no series title
 		expect(helper.getSeries({ asin: '123', title: '', sequence: '1', url: '' })).toBeUndefined()
 		expect(helper.getSeries(mockResponse.product.series![0])).toEqual({
@@ -75,15 +74,55 @@ describe('ApiHelper should', () => {
 	})
 
 	test('get series primary', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
+		// Make lint happy
+		if (mockResponse.product.content_delivery_type !== 'MultiPartBook') return undefined
+		helper.audibleResponse = mockResponse.product
 		// Should return undefined if no series name
 		expect(
 			helper.getSeriesPrimary([{ asin: '123', title: '', sequence: '1', url: '' }])
 		).toBeUndefined()
-		expect(helper.getSeriesPrimary(mockResponse.product.series)).toEqual({
+		expect(
+			helper.getSeriesPrimary([
+				{
+					asin: 'B079YXK1GL',
+					sequence: '1-2',
+					title: "Galaxy's Edge Series",
+					url: '/pd/Galaxys-Edge-Series-Audiobook/B079YXK1GL'
+				}
+			])
+		).toEqual({
 			asin: 'B079YXK1GL',
 			name: "Galaxy's Edge Series",
+			position: '1-2'
+		})
+	})
+
+	test('get series secondary', async () => {
+		// Make lint happy
+		if (mockResponse.product.content_delivery_type !== 'MultiPartBook') return undefined
+		helper.audibleResponse = mockResponse.product
+		// Should return undefined if no series name
+		expect(
+			helper.getSeriesSecondary([{ asin: '123', title: '', sequence: '1', url: '' }])
+		).toBeUndefined()
+		expect(
+			helper.getSeriesSecondary([
+				{
+					asin: 'B079YXK1GL',
+					sequence: '1-2',
+					title: "Galaxy's Edge Series",
+					url: '/pd/Galaxys-Edge-Series-Audiobook/B079YXK1GL'
+				},
+				{
+					asin: 'B079YXK1GL',
+					sequence: '1-2',
+					title: "NOT Galaxy's Edge Series",
+					url: '/pd/Galaxys-Edge-Series-Audiobook/B079YXK1GL'
+				}
+			])
+		).toEqual({
+			asin: 'B079YXK1GL',
+			name: "NOT Galaxy's Edge Series",
 			position: '1-2'
 		})
 	})
@@ -92,7 +131,6 @@ describe('ApiHelper should', () => {
 
 	test('fetch book data', async () => {
 		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
 		expect(data).toEqual(mockResponse)
 	})
 
@@ -144,54 +182,68 @@ describe('ApiHelper edge cases should', () => {
 	test('parse a book with no narrators', async () => {
 		const data = await helper.fetchBook()
 		// Directly set inputjson
-		helper.inputJson = data.product
-		helper.inputJson!.narrators = undefined
+		helper.audibleResponse = data.product
+		helper.audibleResponse!.narrators = undefined
 
 		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
 	})
 
 	test('pass key check with a number value of 0', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
-		helper.inputJson!.runtime_length_min = 0
-		expect(helper.hasRequiredKeys().isValid).toBe(true)
+		const data = mockResponse
+		mockResponse.product.runtime_length_min = 0
+		const parsed = await helper.parseResponse(data)
+		expect(parsed).toBeDefined()
+	})
+
+	test('series should be undefined if no series', async () => {
+		const obj = {
+			asin: '123',
+			title: '',
+			sequence: '1'
+		}
+		expect(helper.getSeries(obj)).toBeUndefined()
+	})
+
+	test('getSeriesX should return undefined if not a multi part book', async () => {
+		const obj = {
+			asin: '123',
+			title: '',
+			sequence: '1'
+		}
+		helper.audibleResponse = mockResponse.product
+		helper.audibleResponse.content_delivery_type = 'SinglePartBook'
+		expect(helper.getSeriesPrimary([obj])).toBeUndefined()
+		expect(helper.getSeriesSecondary([obj])).toBeUndefined()
 	})
 
 	test('get backup lower res image', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
-		helper.inputJson!.product_images![1024] = ''
+		helper.audibleResponse = mockResponse.product
+		helper.audibleResponse!.product_images![1024] = ''
 		expect(helper.getHighResImage()).toBe('https://m.media-amazon.com/images/I/51OIn2FgdtL.jpg')
 	})
 
 	test('handle no image', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
-		helper.inputJson!.product_images = {}
+		helper.audibleResponse = mockResponse.product
+		helper.audibleResponse!.product_images = {}
 		expect(helper.getHighResImage()).toBeUndefined()
 	})
 
 	test('handle no product_images object', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
-		helper.inputJson!.product_images = undefined
+		helper.audibleResponse = mockResponse.product
+		helper.audibleResponse!.product_images = undefined
 		expect(helper.getHighResImage()).toBeUndefined()
 	})
 
 	test('use issue_date if release_date is not available', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
-		helper.inputJson!.issue_date = helper.inputJson!.release_date
-		helper.inputJson!.release_date = ''
+		helper.audibleResponse = mockResponse.product
+		helper.audibleResponse!.issue_date = helper.audibleResponse!.release_date
+		helper.audibleResponse!.release_date = ''
 		expect(helper.getReleaseDate()).toBeInstanceOf(Date)
 	})
 
-	test('handle empty series array', () => {
-		expect(helper.getSeriesPrimary(undefined)).toBeUndefined()
-		expect(helper.getSeriesSecondary(undefined)).toBeUndefined()
-	})
-
 	test('parse a book with 2 series', async () => {
+		// Make lint happy
+		if (B017V4IM1G.product.content_delivery_type !== 'MultiPartBook') return undefined
 		helper = new ApiHelper('B017V4IM1G', region)
 		const data = await helper.parseResponse(B017V4IM1G)
 		expect(data.seriesPrimary).toEqual({
@@ -206,18 +258,6 @@ describe('ApiHelper edge cases should', () => {
 		})
 	})
 
-	test('not pass key check when on falsy value', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
-		helper.inputJson!.asin = ''
-		expect(helper.hasRequiredKeys().isValid).toBe(false)
-	})
-
-	test('allow podcast to pass key check', () => {
-		helper.inputJson = podcast.product
-		expect(helper.hasRequiredKeys().isValid).toBe(true)
-	})
-
 	test('return false on empty input to isGenre', async () => {
 		expect(helper.isGenre(null)).toBeFalsy()
 	})
@@ -225,13 +265,14 @@ describe('ApiHelper edge cases should', () => {
 
 describe('ApiHelper should throw error when', () => {
 	test('no input data', () => {
-		expect(() => helper.hasRequiredKeys()).toThrowError('No input data')
 		expect(() => helper.getCategories()).toThrowError('No input data')
 		expect(() => helper.getGenres()).toThrowError('No input data')
 		expect(() => helper.getHighResImage()).toThrowError('No input data')
 		expect(() => helper.getReleaseDate()).toThrowError('No input data')
-		expect(() => helper.getSeriesPrimary(mockResponse.product.series)).toThrowError('No input data')
-		expect(() => helper.getSeriesSecondary(mockResponse.product.series)).toThrowError(
+		expect(() => helper.getSeriesPrimary(['1'] as unknown as AudibleSeries[])).toThrowError(
+			'No input data'
+		)
+		expect(() => helper.getSeriesSecondary(['1'] as unknown as AudibleSeries[])).toThrowError(
 			'No input data'
 		)
 		expect(() => helper.getTags()).toThrowError('No input data')
@@ -239,10 +280,19 @@ describe('ApiHelper should throw error when', () => {
 	})
 
 	test('release_date is in the future', async () => {
-		const data = await helper.fetchBook()
-		await helper.parseResponse(data)
-		helper.inputJson!.release_date = '2080-01-01'
+		helper.audibleResponse = mockResponse.product
+		helper.audibleResponse!.release_date = '2080-01-01'
 		expect(() => helper.getReleaseDate()).toThrowError('Release date is in the future')
+	})
+
+	test('category is invalid', () => {
+		const obj = {
+			id: '1',
+			name: ''
+		} as AudibleCategory
+		expect(() => helper.categoryToApiGenre(obj, 'genre')).toThrowError(
+			`An error occurred while parsing ApiHelper. ASIN: ${asin}`
+		)
 	})
 
 	test('error fetching book data', async () => {
@@ -262,6 +312,12 @@ describe('ApiHelper should throw error when', () => {
 	test('input is undefined', async () => {
 		await expect(helper.parseResponse(undefined)).rejects.toThrowError(
 			`An error occurred while parsing Audible API. ASIN: ${asin}`
+		)
+	})
+
+	test('input has no data', async () => {
+		await expect(helper.parseResponse({ product: {} } as AudibleProduct)).rejects.toThrowError(
+			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
 

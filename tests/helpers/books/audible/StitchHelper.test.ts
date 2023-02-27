@@ -1,11 +1,10 @@
 import * as cheerio from 'cheerio'
 
-import { AudibleProduct } from '#config/typing/audible'
-import { Book } from '#config/typing/books'
+import { AudibleProduct, Book } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
-import { ErrorMessageHTTPFetch, ErrorMessageParse, ErrorMessageRequiredKey } from '#static/messages'
+import { ErrorMessageHTTPFetch, ErrorMessageParse } from '#static/messages'
 import {
 	apiResponse,
 	genresObject,
@@ -38,7 +37,6 @@ beforeEach(() => {
 describe('StitchHelper should', () => {
 	beforeEach(() => {
 		// Set up spys
-		jest.spyOn(helper.apiHelper, 'hasRequiredKeys').mockReturnValue({ isValid: true, message: '' })
 		jest
 			.spyOn(helper.apiHelper, 'fetchBook')
 			.mockImplementation(() => Promise.resolve(mockApiResponse))
@@ -87,7 +85,6 @@ describe('StitchHelper should', () => {
 describe('SitchHelper should handle fallback', () => {
 	beforeEach(() => {
 		// Set up spys
-		jest.spyOn(helper.apiHelper, 'hasRequiredKeys').mockReturnValue({ isValid: true, message: '' })
 		jest
 			.spyOn(helper.apiHelper, 'parseResponse')
 			.mockImplementation(() => Promise.resolve(parsedBook))
@@ -184,13 +181,11 @@ describe('StitchHelper should throw error when', () => {
 
 	test('processing book fails', async () => {
 		jest.spyOn(helper, 'fetchApiBook').mockImplementation()
-		jest.spyOn(helper.apiHelper, 'hasRequiredKeys').mockReturnValue({
-			isValid: false,
-			message: ErrorMessageRequiredKey(asin, 'authors', 'exist')
-		})
-		helper.apiHelper.inputJson = { asin: 'B07JZQZQZQ' } as unknown as AudibleProduct['product']
+		helper.apiHelper.audibleResponse = {
+			asin: 'B07JZQZQZQ'
+		} as unknown as AudibleProduct['product']
 		await expect(helper.process()).rejects.toThrowError(
-			`Required key 'authors' does not exist in Audible API response for ASIN ${asin}`
+			`An error occurred while parsing Audible API. ASIN: ${asin}`
 		)
 	})
 

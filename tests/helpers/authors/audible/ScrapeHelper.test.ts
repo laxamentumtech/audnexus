@@ -108,4 +108,11 @@ describe('ScrapeHelper should throw error when', () => {
 			`No author name found for ASIN: ${asin}`
 		)
 	})
+
+	test('parse response fails validation', async () => {
+		jest.spyOn(helper, 'getName').mockReturnValue('')
+		await expect(helper.parseResponse(cheerio.load(htmlResponse))).rejects.toThrowError(
+			`Item not available in region '${region}' for ASIN: ${asin}`
+		)
+	})
 })

@@ -1,6 +1,6 @@
 import { CheerioAPI } from 'cheerio'
 
-import { HtmlBook } from '#config/typing/books'
+import { HtmlBook } from '#config/types'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import {
 	parsedB08C6YJ1LS,

@@ -1,4 +1,4 @@
-import { Book } from '#config/typing/books'
+import { Book } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 

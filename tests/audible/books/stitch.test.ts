@@ -1,4 +1,4 @@
-import { ApiChapter, Book } from '#config/typing/books'
+import { ApiChapter, Book } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import { minimalB0036I54I6 } from '#tests/datasets/audible/books/api'

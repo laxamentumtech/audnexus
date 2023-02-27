@@ -2,6 +2,7 @@ name: 'jest-coverage'
 on:
   pull_request:
     branches:
+      - develop
       - main
 jobs:
   coverage:

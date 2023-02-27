@@ -1,41 +1,23 @@
 import { FastifyReply } from 'fastify'
+import { ZodError } from 'zod'
 
-import { ParsedQuerystring, RequestGeneric } from '#config/typing/requests'
-import SharedHelper from '#helpers/utils/shared'
-import { MessageBadAsin, MessageBadRegion, MessageNoSearchParams } from '#static/messages'
+import { ApiQueryString, ApiQueryStringSchema, AsinSchema } from '#config/types'
+import {
+	ErrorMessageBadQuery,
+	MessageBadAsin,
+	MessageBadRegion,
+	MessageNoSearchParams
+} from '#static/messages'
 
 class RouteCommonHelper {
 	asin: string
-	query: ParsedQuerystring
+	query: unknown
+	parsedQuery!: ApiQueryString
 	reply: FastifyReply
-	sharedHelper: SharedHelper
-	constructor(asin: string, query: RequestGeneric['Querystring'], reply: FastifyReply) {
+	constructor(asin: string, query: unknown, reply: FastifyReply) {
 		this.asin = asin
-		this.query = this.parseOptions(query)
+		this.query = query
 		this.reply = reply
-		this.sharedHelper = new SharedHelper()
-	}
-
-	/**
-	 * Calls sharedHelper.isValidAsin
-	 */
-	isValidAsin(): boolean {
-		return this.sharedHelper.isValidAsin(this.asin)
-	}
-
-	/**
-	 * Check if name is valid (not empty)
-	 */
-	isValidName(): boolean {
-		return this.sharedHelper.isValidName(this.query.name)
-	}
-
-	/**
-	 * Calls sharedHelper.isValidRegion
-	 */
-	isValidRegion(): boolean {
-		if (!this.query.region) return false
-		return this.sharedHelper.isValidRegion(this.query.region)
 	}
 
 	/**
@@ -43,35 +25,62 @@ class RouteCommonHelper {
 	 * Reply object may be modified by validations
 	 * @returns {object} - Returns object with reply and options
 	 */
-	handler(): { options: ParsedQuerystring; reply: FastifyReply } {
+	handler(): { options: ApiQueryString; reply: FastifyReply } {
+		// Run validations
 		this.runValidations()
 		return {
-			options: this.query,
+			options: this.parsedQuery,
 			reply: this.reply
 		}
 	}
 
 	/**
-	 * Check if asin is valid (when present)
-	 * Check if name is valid (when present)
-	 * Check if region is valid
+	 * Handle parse error and throw appropriate error
+	 * @param {object} error - ZodError object
+	 * @throws {Error} - Throws error if query is Invalid
+	 * @returns {void}
 	 */
-	runValidations(): void {
-		if (this.asin && !this.isValidAsin()) this.throwBadAsinError()
-		if (!this.asin && !this.isValidName()) this.throwBadNameError()
-		if (this.query.region && !this.isValidRegion()) this.throwBadRegionError()
+	handleParseError(error: ZodError): void {
+		const value = error.issues[0].path[0] as string
+		switch (value) {
+			case 'name':
+				return this.throwBadNameError()
+			case 'region':
+				return this.throwBadRegionError()
+			default:
+				return this.throwBadQueryError(value)
+		}
 	}
 
 	/**
-	 * Parse the query string
+	 * Checks asin length and format to verify it's valid
+	 * @param {string} asin 10 character identifier
+	 * @returns {boolean}
 	 */
-	parseOptions(query: RequestGeneric['Querystring']): ParsedQuerystring {
-		return {
-			...(query.name && { name: query.name }),
-			region: query.region ?? 'us',
-			...(query.seedAuthors && { seedAuthors: query.seedAuthors }),
-			...(query.update && { update: query.update })
+	isValidAsin(asin: string): boolean {
+		return AsinSchema.safeParse(asin).success
+	}
+
+	/**
+	 * Parse query or throw error
+	 * Sets this.parsedQuery to parsed query on success
+	 * @param {object} query - Query object
+	 * @throws {Error} - Throws error if query is Invalid
+	 */
+	parseQueryString(): void {
+		const parsedQuery = ApiQueryStringSchema.safeParse(this.query)
+		if (!parsedQuery.success) {
+			this.handleParseError(parsedQuery.error)
+		} else {
+			this.parsedQuery = parsedQuery.data
 		}
+	}
+
+	runValidations(): void {
+		// Validate asin
+		if (this.asin && !this.isValidAsin(this.asin)) this.throwBadAsinError()
+		// Validate query
+		this.parseQueryString()
 	}
 
 	/**
@@ -99,6 +108,15 @@ class RouteCommonHelper {
 	throwBadRegionError(): void {
 		this.reply.code(400)
 		throw new Error(MessageBadRegion)
+	}
+
+	/**
+	 * Throw error if query is invalid
+	 * Sets reply code to 400
+	 */
+	throwBadQueryError(message: string): void {
+		this.reply.code(400)
+		throw new Error(ErrorMessageBadQuery(message))
 	}
 }
 

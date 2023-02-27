@@ -2,8 +2,8 @@ jest.mock('#config/models/Book')
 jest.mock('#helpers/utils/shared')
 
 import BookModel, { BookDocument } from '#config/models/Book'
+import { ApiQueryString } from '#config/types'
 import * as checkers from '#config/typing/checkers'
-import { ParsedQuerystring } from '#config/typing/requests'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -15,7 +15,7 @@ import {
 
 let asin: string
 let helper: PaprAudibleBookHelper
-let options: ParsedQuerystring
+let options: ApiQueryString
 
 beforeEach(() => {
 	asin = parsedBook.asin
@@ -35,9 +35,7 @@ beforeEach(() => {
 	})
 	jest.spyOn(BookModel, 'findOne').mockResolvedValue(bookWithoutProjection)
 	jest.spyOn(BookModel, 'insertOne').mockResolvedValue(bookWithoutProjection)
-	jest.spyOn(checkers, 'isBook').mockReturnValue(true)
 	jest.spyOn(checkers, 'isBookDocument').mockReturnValue(true)
-	jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedBook)
 })
 
 describe('PaprAudibleBookHelper should', () => {
@@ -96,7 +94,6 @@ describe('PaprAudibleBookHelper should', () => {
 	test('findOneWithProjection returns null if it is not a Book', async () => {
 		const obj = { data: null, modified: false }
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(null)
-		jest.spyOn(checkers, 'isBook').mockReturnValueOnce(false)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(BookModel.findOne).toHaveBeenCalledWith({
 			asin: asin,
@@ -126,8 +123,6 @@ describe('PaprAudibleBookHelper should', () => {
 	test('createOrUpdate needs to create', async () => {
 		const obj = { data: parsedBook, modified: true }
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(null)
-		jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValueOnce(null)
-		jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedBook)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(bookWithoutProjection)
 		helper.setBookData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
@@ -153,9 +148,6 @@ describe('PaprAudibleBookHelper should', () => {
 	test('createOrUpdate no genres on new or old', async () => {
 		const obj = { data: parsedBookWithoutGenres, modified: false }
 		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
-		jest
-			.spyOn(SharedHelper.prototype, 'destructureDocument')
-			.mockReturnValue(parsedBookWithoutGenres)
 		jest
 			.spyOn(BookModel, 'findOne')
 			.mockResolvedValueOnce(parsedBookWithoutGenres as unknown as BookDocument)

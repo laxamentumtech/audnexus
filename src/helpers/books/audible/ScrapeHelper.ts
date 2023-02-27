@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio'
 
-import { HtmlBook } from '#config/typing/books'
+import { HtmlBook, HtmlBookSchema } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageHTTPFetch } from '#static/messages'
@@ -61,14 +61,16 @@ class ScrapeHelper {
 			this.helper.getGenresFromHtml(dom, 'div.bc-chip-group a'),
 			'tag'
 		)
-		// Object to return
-		const genresObject: HtmlBook = {
-			genres: [...genres, ...tags]
-		}
-		// Return the object if there's at least one genre
-		if (genresObject.genres.length) return genresObject
 
-		return undefined
+		// Safe parse genres and tags
+		const genresObject = HtmlBookSchema.safeParse({
+			genres: [...genres, ...tags]
+		})
+
+		// If there's an error, return undefined
+		if (!genresObject.success) return undefined
+
+		return genresObject.data
 	}
 }
 
