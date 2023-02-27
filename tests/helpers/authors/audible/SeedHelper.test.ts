@@ -1,6 +1,6 @@
 import type { AxiosResponse } from 'axios'
 
-import { ApiBook } from '#config/typing/books'
+import { ApiBook } from '#config/types'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import { parsedBook } from '#tests/datasets/helpers/books'

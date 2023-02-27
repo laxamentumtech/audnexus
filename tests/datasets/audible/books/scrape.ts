@@ -1,4 +1,4 @@
-import { HtmlBook } from '#config/typing/books'
+import { HtmlBook } from '#config/types'
 
 export const parsedB08G9PRS1K: HtmlBook = {
 	genres: [

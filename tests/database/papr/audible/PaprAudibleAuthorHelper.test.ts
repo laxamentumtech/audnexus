@@ -2,8 +2,8 @@ jest.mock('#config/models/Author')
 jest.mock('#helpers/utils/shared')
 
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
+import { ApiQueryString } from '#config/types'
 import * as checkers from '#config/typing/checkers'
-import { ParsedQuerystring } from '#config/typing/requests'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -15,7 +15,7 @@ import {
 
 let asin: string
 let helper: PaprAudibleAuthorHelper
-let options: ParsedQuerystring
+let options: ApiQueryString
 
 beforeEach(() => {
 	asin = parsedAuthor.asin
@@ -34,9 +34,7 @@ beforeEach(() => {
 	})
 	jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(authorWithoutProjection)
 	jest.spyOn(AuthorModel, 'insertOne').mockResolvedValue(authorWithoutProjection)
-	jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(true)
 	jest.spyOn(checkers, 'isAuthorDocument').mockReturnValue(true)
-	jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedAuthor)
 })
 
 describe('PaprAudibleAuthorHelper should', () => {
@@ -103,7 +101,6 @@ describe('PaprAudibleAuthorHelper should', () => {
 	test('findOneWithProjection returns null if it is not an AuthorProfile', async () => {
 		const obj = { data: null, modified: false }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(null)
-		jest.spyOn(checkers, 'isAuthorProfile').mockReturnValue(false)
 		await expect(helper.findOneWithProjection()).resolves.toEqual(obj)
 		expect(AuthorModel.findOne).toHaveBeenCalledWith({
 			asin: asin,
@@ -135,9 +132,7 @@ describe('PaprAudibleAuthorHelper should', () => {
 	test('createOrUpdate needs to create', async () => {
 		const obj = { data: parsedAuthor, modified: true }
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(null)
-		jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValueOnce(null)
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(authorWithoutProjection)
-		jest.spyOn(SharedHelper.prototype, 'destructureDocument').mockReturnValue(parsedAuthor)
 		helper.setAuthorData(parsedAuthor)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
@@ -166,9 +161,6 @@ describe('PaprAudibleAuthorHelper should', () => {
 	test('createOrUpdate no genres on new or old', async () => {
 		const obj = { data: parsedAuthorWithoutGenres, modified: false }
 		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
-		jest
-			.spyOn(SharedHelper.prototype, 'destructureDocument')
-			.mockReturnValue(parsedAuthorWithoutGenres)
 		jest
 			.spyOn(AuthorModel, 'findOne')
 			.mockResolvedValueOnce(parsedAuthorWithoutGenres as unknown as AuthorDocument)

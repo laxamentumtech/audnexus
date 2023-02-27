@@ -1,8 +1,14 @@
 import { ObjectId, WithId } from 'mongodb'
 
 import { BookDocument } from '#config/models/Book'
-import { AudibleProduct } from '#config/typing/audible'
-import { ApiBook, Book } from '#config/typing/books'
+import {
+	ApiBook,
+	ApiBookSchema,
+	ApiGenreSchema,
+	AudibleProductSchema,
+	Book,
+	BookSchema
+} from '#config/types'
 
 // Reusable
 const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
@@ -41,7 +47,7 @@ const summary =
 	"<p><i>Galaxy's Edge </i>contains <i>Legionnaire </i>through to the end of <i>Galactic Outlaws</i>. </p> <p>On the edge of the galaxy, a diplomatic mission to an alien planet takes a turn when the Legionnaires, an elite special fighting force, find themselves ambushed and stranded behind enemy lines. They struggle to survive under siege, waiting on a rescue that might never come.</p> <p>In the seedy starport of Ackabar, a young girl searches the crime-ridden gutters to avenge her father's murder; not far away, a double-dealing legionniare-turned-smuggler hunts an epic payday; and somewhere along the outer galaxy, a mysterious bounty hunter lies in wait.</p> <p><i>Galaxy's Edge</i> combines sleek starfighters, exotic aliens, loyal bots, blasters, scoundrels, heroes, and powerful enemies in a thrilling adventure that will take you back to that magic place from a long time ago.</p>"
 const title = "Galaxy's Edge"
 
-const genres = [
+const genresArr = [
 	{
 		asin: '18580606011',
 		name: 'Science Fiction & Fantasy',
@@ -55,8 +61,10 @@ const genres = [
 	{ asin: '18580641011', name: 'Military', type: 'tag' }
 ]
 
+const genres = genresArr.map((genre) => ApiGenreSchema.parse(genre))
+
 export const genresObject = {
-	genres: [genres[0], genres[2]]
+	genres: [genresArr[0], genresArr[2]]
 }
 
 export const genresWithoutAsin = {
@@ -170,7 +178,7 @@ export const htmlResponse =
 </div>\
 '
 
-export const apiResponse: AudibleProduct = {
+export const apiResponse = AudibleProductSchema.parse({
 	product: {
 		asin: 'B079LRSMNN',
 		authors: [
@@ -332,9 +340,9 @@ export const apiResponse: AudibleProduct = {
 		'media',
 		'product_attrs'
 	]
-}
+})
 
-export const parsedBook: ApiBook = {
+export const parsedBook = ApiBookSchema.parse({
 	asin,
 	authors,
 	description,
@@ -351,17 +359,17 @@ export const parsedBook: ApiBook = {
 	seriesPrimary,
 	summary,
 	title
-}
+})
 
-export const parsedBookWithGenres: Book = {
+export const parsedBookWithGenres = BookSchema.parse({
 	...parsedBook,
 	genres
-}
+})
 
-export const parsedBookWithoutNarrators: Book = {
+export const parsedBookWithoutNarrators = BookSchema.parse({
 	...parsedBook,
 	narrators: []
-}
+})
 
 export const changedParsedBook: ApiBook = {
 	asin,

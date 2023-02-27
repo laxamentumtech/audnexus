@@ -1,8 +1,7 @@
 import { ObjectId, WithId } from 'mongodb'
 
 import { ChapterDocument } from '#config/models/Chapter'
-import { AudibleChapter } from '#config/typing/audible'
-import { ApiChapter } from '#config/typing/books'
+import type { ApiChapter, AudibleChapter } from '#config/types'
 
 const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
 

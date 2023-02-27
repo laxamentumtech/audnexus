@@ -1,5 +1,11 @@
-import { AudibleChapter, SingleChapter } from '#config/typing/audible'
-import { ApiChapter, ApiSingleChapter } from '#config/typing/books'
+import {
+	ApiChapter,
+	ApiChapterSchema,
+	ApiSingleChapter,
+	AudibleChapter,
+	AudibleChapterSchema,
+	AudibleSingleChapter
+} from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -11,8 +17,8 @@ import { regions } from '#static/regions'
 
 class ChapterHelper {
 	asin: string
-	inputJson: AudibleChapter['content_metadata']['chapter_info'] | undefined
-	reqUrl: string
+	audibleResponse: AudibleChapter['content_metadata']['chapter_info'] | undefined
+	requestUrl: string
 	region: string
 
 	constructor(asin: string, region: string) {
@@ -23,7 +29,7 @@ class ChapterHelper {
 		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/content'
 		const params = 'metadata?response_groups=chapter_info'
-		this.reqUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
+		this.requestUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
 	}
 
 	/**
@@ -58,7 +64,7 @@ class ChapterHelper {
 	 * @returns {Promise<AudibleChapter>} data from parseResponse() function.
 	 */
 	async fetchChapter(): Promise<AudibleChapter | undefined> {
-		return fetch(this.reqUrl)
+		return fetch(this.requestUrl)
 			.then(async (response) => {
 				const json: AudibleChapter = response.data
 				return json
@@ -74,13 +80,13 @@ class ChapterHelper {
 	 * This is run after all other data has been parsed.
 	 */
 	getFinalData(): ApiChapter {
-		if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ChapterHelper'))
+		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ChapterHelper'))
 
-		return {
+		return ApiChapterSchema.parse({
 			asin: this.asin,
-			brandIntroDurationMs: this.inputJson.brandIntroDurationMs,
-			brandOutroDurationMs: this.inputJson.brandOutroDurationMs,
-			chapters: this.inputJson.chapters.map((chapter: SingleChapter) => {
+			brandIntroDurationMs: this.audibleResponse.brandIntroDurationMs,
+			brandOutroDurationMs: this.audibleResponse.brandOutroDurationMs,
+			chapters: this.audibleResponse.chapters.map((chapter: AudibleSingleChapter) => {
 				const chapJson: ApiSingleChapter = {
 					lengthMs: chapter.length_ms,
 					startOffsetMs: chapter.start_offset_ms,
@@ -89,82 +95,38 @@ class ChapterHelper {
 				}
 				return chapJson
 			}),
-			isAccurate: this.inputJson.is_accurate,
+			isAccurate: this.audibleResponse.is_accurate,
 			region: this.region,
-			runtimeLengthMs: this.inputJson.runtime_length_ms,
-			runtimeLengthSec: this.inputJson.runtime_length_sec
-		}
-	}
-
-	/**
-	 * Checks if all required keys are present
-	 * These are the keys that are required to build the final data object
-	 * @returns validity as boolean, and error message as string
-	 */
-	hasRequiredKeys(): { isValid: boolean; message: string } {
-		let message = ''
-		const isValidKey = (key: string): boolean => {
-			if (!this.inputJson) throw new Error(ErrorMessageNoData(this.asin, 'ChapterHelper'))
-
-			// Make sure key exists in inputJson
-			const keyExists = Object.hasOwnProperty.call(this.inputJson, key)
-
-			// Get value of key
-			const value = this.inputJson[key as keyof typeof this.inputJson]
-
-			// Allow 0 as a valid value
-			const isNumberAndZero = typeof value === 'number' && value === 0
-
-			// Break on non valid value
-			let isValidKey = true
-			switch (isValidKey) {
-				case !keyExists:
-					isValidKey = false
-					message = ErrorMessageRequiredKey(this.asin, key, 'exist for chapter')
-					break
-				case !value && !isNumberAndZero:
-					isValidKey = false
-					message = ErrorMessageRequiredKey(this.asin, key, 'have a valid value')
-					break
-			}
-
-			return isValidKey
-		}
-
-		// Create new const for presence check
-		const requiredKeys = [
-			'brandIntroDurationMs',
-			'brandOutroDurationMs',
-			'chapters',
-			'is_accurate',
-			'runtime_length_ms',
-			'runtime_length_sec'
-		]
-		const isValid = requiredKeys.every((key) => isValidKey(key))
-
-		return {
-			isValid,
-			message
-		}
+			runtimeLengthMs: this.audibleResponse.runtime_length_ms,
+			runtimeLengthSec: this.audibleResponse.runtime_length_sec
+		})
 	}
 
 	/**
 	 * Pareses fetched chapters from Audible API and cleaning up chapter titles
-	 * @param {AudibleChapter} jsonRes fetched json response from api.audible.com
+	 * @param {AudibleChapter} jsonResponse fetched json response from api.audible.com
 	 * @returns {Promise<ApiChapter>} relevant data to keep
 	 */
-	async parseResponse(jsonRes: AudibleChapter | undefined): Promise<ApiChapter | undefined> {
+	async parseResponse(jsonResponse: AudibleChapter | undefined): Promise<ApiChapter | undefined> {
 		// Base undefined check
-		if (!jsonRes || !jsonRes.content_metadata.chapter_info) {
+		if (!jsonResponse || !jsonResponse.content_metadata.chapter_info) {
 			return undefined
 		}
-		this.inputJson = jsonRes.content_metadata.chapter_info
 
-		// Check all required keys present
-		const requiredKeys = this.hasRequiredKeys()
-		if (!requiredKeys.isValid) {
-			throw new Error(requiredKeys.message)
+		// Parse response with zod
+		const response = AudibleChapterSchema.safeParse(jsonResponse)
+		// Handle error if response is not valid
+		if (!response.success) {
+			// Get the key 'path' from the first issue
+			const issuesPath = response.error.issues[0].path
+			// Get the last key from the path, which is the key that is missing
+			const key = issuesPath[issuesPath.length - 1]
+			// Throw error with the missing key
+			throw new Error(ErrorMessageRequiredKey(this.asin, String(key), 'exist for chapter'))
 		}
+
+		// Set response to class variable on success
+		this.audibleResponse = response.data.content_metadata.chapter_info
 
 		return this.getFinalData()
 	}

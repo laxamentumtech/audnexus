@@ -1,8 +1,7 @@
 import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
-import { ApiChapter } from '#config/typing/books'
-import { isChapter, isChapterDocument } from '#config/typing/checkers'
+import { ApiChapter, ApiChapterSchema, ApiQueryString } from '#config/types'
+import { isChapterDocument } from '#config/typing/checkers'
 import { PaprChapterDocumentReturn, PaprChapterReturn, PaprDeleteReturn } from '#config/typing/papr'
-import { ParsedQuerystring } from '#config/typing/requests'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -16,10 +15,10 @@ import {
 export default class PaprAudibleChapterHelper {
 	asin: string
 	chapterData!: ApiChapter
-	options: ParsedQuerystring
+	options: ApiQueryString
 	sharedHelper = new SharedHelper()
 
-	constructor(asin: string, options: ParsedQuerystring) {
+	constructor(asin: string, options: ApiQueryString) {
 		this.asin = asin
 		this.options = options
 	}
@@ -94,10 +93,10 @@ export default class PaprAudibleChapterHelper {
 			$or: [{ region: { $exists: false } }, { region: this.options.region }]
 		})
 
-		// Remove database fields from data
-		const destructured = this.sharedHelper.destructureDocument(findOneChapter)
-		// Assign type to chapter data
-		const data: ApiChapter | null = isChapter(destructured) ? destructured : null
+		// Parse data to ensure it's the correct type and remove any extra fields
+		const dataParsed = ApiChapterSchema.safeParse(findOneChapter)
+		// Assign data to variable if it's valid, otherwise assign null
+		const data = dataParsed.success ? dataParsed.data : null
 
 		return {
 			data: data,
