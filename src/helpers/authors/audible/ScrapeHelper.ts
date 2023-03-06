@@ -69,7 +69,7 @@ class ScrapeHelper {
 			)
 				.first()
 				.text()
-			name = html
+			name = html.trim()
 		} catch (error) {
 			throw new Error(ErrorMessageNotFound(this.asin, 'author name'))
 		}
