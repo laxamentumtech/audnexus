@@ -24,7 +24,9 @@ class ScrapeHelper {
 		const baseDomain = 'https://www.audible'
 		const regionTLD = regions[region].tld
 		const baseUrl = 'author'
-		this.reqUrl = this.helper.buildUrl(asin, baseDomain, regionTLD, baseUrl)
+		// We need to override the base country to get the correct author page
+		const params = 'ipRedirectOverride=true&overrideBaseCountry=true'
+		this.reqUrl = this.helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
 	}
 
 	/**
@@ -59,13 +61,15 @@ class ScrapeHelper {
 	}
 
 	getName(dom: cheerio.CheerioAPI): string {
-		let nameText: Text
 		let name: string
 		// First try to get valid author text
 		try {
-			const html = dom('h1.bc-text-bold')[0].children[0]
-			nameText = html as unknown as Text
-			name = nameText.data.trim()
+			const html = dom(
+				'h1.bc-heading.bc-color-base.bc-size-extra-large.bc-text-secondary.bc-text-bold'
+			)
+				.first()
+				.text()
+			name = html.trim()
 		} catch (error) {
 			throw new Error(ErrorMessageNotFound(this.asin, 'author name'))
 		}
