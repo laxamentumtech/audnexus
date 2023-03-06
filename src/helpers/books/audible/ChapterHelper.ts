@@ -28,8 +28,8 @@ class ChapterHelper {
 		const baseDomain = 'https://api.audible'
 		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/content'
-		const params = 'metadata?response_groups=chapter_info'
-		this.requestUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
+		const params = 'response_groups=chapter_info'
+		this.requestUrl = helper.buildUrl(asin + '/metadata', baseDomain, regionTLD, baseUrl, params)
 	}
 
 	/**
