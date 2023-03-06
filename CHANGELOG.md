@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.3.1](https://github.com/djdembeck/audnexus/compare/v1.3.0...v1.3.1) (2023-03-06)
+
+
+### Bug Fixes
+
+* **helper:** :bug: some region author pages could get redirected ([ddf2d22](https://github.com/djdembeck/audnexus/commit/ddf2d22f46cd3bfa2f9cbce7e8725d445db74b6e))
+* **types:** :bug: allow genre asin to either be 10 or 11 digits exactly ([ea338fa](https://github.com/djdembeck/audnexus/commit/ea338faf0a1ed0a5fbee9edbfd1641208f65447a)), closes [#571](https://github.com/djdembeck/audnexus/issues/571)
+
 ## [1.3.0](https://github.com/djdembeck/audnexus/compare/v1.2.0...v1.3.0) (2023-02-27)
 
 
