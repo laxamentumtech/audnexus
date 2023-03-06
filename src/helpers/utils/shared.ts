@@ -24,8 +24,8 @@ class SharedHelper {
 		params?: string
 	): string {
 		const FQDN = `${baseDomain}.${regionTLD}`
-		const argArr = [FQDN, baseUrl, ASIN, params]
-		const reqUrl = argArr.join('/')
+		const argArr = [FQDN, baseUrl, ASIN]
+		const reqUrl = argArr.join('/') + (params ? `?${params}` : '')
 		return reqUrl
 	}
 
