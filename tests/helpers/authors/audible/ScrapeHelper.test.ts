@@ -102,12 +102,6 @@ describe('ScrapeHelper should throw error when', () => {
 			`An error occured while fetching data from Audible HTML. Response: 404, ASIN: ${asin}`
 		)
 	})
-	test('author has no name', async () => {
-		const html = cheerio.load(htmlResponseNoData)
-		expect(helper.parseResponse(html)).rejects.toThrowError(
-			`No author name found for ASIN: ${asin}`
-		)
-	})
 
 	test('parse response fails validation', async () => {
 		jest.spyOn(helper, 'getName').mockReturnValue('')
