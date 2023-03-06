@@ -52,7 +52,7 @@ class ApiHelper {
 			'image_sizes=500,1024'
 		]
 		const paramStr = helper.getParamString(paramArr)
-		const params = `?response_groups=${paramStr}`
+		const params = `response_groups=${paramStr}`
 		this.requestUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
 	}
 
