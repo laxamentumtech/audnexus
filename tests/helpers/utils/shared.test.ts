@@ -24,10 +24,10 @@ describe('SharedHelper should', () => {
 		const baseDomain = 'https://api.audible'
 		const baseUrl = '1.0/catalog/products'
 		const params =
-			'?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
+			'response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
 		const url = helper.buildUrl('123456789', baseDomain, 'com', baseUrl, params)
 		expect(url).toBe(
-			'https://api.audible.com/1.0/catalog/products/123456789/?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
+			'https://api.audible.com/1.0/catalog/products/123456789?response_groups=contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
 		)
 	})
 
