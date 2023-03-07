@@ -27,7 +27,7 @@ specifiers:
   lodash: 4.17.21
   module-alias: 2.2.2
   mongodb: 4.14.0
-  nodemon: 2.0.20
+  nodemon: 2.0.21
   papr: 9.2.1
   prettier: 2.8.4
   standard-version: 9.5.0
@@ -68,7 +68,7 @@ devDependencies:
   eslint-plugin-jest: 27.0.4_c2knapjyotomycqtil556jjiw4
   eslint-plugin-simple-import-sort: 8.0.0_eslint@8.24.0
   jest: 29.4.3_jcb3wguyhnpyd5azbry5ackz4u
-  nodemon: 2.0.20
+  nodemon: 2.0.21
   prettier: 2.8.4
   standard-version: 9.5.0
   ts-jest: 29.0.5_3xvyzjgjzrgirji26c7yuhnryu
@@ -4268,8 +4268,8 @@ packages:
   /node-releases/2.0.10:
     resolution: {integrity: sha512-5GFldHPXVG/YZmFzJvKK2zDSzPKhEp0+ZR5SVaoSag9fsL5YgHbUHDfnG5494ISANDcK4KwPXAx2xqVEydmd7w==}
 
-  /nodemon/2.0.20:
-    resolution: {integrity: sha512-Km2mWHKKY5GzRg6i1j5OxOHQtuvVsgskLfigG25yTtbyfRGn/GNvIbRyOf1PSCKJ2aT/58TiuUsuOU5UToVViw==}
+  /nodemon/2.0.21:
+    resolution: {integrity: sha512-djN/n2549DUtY33S7o1djRCd7dEm0kBnj9c7S9XVXqRUbuggN1MZH/Nqa+5RFQr63Fbefq37nFXAE9VU86yL1A==}
     engines: {node: '>=8.10.0'}
     hasBin: true
     dependencies:
