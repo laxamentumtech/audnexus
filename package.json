@@ -33,7 +33,7 @@
 		"axios": "^1.2.4",
 		"cheerio": "1.0.0-rc.12",
 		"domhandler": "5.0.3",
-		"fastify": "4.13.0",
+		"fastify": "4.14.0",
 		"html-to-text": "9.0.4",
 		"jest-mock-extended": "3.0.3",
 		"lodash": "4.17.21",
