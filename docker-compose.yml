@@ -41,7 +41,7 @@ services:
       - internal
 
   traefik:
-    image: traefik:v2.9
+    image: traefik:v2.10
     restart: always
     command:
       - '--providers.docker=true'
