@@ -5,8 +5,8 @@ dependencies:
     specifier: 8.2.1
     version: 8.2.1
   '@fastify/rate-limit':
-    specifier: 7.6.0
-    version: 7.6.0
+    specifier: 8.0.0
+    version: 8.0.0
   '@fastify/redis':
     specifier: 6.1.0
     version: 6.1.0
@@ -1278,8 +1278,8 @@ packages:
       fast-json-stringify: 5.6.2
     dev: false
 
-  /@fastify/rate-limit@7.6.0:
-    resolution: {integrity: sha512-XOS7J17dp7d45hMUzBFGJC6B/8znr4/wicvl4gxnbI/upf2ShoOasvLl5J10BFQW/ccqdNURXISb7eHf4Ac4nQ==}
+  /@fastify/rate-limit@8.0.0:
+    resolution: {integrity: sha512-73pQFgpx6RMmY5nriYQW0AIATZpa/OAvWa5PQ9JHEqgjKMLNv9zLAphWIRh5914aN6sqtv8sLICr3Tp1NbXQIQ==}
     dependencies:
       fastify-plugin: 4.5.0
       ms: 2.1.3
