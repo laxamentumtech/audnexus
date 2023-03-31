@@ -91,8 +91,8 @@ devDependencies:
     specifier: 29.5.0
     version: 29.5.0(@types/node@18.15.3)(ts-node@10.9.1)
   nodemon:
-    specifier: 2.0.21
-    version: 2.0.21
+    specifier: 2.0.22
+    version: 2.0.22
   prettier:
     specifier: 2.8.6
     version: 2.8.6
@@ -4321,8 +4321,8 @@ packages:
   /node-releases@2.0.10:
     resolution: {integrity: sha512-5GFldHPXVG/YZmFzJvKK2zDSzPKhEp0+ZR5SVaoSag9fsL5YgHbUHDfnG5494ISANDcK4KwPXAx2xqVEydmd7w==}
 
-  /nodemon@2.0.21:
-    resolution: {integrity: sha512-djN/n2549DUtY33S7o1djRCd7dEm0kBnj9c7S9XVXqRUbuggN1MZH/Nqa+5RFQr63Fbefq37nFXAE9VU86yL1A==}
+  /nodemon@2.0.22:
+    resolution: {integrity: sha512-B8YqaKMmyuCO7BowF1Z1/mkPqLk6cs/l63Ojtd6otKjMx47Dq1utxfRxcavH1I7VSaL8n5BUaoutadnsX3AAVQ==}
     engines: {node: '>=8.10.0'}
     hasBin: true
     dependencies:
