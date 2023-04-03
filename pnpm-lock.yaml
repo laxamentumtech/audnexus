@@ -58,8 +58,8 @@ devDependencies:
     specifier: 29.5.0
     version: 29.5.0
   '@types/jsrsasign':
-    specifier: 10.5.7
-    version: 10.5.7
+    specifier: 10.5.8
+    version: 10.5.8
   '@types/lodash':
     specifier: 4.14.191
     version: 4.14.191
@@ -1693,8 +1693,8 @@ packages:
     resolution: {integrity: sha512-wOuvG1SN4Us4rez+tylwwwCV1psiNVOkJeM3AUWUNWg/jDQY2+HE/444y5gc+jBmRqASOm2Oeh5c1axHobwRKQ==}
     dev: true
 
-  /@types/jsrsasign@10.5.7:
-    resolution: {integrity: sha512-55VLNhEmTd9y44KFj2+U17PJlejRg3FR/+krDNmh8s6wIvbvyMUZI8r94aRbh++PcPTv7xr2ao0z5gh2oLaebg==}
+  /@types/jsrsasign@10.5.8:
+    resolution: {integrity: sha512-1oZ3TbarAhKtKUpyrCIqXpbx3ZAfoSulleJs6/UzzyYty0ut+kjRX7zHLAaHwVIuw8CBjIymwW4J2LK944HoHQ==}
     dev: true
 
   /@types/lodash@4.14.191:
