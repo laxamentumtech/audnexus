@@ -47,7 +47,7 @@
 		"@jest/types": "29.5.0",
 		"@types/html-to-text": "9.0.0",
 		"@types/jest": "29.5.0",
-		"@types/jsrsasign": "10.5.7",
+		"@types/jsrsasign": "10.5.8",
 		"@types/lodash": "4.14.191",
 		"@types/node": "18.15.10",
 		"@typescript-eslint/eslint-plugin": "5.38.1",
