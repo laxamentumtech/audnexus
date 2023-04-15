@@ -1,6 +1,6 @@
 import type { AxiosResponse } from 'axios'
 
-import { Book } from '#config/types'
+import { ApiBook } from '#config/types'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import {
@@ -114,7 +114,7 @@ describe('BookShowHelper should throw error when', () => {
 		)
 	})
 	test('getBookWithProjection sorted book is not a book type', async () => {
-		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as Book)
+		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as ApiBook)
 		await expect(helper.getBookWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not Book`
 		)

@@ -1,5 +1,5 @@
 import BookModel, { BookDocument } from '#config/models/Book'
-import { ApiBookSchema, ApiQueryString, Book } from '#config/types'
+import { ApiBook, ApiBookSchema, ApiQueryString } from '#config/types'
 import { isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
@@ -14,7 +14,7 @@ import {
 
 export default class PaprAudibleBookHelper {
 	asin: string
-	bookData!: Book
+	bookData!: ApiBook
 	options: ApiQueryString
 	sharedHelper = new SharedHelper()
 
@@ -107,7 +107,7 @@ export default class PaprAudibleBookHelper {
 	/**
 	 * Set bookData in the class object
 	 */
-	setBookData(bookData: Book) {
+	setBookData(bookData: ApiBook) {
 		this.bookData = bookData
 	}
 

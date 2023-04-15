@@ -1,6 +1,6 @@
 import type { CheerioAPI } from 'cheerio'
 
-import { ApiBook, AudibleProduct, Book, BookSchema, HtmlBook } from '#config/types'
+import { ApiBook, ApiBookSchema, AudibleProduct, HtmlBook } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
@@ -78,26 +78,26 @@ class StitchHelper {
 	/**
 	 * Sets genres key in returned json if it exists
 	 */
-	async includeGenres(): Promise<Book> {
+	async includeGenres(): Promise<ApiBook> {
 		if (this.scraperParsed?.genres?.length) {
 			const sortedObject = this.sharedHelper.sortObjectByKeys({
 				...this.apiParsed,
 				...this.scraperParsed
 			})
-			const parsed = BookSchema.safeParse(sortedObject)
+			const parsed = ApiBookSchema.safeParse(sortedObject)
 			if (parsed.success) return parsed.data
 			throw new Error(ErrorMessageSort(this.asin))
 		}
-		return this.apiParsed as Book
+		return this.apiParsed as ApiBook
 	}
 
 	/**
 	 * Call fetch and parse functions only as necessary
 	 * (prefer API over scraper).
 	 * Returns the result of includeGenres()
-	 * @returns {Promise<Book>}
+	 * @returns {Promise<ApiBook>}
 	 */
-	async process(): Promise<Book> {
+	async process(): Promise<ApiBook> {
 		// First, we want to see if we can get all the data from the API
 		await this.fetchApiBook()
 		await this.parseApiResponse()

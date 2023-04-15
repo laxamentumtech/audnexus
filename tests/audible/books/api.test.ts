@@ -1,4 +1,4 @@
-import type { ApiBook, AudibleProduct, Book } from '#config/types'
+import type { ApiBook, AudibleProduct } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import type { MinimalResponse } from '#tests/datasets/audible/books/api'
 import {
@@ -13,7 +13,7 @@ import {
 let asin: string
 let helper: ApiHelper
 let minimalResponse: MinimalResponse
-let minimalParsed: Book
+let minimalParsed: ApiBook
 
 describe('Audible API', () => {
 	describe('When fetching Project Hail Mary', () => {

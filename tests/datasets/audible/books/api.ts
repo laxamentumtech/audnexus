@@ -1,10 +1,10 @@
 import {
+	ApiBook,
+	ApiBookSchema,
 	ApiGenre,
 	ApiSeries,
 	AudibleProduct,
-	AudibleProductSchema,
-	Book,
-	BookSchema
+	AudibleProductSchema
 } from '#config/types'
 
 export interface MinimalResponse {
@@ -28,11 +28,11 @@ export function setupMinimalParsed(
 	description: string,
 	image: string,
 	genres: ApiGenre[]
-): Book {
+): ApiBook {
 	let seriesPrimary: ApiSeries | undefined
 	let seriesSecondary: ApiSeries | undefined
 	// Only return series for MultiPartBook, makes linter happy
-	if (response.content_delivery_type === 'MultiPartBook') {
+	if (response.content_delivery_type !== 'PodcastParent') {
 		if (response.series?.[0]) {
 			seriesPrimary = {
 				asin: response.series[0].asin,
@@ -48,7 +48,7 @@ export function setupMinimalParsed(
 			}
 		}
 	}
-	return BookSchema.parse({
+	return ApiBookSchema.parse({
 		asin: response.asin,
 		authors: response.authors,
 		description,
@@ -833,7 +833,7 @@ export const podcast = AudibleProductSchema.parse({
 	]
 })
 
-export const minimalB0036I54I6: Book = {
+export const minimalB0036I54I6: ApiBook = {
 	asin: 'B0036I54I6',
 	authors: [
 		{ name: 'Diane Wood Middlebrook (Professor of English' },

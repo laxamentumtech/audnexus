@@ -1,4 +1,4 @@
-import { ApiGenre, Book } from '#config/types'
+import { ApiBook, ApiGenre } from '#config/types'
 import { B08C6YJ1LS, B017V4IM1G, setupMinimalParsed } from '#tests/datasets/audible/books/api'
 
 let description: string
@@ -36,7 +36,7 @@ genres = [
 	{ asin: '18580607011', name: 'Fantasy', type: 'tag' }
 ]
 image = 'https://m.media-amazon.com/images/I/91eopoUCjLL.jpg'
-export const combinedB017V4IM1G: Book = setupMinimalParsed(
+export const combinedB017V4IM1G: ApiBook = setupMinimalParsed(
 	B017V4IM1G.product,
 	description,
 	image,
@@ -55,7 +55,7 @@ genres = [
 	{ asin: '18574623011', name: 'Crime Thrillers', type: 'tag' }
 ]
 image = 'https://m.media-amazon.com/images/I/91H9ynKGNwL.jpg'
-export const combinedB08C6YJ1LS: Book = setupMinimalParsed(
+export const combinedB08C6YJ1LS: ApiBook = setupMinimalParsed(
 	B08C6YJ1LS.product,
 	description,
 	image,

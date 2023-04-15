@@ -1,6 +1,6 @@
 import type { FastifyRedis } from '@fastify/redis'
 
-import { Book } from '#config/types'
+import { ApiBook } from '#config/types'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import { ErrorMessageRedisDelete, ErrorMessageRedisSet } from '#static/messages'
 
@@ -12,7 +12,7 @@ export default class RedisHelper {
 		this.key = `${region}-${key}-${id}`
 	}
 
-	convertStringToDate(parsed: Book) {
+	convertStringToDate(parsed: ApiBook) {
 		parsed.releaseDate = new Date(parsed.releaseDate)
 		return parsed
 	}
