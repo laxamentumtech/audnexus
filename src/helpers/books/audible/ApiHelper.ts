@@ -197,7 +197,7 @@ class ApiHelper {
 		allSeries.forEach((series: AudibleSeries) => {
 			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 			// Only return series for MultiPartBook, makes linter happy
-			if (this.audibleResponse.content_delivery_type !== 'MultiPartBook') return undefined
+			if (this.audibleResponse.content_delivery_type === 'PodcastParent') return undefined
 			const seriesJson = this.getSeries(series)
 			// Check and set primary series
 			if (
@@ -222,7 +222,7 @@ class ApiHelper {
 		allSeries.forEach((series: AudibleSeries) => {
 			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 			// Only return series for MultiPartBook, makes linter happy
-			if (this.audibleResponse.content_delivery_type !== 'MultiPartBook') return undefined
+			if (this.audibleResponse.content_delivery_type === 'PodcastParent') return undefined
 			const seriesJson = this.getSeries(series)
 			// Check and set secondary series
 			if (
@@ -252,7 +252,7 @@ class ApiHelper {
 		let series2: ApiSeries | undefined
 		// Only return series for MultiPartBook, makes linter happy
 		if (
-			this.audibleResponse.content_delivery_type === 'MultiPartBook' &&
+			this.audibleResponse.content_delivery_type != 'PodcastParent' &&
 			this.audibleResponse.series
 		) {
 			series1 = this.getSeriesPrimary(this.audibleResponse.series)

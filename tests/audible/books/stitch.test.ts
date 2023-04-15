@@ -1,4 +1,4 @@
-import { ApiChapter, Book } from '#config/types'
+import { ApiBook, ApiChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import { minimalB0036I54I6 } from '#tests/datasets/audible/books/api'
@@ -12,7 +12,7 @@ import { combinedB08C6YJ1LS, combinedB017V4IM1G } from '#tests/datasets/audible/
 let asin: string
 let helper: StitchHelper
 let chapterHelper: ChapterHelper
-let response: Book
+let response: ApiBook
 let chapters: ApiChapter | undefined
 
 describe('Audible API and HTML Parsing', () => {
