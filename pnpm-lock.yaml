@@ -38,8 +38,8 @@ dependencies:
     specifier: 4.15.0
     version: 4.15.0
   papr:
-    specifier: 9.2.1
-    version: 9.2.1(mongodb@4.15.0)
+    specifier: 13.1.0
+    version: 13.1.0(mongodb@4.15.0)
   typescript:
     specifier: 4.9.5
     version: 4.9.5
@@ -4448,11 +4448,11 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  /papr@9.2.1(mongodb@4.15.0):
-    resolution: {integrity: sha512-Re8bBmw5iS81Yyn+Oeov9H3KRWz5PTf91UVuRi1nax3QlDSvfmyG+Ge2qw+nZThoaOuQbgr21F0N9w7BQn0uHg==}
+  /papr@13.1.0(mongodb@4.15.0):
+    resolution: {integrity: sha512-EI5LZMrD1PULnnXo1zw4Xr93Y2SxPYRwMDCPImH9EjPSBwJ7XpTnXhl1GQ/zW28he8VR/ogEj//ZAV1+Nj9Ufw==}
     engines: {node: ^14.0.0 || >=15.0.0}
     peerDependencies:
-      mongodb: '>=4.11.0'
+      mongodb: ^5.0.0
     dependencies:
       mongodb: 4.15.0
     dev: false
