@@ -1,4 +1,8 @@
-lockfileVersion: '6.0'
+lockfileVersion: '6.1'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
 
 dependencies:
   '@fastify/cors':
@@ -8,8 +12,8 @@ dependencies:
     specifier: 8.0.0
     version: 8.0.0
   '@fastify/redis':
-    specifier: 6.1.0
-    version: 6.1.0
+    specifier: 6.1.1
+    version: 6.1.1
   axios:
     specifier: ^1.2.4
     version: 1.2.4
@@ -1289,8 +1293,8 @@ packages:
       tiny-lru: 10.4.1
     dev: false
 
-  /@fastify/redis@6.1.0:
-    resolution: {integrity: sha512-i2TwxzfqbdgeAeNP/cHk4+e6S8jeTFmzHZlPwkVCosiUnIi5wFONJ21L5APO4ljU4N+DeyvqE7AbeNTvHnMVGQ==}
+  /@fastify/redis@6.1.1:
+    resolution: {integrity: sha512-NZpHK+d3uJJ+w1iHx5n1woFvrHhhG52XjM9byWvU81KSsQpO0N/OikgQvz83frLV7UD4UQtTUgPvVbLxW0X81w==}
     dependencies:
       fastify-plugin: 4.5.0
       ioredis: 5.3.1
