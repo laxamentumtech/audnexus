@@ -529,7 +529,7 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 			{
 				asin: 'B07CM5ZDJL',
 				sequence: '1',
-				title: 'Wizarding World',
+				title: 'Wizarding World Collection',
 				url: '/pd/Wizarding-World-Audiobook/B07CM5ZDJL'
 			}
 		],
