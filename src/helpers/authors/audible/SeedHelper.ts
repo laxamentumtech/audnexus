@@ -1,11 +1,11 @@
-import { Book } from '#config/types'
+import { ApiBook } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 
 class SeedHelper {
-	book: Book
+	book: ApiBook
 
-	constructor(book: Book) {
+	constructor(book: ApiBook) {
 		this.book = book
 	}
 

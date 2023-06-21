@@ -1,14 +1,7 @@
 import { ObjectId, WithId } from 'mongodb'
 
 import { BookDocument } from '#config/models/Book'
-import {
-	ApiBook,
-	ApiBookSchema,
-	ApiGenreSchema,
-	AudibleProductSchema,
-	Book,
-	BookSchema
-} from '#config/types'
+import { ApiBook, ApiBookSchema, ApiGenreSchema, AudibleProductSchema } from '#config/types'
 
 // Reusable
 const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
@@ -361,12 +354,12 @@ export const parsedBook = ApiBookSchema.parse({
 	title
 })
 
-export const parsedBookWithGenres = BookSchema.parse({
+export const parsedBookWithGenres = ApiBookSchema.parse({
 	...parsedBook,
 	genres
 })
 
-export const parsedBookWithoutNarrators = BookSchema.parse({
+export const parsedBookWithoutNarrators = ApiBookSchema.parse({
 	...parsedBook,
 	narrators: []
 })
@@ -389,12 +382,12 @@ export const changedParsedBook: ApiBook = {
 	title
 }
 
-const bookWithIdInternal: WithId<Book> = {
+const bookWithIdInternal: WithId<ApiBook> = {
 	_id,
 	...parsedBook
 }
 
-export const bookWithId = (): WithId<Book> => {
+export const bookWithId = (): WithId<ApiBook> => {
 	return {
 		_id,
 		...parsedBook
@@ -431,7 +424,7 @@ export const parsedBookWithoutGenres: ApiBook = {
 	title
 }
 
-const bookWithoutGenresWithIdInternal: WithId<Book> = {
+const bookWithoutGenresWithIdInternal: WithId<ApiBook> = {
 	_id,
 	...parsedBookWithoutGenres
 }

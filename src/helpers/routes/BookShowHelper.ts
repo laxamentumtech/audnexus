@@ -1,7 +1,7 @@
 import { FastifyRedis } from '@fastify/redis'
 
 import { BookDocument } from '#config/models/Book'
-import { ApiQueryString, Book, BookSchema } from '#config/types'
+import { ApiBook, ApiBookSchema, ApiQueryString } from '#config/types'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
@@ -11,7 +11,7 @@ import { ErrorMessageDataType } from '#static/messages'
 
 export default class BookShowHelper {
 	asin: string
-	bookInternal: Book | undefined = undefined
+	bookInternal: ApiBook | undefined = undefined
 	sharedHelper: SharedHelper
 	paprHelper: PaprAudibleBookHelper
 	redisHelper: RedisHelper
@@ -39,7 +39,7 @@ export default class BookShowHelper {
 	 * making sure the data is the correct type.
 	 * Then, sort the data and return it.
 	 */
-	async getBookWithProjection(): Promise<Book> {
+	async getBookWithProjection(): Promise<ApiBook> {
 		// 1. Get the book with projections
 		const bookToReturn = await this.paprHelper.findOneWithProjection()
 		// Make saure we get a book type back
@@ -47,8 +47,10 @@ export default class BookShowHelper {
 
 		// 2. Sort the object
 		const sort = this.sharedHelper.sortObjectByKeys(bookToReturn.data)
+		console.log(sort)
 		// Parse the data to make sure it's the correct type
-		const parsed = BookSchema.safeParse(sort)
+		const parsed = ApiBookSchema.safeParse(sort)
+		console.log(parsed)
 		// If the data is not the correct type, throw an error
 		if (!parsed.success) throw new Error(ErrorMessageDataType(this.asin, 'Book'))
 		// Return the data
@@ -66,7 +68,7 @@ export default class BookShowHelper {
 	 * Get new book data and pass it to the create or update papr function.
 	 * Then, set redis cache and return the book.
 	 */
-	async createOrUpdateBook(): Promise<Book> {
+	async createOrUpdateBook(): Promise<ApiBook> {
 		// Place the new book data into the papr helper
 		this.paprHelper.setBookData(await this.getNewBookData())
 
@@ -97,7 +99,7 @@ export default class BookShowHelper {
 	/**
 	 * Actions to run when an update is requested
 	 */
-	async updateActions(): Promise<Book> {
+	async updateActions(): Promise<ApiBook> {
 		// 1. Check if it is updated recently
 		if (this.isUpdatedRecently()) return this.getBookWithProjection()
 
@@ -117,7 +119,7 @@ export default class BookShowHelper {
 	/**
 	 * Main handler for the book show route
 	 */
-	async handler(): Promise<Book> {
+	async handler(): Promise<ApiBook> {
 		this.originalBook = await this.getBookFromPapr()
 
 		// If the book is already present
@@ -134,7 +136,7 @@ export default class BookShowHelper {
 			const redisBook = await this.redisHelper.findOrCreate(data)
 			if (redisBook) {
 				// Parse the data to make sure it's the correct type
-				const parsedData = BookSchema.safeParse(redisBook)
+				const parsedData = ApiBookSchema.safeParse(redisBook)
 				if (parsedData.success) return parsedData.data
 			}
 

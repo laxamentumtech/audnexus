@@ -3,13 +3,13 @@ import { DeleteResult } from 'mongodb'
 import { AuthorDocument } from '#config/models/Author'
 import { BookDocument } from '#config/models/Book'
 import { ChapterDocument } from '#config/models/Chapter'
-import { ApiAuthorProfile, ApiChapter, Book } from '#config/types'
+import { ApiAuthorProfile, ApiBook, ApiChapter } from '#config/types'
 
 interface GenericReturn {
 	data:
 		| ApiAuthorProfile
 		| AuthorDocument
-		| Book
+		| ApiBook
 		| BookDocument
 		| ApiChapter
 		| ChapterDocument
@@ -31,7 +31,7 @@ export interface PaprAuthorSearch {
 }
 
 export interface PaprBookReturn extends GenericReturn {
-	data: Book | null
+	data: ApiBook | null
 }
 
 export interface PaprBookDocumentReturn extends GenericReturn {

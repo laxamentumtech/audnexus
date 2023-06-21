@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.3.2](https://github.com/djdembeck/audnexus/compare/v1.3.1...v1.3.2) (2023-06-21)
+
+
+### Bug Fixes
+
+* **types:** :bug: don't assume `SinglePartBook` won't have a series; combine redundant ApiBook types ([90a2a06](https://github.com/djdembeck/audnexus/commit/90a2a06bfade3ab96028258970c1ffaecaa1eb0b)), closes [#589](https://github.com/djdembeck/audnexus/issues/589)
+
 ### [1.3.1](https://github.com/djdembeck/audnexus/compare/v1.3.0...v1.3.1) (2023-03-06)
 
 
