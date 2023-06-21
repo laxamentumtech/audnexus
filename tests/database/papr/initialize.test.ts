@@ -15,7 +15,7 @@ beforeEach(() => {
 		collection: jest.fn()
 	} as unknown as Db
 	jest.spyOn(ctx.client, 'db').mockReturnValue(mockDbInstance)
-	jest.spyOn(ctx.client, 'connect').mockReturnValue()
+	jest.spyOn(ctx.client, 'connect').mockResolvedValue(ctx.client)
 })
 
 describe('Papr should', () => {
