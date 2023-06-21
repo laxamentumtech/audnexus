@@ -76,7 +76,8 @@ export const ApiNarratorOnBookSchema = PersonSchema
 export type ApiNarratorOnBook = z.infer<typeof ApiNarratorOnBookSchema>
 
 // Books
-const ApiCoreBookSchema = z.object({
+// What we expect to keep from Audible's API
+export const ApiBookSchema = z.object({
 	asin: AsinSchema,
 	authors: z.array(ApiAuthorOnBookSchema),
 	description: z.string(),
@@ -90,23 +91,13 @@ const ApiCoreBookSchema = z.object({
 	region: RegionSchema,
 	releaseDate: z.date(),
 	runtimeLengthMin: z.number().or(z.literal(0)),
+	seriesPrimary: ApiSeriesSchema.optional(),
+	seriesSecondary: ApiSeriesSchema.optional(),
 	subtitle: z.string().optional(),
 	summary: z.string(),
 	title: TitleSchema
 })
-
-// What we expect to keep from Audible's API
-export const ApiBookSchema = ApiCoreBookSchema.extend({
-	seriesPrimary: ApiSeriesSchema.optional(),
-	seriesSecondary: ApiSeriesSchema.optional()
-})
 export type ApiBook = z.infer<typeof ApiBookSchema>
-
-// Final format of data stored
-export const BookSchema = ApiBookSchema.extend({
-	chapterInfo: ApiChapterSchema.optional()
-})
-export type Book = z.infer<typeof BookSchema>
 
 // What we expect to keep from Audible's HTML pages
 export const HtmlBookSchema = z.object({
@@ -203,20 +194,14 @@ const podcastShape = z.object({
 
 // This is the shape of the data we get from Audible's API for series content
 const seriesShape = z.object({
-	content_delivery_type: z.literal('MultiPartBook'),
+	content_delivery_type: z.enum(['MultiPartBook', 'SinglePartBook']),
 	publication_name: z.string().optional(),
 	series: z.array(AudibleSeriesSchema).optional()
 })
 
 // Make a discriminated union of the base shape and the two types of content we get from Audible's API based on the content_delivery_type field
 const resultShape = z
-	.discriminatedUnion('content_delivery_type', [
-		podcastShape,
-		seriesShape,
-		z.object({
-			content_delivery_type: z.literal('SinglePartBook')
-		})
-	])
+	.discriminatedUnion('content_delivery_type', [podcastShape, seriesShape])
 	.and(baseShape)
 
 export const AudibleProductSchema = z.object({

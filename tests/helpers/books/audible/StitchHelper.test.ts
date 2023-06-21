@@ -1,6 +1,6 @@
 import * as cheerio from 'cheerio'
 
-import { AudibleProduct, Book } from '#config/types'
+import { ApiBook, AudibleProduct } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
@@ -192,7 +192,7 @@ describe('StitchHelper should throw error when', () => {
 	test('includeGenres returns a non-book type', async () => {
 		jest
 			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
-			.mockImplementation(() => Promise.resolve(genresObject) as unknown as Book)
+			.mockImplementation(() => Promise.resolve(genresObject) as unknown as ApiBook)
 		helper.scraperParsed = genresObject
 		await expect(helper.includeGenres()).rejects.toThrowError(
 			`An error occurred while sorting book json: ${asin}`
