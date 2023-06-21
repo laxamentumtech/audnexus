@@ -81,29 +81,33 @@ class ScrapeHelper {
 		return name
 	}
 
-    /**
-     * Get similar authors
-     * @param {cheerio.CheerioAPI} dom the fetched dom object
-     * @returns {ApiAuthorOnBook[]} similar authors.
-     */
-    getSimilarAuthors(dom: cheerio.CheerioAPI): ApiAuthorOnBook[] | undefined {
-        try {
-            // Get similar authors section
-            const similarSection = dom('div.bc-col-responsive.bc-pub-max-width-large.bc-col-3.bc-col-offset-0')
-            // Get similar authors list
-            const similarItems = similarSection.children('a.bc-link.bc-color-link')
-            // Map similar authors to object
-            const similarAuthors = similarItems.map((i, el) => {
-                return {
-                    asin: this.helper.getAsinFromUrl(el.attribs.href),
-                    name: dom(el).find('h3').text(),
-                }
-            }).get()
-            return similarAuthors
-        } catch (error) {
-            return undefined
-        }
-    }
+	/**
+	 * Get similar authors
+	 * @param {cheerio.CheerioAPI} dom the fetched dom object
+	 * @returns {ApiAuthorOnBook[]} similar authors.
+	 */
+	getSimilarAuthors(dom: cheerio.CheerioAPI): ApiAuthorOnBook[] | undefined {
+		try {
+			// Get similar authors section
+			const similarSection = dom(
+				'div.bc-col-responsive.bc-pub-max-width-large.bc-col-3.bc-col-offset-0'
+			)
+			// Get similar authors list
+			const similarItems = similarSection.children('a.bc-link.bc-color-link')
+			// Map similar authors to object
+			const similarAuthors = similarItems
+				.map((i, el) => {
+					return {
+						asin: this.helper.getAsinFromUrl(el.attribs.href),
+						name: dom(el).find('h3').text()
+					}
+				})
+				.get()
+			return similarAuthors
+		} catch (error) {
+			return undefined
+		}
+	}
 
 	/**
 	 * Parses fetched HTML page to extract genres and series'
@@ -129,10 +133,10 @@ class ScrapeHelper {
 		// Name
 		const name = this.getName(dom)
 
-        // Similar authors
-        const similarAuthors = this.getSimilarAuthors(dom)
-        // Sort similar authors by name
-        const similar = similarAuthors?.sort((a, b) => a.name.localeCompare(b.name))
+		// Similar authors
+		const similarAuthors = this.getSimilarAuthors(dom)
+		// Sort similar authors by name
+		const similar = similarAuthors?.sort((a, b) => a.name.localeCompare(b.name))
 
 		// Parse response with zod
 		const response = ApiAuthorProfileSchema.safeParse({
@@ -142,7 +146,7 @@ class ScrapeHelper {
 			image,
 			name,
 			region: this.region,
-            similar,
+			similar
 		})
 		// Handle error if response is not valid
 		if (!response.success) {

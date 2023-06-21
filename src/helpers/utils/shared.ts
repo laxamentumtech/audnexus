@@ -117,14 +117,14 @@ class SharedHelper {
 			.map((element) => dom(element)) as cheerio.Cheerio<cheerio.Element>[]
 	}
 
-    /**
-     * Regex to return just the ASIN from the given URL
-     * @param {string} url string to extract ASIN from
-     * @returns {string} ASIN.
-     */
-    getAsinFromUrl(url: string): string | undefined {
-        return url.match(/(B[\dA-Z]{9}|\d{9}(X|\d))/)?.[0]
-    }
+	/**
+	 * Regex to return just the ASIN from the given URL
+	 * @param {string} url string to extract ASIN from
+	 * @returns {string} ASIN.
+	 */
+	getAsinFromUrl(url: string): string | undefined {
+		return url.match(/(B[\dA-Z]{9}|\d{9}(X|\d))/)?.[0]
+	}
 
 	/**
 	 * Regex to return just the 11 digit ASIN from the given URL
