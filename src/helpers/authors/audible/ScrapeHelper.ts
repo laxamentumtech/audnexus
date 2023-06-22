@@ -110,6 +110,15 @@ class ScrapeHelper {
 	}
 
 	/**
+	 * Sort similar authors by name
+	 * @param {ApiAuthorOnBook[]} similarAuthors the fetched dom object
+	 * @returns {ApiAuthorOnBook[]} sorted similar authors.
+	 */
+	sortSimilarAuthors(similarAuthors: ApiAuthorOnBook[]): ApiAuthorOnBook[] {
+		return similarAuthors.sort((a, b) => a.name.localeCompare(b.name))
+	}
+
+	/**
 	 * Parses fetched HTML page to extract genres and series'
 	 * @param {JSDOM} dom the fetched dom object
 	 * @returns {HtmlBook} genre and series.
@@ -136,7 +145,7 @@ class ScrapeHelper {
 		// Similar authors
 		const similarAuthors = this.getSimilarAuthors(dom)
 		// Sort similar authors by name
-		const similar = similarAuthors?.sort((a, b) => a.name.localeCompare(b.name))
+		const similar = similarAuthors ? this.sortSimilarAuthors(similarAuthors) : undefined
 
 		// Parse response with zod
 		const response = ApiAuthorProfileSchema.safeParse({
