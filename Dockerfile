@@ -1,12 +1,12 @@
 # Base with pnpm installed
-FROM node:lts-alpine as base
+FROM node:lts-alpine AS base
 WORKDIR /app
 
 RUN apk add --no-cache curl \
     && curl -sL https://unpkg.com/@pnpm/self-installer | node
 
 # Builder with all deps
-FROM base as build
+FROM base AS build
 # copy everything to the container
 COPY . .
 
@@ -19,7 +19,7 @@ RUN \
     pnpm install -P --ignore-scripts --frozen-lockfile
 
 # prod 
-FROM base as prod
+FROM base AS prod
 
 # copy built SvelteKit app to /app
 COPY --from=build /app ./

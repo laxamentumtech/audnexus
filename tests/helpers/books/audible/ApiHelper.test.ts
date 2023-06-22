@@ -183,7 +183,7 @@ describe('ApiHelper edge cases should', () => {
 		const data = await helper.fetchBook()
 		// Directly set inputjson
 		helper.audibleResponse = data.product
-		helper.audibleResponse!.narrators = undefined
+		helper.audibleResponse.narrators = undefined
 
 		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
 	})
@@ -218,26 +218,26 @@ describe('ApiHelper edge cases should', () => {
 
 	test('get backup lower res image', async () => {
 		helper.audibleResponse = mockResponse.product
-		helper.audibleResponse!.product_images![1024] = ''
+		helper.audibleResponse.product_images![1024] = ''
 		expect(helper.getHighResImage()).toBe('https://m.media-amazon.com/images/I/51OIn2FgdtL.jpg')
 	})
 
 	test('handle no image', async () => {
 		helper.audibleResponse = mockResponse.product
-		helper.audibleResponse!.product_images = {}
+		helper.audibleResponse.product_images = {}
 		expect(helper.getHighResImage()).toBeUndefined()
 	})
 
 	test('handle no product_images object', async () => {
 		helper.audibleResponse = mockResponse.product
-		helper.audibleResponse!.product_images = undefined
+		helper.audibleResponse.product_images = undefined
 		expect(helper.getHighResImage()).toBeUndefined()
 	})
 
 	test('use issue_date if release_date is not available', async () => {
 		helper.audibleResponse = mockResponse.product
-		helper.audibleResponse!.issue_date = helper.audibleResponse!.release_date
-		helper.audibleResponse!.release_date = ''
+		helper.audibleResponse.issue_date = helper.audibleResponse.release_date
+		helper.audibleResponse.release_date = ''
 		expect(helper.getReleaseDate()).toBeInstanceOf(Date)
 	})
 
@@ -281,7 +281,7 @@ describe('ApiHelper should throw error when', () => {
 
 	test('release_date is in the future', async () => {
 		helper.audibleResponse = mockResponse.product
-		helper.audibleResponse!.release_date = '2080-01-01'
+		helper.audibleResponse.release_date = '2080-01-01'
 		expect(() => helper.getReleaseDate()).toThrowError('Release date is in the future')
 	})
 
