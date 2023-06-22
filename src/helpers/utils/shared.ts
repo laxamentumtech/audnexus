@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
-import { ApiGenre, ApiGenreSchema, asin11Regex } from '#config/types'
+import { ApiGenre, ApiGenreSchema, asin11Regex, baseAsin10Regex } from '#config/types'
 import { PaprDocument } from '#config/typing/papr'
 import { NoticeGenreNotAvailable } from '#static/messages'
 
@@ -119,6 +119,15 @@ class SharedHelper {
 
 	/**
 	 * Regex to return just the ASIN from the given URL
+	 * @param {string} url string to extract ASIN from
+	 * @returns {string} ASIN.
+	 */
+	getAsinFromUrl(url: string): string | undefined {
+		return url.match(baseAsin10Regex)?.[0]
+	}
+
+	/**
+	 * Regex to return just the 11 digit ASIN from the given URL
 	 * @param {string} url string to extract ASIN from
 	 * @returns {string} ASIN.
 	 */
