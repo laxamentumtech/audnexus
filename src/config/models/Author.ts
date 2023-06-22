@@ -31,7 +31,13 @@ const authorSchema = schema(
 			pattern: regionRegex,
 			required: true
 		}),
-		series: types.array(types.objectId())
+		series: types.array(types.objectId()),
+		similar: types.array(
+			types.object({
+				asin: types.string(),
+				name: types.string({ required: true })
+			})
+		)
 	},
 	{
 		defaults: {

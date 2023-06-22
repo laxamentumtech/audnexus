@@ -5,8 +5,10 @@ import {
 	ApiBook,
 	ApiBookSchema,
 	ApiGenre,
+	ApiGenreSchema,
 	ApiNarratorOnBook,
 	ApiSeries,
+	ApiSeriesSchema,
 	AudibleCategory,
 	AudibleCategorySchema,
 	AudibleProduct,
@@ -14,7 +16,6 @@ import {
 	AudibleSeries,
 	AudibleSeriesSchema
 } from '#config/types'
-import { ApiGenreSchema, ApiSeriesSchema } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {

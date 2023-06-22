@@ -109,7 +109,7 @@ class ChapterHelper {
 	 */
 	async parseResponse(jsonResponse: AudibleChapter | undefined): Promise<ApiChapter | undefined> {
 		// Base undefined check
-		if (!jsonResponse || !jsonResponse.content_metadata.chapter_info) {
+		if (!jsonResponse?.content_metadata.chapter_info) {
 			return undefined
 		}
 
