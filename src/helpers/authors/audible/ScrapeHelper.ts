@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 
-import { ApiAuthorProfile, ApiAuthorProfileSchema } from '#config/types'
+import { ApiAuthorOnBook, ApiAuthorProfile, ApiAuthorProfileSchema } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -82,6 +82,43 @@ class ScrapeHelper {
 	}
 
 	/**
+	 * Get similar authors
+	 * @param {cheerio.CheerioAPI} dom the fetched dom object
+	 * @returns {ApiAuthorOnBook[]} similar authors.
+	 */
+	getSimilarAuthors(dom: cheerio.CheerioAPI): ApiAuthorOnBook[] | undefined {
+		try {
+			// Get similar authors section
+			const similarSection = dom(
+				'div.bc-col-responsive.bc-pub-max-width-large.bc-col-3.bc-col-offset-0'
+			)
+			// Get similar authors list
+			const similarItems = similarSection.children('a.bc-link.bc-color-link')
+			// Map similar authors to object
+			const similarAuthors = similarItems
+				.map((i, el) => {
+					return {
+						asin: this.helper.getAsinFromUrl(el.attribs.href),
+						name: dom(el).find('h3').text()
+					}
+				})
+				.get()
+			return similarAuthors
+		} catch (error) {
+			return undefined
+		}
+	}
+
+	/**
+	 * Sort similar authors by name
+	 * @param {ApiAuthorOnBook[]} similarAuthors the fetched dom object
+	 * @returns {ApiAuthorOnBook[]} sorted similar authors.
+	 */
+	sortSimilarAuthors(similarAuthors: ApiAuthorOnBook[]): ApiAuthorOnBook[] {
+		return similarAuthors.sort((a, b) => a.name.localeCompare(b.name))
+	}
+
+	/**
 	 * Parses fetched HTML page to extract genres and series'
 	 * @param {JSDOM} dom the fetched dom object
 	 * @returns {HtmlBook} genre and series.
@@ -105,6 +142,11 @@ class ScrapeHelper {
 		// Name
 		const name = this.getName(dom)
 
+		// Similar authors
+		const similarAuthors = this.getSimilarAuthors(dom)
+		// Sort similar authors by name
+		const similar = similarAuthors ? this.sortSimilarAuthors(similarAuthors) : undefined
+
 		// Parse response with zod
 		const response = ApiAuthorProfileSchema.safeParse({
 			asin: this.asin,
@@ -112,7 +154,8 @@ class ScrapeHelper {
 			genres,
 			image,
 			name,
-			region: this.region
+			region: this.region,
+			similar
 		})
 		// Handle error if response is not valid
 		if (!response.success) {

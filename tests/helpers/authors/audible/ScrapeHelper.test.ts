@@ -1,22 +1,20 @@
 import type { AxiosResponse } from 'axios'
 import * as cheerio from 'cheerio'
 
+import { baseAsin10Regex } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
-import {
-	htmlResponse,
-	htmlResponseNameOnly,
-	htmlResponseNoData
-} from '#tests/datasets/audible/authors/scrape'
-import { genres, parsedAuthor } from '#tests/datasets/helpers/authors'
+import { htmlResponseMinified, htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
+import { genres, parsedAuthor, similarUnsorted } from '#tests/datasets/helpers/authors'
 
 jest.mock('#helpers/utils/fetchPlus')
 jest.mock('#helpers/utils/shared')
 
 let asin: string
 let helper: ScrapeHelper
+let cheerioHtml: cheerio.CheerioAPI
 let mockResponse: string
 let region: string
 let url: string
@@ -25,12 +23,16 @@ const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 beforeEach(() => {
 	// Variables
 	asin = 'B012DQ3BCM'
+	mockResponse = deepCopy(htmlResponseMinified)
+	cheerioHtml = cheerio.load(mockResponse)
 	region = 'us'
 	url = `https://www.audible.com/author/${asin}/`
-	mockResponse = deepCopy(htmlResponse)
 	// Set up spys
 	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
 	jest.spyOn(SharedHelper.prototype, 'collectGenres').mockReturnValue(genres)
+	jest.spyOn(SharedHelper.prototype, 'getAsinFromUrl').mockImplementation((url: string) => {
+		return url.match(baseAsin10Regex)?.[0]
+	})
 	// Set up helpers
 	helper = new ScrapeHelper(asin, region)
 })
@@ -50,7 +52,7 @@ describe('ScrapeHelper should', () => {
 
 	test('fetch author', async () => {
 		const author = await helper.fetchAuthor()
-		expect(author.html()).toEqual(cheerio.load(htmlResponse).html())
+		expect(author.html()).toEqual(cheerio.load(mockResponse).html())
 	})
 
 	test('parse response', async () => {
@@ -66,6 +68,32 @@ describe('ScrapeHelper should', () => {
 		await expect(helper.process()).resolves.toEqual(parsedAuthor)
 	})
 
+	test('return description', () => {
+		const description = helper.getDescription(cheerioHtml)
+		expect(description).toEqual(parsedAuthor.description)
+	})
+
+	test('return image', () => {
+		const image = helper.getImage(cheerioHtml)
+		expect(image).toEqual(parsedAuthor.image)
+	})
+
+	test('return name', () => {
+		const name = helper.getName(cheerioHtml)
+		expect(name).toEqual(parsedAuthor.name)
+	})
+
+	test('return similar', () => {
+		const similar = helper.getSimilarAuthors(cheerioHtml)
+		expect(similar).toEqual(similarUnsorted)
+	})
+
+	test('return sorted similar', () => {
+		const similar = helper.getSimilarAuthors(cheerioHtml)
+		const sorted = helper.sortSimilarAuthors(similar!)
+		expect(sorted).toEqual(parsedAuthor.similar)
+	})
+
 	test('return a name when author has no bio, genres or image', async () => {
 		jest.spyOn(SharedHelper.prototype, 'collectGenres').mockReturnValue([])
 		const html = cheerio.load(htmlResponseNameOnly)
@@ -75,7 +103,8 @@ describe('ScrapeHelper should', () => {
 			genres: [],
 			image: '',
 			name: 'Jason Anspach',
-			region: region
+			region: region,
+			similar: []
 		})
 	})
 
@@ -105,7 +134,7 @@ describe('ScrapeHelper should throw error when', () => {
 
 	test('parse response fails validation', async () => {
 		jest.spyOn(helper, 'getName').mockReturnValue('')
-		await expect(helper.parseResponse(cheerio.load(htmlResponse))).rejects.toThrowError(
+		await expect(helper.parseResponse(cheerio.load(mockResponse))).rejects.toThrowError(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
