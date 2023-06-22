@@ -6,31 +6,29 @@ import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
-import { htmlResponseNameOnly, htmlResponseNoData } from '#tests/datasets/audible/authors/scrape'
+import {
+	htmlResponseMinified,
+	htmlResponseNameOnly,
+	htmlResponseNoData
+} from '#tests/datasets/audible/authors/scrape'
 import { genres, parsedAuthor, similarUnsorted } from '#tests/datasets/helpers/authors'
 
-// jest.mock('#helpers/utils/fetchPlus')
+jest.mock('#helpers/utils/fetchPlus')
 jest.mock('#helpers/utils/shared')
 
 let asin: string
 let helper: ScrapeHelper
 let cheerioHtml: cheerio.CheerioAPI
-let liveHtml: string
+let mockResponse: string
 let region: string
 let url: string
-
-beforeAll(async () => {
-	// Get a live version of the html page
-	const url = 'https://www.audible.com/author/B012DQ3BCM/'
-	await fetchPlus.default(url).then(async (response) => {
-		liveHtml = await response.data.toString()
-	})
-})
+const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(() => {
 	// Variables
 	asin = 'B012DQ3BCM'
-	cheerioHtml = cheerio.load(liveHtml)
+	mockResponse = deepCopy(htmlResponseMinified)
+	cheerioHtml = cheerio.load(mockResponse)
 	region = 'us'
 	url = `https://www.audible.com/author/${asin}/`
 	// Set up spys
@@ -47,7 +45,9 @@ describe('ScrapeHelper should', () => {
 	beforeEach(() => {
 		jest
 			.spyOn(fetchPlus, 'default')
-			.mockImplementation(() => Promise.resolve({ data: liveHtml, status: 200 } as AxiosResponse))
+			.mockImplementation(() =>
+				Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse)
+			)
 	})
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
@@ -56,7 +56,7 @@ describe('ScrapeHelper should', () => {
 
 	test('fetch author', async () => {
 		const author = await helper.fetchAuthor()
-		expect(author.html()).toEqual(cheerio.load(liveHtml).html())
+		expect(author.html()).toEqual(cheerio.load(mockResponse).html())
 	})
 
 	test('parse response', async () => {
@@ -138,7 +138,7 @@ describe('ScrapeHelper should throw error when', () => {
 
 	test('parse response fails validation', async () => {
 		jest.spyOn(helper, 'getName').mockReturnValue('')
-		await expect(helper.parseResponse(cheerio.load(liveHtml))).rejects.toThrowError(
+		await expect(helper.parseResponse(cheerio.load(mockResponse))).rejects.toThrowError(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
