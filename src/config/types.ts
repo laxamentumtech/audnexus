@@ -5,7 +5,10 @@ import { regions } from '#static/regions'
 // List of regions
 const regionTLDs = Object.keys(regions) as [string, ...string[]]
 
-export const asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
+// Regexes
+export const baseAsin10Regex = /(B[\dA-Z]{9}|\d{9}(X|\d))/
+// base regex with beginning and end anchors
+export const asin10Regex = new RegExp(`^${baseAsin10Regex.source}$`)
 export const asin11Regex = /\d{11}/gm
 
 // Reusable types
@@ -54,25 +57,26 @@ export const ApiSeriesSchema = z.object({
 export type ApiSeries = z.infer<typeof ApiSeriesSchema>
 
 // People
-const PersonSchema = z.object({
+export const ApiAuthorOnBookSchema = z.object({
+	asin: z.string().optional(),
 	name: NameSchema
-})
-
-export const ApiAuthorOnBookSchema = PersonSchema.extend({
-	asin: z.string().optional()
 })
 export type ApiAuthorOnBook = z.infer<typeof ApiAuthorOnBookSchema>
 
-export const ApiAuthorProfileSchema = PersonSchema.extend({
+export const ApiAuthorProfileSchema = z.object({
 	asin: AsinSchema,
 	description: z.string().optional(),
 	genres: z.array(ApiGenreSchema).optional(),
 	image: z.string().optional(),
-	region: RegionSchema
+	name: NameSchema,
+	region: RegionSchema,
+	similar: z.array(ApiAuthorOnBookSchema).optional()
 })
 export type ApiAuthorProfile = z.infer<typeof ApiAuthorProfileSchema>
 
-export const ApiNarratorOnBookSchema = PersonSchema
+export const ApiNarratorOnBookSchema = z.object({
+	name: NameSchema
+})
 export type ApiNarratorOnBook = z.infer<typeof ApiNarratorOnBookSchema>
 
 // Books
