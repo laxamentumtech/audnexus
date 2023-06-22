@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
-import { ApiGenre, ApiGenreSchema, asin11Regex } from '#config/types'
+import { ApiGenre, ApiGenreSchema, asin11Regex, baseAsin10Regex } from '#config/types'
 import { PaprDocument } from '#config/typing/papr'
 import { NoticeGenreNotAvailable } from '#static/messages'
 
@@ -123,7 +123,7 @@ class SharedHelper {
 	 * @returns {string} ASIN.
 	 */
 	getAsinFromUrl(url: string): string | undefined {
-		return url.match(/(B[\dA-Z]{9}|\d{9}(X|\d))/)?.[0]
+		return url.match(baseAsin10Regex)?.[0]
 	}
 
 	/**

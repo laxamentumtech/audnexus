@@ -5,7 +5,10 @@ import { regions } from '#static/regions'
 // List of regions
 const regionTLDs = Object.keys(regions) as [string, ...string[]]
 
-export const asin10Regex = /^(B[\dA-Z]{9}|\d{9}(X|\d))$/
+// Regexes
+export const baseAsin10Regex = /(B[\dA-Z]{9}|\d{9}(X|\d))/
+// base regex with beginning and end anchors
+export const asin10Regex = new RegExp(`^${baseAsin10Regex.source}$`)
 export const asin11Regex = /\d{11}/gm
 
 // Reusable types
