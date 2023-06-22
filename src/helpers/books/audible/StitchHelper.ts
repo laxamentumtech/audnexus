@@ -88,7 +88,7 @@ class StitchHelper {
 			if (parsed.success) return parsed.data
 			throw new Error(ErrorMessageSort(this.asin))
 		}
-		return this.apiParsed as ApiBook
+		return this.apiParsed
 	}
 
 	/**

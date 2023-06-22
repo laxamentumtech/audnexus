@@ -6,11 +6,7 @@ import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
-import {
-	htmlResponseMinified,
-	htmlResponseNameOnly,
-	htmlResponseNoData
-} from '#tests/datasets/audible/authors/scrape'
+import { htmlResponseMinified, htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
 import { genres, parsedAuthor, similarUnsorted } from '#tests/datasets/helpers/authors'
 
 jest.mock('#helpers/utils/fetchPlus')

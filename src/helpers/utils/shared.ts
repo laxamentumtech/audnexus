@@ -123,7 +123,7 @@ class SharedHelper {
 	 * @returns {string} ASIN.
 	 */
 	getAsinFromUrl(url: string): string | undefined {
-		return url.match(baseAsin10Regex)?.[0]
+		return baseAsin10Regex.exec(url)?.[0]
 	}
 
 	/**
@@ -152,7 +152,7 @@ class SharedHelper {
 	sortObjectByKeys(data: object) {
 		const obj = data as Record<string, unknown>
 		return Object.keys(data)
-			.sort()
+			.sort((a, b) => a.localeCompare(b))
 			.reduce((r, k) => Object.assign(r, { [k]: obj[k] }), {})
 	}
 }
