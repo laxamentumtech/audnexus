@@ -17,8 +17,32 @@ describe('Audible Author HTML', () => {
 			response = await helper.process()
 		})
 
-		it('returned the correct data', () => {
-			expect(response).toEqual(authorParsedB00G0WYW92)
+		it('returned the correct asin', () => {
+			expect(response.asin).toEqual(authorParsedB00G0WYW92.asin)
+		})
+
+		it('returned the correct name', () => {
+			expect(response.name).toEqual(authorParsedB00G0WYW92.name)
+		})
+
+		it('returned the correct genres', () => {
+			expect(response.genres).toEqual(authorParsedB00G0WYW92.genres)
+		})
+
+		it('returned the correct image', () => {
+			expect(response.image).toEqual(authorParsedB00G0WYW92.image)
+		})
+
+		it('returned the correct description', () => {
+			expect(response.description).toEqual(authorParsedB00G0WYW92.description)
+		})
+
+		it('returned a region', () => {
+			expect(response.region).toEqual(authorParsedB00G0WYW92.region)
+		})
+
+		it('returned similar authors', () => {
+			expect(response.similar?.length).toEqual(authorParsedB00G0WYW92.similar?.length)
 		})
 	})
 
@@ -29,8 +53,32 @@ describe('Audible Author HTML', () => {
 			response = await helper.process()
 		})
 
-		it('returned the correct data', () => {
-			expect(response).toEqual(authorParsedB0034NFIOI)
+		it('returned the correct asin', () => {
+			expect(response.asin).toEqual(authorParsedB0034NFIOI.asin)
+		})
+
+		it('returned the correct name', () => {
+			expect(response.name).toEqual(authorParsedB0034NFIOI.name)
+		})
+
+		it('returned the correct genres', () => {
+			expect(response.genres).toEqual(authorParsedB0034NFIOI.genres)
+		})
+
+		it('returned no image', () => {
+			expect(response.image).toEqual(authorParsedB0034NFIOI.image)
+		})
+
+		it('returned no description', () => {
+			expect(response.description).toEqual(authorParsedB0034NFIOI.description)
+		})
+
+		it('returned a region', () => {
+			expect(response.region).toEqual(authorParsedB0034NFIOI.region)
+		})
+
+		it('returned similar authors', () => {
+			expect(response.similar?.length).toEqual(authorParsedB0034NFIOI.similar?.length)
 		})
 	})
 
