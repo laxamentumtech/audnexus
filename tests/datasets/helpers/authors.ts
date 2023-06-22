@@ -57,6 +57,40 @@ const similar = [
 		name: 'William S Frisbee Jr'
 	}
 ]
+export const similarUnsorted = [
+    {
+        asin: 'B00A8JBYDU',
+        name: 'Peter Nealen'
+    },
+    {
+        asin: 'B00W2ZAK7E',
+        name: 'JN Chaney'
+    },
+    {
+        asin: 'B00B1GNL4E',
+        name: 'Rick Partlow'
+    },
+    {
+        asin: 'B001IGQXEW',
+        name: 'Karen Traviss'
+    },
+    {
+        asin: 'B007E4W0GC',
+        name: 'Jonathan P. Brazee'
+    },
+	{
+		asin: 'B000APARWG',
+		name: 'Blaine Lee Pardoe'
+	},
+    {
+        asin: 'B005LW1K1A',
+        name: 'William S Frisbee Jr'
+    },
+	{
+		asin: 'B08YC2Y6MV',
+		name: 'Doc Spears'
+	}
+]
 
 export const parsedAuthor: ApiAuthorProfile = {
 	asin,

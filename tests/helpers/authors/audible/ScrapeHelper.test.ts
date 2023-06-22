@@ -6,17 +6,15 @@ import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
-import {
-	htmlResponseNameOnly,
-	htmlResponseNoData
-} from '#tests/datasets/audible/authors/scrape'
-import { genres, parsedAuthor } from '#tests/datasets/helpers/authors'
+import { htmlResponseNameOnly, htmlResponseNoData } from '#tests/datasets/audible/authors/scrape'
+import { genres, parsedAuthor, similarUnsorted } from '#tests/datasets/helpers/authors'
 
 // jest.mock('#helpers/utils/fetchPlus')
 jest.mock('#helpers/utils/shared')
 
 let asin: string
 let helper: ScrapeHelper
+let cheerioHtml: cheerio.CheerioAPI
 let liveHtml: string
 let region: string
 let url: string
@@ -32,6 +30,7 @@ beforeAll(async () => {
 beforeEach(() => {
 	// Variables
 	asin = 'B012DQ3BCM'
+	cheerioHtml = cheerio.load(liveHtml)
 	region = 'us'
 	url = `https://www.audible.com/author/${asin}/`
 	// Set up spys
@@ -71,6 +70,32 @@ describe('ScrapeHelper should', () => {
 
 	test('process author', async () => {
 		await expect(helper.process()).resolves.toEqual(parsedAuthor)
+	})
+
+	test('return description', () => {
+		const description = helper.getDescription(cheerioHtml)
+		expect(description).toEqual(parsedAuthor.description)
+	})
+
+	test('return image', () => {
+		const image = helper.getImage(cheerioHtml)
+		expect(image).toEqual(parsedAuthor.image)
+	})
+
+	test('return name', () => {
+		const name = helper.getName(cheerioHtml)
+		expect(name).toEqual(parsedAuthor.name)
+	})
+
+	test('return similar', () => {
+		const similar = helper.getSimilarAuthors(cheerioHtml)
+		expect(similar).toEqual(similarUnsorted)
+	})
+
+	test('return sorted similar', () => {
+		const similar = helper.getSimilarAuthors(cheerioHtml)
+		const sorted = helper.sortSimilarAuthors(similar!)
+		expect(sorted).toEqual(parsedAuthor.similar)
 	})
 
 	test('return a name when author has no bio, genres or image', async () => {
