@@ -104,11 +104,19 @@ export default class AuthorShowHelper {
 	 * Actions to run when an update is requested
 	 */
 	async updateActions(): Promise<ApiAuthorProfile> {
+		if (!this.originalAuthor) throw new Error("Can't update an author that doesn't exist")
 		// 1. Check if it is updated recently
 		if (this.isUpdatedRecently()) return this.getAuthorWithProjection()
 
+		const data =
+			(await this.createOrUpdateAuthor()
+				.then((res) => res)
+				.catch((err) => {
+					console.log('Error updating author', err)
+				})) || this.originalAuthor
+
 		// 2. Create or update the author
-		return this.createOrUpdateAuthor()
+		return data
 	}
 
 	/**

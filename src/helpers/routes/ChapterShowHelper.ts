@@ -102,11 +102,19 @@ export default class ChapterShowHelper {
 	 * Actions to run when an update is requested
 	 */
 	async updateActions(): Promise<ApiChapter | undefined> {
+		if (!this.originalChapter) throw new Error("Can't update a chapter that doesn't exist")
 		// 1. Check if it is updated recently
 		if (this.isUpdatedRecently()) return this.getChapterWithProjection()
 
+		const data =
+			(await this.createOrUpdateChapters()
+				.then((res) => res)
+				.catch((err) => {
+					console.log('Error updating chapter', err)
+				})) || this.originalChapter
+
 		// 2. Create and return the chapter
-		return this.createOrUpdateChapters()
+		return data
 	}
 
 	/**

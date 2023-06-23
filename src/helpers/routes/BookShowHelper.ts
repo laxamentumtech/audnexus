@@ -47,10 +47,8 @@ export default class BookShowHelper {
 
 		// 2. Sort the object
 		const sort = this.sharedHelper.sortObjectByKeys(bookToReturn.data)
-		console.log(sort)
 		// Parse the data to make sure it's the correct type
 		const parsed = ApiBookSchema.safeParse(sort)
-		console.log(parsed)
 		// If the data is not the correct type, throw an error
 		if (!parsed.success) throw new Error(ErrorMessageDataType(this.asin, 'Book'))
 		// Return the data
@@ -100,11 +98,17 @@ export default class BookShowHelper {
 	 * Actions to run when an update is requested
 	 */
 	async updateActions(): Promise<ApiBook> {
+		if (!this.originalBook) throw new Error("Can't update a book that doesn't exist")
 		// 1. Check if it is updated recently
 		if (this.isUpdatedRecently()) return this.getBookWithProjection()
 
 		// 2. Get the new book and create or update it
-		const data = await this.createOrUpdateBook()
+		const data =
+			(await this.createOrUpdateBook()
+				.then((res) => res)
+				.catch((err) => {
+					console.log('Error updating book', err)
+				})) || this.originalBook
 
 		// 3. Seed authors in the background
 		if (this.options.seedAuthors !== '0') {
