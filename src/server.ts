@@ -1,6 +1,7 @@
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
+import schedule from '@fastify/schedule'
 import { fastify } from 'fastify'
 
 import 'module-alias/register'
@@ -14,6 +15,7 @@ import deleteChapter from '#config/routes/books/chapters/delete'
 import showChapter from '#config/routes/books/chapters/show'
 import deleteBook from '#config/routes/books/delete'
 import showBook from '#config/routes/books/show'
+import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
 // Heroku or local port
 const host = '0.0.0.0'
@@ -24,6 +26,7 @@ const server = fastify({
 	},
 	trustProxy: true
 })
+const updateInterval = Number(process.env.UPDATE_INTERVAL) || 30
 
 // Setup DB context
 if (!process.env.MONGODB_URI) {
@@ -50,6 +53,8 @@ async function registerPlugins() {
 	await server.register(cors, {
 		origin: true
 	})
+
+	await server.register(schedule)
 
 	// Rate limiting
 	await server.register(rateLimit, {
@@ -108,6 +113,20 @@ async function startServer() {
 				process.exit(1)
 			})
 		console.log(`Server listening at ${address}`)
+	})
+
+	// Schedule update jobs
+	console.log(`Update interval: ${updateInterval} days`)
+	const updateScheduler = new UpdateScheduler(updateInterval, server.redis)
+
+	const updateAuthorsJob = updateScheduler.updateAuthorsJob()
+	const updateBooksJob = updateScheduler.updateBooksJob()
+	const updateChaptersJob = updateScheduler.updateChaptersJob()
+
+	server.ready(() => {
+		server.scheduler.addSimpleIntervalJob(updateAuthorsJob)
+		server.scheduler.addSimpleIntervalJob(updateBooksJob)
+		server.scheduler.addSimpleIntervalJob(updateChaptersJob)
 	})
 }
 
