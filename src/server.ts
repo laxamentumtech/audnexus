@@ -135,6 +135,7 @@ async function startServer() {
  */
 async function stopServer() {
 	console.log('Closing HTTP server')
+    server.scheduler.stop()
 	server.close(() => {
 		console.log('HTTP server closed')
 		//   Close Papr/mongo connection
