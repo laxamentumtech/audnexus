@@ -111,7 +111,7 @@ export default class ChapterShowHelper {
 				.then((res) => res)
 				.catch((err) => {
 					console.log('Error updating chapter', err)
-				})) || this.originalChapter
+				})) || undefined
 
 		// 2. Create and return the chapter
 		return data
