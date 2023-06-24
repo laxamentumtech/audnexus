@@ -9,8 +9,8 @@ dependencies:
     specifier: 8.2.1
     version: 8.2.1
   '@fastify/rate-limit':
-    specifier: 8.0.0
-    version: 8.0.0
+    specifier: 8.0.1
+    version: 8.0.1
   '@fastify/redis':
     specifier: 6.1.1
     version: 6.1.1
@@ -516,12 +516,12 @@ packages:
       fast-json-stringify: 5.7.0
     dev: false
 
-  /@fastify/rate-limit@8.0.0:
-    resolution: {integrity: sha512-73pQFgpx6RMmY5nriYQW0AIATZpa/OAvWa5PQ9JHEqgjKMLNv9zLAphWIRh5914aN6sqtv8sLICr3Tp1NbXQIQ==}
+  /@fastify/rate-limit@8.0.1:
+    resolution: {integrity: sha512-sKztox9tAhKYJadS7yD7mBamNs8sLP/OlBjX6prGzlL3+q4cxPE2UafW8QF5s4+BuUyssQ7FabSlgieqyk4JZg==}
     dependencies:
       fastify-plugin: 4.5.0
       ms: 2.1.3
-      tiny-lru: 10.4.1
+      tiny-lru: 11.0.1
     dev: false
 
   /@fastify/redis@6.1.1:
@@ -5670,6 +5670,11 @@ packages:
 
   /tiny-lru@10.4.1:
     resolution: {integrity: sha512-buLIzw7ppqymuO3pt10jHk/6QMeZLbidihMQU+N6sogF6EnBzG0qtDWIHuhw1x3dyNgVL/KTGIZsTK81+yCzLg==}
+    engines: {node: '>=12'}
+    dev: false
+
+  /tiny-lru@11.0.1:
+    resolution: {integrity: sha512-iNgFugVuQgBKrqeO/mpiTTgmBsTP0WL6yeuLfLs/Ctf0pI/ixGqIRm8sDCwMcXGe9WWvt2sGXI5mNqZbValmJg==}
     engines: {node: '>=12'}
     dev: false
 
