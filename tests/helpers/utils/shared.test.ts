@@ -41,6 +41,21 @@ describe('SharedHelper should', () => {
 		expect(helper.isRecentlyUpdated(bookWithoutProjection)).toBe(false)
 	})
 
+	test('get asin from url', () => {
+		expect(
+			helper.getAsinFromUrl('https://www.audible.com/pd/Galaxys-Edge-Audiobook/B079LRSMNN')
+		).toBe('B079LRSMNN')
+		expect(
+			helper.getAsinFromUrl(
+				'https://www.audible.com/pd/Galaxys-Edge-Audiobook/B079LRSMNN?qid=1658874273&sr=1-1&ref=a_search_c3_lProduct_1_1&pf_rd_p=83218cca-c308-412f-bfcf-90198b687a2f&pf_rd_r=7QSJ1Z5PQJVRPYE7ZF6V'
+			)
+		).toBe('B079LRSMNN')
+		// should return undefined if no asin
+		expect(
+			helper.getAsinFromUrl('https://www.audible.com/pd/Galaxys-Edge-Audiobook/')
+		).toBeUndefined()
+	})
+
 	test('get genre asin from url', () => {
 		expect(
 			helper.getGenreAsinFromUrl(

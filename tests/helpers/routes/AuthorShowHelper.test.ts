@@ -126,4 +126,10 @@ describe('AuthorShowHelper should throw error when', () => {
 			`Data type for ${asin} is not ApiAuthorProfile`
 		)
 	})
+	test('updateActions has no originalAuthor', async () => {
+		helper.originalAuthor = null
+		await expect(helper.updateActions()).rejects.toThrow(
+			`Missing original Author data for ASIN: ${asin}`
+		)
+	})
 })

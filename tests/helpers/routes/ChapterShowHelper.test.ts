@@ -136,4 +136,10 @@ describe('ChapterShowHelper should throw error when', () => {
 			`Data type for ${asin} is not Chapter`
 		)
 	})
+	test('update has no originalChapter', async () => {
+		helper.originalChapter = null
+		await expect(helper.updateActions()).rejects.toThrow(
+			`Missing original Chapter data for ASIN: ${asin}`
+		)
+	})
 })

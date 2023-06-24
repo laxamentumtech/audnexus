@@ -125,4 +125,10 @@ describe('BookShowHelper should throw error when', () => {
 			.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.createOrUpdateBook()).rejects.toThrow(`Data type for ${asin} is not Book`)
 	})
+	test('update has no originalBook', async () => {
+		helper.originalBook = null
+		await expect(helper.updateActions()).rejects.toThrow(
+			`Missing original Book data for ASIN: ${asin}`
+		)
+	})
 })
