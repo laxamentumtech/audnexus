@@ -115,18 +115,23 @@ async function startServer() {
 		console.log(`Server listening at ${address}`)
 	})
 
-	// Schedule update jobs
-	console.log(`Update interval: ${updateInterval} days`)
-	const updateScheduler = new UpdateScheduler(updateInterval, server.redis)
-
-	const updateAuthorsJob = updateScheduler.updateAuthorsJob()
-	const updateBooksJob = updateScheduler.updateBooksJob()
-	const updateChaptersJob = updateScheduler.updateChaptersJob()
-
 	server.ready(() => {
-		server.scheduler.addSimpleIntervalJob(updateAuthorsJob)
-		server.scheduler.addSimpleIntervalJob(updateBooksJob)
-		server.scheduler.addSimpleIntervalJob(updateChaptersJob)
+		// test that db is connected
+		ctx.client
+			.db('papr')
+			.command({ ping: 1 })
+			.then(() => {
+				// Schedule update jobs
+				console.log(`Update interval: ${updateInterval} days`)
+				const updateScheduler = new UpdateScheduler(updateInterval, server.redis)
+
+				const updateAllJob = updateScheduler.updateAllJob()
+				server.scheduler.addLongIntervalJob(updateAllJob)
+			})
+			.catch((err) => {
+				console.error(err)
+				process.exit(1)
+			})
 	})
 }
 
@@ -135,7 +140,7 @@ async function startServer() {
  */
 async function stopServer() {
 	console.log('Closing HTTP server')
-    server.scheduler.stop()
+	server.scheduler.stop()
 	server.close(() => {
 		console.log('HTTP server closed')
 		//   Close Papr/mongo connection
