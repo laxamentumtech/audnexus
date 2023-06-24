@@ -28,7 +28,7 @@
 	"license": "GPL-3.0",
 	"dependencies": {
 		"@fastify/cors": "8.2.1",
-		"@fastify/rate-limit": "8.0.0",
+		"@fastify/rate-limit": "8.0.1",
 		"@fastify/redis": "6.1.1",
 		"axios": "^1.2.4",
 		"cheerio": "1.0.0-rc.12",
