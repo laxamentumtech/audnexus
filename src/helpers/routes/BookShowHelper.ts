@@ -7,7 +7,7 @@ import StitchHelper from '#helpers/books/audible/StitchHelper'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/utils/shared'
-import { ErrorMessageDataType } from '#static/messages'
+import { ErrorMessageDataType, ErrorMessageMissingOriginal } from '#static/messages'
 
 export default class BookShowHelper {
 	asin: string
@@ -98,7 +98,7 @@ export default class BookShowHelper {
 	 * Actions to run when an update is requested
 	 */
 	async updateActions(): Promise<ApiBook> {
-		if (!this.originalBook) throw new Error("Can't update a book that doesn't exist")
+		if (!this.originalBook) throw new Error(ErrorMessageMissingOriginal(this.asin, 'Book'))
 		// 1. Check if it is updated recently
 		if (this.isUpdatedRecently()) return this.getBookWithProjection()
 

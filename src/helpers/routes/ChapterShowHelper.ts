@@ -6,7 +6,7 @@ import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/utils/shared'
-import { ErrorMessageDataType } from '#static/messages'
+import { ErrorMessageDataType, ErrorMessageMissingOriginal } from '#static/messages'
 
 export default class ChapterShowHelper {
 	asin: string
@@ -102,7 +102,7 @@ export default class ChapterShowHelper {
 	 * Actions to run when an update is requested
 	 */
 	async updateActions(): Promise<ApiChapter | undefined> {
-		if (!this.originalChapter) throw new Error("Can't update a chapter that doesn't exist")
+		if (!this.originalChapter) throw new Error(ErrorMessageMissingOriginal(this.asin, 'Chapter'))
 		// 1. Check if it is updated recently
 		if (this.isUpdatedRecently()) return this.getChapterWithProjection()
 
