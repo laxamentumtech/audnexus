@@ -45,7 +45,7 @@
 	},
 	"devDependencies": {
 		"@jest/types": "29.5.0",
-		"@types/html-to-text": "9.0.0",
+		"@types/html-to-text": "9.0.1",
 		"@types/jest": "29.5.0",
 		"@types/jsrsasign": "10.5.8",
 		"@types/lodash": "4.14.192",
