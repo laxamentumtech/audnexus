@@ -36,8 +36,8 @@ dependencies:
     specifier: 4.17.21
     version: 4.17.21
   module-alias:
-    specifier: 2.2.2
-    version: 2.2.2
+    specifier: 2.2.3
+    version: 2.2.3
   mongodb:
     specifier: 5.6.0
     version: 5.6.0
@@ -4188,8 +4188,8 @@ packages:
     engines: {node: '>=0.10.0'}
     dev: true
 
-  /module-alias@2.2.2:
-    resolution: {integrity: sha512-A/78XjoX2EmNvppVWEhM2oGk3x4lLxnkEA4jTbaK97QKSDjkIoOsKQlfylt/d3kKKi596Qy3NP5XrXJ6fZIC9Q==}
+  /module-alias@2.2.3:
+    resolution: {integrity: sha512-23g5BFj4zdQL/b6tor7Ji+QY4pEfNH784BMslY9Qb0UnJWRAt+lQGLYmRaM0KDBwIG23ffEBELhZDP2rhi9f/Q==}
     dev: false
 
   /mongodb-connection-string-url@2.6.0:
