@@ -6,8 +6,8 @@ settings:
 
 dependencies:
   '@fastify/cors':
-    specifier: 8.2.1
-    version: 8.2.1
+    specifier: 8.3.0
+    version: 8.3.0
   '@fastify/rate-limit':
     specifier: 8.0.1
     version: 8.0.1
@@ -495,8 +495,8 @@ packages:
       fast-uri: 2.2.0
     dev: false
 
-  /@fastify/cors@8.2.1:
-    resolution: {integrity: sha512-2H2MrDD3ea7g707g1CNNLWb9/tYbmw7HS+MK2SDcgjxwzbOFR93JortelTIO8DBFsZqFtEpKNxiZfSyrGgYcbw==}
+  /@fastify/cors@8.3.0:
+    resolution: {integrity: sha512-oj9xkka2Tg0MrwuKhsSUumcAkfp2YCnKxmFEusi01pjk1YrdDsuSYTHXEelWNW+ilSy/ApZq0c2SvhKrLX0H1g==}
     dependencies:
       fastify-plugin: 4.5.0
       mnemonist: 0.39.5
