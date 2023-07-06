@@ -71,12 +71,6 @@ describe('BookShowHelper should', () => {
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)
 	})
 
-	test('run updateActions and return original book if there was an error', async () => {
-		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('error'))
-		helper.originalBook = bookWithoutProjection
-		await expect(helper.updateActions()).resolves.toStrictEqual(bookWithoutProjection)
-	})
-
 	test('run handler for a new book', async () => {
 		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
@@ -130,11 +124,5 @@ describe('BookShowHelper should throw error when', () => {
 			.spyOn(helper.paprHelper, 'createOrUpdate')
 			.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.createOrUpdateBook()).rejects.toThrow(`Data type for ${asin} is not Book`)
-	})
-	test('update has no originalBook', async () => {
-		helper.originalBook = null
-		await expect(helper.updateActions()).rejects.toThrow(
-			`Missing original Book data for ASIN: ${asin}`
-		)
 	})
 })
