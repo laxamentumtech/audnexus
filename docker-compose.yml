@@ -1,0 +1,67 @@
+version: '3.7'
+
+services:
+  node-server:
+    image: ghcr.io/laxamentumtech/audnexus:develop
+    restart: always
+    environment:
+      - MAX_REQUESTS=${NODE_MAX_REQUESTS}
+      - MONGODB_URI=${NODE_MONGODB_URI}
+      - REDIS_URL=${NODE_REDIS_URL}
+      - UPDATE_INTERVAL=${NODE_UPDATE_INTERVAL}
+    ports:
+      - '3000:3000'
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - traefik-overlay
+      - internal
+    deploy:
+      labels:
+        - 'traefik.enable=true'
+        - 'traefik.docker.network=traefik-overlay'
+        - 'traefik.http.routers.node-server.rule=Host(`${TRAEFIK_DOMAIN}`)'
+        - 'traefik.http.routers.node-server.entrypoints=websecure'
+        - 'traefik.http.routers.redirs.entrypoints=websecure'
+        - 'traefik.http.services.node-server.loadbalancer.server.port=3000'
+      replicas: 15
+
+  mongo:
+    image: mongo:6
+    restart: always
+    volumes:
+      - /mnt/docker/mongo/data:/data/db
+    networks:
+      - internal
+
+  redis:
+    image: redis:alpine
+    restart: always
+    networks:
+      - internal
+
+  traefik:
+    image: traefik:v3.0
+    restart: always
+    command:
+      - '--providers.docker=true'
+      - '--entryPoints.websecure.address=:443'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.websecure.http.tls=true'
+      - '--certificatesresolvers.myresolver.acme.tlschallenge=true'
+      - '--certificatesresolvers.myresolver.acme.email=${TRAEFIK_EMAIL}'
+      - '--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json'
+    ports:
+      - '443:443'
+    volumes:
+      - /mnt/docker/letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-overlay
+    deploy:
+      replicas: 1
+
+networks:
+  traefik-overlay:
+  internal:
