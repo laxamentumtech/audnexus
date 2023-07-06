@@ -6,7 +6,7 @@ import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/utils/shared'
-import { ErrorMessageDataType } from '#static/messages'
+import { ErrorMessageDataType, ErrorMessageMissingOriginal } from '#static/messages'
 
 export default class AuthorShowHelper {
 	asin: string
@@ -104,11 +104,19 @@ export default class AuthorShowHelper {
 	 * Actions to run when an update is requested
 	 */
 	async updateActions(): Promise<ApiAuthorProfile> {
+		if (!this.originalAuthor) throw new Error(ErrorMessageMissingOriginal(this.asin, 'Author'))
 		// 1. Check if it is updated recently
 		if (this.isUpdatedRecently()) return this.getAuthorWithProjection()
 
+		const data =
+			(await this.createOrUpdateAuthor()
+				.then((res) => res)
+				.catch((err) => {
+					console.log('Error updating author', err)
+				})) || this.originalAuthor
+
 		// 2. Create or update the author
-		return this.createOrUpdateAuthor()
+		return data
 	}
 
 	/**
