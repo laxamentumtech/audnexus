@@ -1,4 +1,5 @@
 import cors from '@fastify/cors'
+import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
 import schedule from '@fastify/schedule'
@@ -54,6 +55,12 @@ async function registerPlugins() {
 		origin: true
 	})
 
+	// Helmet
+	await server.register(helmet, {
+		global: true
+	})
+
+	// Scheduler
 	await server.register(schedule)
 
 	// Rate limiting
