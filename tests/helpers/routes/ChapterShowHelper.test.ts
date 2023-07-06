@@ -66,6 +66,12 @@ describe('ChapterShowHelper should', () => {
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedChapters)
 	})
 
+	test('run all update actions and return undefined if there was an error', async () => {
+		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('Error'))
+		helper.originalChapter = chaptersWithoutProjection
+		await expect(helper.updateActions()).resolves.toBeUndefined()
+	})
+
 	test('run all update actions and return undefined if no chapters', async () => {
 		jest.spyOn(helper.chapterHelper, 'process').mockResolvedValue(undefined)
 		helper.originalChapter = chaptersWithoutProjection

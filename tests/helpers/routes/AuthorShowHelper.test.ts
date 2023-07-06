@@ -68,6 +68,12 @@ describe('AuthorShowHelper should', () => {
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedAuthor)
 	})
 
+	test('run updateActions and return original author if there was an error', async () => {
+		helper.originalAuthor = authorWithoutProjection
+		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('error'))
+		await expect(helper.updateActions()).resolves.toStrictEqual(authorWithoutProjection)
+	})
+
 	test('run handler for a new author', async () => {
 		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)

@@ -71,6 +71,12 @@ describe('BookShowHelper should', () => {
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)
 	})
 
+	test('run updateActions and return original book if there was an error', async () => {
+		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('error'))
+		helper.originalBook = bookWithoutProjection
+		await expect(helper.updateActions()).resolves.toStrictEqual(bookWithoutProjection)
+	})
+
 	test('run handler for a new book', async () => {
 		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
