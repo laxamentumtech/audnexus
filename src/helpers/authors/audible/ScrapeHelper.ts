@@ -86,7 +86,7 @@ class ScrapeHelper {
 	 * @param {cheerio.CheerioAPI} dom the fetched dom object
 	 * @returns {ApiAuthorOnBook[]} similar authors.
 	 */
-	getSimilarAuthors(dom: cheerio.CheerioAPI): ApiAuthorOnBook[] {
+	getSimilarAuthors(dom: cheerio.CheerioAPI): ApiAuthorOnBook[] | undefined {
 		try {
 			// Get similar authors section
 			const similarSection = dom(
@@ -105,7 +105,7 @@ class ScrapeHelper {
 				.get()
 			return similarAuthors
 		} catch (error) {
-			return []
+			return undefined
 		}
 	}
 
@@ -145,7 +145,7 @@ class ScrapeHelper {
 		// Similar authors
 		const similarAuthors = this.getSimilarAuthors(dom)
 		// Sort similar authors by name
-		const similar = this.sortSimilarAuthors(similarAuthors)
+		const similar = similarAuthors ? this.sortSimilarAuthors(similarAuthors) : undefined
 
 		// Parse response with zod
 		const response = ApiAuthorProfileSchema.safeParse({

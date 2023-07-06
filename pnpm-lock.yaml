@@ -14,9 +14,6 @@ dependencies:
   '@fastify/redis':
     specifier: 6.1.1
     version: 6.1.1
-  '@fastify/schedule':
-    specifier: ^4.1.1
-    version: 4.1.1(fastify@4.15.0)(toad-scheduler@3.0.0)
   axios:
     specifier: ^1.2.4
     version: 1.2.4
@@ -47,9 +44,6 @@ dependencies:
   papr:
     specifier: 13.1.0
     version: 13.1.0(mongodb@5.6.0)
-  toad-scheduler:
-    specifier: ^3.0.0
-    version: 3.0.0
   typescript:
     specifier: 4.9.5
     version: 4.9.5
@@ -537,17 +531,6 @@ packages:
       ioredis: 5.3.2
     transitivePeerDependencies:
       - supports-color
-    dev: false
-
-  /@fastify/schedule@4.1.1(fastify@4.15.0)(toad-scheduler@3.0.0):
-    resolution: {integrity: sha512-riIh+eumfpoDDpNqMqzHdzYofWVhaHJYxH69OMQyVzGUJikF5luvr4LMx/uxedE1VJfmHJCUjBuMVcPLB7KsZg==}
-    peerDependencies:
-      fastify: ^4.0.0
-      toad-scheduler: '>= 2.0.0 < 4'
-    dependencies:
-      fastify: 4.15.0
-      fastify-plugin: 4.5.0
-      toad-scheduler: 3.0.0
     dev: false
 
   /@humanwhocodes/config-array@0.10.7:
@@ -5706,10 +5689,6 @@ packages:
     engines: {node: '>=8.0'}
     dependencies:
       is-number: 7.0.0
-
-  /toad-scheduler@3.0.0:
-    resolution: {integrity: sha512-BYmrORvaGmjziir/ra8qD3qAKczJveqK5ZOO/wn7oS5qLI4iibOza3DBGgu+EwNp9zdlBTKSeZPmxZxzGy1dxw==}
-    dev: false
 
   /touch@3.1.0:
     resolution: {integrity: sha512-WBx8Uy5TLtOSRtIq+M03/sKDrXCLHxwDcquSP2c43Le03/9serjQBIztjRz6FkJez9D/hleyAXTBGLwwZUw9lA==}
