@@ -19,7 +19,7 @@ dependencies:
     version: 6.1.1
   '@fastify/schedule':
     specifier: ^4.1.1
-    version: 4.1.1(fastify@4.15.0)(toad-scheduler@3.0.0)
+    version: 4.1.1(fastify@4.19.0)(toad-scheduler@3.0.0)
   axios:
     specifier: ^1.2.4
     version: 1.2.4
@@ -30,8 +30,8 @@ dependencies:
     specifier: 5.0.3
     version: 5.0.3
   fastify:
-    specifier: 4.15.0
-    version: 4.15.0
+    specifier: 4.19.0
+    version: 4.19.0
   html-to-text:
     specifier: 9.0.5
     version: 9.0.5
@@ -549,13 +549,13 @@ packages:
       - supports-color
     dev: false
 
-  /@fastify/schedule@4.1.1(fastify@4.15.0)(toad-scheduler@3.0.0):
+  /@fastify/schedule@4.1.1(fastify@4.19.0)(toad-scheduler@3.0.0):
     resolution: {integrity: sha512-riIh+eumfpoDDpNqMqzHdzYofWVhaHJYxH69OMQyVzGUJikF5luvr4LMx/uxedE1VJfmHJCUjBuMVcPLB7KsZg==}
     peerDependencies:
       fastify: ^4.0.0
       toad-scheduler: '>= 2.0.0 < 4'
     dependencies:
-      fastify: 4.15.0
+      fastify: 4.19.0
       fastify-plugin: 4.5.0
       toad-scheduler: 3.0.0
     dev: false
@@ -2834,8 +2834,8 @@ packages:
     resolution: {integrity: sha512-79ak0JxddO0utAXAQ5ccKhvs6vX2MGyHHMMsmZkBANrq3hXc1CHzvNPHOcvTsVMEPl5I+NT+RO4YKMGehOfSIg==}
     dev: false
 
-  /fastify@4.15.0:
-    resolution: {integrity: sha512-m/CaRN8nf5uyYdrDe2qqq+0z3oGyE+A++qlKQoLJTI4WI0nWK9D6R3FxXQ3MVwt/md977GMR4F43pE9oqrS2zw==}
+  /fastify@4.19.0:
+    resolution: {integrity: sha512-Fb7w46k3kum/V+OMiw2/LN1lo2xqhJqwTsv+LGie5n7YNdA9bmDUntXfcec9rG6VRDXIBfPf5xmFv2wooBdxzg==}
     dependencies:
       '@fastify/ajv-compiler': 3.5.0
       '@fastify/error': 3.2.1
@@ -2843,6 +2843,7 @@ packages:
       abstract-logging: 2.0.1
       avvio: 8.2.1
       fast-content-type-parse: 1.0.0
+      fast-json-stringify: 5.7.0
       find-my-way: 7.6.2
       light-my-request: 5.10.0
       pino: 8.14.1
@@ -2851,7 +2852,7 @@ packages:
       rfdc: 1.3.0
       secure-json-parse: 2.7.0
       semver: 7.5.2
-      tiny-lru: 10.4.1
+      tiny-lru: 11.0.1
     transitivePeerDependencies:
       - supports-color
     dev: false
@@ -5699,11 +5700,6 @@ packages:
     dependencies:
       setimmediate: 1.0.5
     dev: true
-
-  /tiny-lru@10.4.1:
-    resolution: {integrity: sha512-buLIzw7ppqymuO3pt10jHk/6QMeZLbidihMQU+N6sogF6EnBzG0qtDWIHuhw1x3dyNgVL/KTGIZsTK81+yCzLg==}
-    engines: {node: '>=12'}
-    dev: false
 
   /tiny-lru@11.0.1:
     resolution: {integrity: sha512-iNgFugVuQgBKrqeO/mpiTTgmBsTP0WL6yeuLfLs/Ctf0pI/ixGqIRm8sDCwMcXGe9WWvt2sGXI5mNqZbValmJg==}
