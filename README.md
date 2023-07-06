@@ -98,6 +98,7 @@ Environment variables to add:
 - `NODE_MAX_REQUESTS`: Maximum amount of requests per 1 minute period from a single source (default 100)
 - `NODE_MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
 - `NODE_REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
+- `NODE_UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default 30). Update task is also run at startup.
 - `TRAEFIK_DOMAIN`: FQDN for the API server
 - `TRAEFIK_EMAIL`: Email to register SSL cert with
 

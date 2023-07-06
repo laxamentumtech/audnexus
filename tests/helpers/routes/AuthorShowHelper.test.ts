@@ -68,6 +68,12 @@ describe('AuthorShowHelper should', () => {
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedAuthor)
 	})
 
+	test('run updateActions and return original author if there was an error', async () => {
+		helper.originalAuthor = authorWithoutProjection
+		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('error'))
+		await expect(helper.updateActions()).resolves.toStrictEqual(authorWithoutProjection)
+	})
+
 	test('run handler for a new author', async () => {
 		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
@@ -124,6 +130,12 @@ describe('AuthorShowHelper should throw error when', () => {
 			.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.createOrUpdateAuthor()).rejects.toThrow(
 			`Data type for ${asin} is not ApiAuthorProfile`
+		)
+	})
+	test('updateActions has no originalAuthor', async () => {
+		helper.originalAuthor = null
+		await expect(helper.updateActions()).rejects.toThrow(
+			`Missing original Author data for ASIN: ${asin}`
 		)
 	})
 })
