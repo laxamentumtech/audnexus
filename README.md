@@ -7,7 +7,7 @@
 
 <div align="center">
 
-[![Status](https://img.shields.io/badge/status-active-success.svg)]()
+[![Status](https://status.audnex.us/api/badge/4/status)](https://status.audnex.us)
 [![GitHub Issues](https://img.shields.io/github/issues/djdembeck/audnexus.svg)](https://github.com/djdembeck/audnexus/issues)
 [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/djdembeck/audnexus.svg)](https://github.com/djdembeck/audnexus/pulls)
 [![License](https://img.shields.io/badge/license-GNUGPL-blue.svg)](/LICENSE)
