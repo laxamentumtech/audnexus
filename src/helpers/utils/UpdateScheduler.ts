@@ -10,6 +10,8 @@ import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import { NoticeUpdateScheduled } from '#static/messages'
 
 const waitFor = (ms: number) => new Promise((r) => setTimeout(r, ms))
+// Wait for between 0 and 5 seconds
+const randomWait = () => waitFor(Math.floor(Math.random() * 5000))
 
 class UpdateScheduler {
 	interval: number
@@ -51,7 +53,7 @@ class UpdateScheduler {
 						this.redis
 					)
 					await helper.handler()
-					await waitFor(500)
+					await randomWait()
 				} catch (error) {
 					console.error(error)
 				}
@@ -70,7 +72,7 @@ class UpdateScheduler {
 						this.redis
 					)
 					await helper.handler()
-					await waitFor(500)
+					await randomWait()
 				} catch (error) {
 					console.error(error)
 				}
@@ -89,7 +91,7 @@ class UpdateScheduler {
 						this.redis
 					)
 					await helper.handler()
-					await waitFor(500)
+					await randomWait()
 				} catch (error) {
 					console.error(error)
 				}
