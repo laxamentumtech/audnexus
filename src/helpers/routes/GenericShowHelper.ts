@@ -212,8 +212,7 @@ export default class GenericShowHelper {
 		// If the data exists in redis, return it. Unless we want to update it
 		if (redisData && this.options.update !== '1') {
 			const parsed = this.schema.safeParse(redisData)
-			if (!parsed.success) throw this.errorMessageDataType()
-			return parsed.data
+			if (parsed.success) return parsed.data
 		}
 
 		// 2.
