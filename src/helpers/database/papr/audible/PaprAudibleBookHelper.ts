@@ -107,7 +107,7 @@ export default class PaprAudibleBookHelper {
 	/**
 	 * Set bookData in the class object
 	 */
-	setBookData(bookData: ApiBook) {
+	setData(bookData: ApiBook) {
 		this.bookData = bookData
 	}
 
