@@ -4,6 +4,10 @@ jest.mock('#helpers/database/redis/RedisHelper')
 jest.mock('#helpers/utils/shared')
 jest.mock('#config/typing/checkers')
 jest.mock('#helpers/books/audible/ChapterHelper')
+jest.mock('@fastify/redis')
+
+import type { FastifyRedis } from '@fastify/redis'
+import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import { ApiChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
@@ -14,8 +18,19 @@ import {
 	parsedChapters
 } from '#tests/datasets/helpers/chapters'
 
+type MockContext = {
+	client: DeepMockProxy<FastifyRedis>
+}
+
 let asin: string
+let ctx: MockContext
 let helper: ChapterShowHelper
+
+const createMockContext = (): MockContext => {
+	return {
+		client: mockDeep<FastifyRedis>()
+	}
+}
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
@@ -101,6 +116,14 @@ describe('ChapterShowHelper should', () => {
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
 		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedChapters)
+	})
+
+	test('run handler for an existing chapter in redis', async () => {
+		ctx = createMockContext()
+		helper = new ChapterShowHelper(asin, { region: 'us', update: '0' }, ctx.client)
+		jest.spyOn(helper.redisHelper, 'findOne').mockResolvedValue(parsedChapters)
+		await expect(helper.handler()).resolves.toStrictEqual(parsedChapters)
+		expect(helper.redisHelper.findOne).toHaveBeenCalledTimes(1)
 	})
 
 	test('run handler for an existing chapter', async () => {

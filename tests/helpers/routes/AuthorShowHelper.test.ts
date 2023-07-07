@@ -2,6 +2,10 @@ jest.mock('#config/models/Author')
 jest.mock('#helpers/database/papr/audible/PaprAudibleAuthorHelper')
 jest.mock('#helpers/authors/audible/ScrapeHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
+jest.mock('@fastify/redis')
+
+import type { FastifyRedis } from '@fastify/redis'
+import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import { ApiAuthorProfile } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
@@ -13,8 +17,19 @@ import {
 	parsedAuthor
 } from '#tests/datasets/helpers/authors'
 
+type MockContext = {
+	client: DeepMockProxy<FastifyRedis>
+}
+
 let asin: string
+let ctx: MockContext
 let helper: AuthorShowHelper
+
+const createMockContext = (): MockContext => {
+	return {
+		client: mockDeep<FastifyRedis>()
+	}
+}
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
@@ -97,6 +112,15 @@ describe('AuthorShowHelper should', () => {
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
 		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
+	})
+
+	test('run handler for an existing author in redis', async () => {
+		ctx = createMockContext()
+		helper = new AuthorShowHelper(asin, { region: 'us', update: '0' }, ctx.client)
+		// Need to re-do mock since helper reset
+		jest.spyOn(helper.redisHelper, 'findOne').mockResolvedValue(parsedAuthor)
+		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
+		expect(helper.redisHelper.findOne).toHaveBeenCalledTimes(1)
 	})
 
 	test('run handler for an existing author', async () => {

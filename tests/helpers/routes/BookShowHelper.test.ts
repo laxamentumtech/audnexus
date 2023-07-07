@@ -3,8 +3,11 @@ jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
 jest.mock('#helpers/books/audible/StitchHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
 jest.mock('#helpers/utils/fetchPlus')
+jest.mock('@fastify/redis')
 
+import type { FastifyRedis } from '@fastify/redis'
 import type { AxiosResponse } from 'axios'
+import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import { ApiBook } from '#config/types'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
@@ -16,8 +19,19 @@ import {
 	parsedBook
 } from '#tests/datasets/helpers/books'
 
+type MockContext = {
+	client: DeepMockProxy<FastifyRedis>
+}
+
 let asin: string
+let ctx: MockContext
 let helper: BookShowHelper
+
+const createMockContext = (): MockContext => {
+	return {
+		client: mockDeep<FastifyRedis>()
+	}
+}
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
@@ -101,6 +115,18 @@ describe('BookShowHelper should', () => {
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
 	})
 
+	test('run handler for an existing book in redis', async () => {
+		ctx = createMockContext()
+		helper = new BookShowHelper(
+			asin,
+			{ region: 'us', seedAuthors: undefined, update: '0' },
+			ctx.client
+		)
+		jest.spyOn(helper.redisHelper, 'findOne').mockResolvedValue(parsedBook)
+		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
+		expect(helper.redisHelper.findOne).toHaveBeenCalledTimes(1)
+	})
+
 	test('run handler for an existing book', async () => {
 		jest.spyOn(helper.redisHelper, 'findOrCreate').mockResolvedValue(undefined)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
@@ -130,7 +156,9 @@ describe('BookShowHelper should throw error when', () => {
 		jest
 			.spyOn(helper.paprHelper, 'createOrUpdate')
 			.mockResolvedValue({ data: null, modified: false })
-		await expect(helper.createOrUpdateData()).rejects.toThrow(`Data type for ${asin} is not ApiBook`)
+		await expect(helper.createOrUpdateData()).rejects.toThrow(
+			`Data type for ${asin} is not ApiBook`
+		)
 	})
 	test('update has no originalData', async () => {
 		helper.originalData = null
