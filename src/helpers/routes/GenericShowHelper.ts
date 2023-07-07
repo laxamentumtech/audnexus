@@ -68,11 +68,10 @@ export default class GenericShowHelper {
 		} else if (this.type === 'book') {
 			const helper = new StitchHelper(this.asin, this.options.region)
 			return helper.process()
-		} else if (this.type === 'chapter') {
+		} else {
 			const helper = new ChapterHelper(this.asin, this.options.region)
 			return helper.process()
 		}
-		throw new Error('Invalid type')
 	}
 
 	/**
@@ -85,10 +84,9 @@ export default class GenericShowHelper {
 			return new PaprAudibleAuthorHelper(this.asin, this.options)
 		} else if (this.type === 'book') {
 			return new PaprAudibleBookHelper(this.asin, this.options)
-		} else if (this.type === 'chapter') {
+		} else {
 			return new PaprAudibleChapterHelper(this.asin, this.options)
 		}
-		throw new Error('Invalid type')
 	}
 
 	/**
@@ -101,10 +99,9 @@ export default class GenericShowHelper {
 			return ApiAuthorProfileSchema
 		} else if (this.type === 'book') {
 			return ApiBookSchema
-		} else if (this.type === 'chapter') {
+		} else {
 			return ApiChapterSchema
 		}
-		throw new Error('Invalid type')
 	}
 
 	/**
