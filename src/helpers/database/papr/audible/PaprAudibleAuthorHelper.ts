@@ -138,7 +138,7 @@ export default class PaprAudibleAuthorHelper {
 	/**
 	 * Set authorData in the class object
 	 */
-	setAuthorData(authorData: ApiAuthorProfile) {
+	setData(authorData: ApiAuthorProfile) {
 		this.authorData = authorData
 	}
 
