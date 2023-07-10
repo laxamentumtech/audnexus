@@ -21,7 +21,7 @@ beforeEach(() => {
 	// Variables
 	asin = 'B079LRSMNN'
 	region = 'us'
-	url = `https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info`
+	url = `https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info&quality=High`
 	mockResponse = deepCopy(apiChapters)
 	// Set up spys
 	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
