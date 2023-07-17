@@ -45,11 +45,11 @@ dependencies:
     specifier: 2.2.3
     version: 2.2.3
   mongodb:
-    specifier: 5.6.0
-    version: 5.6.0
+    specifier: 5.7.0
+    version: 5.7.0
   papr:
     specifier: 13.1.0
-    version: 13.1.0(mongodb@5.6.0)
+    version: 13.1.0(mongodb@5.7.0)
   toad-scheduler:
     specifier: ^3.0.0
     version: 3.0.0
@@ -4238,15 +4238,21 @@ packages:
       whatwg-url: 11.0.0
     dev: false
 
-  /mongodb@5.6.0:
-    resolution: {integrity: sha512-z8qVs9NfobHJm6uzK56XBZF8XwM9H294iRnB7wNjF0SnY93si5HPziIJn+qqvUR5QOff/4L0gCD6SShdR/GtVQ==}
+  /mongodb@5.7.0:
+    resolution: {integrity: sha512-zm82Bq33QbqtxDf58fLWBwTjARK3NSvKYjyz997KSy6hpat0prjeX/kxjbPVyZY60XYPDNETaHkHJI2UCzSLuw==}
     engines: {node: '>=14.20.1'}
     peerDependencies:
       '@aws-sdk/credential-providers': ^3.201.0
+      '@mongodb-js/zstd': ^1.1.0
+      kerberos: ^2.0.1
       mongodb-client-encryption: '>=2.3.0 <3'
       snappy: ^7.2.2
     peerDependenciesMeta:
       '@aws-sdk/credential-providers':
+        optional: true
+      '@mongodb-js/zstd':
+        optional: true
+      kerberos:
         optional: true
       mongodb-client-encryption:
         optional: true
@@ -4543,13 +4549,13 @@ packages:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
     dev: true
 
-  /papr@13.1.0(mongodb@5.6.0):
+  /papr@13.1.0(mongodb@5.7.0):
     resolution: {integrity: sha512-EI5LZMrD1PULnnXo1zw4Xr93Y2SxPYRwMDCPImH9EjPSBwJ7XpTnXhl1GQ/zW28he8VR/ogEj//ZAV1+Nj9Ufw==}
     engines: {node: ^14.0.0 || >=15.0.0}
     peerDependencies:
       mongodb: ^5.0.0
     dependencies:
-      mongodb: 5.6.0
+      mongodb: 5.7.0
     dev: false
 
   /parent-module@1.0.1:
