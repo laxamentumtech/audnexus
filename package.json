@@ -41,7 +41,7 @@
 		"lodash": "4.17.21",
 		"module-alias": "2.2.3",
 		"mongodb": "5.7.0",
-		"papr": "13.1.0",
+		"papr": "14.0.0",
 		"toad-scheduler": "^3.0.0",
 		"typescript": "4.9.5",
 		"zod": "^3.20.6"
