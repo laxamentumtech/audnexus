@@ -2,8 +2,14 @@ jest.mock('#config/models/Author')
 jest.mock('#helpers/database/papr/audible/PaprAudibleAuthorHelper')
 jest.mock('#helpers/authors/audible/ScrapeHelper')
 jest.mock('#helpers/database/redis/RedisHelper')
+jest.mock('@fastify/redis')
+
+import type { FastifyRedis } from '@fastify/redis'
+import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import { ApiAuthorProfile } from '#config/types'
+import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import {
 	authorWithoutProjection,
@@ -11,8 +17,19 @@ import {
 	parsedAuthor
 } from '#tests/datasets/helpers/authors'
 
+type MockContext = {
+	client: DeepMockProxy<FastifyRedis>
+}
+
 let asin: string
+let ctx: MockContext
 let helper: AuthorShowHelper
+
+const createMockContext = (): MockContext => {
+	return {
+		client: mockDeep<FastifyRedis>()
+	}
+}
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
@@ -23,7 +40,7 @@ beforeEach(() => {
 	jest
 		.spyOn(helper.paprHelper, 'findOne')
 		.mockResolvedValue({ data: authorWithoutProjection, modified: false })
-	jest.spyOn(helper.scrapeHelper, 'process').mockResolvedValue(parsedAuthor)
+	jest.spyOn(ScrapeHelper.prototype, 'process').mockResolvedValue(parsedAuthor)
 	jest.spyOn(helper.redisHelper, 'findOrCreate').mockResolvedValue(parsedAuthor)
 	jest
 		.spyOn(helper.paprHelper, 'findOneWithProjection')
@@ -34,28 +51,28 @@ beforeEach(() => {
 
 describe('AuthorShowHelper should', () => {
 	test('get a author from Papr', async () => {
-		await expect(helper.getAuthorFromPapr()).resolves.toStrictEqual(authorWithoutProjection)
+		await expect(helper.getDataFromPapr()).resolves.toStrictEqual(authorWithoutProjection)
 	})
 
 	test('get authors by name from Papr', async () => {
 		const authors = [{ asin: 'B079LRSMNN', name: 'John Doe' }]
 		const obj = { data: authors, modified: false }
 		helper = new AuthorShowHelper('', { name: 'John Doe', region: 'us', update: undefined }, null)
-		jest.spyOn(helper.paprHelper, 'findByName').mockResolvedValue(obj)
+		jest.spyOn(PaprAudibleAuthorHelper.prototype, 'findByName').mockResolvedValue(obj)
 		await expect(helper.getAuthorsByName()).resolves.toStrictEqual(authors)
 	})
 
 	test('get new author data', async () => {
-		await expect(helper.getNewAuthorData()).resolves.toStrictEqual(parsedAuthor)
+		await expect(helper.getNewData()).resolves.toStrictEqual(parsedAuthor)
 	})
 
 	test('create or update a author', async () => {
-		await expect(helper.createOrUpdateAuthor()).resolves.toStrictEqual(parsedAuthor)
+		await expect(helper.createOrUpdateData()).resolves.toStrictEqual(parsedAuthor)
 	})
 
 	test('returns original author if it was updated recently when trying to update', async () => {
 		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
-		helper.originalAuthor = authorWithoutProjectionUpdatedNow
+		helper.originalData = authorWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedAuthor)
 	})
 
@@ -64,12 +81,12 @@ describe('AuthorShowHelper should', () => {
 	})
 
 	test('run all update actions', async () => {
-		helper.originalAuthor = authorWithoutProjection
+		helper.originalData = authorWithoutProjection
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedAuthor)
 	})
 
 	test('run updateActions and return original author if there was an error', async () => {
-		helper.originalAuthor = authorWithoutProjection
+		helper.originalData = authorWithoutProjection
 		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('error'))
 		await expect(helper.updateActions()).resolves.toStrictEqual(authorWithoutProjection)
 	})
@@ -91,10 +108,19 @@ describe('AuthorShowHelper should', () => {
 		jest
 			.spyOn(helper.paprHelper, 'findOneWithProjection')
 			.mockResolvedValue({ data: parsedAuthor, modified: false })
-		jest.spyOn(helper.scrapeHelper, 'process').mockResolvedValue(parsedAuthor)
+		jest.spyOn(ScrapeHelper.prototype, 'process').mockResolvedValue(parsedAuthor)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
 		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
+	})
+
+	test('run handler for an existing author in redis', async () => {
+		ctx = createMockContext()
+		helper = new AuthorShowHelper(asin, { region: 'us', update: '0' }, ctx.client)
+		// Need to re-do mock since helper reset
+		jest.spyOn(helper.redisHelper, 'findOne').mockResolvedValue(parsedAuthor)
+		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
+		expect(helper.redisHelper.findOne).toHaveBeenCalledTimes(1)
 	})
 
 	test('run handler for an existing author', async () => {
@@ -108,19 +134,19 @@ describe('AuthorShowHelper should', () => {
 })
 
 describe('AuthorShowHelper should throw error when', () => {
-	test('getAuthorWithProjection is not a author type', async () => {
+	test('getDataWithProjection is not a author type', async () => {
 		jest
 			.spyOn(helper.paprHelper, 'findOneWithProjection')
 			.mockResolvedValue({ data: null, modified: false })
-		await expect(helper.getAuthorWithProjection()).rejects.toThrow(
+		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiAuthorProfile`
 		)
 	})
-	test('getAuthorWithProjection sorted author is not a author type', async () => {
+	test('getDataWithProjection sorted author is not a author type', async () => {
 		jest
 			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
 			.mockReturnValue(null as unknown as ApiAuthorProfile)
-		await expect(helper.getAuthorWithProjection()).rejects.toThrow(
+		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiAuthorProfile`
 		)
 	})
@@ -128,14 +154,14 @@ describe('AuthorShowHelper should throw error when', () => {
 		jest
 			.spyOn(helper.paprHelper, 'createOrUpdate')
 			.mockResolvedValue({ data: null, modified: false })
-		await expect(helper.createOrUpdateAuthor()).rejects.toThrow(
+		await expect(helper.createOrUpdateData()).rejects.toThrow(
 			`Data type for ${asin} is not ApiAuthorProfile`
 		)
 	})
 	test('updateActions has no originalAuthor', async () => {
-		helper.originalAuthor = null
+		helper.originalData = null
 		await expect(helper.updateActions()).rejects.toThrow(
-			`Missing original Author data for ASIN: ${asin}`
+			`Missing original author data for ASIN: ${asin}`
 		)
 	})
 })

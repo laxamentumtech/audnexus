@@ -46,7 +46,7 @@ describe('PaprAudibleBookHelper should', () => {
 	test('create', async () => {
 		const obj = { data: parsedBook, modified: true }
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
-		helper.setBookData(parsedBook)
+		helper.setData(parsedBook)
 
 		await expect(helper.create()).resolves.toEqual(obj)
 		expect(BookModel.insertOne).toHaveBeenCalledWith(parsedBook)
@@ -100,9 +100,9 @@ describe('PaprAudibleBookHelper should', () => {
 			$or: [{ region: { $exists: false } }, { region: options.region }]
 		})
 	})
-	test('setBookData', () => {
+	test('setData', () => {
 		const bookData = parsedBook
-		helper.setBookData(bookData)
+		helper.setData(bookData)
 		expect(helper.bookData).toBe(bookData)
 	})
 	test('createOrUpdate finds one to update', async () => {
@@ -110,21 +110,21 @@ describe('PaprAudibleBookHelper should', () => {
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(parsedBook as unknown as BookDocument)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(bookWithoutProjection)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
-		helper.setBookData(parsedBook)
+		helper.setData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate finds identical update data', async () => {
 		const obj = { data: parsedBook, modified: false }
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
 		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(true)
-		helper.setBookData(parsedBook)
+		helper.setData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate needs to create', async () => {
 		const obj = { data: parsedBook, modified: true }
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(null)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(bookWithoutProjection)
-		helper.setBookData(parsedBook)
+		helper.setData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate difference in genres', async () => {
@@ -133,7 +133,7 @@ describe('PaprAudibleBookHelper should', () => {
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(parsedBook as unknown as BookDocument)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(bookWithoutProjection)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
-		helper.setBookData(parsedBook)
+		helper.setData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate genres on old, but not on new', async () => {
@@ -142,7 +142,7 @@ describe('PaprAudibleBookHelper should', () => {
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(parsedBook as unknown as BookDocument)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(bookWithoutProjection)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
-		helper.setBookData(parsedBookWithoutGenres)
+		helper.setData(parsedBookWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate no genres on new or old', async () => {
@@ -155,12 +155,12 @@ describe('PaprAudibleBookHelper should', () => {
 		jest
 			.spyOn(BookModel, 'findOne')
 			.mockResolvedValue(parsedBookWithoutGenres as unknown as BookDocument)
-		helper.setBookData(parsedBookWithoutGenres)
+		helper.setData(parsedBookWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('update', async () => {
 		const obj = { data: parsedBook, modified: true }
-		helper.setBookData(parsedBook)
+		helper.setData(parsedBook)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(bookWithoutProjection)
 		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
 		await expect(helper.update()).resolves.toEqual(obj)
@@ -177,7 +177,7 @@ describe('PaprAudibleBookHelper should', () => {
 describe('PaprAudibleBookHelper should catch error when', () => {
 	test('create', async () => {
 		jest.spyOn(BookModel, 'insertOne').mockRejectedValue(new Error('error'))
-		helper.setBookData(parsedBook)
+		helper.setData(parsedBook)
 		await expect(helper.create()).rejects.toThrowError(
 			`An error occurred while creating book ${asin} in the DB`
 		)
@@ -190,14 +190,14 @@ describe('PaprAudibleBookHelper should catch error when', () => {
 	})
 	test('update did not find existing', async () => {
 		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(null)
-		helper.setBookData(parsedBook)
+		helper.setData(parsedBook)
 		await expect(helper.update()).rejects.toThrowError(
 			`An error occurred while updating book ${asin} in the DB`
 		)
 	})
 	test('update', async () => {
 		jest.spyOn(BookModel, 'updateOne').mockRejectedValue(new Error('error'))
-		helper.setBookData(parsedBook)
+		helper.setData(parsedBook)
 		await expect(helper.update()).rejects.toThrowError(
 			`An error occurred while updating book ${asin} in the DB`
 		)

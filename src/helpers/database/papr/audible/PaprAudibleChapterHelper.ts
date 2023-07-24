@@ -107,7 +107,7 @@ export default class PaprAudibleChapterHelper {
 	/**
 	 * Set chapterData in the class object
 	 */
-	setChapterData(chapterData: ApiChapter) {
+	setData(chapterData: ApiChapter) {
 		this.chapterData = chapterData
 	}
 
