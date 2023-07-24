@@ -60,6 +60,9 @@ export const ErrorMessageBadQuery = (query: string) => `Bad query: ${query}`
 // Data type error
 export const ErrorMessageDataType = (asin: string, type: string) =>
 	`Data type for ${asin} is not ${type}`
+// Missing original data
+export const ErrorMessageMissingOriginal = (asin: string, type: string) =>
+	`Missing original ${type} data for ASIN: ${asin}`
 
 // Notices for Helpers
 // Falling back to scraper response for chapters
@@ -70,6 +73,8 @@ export const NoticeGenreNotAvailable = (asin: string, index: number) =>
 	`Genre ${index} not available for ASIN: ${asin}`
 // Updating Asin in DB
 export const NoticeUpdateAsin = (asin: string, type: string) => `Updating ${type} ASIN ${asin}`
+// Running scheduled update task
+export const NoticeUpdateScheduled = (type: string) => `Running scheduled update for ${type}`
 
 // Messages for routes
 export const MessageBadAsin = 'Bad ASIN'

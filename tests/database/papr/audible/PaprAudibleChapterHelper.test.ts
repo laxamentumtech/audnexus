@@ -43,7 +43,7 @@ describe('PaprAudibleChapterHelper should', () => {
 		jest
 			.spyOn(ChapterModel, 'findOne')
 			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
-		helper.setChapterData(parsedChapters)
+		helper.setData(parsedChapters)
 
 		await expect(helper.create()).resolves.toEqual(obj)
 		expect(ChapterModel.insertOne).toHaveBeenCalledWith(parsedChapters)
@@ -99,9 +99,9 @@ describe('PaprAudibleChapterHelper should', () => {
 			$or: [{ region: { $exists: false } }, { region: options.region }]
 		})
 	})
-	test('setChapterData', () => {
+	test('setData', () => {
 		const chapterData = parsedChapters
-		helper.setChapterData(chapterData)
+		helper.setData(chapterData)
 		expect(helper.chapterData).toBe(chapterData)
 	})
 	test('createOrUpdate finds one to update', async () => {
@@ -113,7 +113,7 @@ describe('PaprAudibleChapterHelper should', () => {
 		jest
 			.spyOn(ChapterModel, 'findOne')
 			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
-		helper.setChapterData(parsedChapters)
+		helper.setData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate finds no one to update', async () => {
@@ -123,7 +123,7 @@ describe('PaprAudibleChapterHelper should', () => {
 			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		const test = { ...parsedChapters }
 		test.chapters = []
-		helper.setChapterData(test)
+		helper.setData(test)
 		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
@@ -133,14 +133,14 @@ describe('PaprAudibleChapterHelper should', () => {
 			.spyOn(ChapterModel, 'findOne')
 			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
 		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(true)
-		helper.setChapterData(parsedChapters)
+		helper.setData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('createOrUpdate needs to create', async () => {
 		const obj = { data: parsedChapters, modified: true }
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValue(chaptersWithoutProjection)
-		helper.setChapterData(parsedChapters)
+		helper.setData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
 	test('update', async () => {
@@ -149,7 +149,7 @@ describe('PaprAudibleChapterHelper should', () => {
 		jest
 			.spyOn(ChapterModel, 'findOne')
 			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
-		helper.setChapterData(parsedChapters)
+		helper.setData(parsedChapters)
 		await expect(helper.update()).resolves.toEqual(obj)
 		expect(ChapterModel.updateOne).toHaveBeenCalledWith(
 			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
@@ -164,7 +164,7 @@ describe('PaprAudibleChapterHelper should', () => {
 describe('PaprAudibleChapterHelper should catch error when', () => {
 	test('create', async () => {
 		jest.spyOn(ChapterModel, 'insertOne').mockRejectedValue(new Error('error'))
-		helper.setChapterData(parsedChapters)
+		helper.setData(parsedChapters)
 		await expect(helper.create()).rejects.toThrowError(
 			`An error occurred while creating chapter ${asin} in the DB`
 		)
@@ -177,14 +177,14 @@ describe('PaprAudibleChapterHelper should catch error when', () => {
 	})
 	test('update did not find existing', async () => {
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
-		helper.setChapterData(parsedChapters)
+		helper.setData(parsedChapters)
 		await expect(helper.update()).rejects.toThrowError(
 			`An error occurred while updating chapter ${asin} in the DB`
 		)
 	})
 	test('update', async () => {
 		jest.spyOn(ChapterModel, 'updateOne').mockRejectedValue(new Error('error'))
-		helper.setChapterData(parsedChapters)
+		helper.setData(parsedChapters)
 		await expect(helper.update()).rejects.toThrowError(
 			`An error occurred while updating chapter ${asin} in the DB`
 		)

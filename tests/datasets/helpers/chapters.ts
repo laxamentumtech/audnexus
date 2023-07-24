@@ -11,168 +11,33 @@ export const apiChapters: AudibleChapter = {
 			brandIntroDurationMs: 2043,
 			brandOutroDurationMs: 5062,
 			chapters: [
-				{
-					length_ms: 21073,
-					start_offset_ms: 0,
-					start_offset_sec: 0,
-					title: 'Legionnaire'
-				},
-				{
-					length_ms: 1591,
-					start_offset_ms: 21073,
-					start_offset_sec: 21,
-					title: 'Part One'
-				},
-				{
-					length_ms: 945561,
-					start_offset_ms: 22664,
-					start_offset_sec: 23,
-					title: '1'
-				},
-				{
-					length_ms: 1198150,
-					start_offset_ms: 968225,
-					start_offset_sec: 968,
-					title: '2'
-				},
-				{
-					length_ms: 843488,
-					start_offset_ms: 2166375,
-					start_offset_sec: 2166,
-					title: '3'
-				},
-				{
-					length_ms: 868287,
-					start_offset_ms: 3009863,
-					start_offset_sec: 3010,
-					title: '4'
-				},
-				{
-					length_ms: 973845,
-					start_offset_ms: 3878150,
-					start_offset_sec: 3878,
-					title: '5'
-				},
-				{
-					length_ms: 1257964,
-					start_offset_ms: 4851995,
-					start_offset_sec: 4852,
-					title: '6'
-				},
-				{
-					length_ms: 1150549,
-					start_offset_ms: 6109959,
-					start_offset_sec: 6110,
-					title: '7'
-				},
-				{
-					length_ms: 793844,
-					start_offset_ms: 7260508,
-					start_offset_sec: 7261,
-					title: '8'
-				},
-				{
-					length_ms: 1101183,
-					start_offset_ms: 8054352,
-					start_offset_sec: 8054,
-					title: '9'
-				},
-				{
-					length_ms: 1169310,
-					start_offset_ms: 9155535,
-					start_offset_sec: 9156,
-					title: '10'
-				},
-				{
-					length_ms: 990610,
-					start_offset_ms: 10324845,
-					start_offset_sec: 10325,
-					title: '11'
-				},
-				{
-					length_ms: 500,
-					start_offset_ms: 11315455,
-					start_offset_sec: 11315,
-					title: 'Camp Forge'
-				},
-				{
-					length_ms: 582553,
-					start_offset_ms: 11315955,
-					start_offset_sec: 11316,
-					title: '12'
-				},
-				{
-					length_ms: 3504,
-					start_offset_ms: 11898508,
-					start_offset_sec: 11899,
-					title: 'Part Two'
-				},
-				{
-					length_ms: 1007168,
-					start_offset_ms: 11902012,
-					start_offset_sec: 11902,
-					title: '13'
-				},
-				{
-					length_ms: 927359,
-					start_offset_ms: 12909180,
-					start_offset_sec: 12909,
-					title: '14'
-				},
-				{
-					length_ms: 1053164,
-					start_offset_ms: 13836539,
-					start_offset_sec: 13837,
-					title: '15'
-				},
-				{
-					length_ms: 775825,
-					start_offset_ms: 14889703,
-					start_offset_sec: 14890,
-					title: '16'
-				},
-				{
-					length_ms: 868566,
-					start_offset_ms: 15665528,
-					start_offset_sec: 15666,
-					title: '17'
-				},
-				{
-					length_ms: 1087158,
-					start_offset_ms: 16534094,
-					start_offset_sec: 16534,
-					title: '18'
-				},
-				{
-					length_ms: 1085719,
-					start_offset_ms: 17621252,
-					start_offset_sec: 17621,
-					title: '19'
-				},
-				{
-					length_ms: 784881,
-					start_offset_ms: 18706971,
-					start_offset_sec: 18707,
-					title: '20'
-				},
-				{
-					length_ms: 1570644,
-					start_offset_ms: 19491852,
-					start_offset_sec: 19492,
-					title: '21'
-				},
-				{
-					length_ms: 1286803,
-					start_offset_ms: 21062496,
-					start_offset_sec: 21062,
-					title: '22'
-				},
-				{
-					length_ms: 856166,
-					start_offset_ms: 22349299,
-					start_offset_sec: 22349,
-					title: '23'
-				},
+				{ length_ms: 21073, start_offset_ms: 0, start_offset_sec: 0, title: 'Legionnaire' },
+				{ length_ms: 1591, start_offset_ms: 21073, start_offset_sec: 21, title: 'Part One' },
+				{ length_ms: 945561, start_offset_ms: 22664, start_offset_sec: 23, title: '1' },
+				{ length_ms: 1198150, start_offset_ms: 968225, start_offset_sec: 968, title: '2' },
+				{ length_ms: 843488, start_offset_ms: 2166375, start_offset_sec: 2166, title: '3' },
+				{ length_ms: 868287, start_offset_ms: 3009863, start_offset_sec: 3010, title: '4' },
+				{ length_ms: 973845, start_offset_ms: 3878150, start_offset_sec: 3878, title: '5' },
+				{ length_ms: 1257964, start_offset_ms: 4851995, start_offset_sec: 4852, title: '6' },
+				{ length_ms: 1150549, start_offset_ms: 6109959, start_offset_sec: 6110, title: '7' },
+				{ length_ms: 793844, start_offset_ms: 7260508, start_offset_sec: 7261, title: '8' },
+				{ length_ms: 1101183, start_offset_ms: 8054352, start_offset_sec: 8054, title: '9' },
+				{ length_ms: 1169310, start_offset_ms: 9155535, start_offset_sec: 9156, title: '10' },
+				{ length_ms: 990610, start_offset_ms: 10324845, start_offset_sec: 10325, title: '11' },
+				{ length_ms: 500, start_offset_ms: 11315455, start_offset_sec: 11315, title: 'Camp Forge' },
+				{ length_ms: 582553, start_offset_ms: 11315955, start_offset_sec: 11316, title: '12' },
+				{ length_ms: 3504, start_offset_ms: 11898508, start_offset_sec: 11899, title: 'Part Two' },
+				{ length_ms: 1007168, start_offset_ms: 11902012, start_offset_sec: 11902, title: '13' },
+				{ length_ms: 927359, start_offset_ms: 12909180, start_offset_sec: 12909, title: '14' },
+				{ length_ms: 1053164, start_offset_ms: 13836539, start_offset_sec: 13837, title: '15' },
+				{ length_ms: 775825, start_offset_ms: 14889703, start_offset_sec: 14890, title: '16' },
+				{ length_ms: 868566, start_offset_ms: 15665528, start_offset_sec: 15666, title: '17' },
+				{ length_ms: 1087158, start_offset_ms: 16534094, start_offset_sec: 16534, title: '18' },
+				{ length_ms: 1085719, start_offset_ms: 17621252, start_offset_sec: 17621, title: '19' },
+				{ length_ms: 784881, start_offset_ms: 18706971, start_offset_sec: 18707, title: '20' },
+				{ length_ms: 1570644, start_offset_ms: 19491852, start_offset_sec: 19492, title: '21' },
+				{ length_ms: 1286803, start_offset_ms: 21062496, start_offset_sec: 21062, title: '22' },
+				{ length_ms: 856166, start_offset_ms: 22349299, start_offset_sec: 22349, title: '23' },
 				{
 					length_ms: 2788252,
 					start_offset_ms: 23205465,
@@ -185,198 +50,38 @@ export const apiChapters: AudibleChapter = {
 					start_offset_sec: 25994,
 					title: 'Galactic Outlaws'
 				},
-				{
-					length_ms: 1142375,
-					start_offset_ms: 26612389,
-					start_offset_sec: 26612,
-					title: '1'
-				},
-				{
-					length_ms: 880547,
-					start_offset_ms: 27754764,
-					start_offset_sec: 27755,
-					title: '2'
-				},
-				{
-					length_ms: 1227175,
-					start_offset_ms: 28635311,
-					start_offset_sec: 28635,
-					title: '3'
-				},
-				{
-					length_ms: 541814,
-					start_offset_ms: 29862486,
-					start_offset_sec: 29862,
-					title: '4'
-				},
-				{
-					length_ms: 589880,
-					start_offset_ms: 30404300,
-					start_offset_sec: 30404,
-					title: '5'
-				},
-				{
-					length_ms: 1030316,
-					start_offset_ms: 30994180,
-					start_offset_sec: 30994,
-					title: '6'
-				},
-				{
-					length_ms: 1358600,
-					start_offset_ms: 32024496,
-					start_offset_sec: 32024,
-					title: '7'
-				},
-				{
-					length_ms: 1502099,
-					start_offset_ms: 33383096,
-					start_offset_sec: 33383,
-					title: '8'
-				},
-				{
-					length_ms: 1581883,
-					start_offset_ms: 34885195,
-					start_offset_sec: 34885,
-					title: '9'
-				},
-				{
-					length_ms: 1139264,
-					start_offset_ms: 36467078,
-					start_offset_sec: 36467,
-					title: '10'
-				},
-				{
-					length_ms: 1295999,
-					start_offset_ms: 37606342,
-					start_offset_sec: 37606,
-					title: '11'
-				},
-				{
-					length_ms: 1341556,
-					start_offset_ms: 38902341,
-					start_offset_sec: 38902,
-					title: '12'
-				},
-				{
-					length_ms: 1233537,
-					start_offset_ms: 40243897,
-					start_offset_sec: 40244,
-					title: '13'
-				},
-				{
-					length_ms: 982715,
-					start_offset_ms: 41477434,
-					start_offset_sec: 41477,
-					title: '14'
-				},
-				{
-					length_ms: 2074424,
-					start_offset_ms: 42460149,
-					start_offset_sec: 42460,
-					title: '15'
-				},
-				{
-					length_ms: 1307191,
-					start_offset_ms: 44534573,
-					start_offset_sec: 44535,
-					title: '16'
-				},
-				{
-					length_ms: 1750413,
-					start_offset_ms: 45841764,
-					start_offset_sec: 45842,
-					title: '17'
-				},
-				{
-					length_ms: 1449993,
-					start_offset_ms: 47592177,
-					start_offset_sec: 47592,
-					title: '18'
-				},
-				{
-					length_ms: 1149899,
-					start_offset_ms: 49042170,
-					start_offset_sec: 49042,
-					title: '19'
-				},
-				{
-					length_ms: 1361200,
-					start_offset_ms: 50192069,
-					start_offset_sec: 50192,
-					title: '20'
-				},
-				{
-					length_ms: 1272546,
-					start_offset_ms: 51553269,
-					start_offset_sec: 51553,
-					title: '21'
-				},
-				{
-					length_ms: 1227314,
-					start_offset_ms: 52825815,
-					start_offset_sec: 52826,
-					title: '22'
-				},
-				{
-					length_ms: 1570551,
-					start_offset_ms: 54053129,
-					start_offset_sec: 54053,
-					title: '23'
-				},
-				{
-					length_ms: 966043,
-					start_offset_ms: 55623680,
-					start_offset_sec: 55624,
-					title: '24'
-				},
-				{
-					length_ms: 883751,
-					start_offset_ms: 56589723,
-					start_offset_sec: 56590,
-					title: '25'
-				},
-				{
-					length_ms: 843999,
-					start_offset_ms: 57473474,
-					start_offset_sec: 57473,
-					title: '26'
-				},
-				{
-					length_ms: 926569,
-					start_offset_ms: 58317473,
-					start_offset_sec: 58317,
-					title: '27'
-				},
-				{
-					length_ms: 696784,
-					start_offset_ms: 59244042,
-					start_offset_sec: 59244,
-					title: '28'
-				},
-				{
-					length_ms: 594988,
-					start_offset_ms: 59940826,
-					start_offset_sec: 59941,
-					title: '29'
-				},
-				{
-					length_ms: 417495,
-					start_offset_ms: 60535814,
-					start_offset_sec: 60536,
-					title: '30'
-				},
-				{
-					length_ms: 1469356,
-					start_offset_ms: 60953309,
-					start_offset_sec: 60953,
-					title: '31'
-				},
-				{
-					length_ms: 89614,
-					start_offset_ms: 62422665,
-					start_offset_sec: 62423,
-					title: 'Epilogue'
-				},
+				{ length_ms: 1142375, start_offset_ms: 26612389, start_offset_sec: 26612, title: '1' },
+				{ length_ms: 880547, start_offset_ms: 27754764, start_offset_sec: 27755, title: '2' },
+				{ length_ms: 1227175, start_offset_ms: 28635311, start_offset_sec: 28635, title: '3' },
+				{ length_ms: 541814, start_offset_ms: 29862486, start_offset_sec: 29862, title: '4' },
+				{ length_ms: 589880, start_offset_ms: 30404300, start_offset_sec: 30404, title: '5' },
+				{ length_ms: 1030316, start_offset_ms: 30994180, start_offset_sec: 30994, title: '6' },
+				{ length_ms: 1358600, start_offset_ms: 32024496, start_offset_sec: 32024, title: '7' },
+				{ length_ms: 1502099, start_offset_ms: 33383096, start_offset_sec: 33383, title: '8' },
+				{ length_ms: 1581883, start_offset_ms: 34885195, start_offset_sec: 34885, title: '9' },
+				{ length_ms: 1139264, start_offset_ms: 36467078, start_offset_sec: 36467, title: '10' },
+				{ length_ms: 1295999, start_offset_ms: 37606342, start_offset_sec: 37606, title: '11' },
+				{ length_ms: 1341556, start_offset_ms: 38902341, start_offset_sec: 38902, title: '12' },
+				{ length_ms: 1233537, start_offset_ms: 40243897, start_offset_sec: 40244, title: '13' },
+				{ length_ms: 982715, start_offset_ms: 41477434, start_offset_sec: 41477, title: '14' },
+				{ length_ms: 2074424, start_offset_ms: 42460149, start_offset_sec: 42460, title: '15' },
+				{ length_ms: 1307191, start_offset_ms: 44534573, start_offset_sec: 44535, title: '16' },
+				{ length_ms: 1750413, start_offset_ms: 45841764, start_offset_sec: 45842, title: '17' },
+				{ length_ms: 1449993, start_offset_ms: 47592177, start_offset_sec: 47592, title: '18' },
+				{ length_ms: 1149899, start_offset_ms: 49042170, start_offset_sec: 49042, title: '19' },
+				{ length_ms: 1361200, start_offset_ms: 50192069, start_offset_sec: 50192, title: '20' },
+				{ length_ms: 1272546, start_offset_ms: 51553269, start_offset_sec: 51553, title: '21' },
+				{ length_ms: 1227314, start_offset_ms: 52825815, start_offset_sec: 52826, title: '22' },
+				{ length_ms: 1570551, start_offset_ms: 54053129, start_offset_sec: 54053, title: '23' },
+				{ length_ms: 966043, start_offset_ms: 55623680, start_offset_sec: 55624, title: '24' },
+				{ length_ms: 883751, start_offset_ms: 56589723, start_offset_sec: 56590, title: '25' },
+				{ length_ms: 843999, start_offset_ms: 57473474, start_offset_sec: 57473, title: '26' },
+				{ length_ms: 926569, start_offset_ms: 58317473, start_offset_sec: 58317, title: '27' },
+				{ length_ms: 696784, start_offset_ms: 59244042, start_offset_sec: 59244, title: '28' },
+				{ length_ms: 594988, start_offset_ms: 59940826, start_offset_sec: 59941, title: '29' },
+				{ length_ms: 417495, start_offset_ms: 60535814, start_offset_sec: 60536, title: '30' },
+				{ length_ms: 1469356, start_offset_ms: 60953309, start_offset_sec: 60953, title: '31' },
+				{ length_ms: 89614, start_offset_ms: 62422665, start_offset_sec: 62423, title: 'Epilogue' },
 				{
 					length_ms: 35730,
 					start_offset_ms: 62512279,

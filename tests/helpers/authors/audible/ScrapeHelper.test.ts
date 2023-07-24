@@ -90,8 +90,20 @@ describe('ScrapeHelper should', () => {
 
 	test('return sorted similar', () => {
 		const similar = helper.getSimilarAuthors(cheerioHtml)
-		const sorted = helper.sortSimilarAuthors(similar!)
+		const sorted = helper.sortSimilarAuthors(similar)
 		expect(sorted).toEqual(parsedAuthor.similar)
+	})
+
+	test('return sorted similar when no similar authors', () => {
+		jest.spyOn(helper, 'getSimilarAuthors').mockReturnValue([])
+		const similar = helper.getSimilarAuthors(cheerioHtml)
+		const sorted = helper.sortSimilarAuthors(similar)
+		expect(sorted).toEqual([])
+	})
+
+	test('handle no similar authors', () => {
+		const similar = helper.getSimilarAuthors(cheerio.load(htmlResponseNameOnly))
+		expect(similar).toEqual([])
 	})
 
 	test('return a name when author has no bio, genres or image', async () => {
@@ -135,6 +147,14 @@ describe('ScrapeHelper should throw error when', () => {
 	test('parse response fails validation', async () => {
 		jest.spyOn(helper, 'getName').mockReturnValue('')
 		await expect(helper.parseResponse(cheerio.load(mockResponse))).rejects.toThrowError(
+			`Item not available in region '${region}' for ASIN: ${asin}`
+		)
+	})
+
+	test('getName is header', async () => {
+		const html = cheerio.load(mockResponse)
+		html('h1').text('Showing titles\n in All Categories')
+		await expect(helper.parseResponse(html)).rejects.toThrowError(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})

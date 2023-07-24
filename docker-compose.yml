@@ -8,6 +8,7 @@ services:
       - MAX_REQUESTS=${NODE_MAX_REQUESTS}
       - MONGODB_URI=${NODE_MONGODB_URI}
       - REDIS_URL=${NODE_REDIS_URL}
+      - UPDATE_INTERVAL=${NODE_UPDATE_INTERVAL}
     ports:
       - '3000:3000'
     depends_on:
@@ -41,7 +42,7 @@ services:
       - internal
 
   traefik:
-    image: traefik:v2.10
+    image: traefik:v3.0
     restart: always
     command:
       - '--providers.docker=true'
