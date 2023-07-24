@@ -1,6 +1,16 @@
+jest.mock('#config/models/Book')
+jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
+jest.mock('#helpers/books/audible/StitchHelper')
+jest.mock('#helpers/database/redis/RedisHelper')
+jest.mock('#helpers/utils/fetchPlus')
+jest.mock('@fastify/redis')
+
+import type { FastifyRedis } from '@fastify/redis'
 import type { AxiosResponse } from 'axios'
+import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import { ApiBook } from '#config/types'
+import StitchHelper from '#helpers/books/audible/StitchHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import {
@@ -9,14 +19,19 @@ import {
 	parsedBook
 } from '#tests/datasets/helpers/books'
 
-jest.mock('#config/models/Book')
-jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
-jest.mock('#helpers/books/audible/StitchHelper')
-jest.mock('#helpers/database/redis/RedisHelper')
-jest.mock('#helpers/utils/fetchPlus')
+type MockContext = {
+	client: DeepMockProxy<FastifyRedis>
+}
 
 let asin: string
+let ctx: MockContext
 let helper: BookShowHelper
+
+const createMockContext = (): MockContext => {
+	return {
+		client: mockDeep<FastifyRedis>()
+	}
+}
 
 beforeEach(() => {
 	asin = 'B079LRSMNN'
@@ -31,7 +46,7 @@ beforeEach(() => {
 	jest
 		.spyOn(helper.paprHelper, 'findOne')
 		.mockResolvedValue({ data: bookWithoutProjection, modified: false })
-	jest.spyOn(helper.stitchHelper, 'process').mockResolvedValue(parsedBook)
+	jest.spyOn(StitchHelper.prototype, 'process').mockResolvedValue(parsedBook)
 	jest.spyOn(helper.redisHelper, 'findOrCreate').mockResolvedValue(parsedBook)
 	jest
 		.spyOn(helper.paprHelper, 'findOneWithProjection')
@@ -45,35 +60,35 @@ beforeEach(() => {
 
 describe('BookShowHelper should', () => {
 	test('get a book from Papr', async () => {
-		await expect(helper.getBookFromPapr()).resolves.toBe(bookWithoutProjection)
+		await expect(helper.getDataFromPapr()).resolves.toBe(bookWithoutProjection)
 	})
 
 	test('get new book data', async () => {
-		await expect(helper.getNewBookData()).resolves.toBe(parsedBook)
+		await expect(helper.getNewData()).resolves.toBe(parsedBook)
 	})
 
 	test('create or update a book', async () => {
-		await expect(helper.createOrUpdateBook()).resolves.toStrictEqual(parsedBook)
+		await expect(helper.createOrUpdateData()).resolves.toStrictEqual(parsedBook)
 	})
 
 	test('returns original book if it was updated recently when trying to update', async () => {
 		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
-		helper.originalBook = bookWithoutProjectionUpdatedNow
+		helper.originalData = bookWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)
 	})
 
-	test('isUpdatedRecently returns false if no originalBook is present', () => {
+	test('isUpdatedRecently returns false if no originalData is present', () => {
 		expect(helper.isUpdatedRecently()).toBe(false)
 	})
 
 	test('run all update actions', async () => {
-		helper.originalBook = bookWithoutProjection
+		helper.originalData = bookWithoutProjection
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)
 	})
 
 	test('run updateActions and return original book if there was an error', async () => {
 		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('error'))
-		helper.originalBook = bookWithoutProjection
+		helper.originalData = bookWithoutProjection
 		await expect(helper.updateActions()).resolves.toStrictEqual(bookWithoutProjection)
 	})
 
@@ -94,10 +109,22 @@ describe('BookShowHelper should', () => {
 		jest
 			.spyOn(helper.paprHelper, 'findOneWithProjection')
 			.mockResolvedValue({ data: parsedBook, modified: false })
-		jest.spyOn(helper.stitchHelper, 'process').mockResolvedValue(parsedBook)
+		jest.spyOn(StitchHelper.prototype, 'process').mockResolvedValue(parsedBook)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
 		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
+	})
+
+	test('run handler for an existing book in redis', async () => {
+		ctx = createMockContext()
+		helper = new BookShowHelper(
+			asin,
+			{ region: 'us', seedAuthors: undefined, update: '0' },
+			ctx.client
+		)
+		jest.spyOn(helper.redisHelper, 'findOne').mockResolvedValue(parsedBook)
+		await expect(helper.handler()).resolves.toStrictEqual(parsedBook)
+		expect(helper.redisHelper.findOne).toHaveBeenCalledTimes(1)
 	})
 
 	test('run handler for an existing book', async () => {
@@ -111,30 +138,32 @@ describe('BookShowHelper should', () => {
 })
 
 describe('BookShowHelper should throw error when', () => {
-	test('getBookWithProjection is not a book type', async () => {
+	test('getDataWithProjection is not a book type', async () => {
 		jest
 			.spyOn(helper.paprHelper, 'findOneWithProjection')
 			.mockResolvedValue({ data: null, modified: false })
-		await expect(helper.getBookWithProjection()).rejects.toThrow(
-			`Data type for ${asin} is not Book`
+		await expect(helper.getDataWithProjection()).rejects.toThrow(
+			`Data type for ${asin} is not ApiBook`
 		)
 	})
-	test('getBookWithProjection sorted book is not a book type', async () => {
+	test('getDataWithProjection sorted book is not a book type', async () => {
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as ApiBook)
-		await expect(helper.getBookWithProjection()).rejects.toThrow(
-			`Data type for ${asin} is not Book`
+		await expect(helper.getDataWithProjection()).rejects.toThrow(
+			`Data type for ${asin} is not ApiBook`
 		)
 	})
-	test('createOrUpdateBook is not a book type', async () => {
+	test('createOrUpdateData is not a book type', async () => {
 		jest
 			.spyOn(helper.paprHelper, 'createOrUpdate')
 			.mockResolvedValue({ data: null, modified: false })
-		await expect(helper.createOrUpdateBook()).rejects.toThrow(`Data type for ${asin} is not Book`)
+		await expect(helper.createOrUpdateData()).rejects.toThrow(
+			`Data type for ${asin} is not ApiBook`
+		)
 	})
-	test('update has no originalBook', async () => {
-		helper.originalBook = null
+	test('update has no originalData', async () => {
+		helper.originalData = null
 		await expect(helper.updateActions()).rejects.toThrow(
-			`Missing original Book data for ASIN: ${asin}`
+			`Missing original book data for ASIN: ${asin}`
 		)
 	})
 })
