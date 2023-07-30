@@ -38,12 +38,18 @@ dependencies:
   jest-mock-extended:
     specifier: 3.0.4
     version: 3.0.4(jest@29.6.1)(typescript@5.1.6)
+  jsrsasign:
+    specifier: ^10.8.6
+    version: 10.8.6
   lodash:
     specifier: 4.17.21
     version: 4.17.21
   module-alias:
     specifier: 2.2.3
     version: 2.2.3
+  moment:
+    specifier: ^2.29.4
+    version: 2.29.4
   mongodb:
     specifier: 5.7.0
     version: 5.7.0
@@ -3895,6 +3901,10 @@ packages:
     engines: {'0': node >= 0.2.0}
     dev: true
 
+  /jsrsasign@10.8.6:
+    resolution: {integrity: sha512-bQmbVtsfbgaKBTWCKiDCPlUPbdlRIK/FzSwT3BzIgZl/cU6TqXu6pZJsCI/dJVrZ9Gir5GC4woqw9shH/v7MBw==}
+    dev: false
+
   /kind-of@6.0.3:
     resolution: {integrity: sha512-dcS1ul+9tmeD95T+x28/ehLgd9mENa3LsvDTtzm3vyBEO7RPptvAD+t44WVXaUjTBRcrpFeFlC8WCruUR456hw==}
     engines: {node: '>=0.10.0'}
@@ -4224,6 +4234,10 @@ packages:
 
   /module-alias@2.2.3:
     resolution: {integrity: sha512-23g5BFj4zdQL/b6tor7Ji+QY4pEfNH784BMslY9Qb0UnJWRAt+lQGLYmRaM0KDBwIG23ffEBELhZDP2rhi9f/Q==}
+    dev: false
+
+  /moment@2.29.4:
+    resolution: {integrity: sha512-5LC9SOxjSc2HF6vO2CyuTDNivEdoz2IvyJJGj6X8DJ0eFyfszE0QiEd+iXmBvUP3WHxSjFH/vIsA0EN00cgr8w==}
     dev: false
 
   /mongodb-connection-string-url@2.6.0:

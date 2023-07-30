@@ -5,8 +5,10 @@ services:
     image: ghcr.io/laxamentumtech/audnexus:develop
     restart: always
     environment:
+      - ADP_TOKEN=${NODE_ADP_TOKEN}
       - MAX_REQUESTS=${NODE_MAX_REQUESTS}
       - MONGODB_URI=${NODE_MONGODB_URI}
+      - PRIVATE_KEY=${NODE_PRIVATE_KEY}
       - REDIS_URL=${NODE_REDIS_URL}
       - UPDATE_INTERVAL=${NODE_UPDATE_INTERVAL}
     ports:

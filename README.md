@@ -54,11 +54,13 @@ These instructions will get you a copy of the project up and running on your loc
     - Mongo 4 or greater
     - Node/NPM 16 or greater
     - Redis
+  - Registered Audible device keys, `ADP_TOKEN` and `PRIVATE_KEY`, for chapters. You will need Python and `audible` for this. [More on that here](https://audible.readthedocs.io/en/latest/auth/register.html)
 
 ### Installing locally
 
 - Install Mongo, Node and Redis on your system
 - `pnpm install` from project directory to get dependencies
+- Set `ADP_TOKEN` and `PRIVATE_KEY` environment variables as mentioned above if you are using the chapters endpoint.
 - `pnpm run watch-debug` to start the server
 
 Test an API call with
@@ -95,8 +97,10 @@ The stack defaults to 15 replicas for the node-server container. Customize this 
 
 Environment variables to add:
 
+- `NODE_ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
 - `NODE_MAX_REQUESTS`: Maximum amount of requests per 1 minute period from a single source (default 100)
 - `NODE_MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
+- `NODE_PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
 - `NODE_REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
 - `NODE_UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default 30). Update task is also run at startup.
 - `TRAEFIK_DOMAIN`: FQDN for the API server
@@ -112,24 +116,25 @@ https://${TRAEFIK_DOMAIN}/books/${ASIN}
 
 1. Connect to the DB either from inside the mongodb container terminal or a MongoDB Compass/MongoSH session.
 
-2. Switch to the correct DB: 
-    ```
-    use audnexus
-    ```
+2. Switch to the correct DB:
+
+   ```
+   use audnexus
+   ```
 
 3. Create the recommended indexes:
-    ```
-    db.authors.createIndex( { asin: 1, region: 1 } )
-    ```
-    ```
-    db.books.createIndex( { asin: 1, region: 1 } )
-    ```
-    ```
-    db.chapters.createIndex( { asin: 1, region: 1 } )
-    ```
-    ```
-    db.authors.createIndex( { name: "text" } )
-    ```
+   ```
+   db.authors.createIndex( { asin: 1, region: 1 } )
+   ```
+   ```
+   db.books.createIndex( { asin: 1, region: 1 } )
+   ```
+   ```
+   db.chapters.createIndex( { asin: 1, region: 1 } )
+   ```
+   ```
+   db.authors.createIndex( { name: "text" } )
+   ```
 
 ## ⛏️ Built Using <a name = "built_using"></a>
 
