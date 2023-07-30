@@ -35,7 +35,15 @@ beforeEach(() => {
 describe('ChapterHelper should', () => {
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
+		expect(helper.adpToken).toBeDefined()
+		expect(helper.privateKey).toBeDefined()
 		expect(helper.requestUrl).toBe(url)
+	})
+
+	test('build path', () => {
+		expect(helper.buildPath()).toBe(
+			`/1.0/content/${asin}/metadata?response_groups=chapter_info&quality=High`
+		)
 	})
 
 	test('cleanup chapter titles', () => {
@@ -45,6 +53,10 @@ describe('ChapterHelper should', () => {
 		expect(helper.chapterTitleCleanup('Chapter 1.')).toBe('Chapter 1')
 		// Title with just a number is changed
 		expect(helper.chapterTitleCleanup('123')).toBe('Chapter 123')
+	})
+
+	test('sign request', () => {
+		expect(helper.signRequest(helper.adpToken, helper.privateKey)).toBeDefined()
 	})
 
 	test('fetch chapters', async () => {
@@ -87,6 +99,22 @@ describe('ChapterHelper should', () => {
 describe('ChapterHelper should throw error when', () => {
 	test('no input data', () => {
 		expect(() => helper.getFinalData()).toThrowError('No input data')
+	})
+
+	const OLD_ENV = process.env
+
+	test('missing environment vars', () => {
+		// Set environment variables
+		process.env = { ...OLD_ENV }
+		process.env.ADP_TOKEN = undefined
+		process.env.PRIVATE_KEY = undefined
+		// setup function to fail if environment variables are missing
+		const bad_helper = function () {
+			new ChapterHelper(asin, region)
+		}
+		expect(bad_helper).toThrowError('Missing environment variable(s): ADP_TOKEN or PRIVATE_KEY')
+		// Restore environment
+		process.env = OLD_ENV
 	})
 
 	test('chapter missing required keys', async () => {
