@@ -58,7 +58,7 @@ export type ApiSeries = z.infer<typeof ApiSeriesSchema>
 
 // People
 export const ApiAuthorOnBookSchema = z.object({
-	asin: z.string().optional(),
+	asin: AsinSchema.optional(),
 	name: NameSchema
 })
 export type ApiAuthorOnBook = z.infer<typeof ApiAuthorOnBookSchema>
@@ -75,6 +75,7 @@ export const ApiAuthorProfileSchema = z.object({
 export type ApiAuthorProfile = z.infer<typeof ApiAuthorProfileSchema>
 
 export const ApiNarratorOnBookSchema = z.object({
+	asin: AsinSchema.optional(),
 	name: NameSchema
 })
 export type ApiNarratorOnBook = z.infer<typeof ApiNarratorOnBookSchema>

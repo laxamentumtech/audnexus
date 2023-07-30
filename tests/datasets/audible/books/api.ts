@@ -317,7 +317,7 @@ export const B08C6YJ1LS = AudibleProductSchema.parse({
 			{ name: 'Krysten Ritter' },
 			{ name: 'Nathalie Emmanuel' },
 			{ name: 'Beau Bridges' },
-			{ name: 'full cast' }
+			{ asin: 'B0C9MBTDV9', name: 'full cast' }
 		],
 		product_images: {
 			'500': 'https://m.media-amazon.com/images/I/51SteOEMD8L._SL500_.jpg',

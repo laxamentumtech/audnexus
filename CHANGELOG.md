@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.6.0](https://github.com/djdembeck/audnexus/compare/v1.5.0...v1.6.0) (2023-07-30)
+
+
+### Features
+
+* **helper:** :recycle: add `UPDATE_THRESHOLD` env variable ([9ec251b](https://github.com/djdembeck/audnexus/commit/9ec251b4c1137e551693800536bd52421b8e0768))
+
+
+### Bug Fixes
+
+* **helper:** :bug: audible requires auth for chapters again ([e42f1b1](https://github.com/djdembeck/audnexus/commit/e42f1b18fe002ba212ef7467821877e2b7d3e8a1)), closes [#658](https://github.com/djdembeck/audnexus/issues/658)
+
 ## [1.5.0](https://github.com/djdembeck/audnexus/compare/v1.4.0...v1.5.0) (2023-07-24)
 
 

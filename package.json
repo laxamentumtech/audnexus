@@ -1,6 +1,6 @@
 {
 	"name": "audnexus",
-	"version": "1.5.0",
+	"version": "1.6.0",
 	"description": "An API for aggregating audiobook data",
 	"repository": {
 		"type": "git",
@@ -38,12 +38,14 @@
 		"fastify": "4.20.0",
 		"html-to-text": "9.0.5",
 		"jest-mock-extended": "3.0.4",
+		"jsrsasign": "^10.8.6",
 		"lodash": "4.17.21",
 		"module-alias": "2.2.3",
+		"moment": "^2.29.4",
 		"mongodb": "5.7.0",
 		"papr": "13.1.0",
 		"toad-scheduler": "^3.0.0",
-		"typescript": "4.9.5",
+		"typescript": "5.1.6",
 		"zod": "^3.20.6"
 	},
 	"devDependencies": {

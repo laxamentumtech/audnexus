@@ -281,6 +281,9 @@ class ApiHelper {
 			narrators:
 				this.audibleResponse.narrators?.map((person: ApiNarratorOnBook) => {
 					const narratorJson: ApiNarratorOnBook = {
+						...(person.asin && {
+							asin: person.asin
+						}),
 						name: person.name
 					}
 					return narratorJson
