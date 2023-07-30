@@ -11,6 +11,7 @@ services:
       - PRIVATE_KEY=${NODE_PRIVATE_KEY}
       - REDIS_URL=${NODE_REDIS_URL}
       - UPDATE_INTERVAL=${NODE_UPDATE_INTERVAL}
+      - UPDATE_THRESHOLD=${NODE_UPDATE_THRESHOLD}
     ports:
       - '3000:3000'
     depends_on:
