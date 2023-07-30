@@ -103,6 +103,7 @@ Environment variables to add:
 - `NODE_PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
 - `NODE_REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
 - `NODE_UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default 30). Update task is also run at startup.
+- `NODE_UPDATE_THRESHOLD`: Minimum number of days after an item is updated, to allow it to check for updates again (either scheduled or param).
 - `TRAEFIK_DOMAIN`: FQDN for the API server
 - `TRAEFIK_EMAIL`: Email to register SSL cert with
 

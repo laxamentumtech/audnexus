@@ -90,16 +90,18 @@ class SharedHelper {
 	}
 
 	/**
-	 * Checks if the object was updated in the last 24 hours
+	 * Checks if the object was updated in the threshold period (default 7 days)
 	 * @param obj object to check
-	 * @returns {boolean} true if updated in last 24 hours, false otherwise
+	 * @returns {boolean} true if updated in the threshold period, false otherwise
 	 */
 	isRecentlyUpdated(obj: PaprDocument): boolean {
+		// Get the environment variable for the number of days to check if it exists
+		const threshold = process.env.UPDATE_THRESHOLD ? parseInt(process.env.UPDATE_THRESHOLD) : 7
 		const now = new Date()
 		const lastUpdated = new Date(obj.updatedAt)
 		const diff = now.getTime() - lastUpdated.getTime()
 		const diffDays = diff / (1000 * 3600 * 24)
-		if (diffDays < 1) {
+		if (diffDays < threshold) {
 			return true
 		}
 		return false
