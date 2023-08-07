@@ -18,13 +18,6 @@
 			"matchUpdateTypes": ["minor", "digest", "patch", "pin"],
 			"automerge": true,
 			"automergeType": "branch"
-		},
-		{
-			"matchPackagePatterns": ["eslint"],
-			"groupName": "eslint",
-			"schedule": ["before 2am on monday"],
-			"automerge": true,
-			"automergeType": "branch"
 		}
 	],
 	"rebaseWhen": "auto",
