@@ -1,0 +1,38 @@
+# https://github.com/pnpm/action-setup
+
+name: Node.js CI
+
+on:
+  schedule:
+    - cron: '0 13 * * 1'
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build:
+    env:
+      ADP_TOKEN: ${{ secrets.ADP_TOKEN }}
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['lts/*', 'current']
+    name: Node ${{ matrix.node }} sample
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2.4.0
+        with:
+          version: latest
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install
+      - name: Run linter
+        run: pnpm lint
+      - name: Run tests
+        run: pnpm test
