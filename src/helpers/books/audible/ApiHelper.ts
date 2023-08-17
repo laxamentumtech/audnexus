@@ -16,6 +16,7 @@ import {
 	AudibleSeries,
 	AudibleSeriesSchema
 } from '#config/types'
+import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -269,9 +270,11 @@ class ApiHelper {
 				}
 				return authorJson
 			}),
-			description: htmlToText(this.audibleResponse['merchandising_summary'], {
-				wordwrap: false
-			}).trim(),
+			description: cleanupDescription(
+				htmlToText(this.audibleResponse['merchandising_summary'], {
+					wordwrap: false
+				})
+			).trim(),
 			formatType: this.audibleResponse.format_type,
 			...(this.categories && {
 				genres: [...this.getGenres(), ...this.getTags()]
