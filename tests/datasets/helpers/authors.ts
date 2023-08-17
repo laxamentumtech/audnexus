@@ -58,39 +58,41 @@ const similar = [
 	}
 ]
 export const similarUnsorted = [
-    {
-        asin: 'B00A8JBYDU',
-        name: 'Peter Nealen'
-    },
-    {
-        asin: 'B00W2ZAK7E',
-        name: 'JN Chaney'
-    },
-    {
-        asin: 'B00B1GNL4E',
-        name: 'Rick Partlow'
-    },
-    {
-        asin: 'B001IGQXEW',
-        name: 'Karen Traviss'
-    },
-    {
-        asin: 'B007E4W0GC',
-        name: 'Jonathan P. Brazee'
-    },
+	{
+		asin: 'B00A8JBYDU',
+		name: 'Peter Nealen'
+	},
+	{
+		asin: 'B00W2ZAK7E',
+		name: 'JN Chaney'
+	},
+	{
+		asin: 'B00B1GNL4E',
+		name: 'Rick Partlow'
+	},
+	{
+		asin: 'B001IGQXEW',
+		name: 'Karen Traviss'
+	},
+	{
+		asin: 'B007E4W0GC',
+		name: 'Jonathan P. Brazee'
+	},
 	{
 		asin: 'B000APARWG',
 		name: 'Blaine Lee Pardoe'
 	},
-    {
-        asin: 'B005LW1K1A',
-        name: 'William S Frisbee Jr'
-    },
+	{
+		asin: 'B005LW1K1A',
+		name: 'William S Frisbee Jr'
+	},
 	{
 		asin: 'B08YC2Y6MV',
 		name: 'Doc Spears'
 	}
 ]
+
+export const cleanupDescription = `JASON ANSPACH (1979- ) is the award-winning, Associated Press Best-selling author of Galaxy's Edge, Wayward Galaxy, and Forgotten Ruin. He is an American author raised in a military family (Go Army!) known for pulse-pounding military science fiction and adventurous space operas that deftly blend action, suspense, and comedy. Together with his wife, their seven (not a typo) children, and a border collie named Charlotte, Jason resides in Puyallup, Washington. He remains undefeated at arm wrestling against his entire family. Galaxy's Edge:  Author website:`
 
 export const parsedAuthor: ApiAuthorProfile = {
 	asin,

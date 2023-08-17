@@ -18,7 +18,7 @@ describe('Audible API', () => {
 			const fetched = await helper.fetchChapter()
 			if (!fetched) throw new Error('Parsed is undefined')
 			response = fetched
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(chapterResponseB017V4IM1G)
@@ -35,7 +35,7 @@ describe('Audible API', () => {
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(chapterParsed1721358595)
@@ -50,7 +50,7 @@ describe('Audible API', () => {
 			const fetched = await helper.fetchChapter()
 			const parsed = await helper.parseResponse(fetched)
 			response = parsed
-		})
+		}, 10000)
 
 		it('returned undefined', () => {
 			expect(response).toBeUndefined()
