@@ -7,7 +7,12 @@ import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
 import { htmlResponseMinified, htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
-import { genres, parsedAuthor, similarUnsorted } from '#tests/datasets/helpers/authors'
+import {
+	cleanupDescription,
+	genres,
+	parsedAuthor,
+	similarUnsorted
+} from '#tests/datasets/helpers/authors'
 
 jest.mock('#helpers/utils/fetchPlus')
 jest.mock('#helpers/utils/shared')
@@ -57,7 +62,10 @@ describe('ScrapeHelper should', () => {
 
 	test('parse response', async () => {
 		const author = await helper.fetchAuthor()
-		await expect(helper.parseResponse(author)).resolves.toEqual(parsedAuthor)
+		await expect(helper.parseResponse(author)).resolves.toEqual({
+			...parsedAuthor,
+			description: cleanupDescription
+		})
 	})
 
 	test('return undefined if no dom for parse response', async () => {
@@ -65,7 +73,10 @@ describe('ScrapeHelper should', () => {
 	})
 
 	test('process author', async () => {
-		await expect(helper.process()).resolves.toEqual(parsedAuthor)
+		await expect(helper.process()).resolves.toEqual({
+			...parsedAuthor,
+			description: cleanupDescription
+		})
 	})
 
 	test('return description', () => {

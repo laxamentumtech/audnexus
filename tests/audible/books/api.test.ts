@@ -25,7 +25,7 @@ describe('Audible API', () => {
 			response = fetched.product
 			// Make an object with the same keys as the response
 			minimalResponse = setupMinimalResponse(response)
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(minimalResponse).toEqual(minimalB08G9PRS1K)
@@ -41,7 +41,7 @@ describe('Audible API', () => {
 			response = fetched.product
 			// Make an object with the same keys as the response
 			minimalResponse = setupMinimalResponse(response)
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(minimalResponse).toEqual(minimalB08C6YJ1LS)
@@ -62,7 +62,7 @@ describe('Audible API', () => {
 				"James Patterson's Detective Billy Harney is back, this time investigating murders in a notorious Chicago drug ring, which will lead him, his sister, and his new partner through a dangerous web of corrupt politicians, vengeful billionaires, and violent dark web conspiracies...."
 			const image = 'https://m.media-amazon.com/images/I/91H9ynKGNwL.jpg'
 			minimalParsed = setupMinimalParsed(B08C6YJ1LS.product, description, image, parsed.genres)
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(minimalParsed)
@@ -83,7 +83,7 @@ describe('Audible API', () => {
 				'Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive. Addressed in green ink on yellowish parchment with a purple seal, they are swiftly confiscated by his grisly aunt and uncle....'
 			const image = 'https://m.media-amazon.com/images/I/91eopoUCjLL.jpg'
 			minimalParsed = setupMinimalParsed(B017V4IM1G.product, description, image, parsed.genres)
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(minimalParsed)

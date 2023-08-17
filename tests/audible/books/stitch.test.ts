@@ -28,7 +28,7 @@ describe('Audible API and HTML Parsing', () => {
 			// Set variables
 			chapters = chapterData
 			response = newBook
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(combinedB017V4IM1G)
@@ -51,7 +51,7 @@ describe('Audible API and HTML Parsing', () => {
 			// Set variables
 			chapters = chapterData
 			response = newBook
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(combinedB08C6YJ1LS)
@@ -74,7 +74,7 @@ describe('Audible API and HTML Parsing', () => {
 			// Set variables
 			chapters = chapterData
 			response = newBook
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(minimalB0036I54I6)

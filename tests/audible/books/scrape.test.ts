@@ -21,7 +21,7 @@ describe('Audible HTML', () => {
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(parsedB08G9PRS1K)
@@ -37,7 +37,7 @@ describe('Audible HTML', () => {
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(parsedB017V4IM1G)
@@ -54,7 +54,7 @@ describe('Audible HTML', () => {
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
-		})
+		}, 10000)
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(parsedB08C6YJ1LS)
@@ -69,7 +69,7 @@ describe('Audible HTML', () => {
 			helper = new ScrapeHelper(asin, 'us')
 			const fetched = await helper.fetchBook()
 			response = fetched
-		})
+		}, 10000)
 
 		it('returned undefined', () => {
 			expect(response).toBeUndefined()
@@ -84,7 +84,7 @@ describe('Audible HTML', () => {
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			response = parsed
-		})
+		}, 10000)
 
 		it('returned undefined', () => {
 			expect(response).toBeUndefined()
