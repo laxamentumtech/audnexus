@@ -50,6 +50,11 @@ describe('ApiHelper should', () => {
 
 	test.todo('check required keys')
 
+	test('get copyright year', async () => {
+		helper.audibleResponse = mockResponse.product
+		expect(helper.getCopyrightYear()).toBe(2017)
+	})
+
 	test('get high res image', async () => {
 		helper.audibleResponse = mockResponse.product
 		expect(helper.getHighResImage()).toBe('https://m.media-amazon.com/images/I/91spdScZuIL.jpg')
@@ -141,6 +146,7 @@ describe('ApiHelper should', () => {
 	})
 
 	test('parse response with podcast', async () => {
+		const copyright = 2020
 		const genres = [
 			{
 				asin: '18580606011',
@@ -161,6 +167,7 @@ describe('ApiHelper should', () => {
 		const image = 'https://m.media-amazon.com/images/I/9125JjSWeCL.jpg'
 		const minimalParsed = setupMinimalParsed(
 			podcast.product,
+			copyright,
 			podcast.product.merchandising_summary,
 			image,
 			genres
