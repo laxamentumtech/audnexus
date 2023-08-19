@@ -42,13 +42,15 @@ class ApiHelper {
 		const baseDomain = 'https://api.audible'
 		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/catalog/products'
+		// Last item is intentionally image_sizes
 		const paramArr = [
 			'category_ladders',
 			'contributors',
-			'product_desc',
-			'product_extended_attrs',
-			'product_attrs',
 			'media',
+			'product_attrs',
+			'product_desc',
+			'product_details',
+			'product_extended_attrs',
 			'rating',
 			'series',
 			'image_sizes=500,1024'
@@ -83,6 +85,23 @@ class ApiHelper {
 
 	isGenre(genre: unknown): genre is ApiGenre {
 		return ApiGenreSchema.safeParse(genre).success
+	}
+
+	getCopyrightYear() {
+		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+		const regex = /(?:©|\(c\)|copyright\b)\s*(\d{4})/iu
+		const copyright = this.audibleResponse.copyright
+		const match = regex.exec(copyright)
+
+		// find the lowest year in the string
+		if (match) {
+			try {
+				const years = match[1].split('-').map(Number)
+				return Math.min(...years)
+			} catch (error) {
+				return undefined
+			}
+		}
 	}
 
 	/**
@@ -270,6 +289,7 @@ class ApiHelper {
 				}
 				return authorJson
 			}),
+			copyright: this.getCopyrightYear(),
 			description: cleanupDescription(
 				htmlToText(this.audibleResponse['merchandising_summary'], {
 					wordwrap: false
@@ -281,6 +301,7 @@ class ApiHelper {
 			}),
 			image: this.getHighResImage(),
 			isAdult: this.audibleResponse.is_adult_product,
+			isbn: this.audibleResponse.isbn ?? '',
 			language: this.audibleResponse.language,
 			narrators:
 				this.audibleResponse.narrators?.map((person: ApiNarratorOnBook) => {
