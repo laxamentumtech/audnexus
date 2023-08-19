@@ -854,6 +854,7 @@ export const minimalB0036I54I6: ApiBook = {
 		{ asin: '18574505011', name: 'Poetry', type: 'tag' }
 	],
 	image: 'https://m.media-amazon.com/images/I/41dNQts9Z7L.jpg',
+	isAdult: false,
 	language: 'english',
 	narrators: [],
 	publisherName: 'Stanford Audio',

@@ -280,6 +280,7 @@ class ApiHelper {
 				genres: [...this.getGenres(), ...this.getTags()]
 			}),
 			image: this.getHighResImage(),
+			isAdult: this.audibleResponse.is_adult_product,
 			language: this.audibleResponse.language,
 			narrators:
 				this.audibleResponse.narrators?.map((person: ApiNarratorOnBook) => {
