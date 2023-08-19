@@ -15,7 +15,7 @@ describe('Audible Author HTML', () => {
 			asin = 'B00G0WYW92'
 			helper = new ScrapeHelper(asin, 'us')
 			response = await helper.process()
-		})
+		}, 10000)
 
 		it('returned the correct asin', () => {
 			expect(response.asin).toEqual(authorParsedB00G0WYW92.asin)
@@ -51,7 +51,7 @@ describe('Audible Author HTML', () => {
 			asin = 'B0034NFIOI'
 			helper = new ScrapeHelper(asin, 'us')
 			response = await helper.process()
-		})
+		}, 10000)
 
 		it('returned the correct asin', () => {
 			expect(response.asin).toEqual(authorParsedB0034NFIOI.asin)
