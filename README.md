@@ -86,7 +86,7 @@ Pre-rendered HTML documentation is also included in docs/index.html.
 HTML can be re-generated from the spec, using:
 
 ```
-redoc-cli build docs/spec/audnexus.yaml -o docs/index.html
+pnpm run build-docs
 ```
 
 ## 🚀 Deployment <a name = "deployment"></a>

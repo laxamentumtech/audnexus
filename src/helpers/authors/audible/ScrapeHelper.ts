@@ -2,6 +2,7 @@ import * as cheerio from 'cheerio'
 import { htmlToText } from 'html-to-text'
 
 import { ApiAuthorOnBook, ApiAuthorProfile, ApiAuthorProfileSchema } from '#config/types'
+import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -130,7 +131,7 @@ class ScrapeHelper {
 		}
 
 		// Description
-		const description = this.getDescription(dom)
+		const description = cleanupDescription(this.getDescription(dom))
 		// Genres
 		const genres = this.helper.collectGenres(
 			this.asin,

@@ -16,6 +16,9 @@ import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
+import { authorWithoutProjection } from '#tests/datasets/helpers/authors'
+import { bookWithoutProjection } from '#tests/datasets/helpers/books'
+import { chaptersWithoutProjection } from '#tests/datasets/helpers/chapters'
 
 type MockContext = {
 	client: DeepMockProxy<FastifyRedis>
@@ -48,50 +51,42 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('getAllAuthorAsins', async () => {
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue([{ asin: 'B079LRSMNN', region: 'us' }] as any)
-		await expect(helper.getAllAuthorAsins()).resolves.toEqual([
-			{ asin: 'B079LRSMNN', region: 'us' }
-		])
+		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
+		await expect(helper.getAllAuthorAsins()).resolves.toEqual([authorWithoutProjection])
 		expect(AuthorModel.find).toHaveBeenCalledWith({}, projection)
 	})
 
 	test('getAllBookAsins', async () => {
-		jest.spyOn(BookModel, 'find').mockResolvedValue([{ asin: 'B079LRSMNN', region: 'us' }] as any)
-		await expect(helper.getAllBookAsins()).resolves.toEqual([{ asin: 'B079LRSMNN', region: 'us' }])
+		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
+		await expect(helper.getAllBookAsins()).resolves.toEqual([bookWithoutProjection])
 		expect(BookModel.find).toHaveBeenCalledWith({}, projection)
 	})
 
 	test('getAllChapterAsins', async () => {
-		jest
-			.spyOn(ChapterModel, 'find')
-			.mockResolvedValue([{ asin: 'B079LRSMNN', region: 'us' }] as any)
-		await expect(helper.getAllChapterAsins()).resolves.toEqual([
-			{ asin: 'B079LRSMNN', region: 'us' }
-		])
+		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
+		await expect(helper.getAllChapterAsins()).resolves.toEqual([chaptersWithoutProjection])
 		expect(ChapterModel.find).toHaveBeenCalledWith({}, projection)
 	})
 
 	test('updateAuthors', async () => {
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue([{ asin: 'B079LRSMNN', region: 'us' }] as any)
-		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockResolvedValue({} as any)
+		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
+		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockResolvedValue(undefined)
 		await expect(helper.updateAuthors()).resolves.toEqual(undefined)
 		expect(AuthorModel.find).toHaveBeenCalledWith({}, projection)
 		expect(AuthorShowHelper.prototype.handler).toHaveBeenCalledWith()
 	})
 
 	test('updateBooks', async () => {
-		jest.spyOn(BookModel, 'find').mockResolvedValue([{ asin: 'B079LRSMNN', region: 'us' }] as any)
-		jest.spyOn(BookShowHelper.prototype, 'handler').mockResolvedValue({} as any)
+		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
+		jest.spyOn(BookShowHelper.prototype, 'handler').mockResolvedValue(undefined)
 		await expect(helper.updateBooks()).resolves.toEqual(undefined)
 		expect(BookModel.find).toHaveBeenCalledWith({}, projection)
 		expect(BookShowHelper.prototype.handler).toHaveBeenCalledWith()
 	})
 
 	test('updateChapters', async () => {
-		jest
-			.spyOn(ChapterModel, 'find')
-			.mockResolvedValue([{ asin: 'B079LRSMNN', region: 'us' }] as any)
-		jest.spyOn(ChapterShowHelper.prototype, 'handler').mockResolvedValue({} as any)
+		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
+		jest.spyOn(ChapterShowHelper.prototype, 'handler').mockResolvedValue(undefined)
 		await expect(helper.updateChapters()).resolves.toEqual(undefined)
 		expect(ChapterModel.find).toHaveBeenCalledWith({}, projection)
 		expect(ChapterShowHelper.prototype.handler).toHaveBeenCalledWith()
@@ -125,7 +120,9 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateAllJob', async () => {
-		jest.spyOn(helper, 'updateAllTask').mockReturnValue({} as any)
+		jest
+			.spyOn(helper, 'updateAllTask')
+			.mockReturnValue(new AsyncTask('id_1', async () => undefined))
 		expect(JSON.stringify(helper.updateAllJob())).toEqual(
 			JSON.stringify(
 				new LongIntervalJob({ days: 1, runImmediately: true }, helper.updateAllTask(), {

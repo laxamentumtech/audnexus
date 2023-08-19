@@ -40,7 +40,7 @@ jobs:
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
         if: github.event_name != 'pull_request'
-        uses: docker/login-action@a9794064588be971151ec5e7144cb535bcb56e36
+        uses: docker/login-action@553b6f090f15b58451081ce157ff1929a266131d
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -50,14 +50,14 @@ jobs:
       # https://github.com/docker/metadata-action
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@35e9aff4f5d665b5aa8a8f2adffaf8a1b5f49cc0
+        uses: docker/metadata-action@0f8c876bafbf5dbce05c36682ec68e9a0274a48a
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
-        uses: docker/build-push-action@4fad532b9fdbfb80f436784834374a1c11834153
+        uses: docker/build-push-action@9311bf5263ae5b36f3ec67aff768790c6e2344ad
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
