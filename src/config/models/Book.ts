@@ -13,6 +13,7 @@ const bookSchema = schema(
 			}),
 			{ required: true }
 		),
+		copyright: types.number(),
 		description: types.string({ required: true }),
 		formatType: types.string({ required: true }),
 		genres: types.array(
@@ -24,6 +25,7 @@ const bookSchema = schema(
 		),
 		image: types.string(),
 		isAdult: types.boolean({ required: true }),
+		isbn: types.string(),
 		language: types.string({ required: true }),
 		narrators: types.array(
 			types.object({
@@ -57,6 +59,7 @@ const bookSchema = schema(
 	{
 		defaults: {
 			isAdult: false,
+			isbn: '',
 			region: 'us'
 		},
 		timestamps: true
