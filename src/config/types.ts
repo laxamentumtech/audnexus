@@ -89,6 +89,7 @@ export const ApiBookSchema = z.object({
 	formatType: z.string(),
 	genres: z.array(ApiGenreSchema).optional(),
 	image: z.string().url().optional(),
+	isAdult: z.boolean().default(false),
 	language: z.string(),
 	narrators: z.array(ApiNarratorOnBookSchema).optional(),
 	publisherName: z.string(),

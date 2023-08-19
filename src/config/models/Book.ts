@@ -23,6 +23,7 @@ const bookSchema = schema(
 			})
 		),
 		image: types.string(),
+		isAdult: types.boolean({ required: true }),
 		language: types.string({ required: true }),
 		narrators: types.array(
 			types.object({
@@ -55,6 +56,7 @@ const bookSchema = schema(
 	},
 	{
 		defaults: {
+			isAdult: false,
 			region: 'us'
 		},
 		timestamps: true

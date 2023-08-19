@@ -20,6 +20,7 @@ const description =
 	'On the edge of the galaxy, a diplomatic mission to an alien planet takes a turn when the Legionnaires, an elite special fighting force, find themselves ambushed and stranded behind enemy lines. They struggle to survive under siege, waiting on a rescue that might never come....'
 const formatType = 'unabridged'
 const image = 'https://m.media-amazon.com/images/I/91spdScZuIL.jpg'
+const isAdult = false
 const language = 'english'
 const narrators = [
 	{
@@ -370,6 +371,7 @@ export const changedParsedBook: ApiBook = {
 	description,
 	formatType,
 	image,
+	isAdult,
 	language,
 	narrators,
 	publisherName,
@@ -412,6 +414,7 @@ export const parsedBookWithoutGenres: ApiBook = {
 	description,
 	formatType,
 	image,
+	isAdult,
 	language,
 	narrators,
 	publisherName,
