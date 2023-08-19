@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.7.0](https://github.com/djdembeck/audnexus/compare/v1.6.0...v1.7.0) (2023-08-19)
+
+
+### Features
+
+* **helper:** :sparkles: remove links, emails, and handles from descriptions ([e80819d](https://github.com/djdembeck/audnexus/commit/e80819dbfd069c5ac6581d669a1979a4b3695935))
+* **schema:** :sparkles: add `copyright` and `isbn` fields ([d9bf840](https://github.com/djdembeck/audnexus/commit/d9bf840ffe58a89ce2e931234f2c88bdd885600e))
+* **schema:** :sparkles: use `adult` data from audible in form of `isAdult` ([feec8d8](https://github.com/djdembeck/audnexus/commit/feec8d80916eeee48cf65598f8d3838ed7d6f414))
+
 ## [1.6.0](https://github.com/djdembeck/audnexus/compare/v1.5.0...v1.6.0) (2023-07-30)
 
 
