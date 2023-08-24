@@ -27,6 +27,7 @@ const bookSchema = schema(
 		isAdult: types.boolean({ required: true }),
 		isbn: types.string(),
 		language: types.string({ required: true }),
+		literatureType: types.string({ enum: ['fiction', 'nonfiction'], required: true }),
 		narrators: types.array(
 			types.object({
 				asin: types.string(),
