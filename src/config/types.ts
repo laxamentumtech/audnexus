@@ -93,7 +93,10 @@ export const ApiBookSchema = z.object({
 	isAdult: z.boolean().default(false),
 	isbn: z.string().optional(),
 	language: z.string(),
-	literatureType: z.string().refine((val) => ['fiction', 'nonfiction'].includes(val)),
+	literatureType: z
+		.string()
+		.refine((val) => ['fiction', 'nonfiction'].includes(val))
+		.optional(),
 	narrators: z.array(ApiNarratorOnBookSchema).optional(),
 	publisherName: z.string(),
 	rating: z.string(),
