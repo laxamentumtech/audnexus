@@ -54,8 +54,8 @@ dependencies:
     specifier: 5.7.0
     version: 5.7.0
   papr:
-    specifier: 14.0.0
-    version: 14.0.0(mongodb@5.7.0)
+    specifier: 14.1.0
+    version: 14.1.0(mongodb@5.7.0)
   toad-scheduler:
     specifier: ^3.0.0
     version: 3.0.0
@@ -4278,8 +4278,8 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  /papr@14.0.0(mongodb@5.7.0):
-    resolution: {integrity: sha512-y/nFJinQpxAPWhc5hXEmmxIUPE4YwZj9pmPRDlgC21jTI0oXXfhzoe4ABPopr+rtQysO8yhIruIbZRRsHDOvOw==}
+  /papr@14.1.0(mongodb@5.7.0):
+    resolution: {integrity: sha512-+nRF1rfHJ/rk0AowNUCklk+nI3r5+1yiiD/GZuSesIQwXqEnRf0/3VNqo+KORCU1zGrZ1VPoCQRZZYuxbLiYpg==}
     engines: {node: '>=16.0.0'}
     peerDependencies:
       mongodb: ^5.0.0
