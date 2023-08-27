@@ -95,8 +95,8 @@ devDependencies:
     specifier: 6.4.0
     version: 6.4.0(eslint@8.47.0)(typescript@5.1.6)
   concurrently:
-    specifier: 8.2.0
-    version: 8.2.0
+    specifier: 8.2.1
+    version: 8.2.1
   eslint:
     specifier: 8.47.0
     version: 8.47.0
@@ -1953,8 +1953,8 @@ packages:
       typedarray: 0.0.6
     dev: true
 
-  /concurrently@8.2.0:
-    resolution: {integrity: sha512-nnLMxO2LU492mTUj9qX/az/lESonSZu81UznYDoXtz1IQf996ixVqPAgHXwvHiHCAef/7S8HIK+fTFK7Ifk8YA==}
+  /concurrently@8.2.1:
+    resolution: {integrity: sha512-nVraf3aXOpIcNud5pB9M82p1tynmZkrSGQ1p6X/VY8cJ+2LMVqAgXsJxYYefACSHbTYlm92O1xuhdGTjwoEvbQ==}
     engines: {node: ^14.13.0 || >=16.0.0}
     hasBin: true
     dependencies:
@@ -4160,7 +4160,7 @@ packages:
       oas-kit-common: 1.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
     dev: true
 
   /oas-schema-walker@1.1.5:
@@ -5237,7 +5237,7 @@ packages:
       oas-validator: 5.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
     transitivePeerDependencies:
       - encoding
     dev: true
