@@ -37,12 +37,16 @@ services:
       - /mnt/docker/mongo/data:/data/db
     networks:
       - internal
+    ports:
+      - "27017:27017"
 
   redis:
     image: redis:alpine
     restart: always
     networks:
       - internal
+    ports:
+      - "6379:6379"
 
   traefik:
     image: traefik:v3.0
