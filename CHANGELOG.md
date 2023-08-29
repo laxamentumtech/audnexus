@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.8.0](https://github.com/djdembeck/audnexus/compare/v1.7.0...v1.8.0) (2023-08-29)
+
+
+### Features
+
+* **schema:** :sparkles: add `literatureType` field for fiction/nonfiction ([84536aa](https://github.com/djdembeck/audnexus/commit/84536aa20ce4f6159e477a3c9eeac97c4edf2eea))
+
 ## [1.7.0](https://github.com/djdembeck/audnexus/compare/v1.6.0...v1.7.0) (2023-08-19)
 
 

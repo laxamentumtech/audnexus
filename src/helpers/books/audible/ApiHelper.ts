@@ -303,6 +303,11 @@ class ApiHelper {
 			isAdult: this.audibleResponse.is_adult_product,
 			isbn: this.audibleResponse.isbn ?? '',
 			language: this.audibleResponse.language,
+			literatureType: this.audibleResponse.thesaurus_subject_keywords?.some((keyword) =>
+				keyword.includes('fiction')
+			)
+				? 'fiction'
+				: 'nonfiction',
 			narrators:
 				this.audibleResponse.narrators?.map((person: ApiNarratorOnBook) => {
 					const narratorJson: ApiNarratorOnBook = {

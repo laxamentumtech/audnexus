@@ -24,6 +24,7 @@ const image = 'https://m.media-amazon.com/images/I/91spdScZuIL.jpg'
 const isAdult = false
 const isbn = '9781772305241'
 const language = 'english'
+const literatureType = 'fiction'
 const narrators = [
 	{
 		name: 'R.C. Bray'
@@ -380,6 +381,7 @@ export const parsedBook = ApiBookSchema.parse({
 	isAdult,
 	isbn,
 	language,
+	literatureType,
 	narrators,
 	publisherName,
 	rating,
@@ -440,6 +442,7 @@ export const parsedBookWithoutGenres: ApiBook = {
 	isAdult,
 	isbn,
 	language,
+	literatureType,
 	narrators,
 	publisherName,
 	rating,

@@ -2,7 +2,7 @@
 	"baseBranches": ["develop"],
 	"branchConcurrentLimit": 10,
 	"commitMessageAction": "Upgrade",
-	"commitMessagePrefix": "chore:",
+	"commitMessagePrefix": "build(deps):",
 	"commitMessageTopic": "{{depName}}",
 	"extends": ["config:base"],
 	"labels": ["dependencies"],
@@ -21,8 +21,8 @@
 		}
 	],
 	"rebaseWhen": "auto",
-	"stabilityDays": 5,
-	"timezone": "Etc/UTC",
+	"stabilityDays": 7,
+	"timezone": "CST",
 	"vulnerabilityAlerts": {
 		"labels": ["security"]
 	}

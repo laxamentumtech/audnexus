@@ -62,6 +62,11 @@ export function setupMinimalParsed(
 		isbn: response.isbn ?? '',
 		isAdult: response.is_adult_product,
 		language: response.language,
+		literatureType: response.thesaurus_subject_keywords?.some((keyword) =>
+			keyword.includes('fiction')
+		)
+			? 'fiction'
+			: 'nonfiction',
 		narrators: response.narrators,
 		image,
 		rating: response.rating.overall_distribution.display_average_rating.toString(),
@@ -1182,6 +1187,7 @@ export const minimalB0036I54I6: ApiBook = {
 	isAdult: false,
 	isbn: '',
 	language: 'english',
+	literatureType: 'nonfiction',
 	narrators: [],
 	publisherName: 'Stanford Audio',
 	rating: '3.9',
