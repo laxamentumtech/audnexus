@@ -57,7 +57,7 @@ jobs:
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
-        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09
+        uses: docker/build-push-action@4c1b68d83ad20cc1a09620ca477d5bbbb5fa14d0
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
