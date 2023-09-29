@@ -44,7 +44,7 @@
 		"module-alias": "2.2.3",
 		"moment": "^2.29.4",
 		"mongodb": "5.8.1",
-		"papr": "14.1.0",
+		"papr": "15.0.0",
 		"toad-scheduler": "^3.0.0",
 		"typescript": "5.2.2",
 		"zod": "^3.20.6"
