@@ -74,8 +74,8 @@ devDependencies:
     specifier: 1.0.2
     version: 1.0.2(@babel/core@7.22.17)(core-js@3.32.2)(react-is@18.2.0)(webpack@5.88.2)
   '@types/html-to-text':
-    specifier: 9.0.1
-    version: 9.0.1
+    specifier: 9.0.2
+    version: 9.0.2
   '@types/jest':
     specifier: 29.5.5
     version: 29.5.5
@@ -1040,8 +1040,8 @@ packages:
     dependencies:
       '@types/node': 18.17.18
 
-  /@types/html-to-text@9.0.1:
-    resolution: {integrity: sha512-sHu702QGb0SP2F0Zt+CxdCmGZIZ0gEaaCjqOh/V4iba1wTxPVntEPOM/vHm5bel08TILhB3+OxUTkDJWnr/zHQ==}
+  /@types/html-to-text@9.0.2:
+    resolution: {integrity: sha512-cO9qsPwfIJ2GKFJ4AgpgmmFoUr0IulsN1clwOiPdChpsY/LVmbpGenUGrvZiYsSXSg/dWsj4NTzWZeIlv3D22w==}
     dev: true
 
   /@types/istanbul-lib-coverage@2.0.4:
