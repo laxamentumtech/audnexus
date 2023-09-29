@@ -7,7 +7,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -17,10 +16,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Send build to CapRover server
-        uses: floms/action-caprover@v1
+      - name: Set up npm
+        uses: actions/setup-node@v2
         with:
-          host: '${{ secrets.CAPROVER_HOST }}'
-          password: '${{ secrets.CAPROVER_PASSWORD }}'
-          app: 'audnexus'
-          branch: 'main'
+          node-version: '14'
+
+      - name: Install caprover
+        run: npm install -g caprover
+
+      - name: Caprover Deploy
+        run: caprover deploy -h '${{ secrets.CAPROVER_HOST }}' -p '${{ secrets.CAPROVER_PASSWORD }}' -b 'main' -a 'audnexus'
