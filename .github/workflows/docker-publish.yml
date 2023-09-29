@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
@@ -50,7 +50,7 @@ jobs:
       # https://github.com/docker/metadata-action
       - name: Extract Docker metadata
         id: meta
-        uses: docker/metadata-action@6dfb6f1404065e66f9af1a56a7d39ad09efaaf9a
+        uses: docker/metadata-action@879dcbb708d40f8b8679d4f7941b938a086e23a7
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 

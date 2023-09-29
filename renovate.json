@@ -4,7 +4,13 @@
 	"commitMessageAction": "Upgrade",
 	"commitMessagePrefix": "build(deps):",
 	"commitMessageTopic": "{{depName}}",
-	"extends": ["config:base"],
+	"configMigration": true,
+	"extends": [
+		"config:recommended",
+		"docker:pinDigests",
+		"helpers:pinGitHubActionDigests",
+		":pinDevDependencies"
+	],
 	"labels": ["dependencies"],
 	"lockFileMaintenance": {
 		"enabled": true,
