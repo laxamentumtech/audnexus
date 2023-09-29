@@ -249,7 +249,7 @@ export const B08G9PRS1K = AudibleProductSchema.parse({
 		language: 'english',
 		merchandising_description: '',
 		merchandising_summary:
-			"<p>Ryland Grace is the sole survivor on a desperate, last-chance mission - and if he fails, humanity and the Earth itself will perish. Except that right now, he doesn't know that. He can't even remember his own name, let alone the nature of his assignment or how to complete it....</p>",
+			"When the Sun is threatened by an alien microbe, the fate of humanity rests on the shoulders of an unlikely hero – and an even more unlikely friendship.",
 		narrators: [
 			{
 				name: 'Ray Porter'
