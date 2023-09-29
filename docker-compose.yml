@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   node-server:
-    image: ghcr.io/laxamentumtech/audnexus:develop
+    image: ghcr.io/laxamentumtech/audnexus:develop@sha256:5536528ce49ffe84a303eceb39195ab2aaebe8343fbd5ebf0789156bdbe5b04b
     restart: always
     environment:
       ADP_TOKEN: ${NODE_ADP_TOKEN}
@@ -31,7 +31,7 @@ services:
       replicas: 15
 
   mongo:
-    image: mongo:7
+    image: mongo:7@sha256:31bf43c4959c283733a004b0a3a9c4ddc52efafb4cf9a38e42d2da93e9a72546
     restart: always
     volumes:
       - /mnt/docker/mongo/data:/data/db
@@ -41,7 +41,7 @@ services:
       - "27017:27017"
 
   redis:
-    image: redis:alpine
+    image: redis:alpine@sha256:9150d86fe2a9d03bbdb15bb9758fa5e3d24632386af8f6eb4d675ee4c976f499
     restart: always
     networks:
       - internal
@@ -49,7 +49,7 @@ services:
       - "6379:6379"
 
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.0@sha256:50f2f4ff3cf2ecb4c9b8851ee9f83531663875ffc9c77a3e81371949bbb4db2c
     restart: always
     command:
       - "--providers.docker=true"
