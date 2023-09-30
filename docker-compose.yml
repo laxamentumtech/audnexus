@@ -2,7 +2,7 @@ version: "3.7"
 
 services:
   node-server:
-    image: ghcr.io/laxamentumtech/audnexus:develop@sha256:bc7e5361b8069fa5adf0531390d45d8d9e6c54fd83ed0176dffa3b8a44f761b6
+    image: ghcr.io/laxamentumtech/audnexus:develop@sha256:ae2c7b2e25eab7aabae5b031476bd0910b4711ea7d635328b1258fa9bd7ae5ef
     restart: always
     environment:
       ADP_TOKEN: ${NODE_ADP_TOKEN}
