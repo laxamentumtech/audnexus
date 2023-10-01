@@ -104,8 +104,8 @@ devDependencies:
     specifier: 9.0.0
     version: 9.0.0(eslint@8.50.0)
   eslint-plugin-jest:
-    specifier: 27.2.3
-    version: 27.2.3(@typescript-eslint/eslint-plugin@6.7.2)(eslint@8.50.0)(jest@29.7.0)(typescript@5.2.2)
+    specifier: 27.4.0
+    version: 27.4.0(@typescript-eslint/eslint-plugin@6.7.2)(eslint@8.50.0)(jest@29.7.0)(typescript@5.2.2)
   eslint-plugin-simple-import-sort:
     specifier: 10.0.0
     version: 10.0.0(eslint@8.50.0)
@@ -3309,8 +3309,8 @@ packages:
       eslint: 8.50.0
     dev: true
 
-  /eslint-plugin-jest@27.2.3(@typescript-eslint/eslint-plugin@6.7.2)(eslint@8.50.0)(jest@29.7.0)(typescript@5.2.2):
-    resolution: {integrity: sha512-sRLlSCpICzWuje66Gl9zvdF6mwD5X86I4u55hJyFBsxYOsBCmT5+kSUjf+fkFWVMMgpzNEupjW8WzUqi83hJAQ==}
+  /eslint-plugin-jest@27.4.0(@typescript-eslint/eslint-plugin@6.7.2)(eslint@8.50.0)(jest@29.7.0)(typescript@5.2.2):
+    resolution: {integrity: sha512-ukVeKmMPAUA5SWjHenvyyXnirKfHKMdOsTZdn5tZx5EW05HGVQwBohigjFZGGj3zuv1cV6hc82FvWv6LdIbkgg==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
     peerDependencies:
       '@typescript-eslint/eslint-plugin': ^5.0.0 || ^6.0.0
