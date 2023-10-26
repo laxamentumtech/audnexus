@@ -19,7 +19,7 @@ dependencies:
     version: 6.1.1
   '@fastify/schedule':
     specifier: ^4.1.1
-    version: 4.1.1(fastify@4.23.2)(toad-scheduler@3.0.0)
+    version: 4.1.1(fastify@4.24.3)(toad-scheduler@3.0.0)
   axios:
     specifier: ^1.2.4
     version: 1.5.1
@@ -30,8 +30,8 @@ dependencies:
     specifier: 5.0.3
     version: 5.0.3
   fastify:
-    specifier: 4.23.2
-    version: 4.23.2
+    specifier: 4.24.3
+    version: 4.24.3
   html-to-text:
     specifier: 9.0.5
     version: 9.0.5
@@ -555,13 +555,13 @@ packages:
       - supports-color
     dev: false
 
-  /@fastify/schedule@4.1.1(fastify@4.23.2)(toad-scheduler@3.0.0):
+  /@fastify/schedule@4.1.1(fastify@4.24.3)(toad-scheduler@3.0.0):
     resolution: {integrity: sha512-riIh+eumfpoDDpNqMqzHdzYofWVhaHJYxH69OMQyVzGUJikF5luvr4LMx/uxedE1VJfmHJCUjBuMVcPLB7KsZg==}
     peerDependencies:
       fastify: ^4.0.0
       toad-scheduler: '>= 2.0.0 < 4'
     dependencies:
-      fastify: 4.23.2
+      fastify: 4.24.3
       fastify-plugin: 4.5.1
       toad-scheduler: 3.0.0
     dev: false
@@ -2456,8 +2456,8 @@ packages:
     resolution: {integrity: sha512-stRHYGeuqpEZTL1Ef0Ovr2ltazUT9g844X5z/zEBFLG8RYlpDiOCIG+ATvYEp+/zmc7sN29mcIMp8gvYplYPIQ==}
     dev: false
 
-  /fastify@4.23.2:
-    resolution: {integrity: sha512-WFSxsHES115svC7NrerNqZwwM0UOxbC/P6toT9LRHgAAFvG7o2AN5W+H4ihCtOGuYXjZf4z+2jXC89rVEoPWOA==}
+  /fastify@4.24.3:
+    resolution: {integrity: sha512-6HHJ+R2x2LS3y1PqxnwEIjOTZxFl+8h4kSC/TuDPXtA+v2JnV9yEtOsNSKK1RMD7sIR2y1ZsA4BEFaid/cK5pg==}
     dependencies:
       '@fastify/ajv-compiler': 3.5.0
       '@fastify/error': 3.4.0

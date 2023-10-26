@@ -36,7 +36,7 @@
 		"axios": "^1.2.4",
 		"cheerio": "1.0.0-rc.12",
 		"domhandler": "5.0.3",
-		"fastify": "4.23.2",
+		"fastify": "4.24.3",
 		"html-to-text": "9.0.5",
 		"jest-mock-extended": "3.0.5",
 		"jsrsasign": "^10.8.6",
