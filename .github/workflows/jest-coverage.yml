@@ -20,7 +20,7 @@ jobs:
       - uses: pnpm/action-setup@d882d12c64e032187b2edb46d3a0d003b7a43598 # v2.4.0
         with:
           version: latest
-      - uses: ArtiomTr/jest-coverage-report-action@f1a1382101d9b92b38e3df05c9ed89a834af97c8 # v2
+      - uses: ArtiomTr/jest-coverage-report-action@a0b93b002006a91fb6b4a779acbd89ab9d967da8 # v2
         with:
           test-script: pnpm test
           package-manager: pnpm
