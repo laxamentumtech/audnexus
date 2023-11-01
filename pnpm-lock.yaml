@@ -74,8 +74,8 @@ devDependencies:
     specifier: 1.2.0
     version: 1.2.0
   '@types/html-to-text':
-    specifier: 9.0.2
-    version: 9.0.2
+    specifier: 9.0.3
+    version: 9.0.3
   '@types/jest':
     specifier: 29.5.5
     version: 29.5.5
@@ -984,8 +984,8 @@ packages:
     dependencies:
       '@types/node': 18.18.6
 
-  /@types/html-to-text@9.0.2:
-    resolution: {integrity: sha512-cO9qsPwfIJ2GKFJ4AgpgmmFoUr0IulsN1clwOiPdChpsY/LVmbpGenUGrvZiYsSXSg/dWsj4NTzWZeIlv3D22w==}
+  /@types/html-to-text@9.0.3:
+    resolution: {integrity: sha512-ImzcLdHN3+zghCoZcA+vWd/t0GhM10S7lnvSq9YA6lbo4HGK10WIJ7n+NI7mbeVZeUtgrmK5fXM66kZcws1oHA==}
     dev: true
 
   /@types/istanbul-lib-coverage@2.0.4:
