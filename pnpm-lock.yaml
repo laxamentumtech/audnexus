@@ -71,8 +71,8 @@ devDependencies:
     specifier: 29.6.3
     version: 29.6.3
   '@redocly/cli':
-    specifier: 1.2.0
-    version: 1.2.0
+    specifier: 1.4.0
+    version: 1.4.0
   '@types/html-to-text':
     specifier: 9.0.3
     version: 9.0.3
@@ -876,12 +876,12 @@ packages:
       uri-js: 4.4.1
     dev: true
 
-  /@redocly/cli@1.2.0:
-    resolution: {integrity: sha512-xfZuRcdDAeal9gyP5Frbmw3R6/HsW7Nh29tiR2b22Cqi/xD5W8wIZw78/1a6rUTfmqrofKdpNUAmSMywbb0Y+g==}
-    engines: {node: '>=14.0.0'}
+  /@redocly/cli@1.4.0:
+    resolution: {integrity: sha512-MARIbVWG0XlwZwnpcd6IUXekJUxqvQCeU5eJ3RsvYzldFSC07RD0wWgdnem3xTLV+k+fHsgycezNz89D+UjBIA==}
+    engines: {node: '>=14.19.0', npm: '>=7.0.0'}
     hasBin: true
     dependencies:
-      '@redocly/openapi-core': 1.2.0
+      '@redocly/openapi-core': 1.4.0
       chokidar: 3.5.3
       colorette: 1.4.0
       core-js: 3.33.2
@@ -904,9 +904,9 @@ packages:
       - utf-8-validate
     dev: true
 
-  /@redocly/openapi-core@1.2.0:
-    resolution: {integrity: sha512-Ccft2n/JiF4u2crmj1cdDzPq6C40U7NgLZ+p/BxzAFXbfrddr/5FN0HMJPHT/op329qqv2P2jUrXsV2Bp+rzEQ==}
-    engines: {node: '>=14.0.0'}
+  /@redocly/openapi-core@1.4.0:
+    resolution: {integrity: sha512-M4f0H3XExPvJ0dwbEou7YKLzkpz2ZMS9JoNvrbEECO7WCwjGZ4AjbiUjp2p0ZzFMNIiNgTVUJJmkxGxsXW471Q==}
+    engines: {node: '>=14.19.0', npm: '>=7.0.0'}
     dependencies:
       '@redocly/ajv': 8.11.0
       '@types/node': 14.18.63
@@ -3952,7 +3952,7 @@ packages:
       oas-kit-common: 1.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
     dev: true
 
   /oas-schema-walker@1.1.5:
@@ -4491,7 +4491,7 @@ packages:
       react-dom: ^16.8.4 || ^17.0.0 || ^18.0.0
       styled-components: ^4.1.1 || ^5.1.1 || ^6.0.5
     dependencies:
-      '@redocly/openapi-core': 1.2.0
+      '@redocly/openapi-core': 1.4.0
       classnames: 2.3.2
       core-js: 3.33.2
       decko: 1.2.0
@@ -4972,7 +4972,7 @@ packages:
       oas-validator: 5.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
     transitivePeerDependencies:
       - encoding
     dev: true
