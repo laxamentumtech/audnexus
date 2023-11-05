@@ -6,8 +6,8 @@ settings:
 
 dependencies:
   '@fastify/cors':
-    specifier: 8.4.0
-    version: 8.4.0
+    specifier: 8.4.1
+    version: 8.4.1
   '@fastify/helmet':
     specifier: ^11.0.0
     version: 11.1.1
@@ -510,8 +510,8 @@ packages:
       fast-uri: 2.3.0
     dev: false
 
-  /@fastify/cors@8.4.0:
-    resolution: {integrity: sha512-MlVvMTenltToByTpLwlWtO+7dQ3l2J+1OpmGrx9JpSNWo1d+dhfNCOi23zHhxdFhtpDzfwGwCsKu9DTeG7k7nQ==}
+  /@fastify/cors@8.4.1:
+    resolution: {integrity: sha512-iYQJtrY3pFiDS5mo5zRaudzg2OcUdJ96PD6xfkKOOEilly5nnrFZx/W6Sce2T79xxlEn2qpU3t5+qS2phS369w==}
     dependencies:
       fastify-plugin: 4.5.1
       mnemonist: 0.39.5
