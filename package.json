@@ -53,7 +53,7 @@
 		"@jest/types": "29.6.3",
 		"@redocly/cli": "1.4.0",
 		"@types/html-to-text": "9.0.4",
-		"@types/jest": "29.5.7",
+		"@types/jest": "29.5.8",
 		"@types/jsrsasign": "10.5.12",
 		"@types/lodash": "4.14.200",
 		"@types/node": "20.8.10",
