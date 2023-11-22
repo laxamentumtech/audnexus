@@ -12,8 +12,8 @@ dependencies:
     specifier: ^11.0.0
     version: 11.1.1
   '@fastify/rate-limit':
-    specifier: 8.0.3
-    version: 8.0.3
+    specifier: 8.1.1
+    version: 8.1.1
   '@fastify/redis':
     specifier: 6.1.1
     version: 6.1.1
@@ -538,8 +538,8 @@ packages:
       helmet: 7.1.0
     dev: false
 
-  /@fastify/rate-limit@8.0.3:
-    resolution: {integrity: sha512-7wbSKXGKKLI1VkpW2XvS7SFg4n4/uzYt0YA5O2pfCcM6PYaBSV3VhSKGJ9/hJceCSH+zNEDRrWpufqxbcDkTZg==}
+  /@fastify/rate-limit@8.1.1:
+    resolution: {integrity: sha512-kTaIBuG7hS26rUPermw1RYsobNHxLcqA9AFUbWR8dEyRR8wknZnpfuD3VaJkrtfxyWLW8xZ5b6/GmQ/gNoEfWA==}
     dependencies:
       fastify-plugin: 4.5.1
       ms: 2.1.3
