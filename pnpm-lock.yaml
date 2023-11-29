@@ -77,8 +77,8 @@ devDependencies:
     specifier: 9.0.4
     version: 9.0.4
   '@types/jest':
-    specifier: 29.5.9
-    version: 29.5.9
+    specifier: 29.5.10
+    version: 29.5.10
   '@types/jsrsasign':
     specifier: 10.5.12
     version: 10.5.12
@@ -1007,8 +1007,8 @@ packages:
     dependencies:
       '@types/istanbul-lib-report': 3.0.3
 
-  /@types/jest@29.5.9:
-    resolution: {integrity: sha512-zJeWhqBwVoPm83sP8h1/SVntwWTu5lZbKQGCvBjxQOyEWnKnsaomt2y7SlV4KfwlrHAHHAn00Sh4IAWaIsGOgQ==}
+  /@types/jest@29.5.10:
+    resolution: {integrity: sha512-tE4yxKEphEyxj9s4inideLHktW/x6DwesIwWZ9NN1FKf9zbJYsnhBoA9vrHA/IuIOKwPa5PcFBNV4lpMIOEzyQ==}
     dependencies:
       expect: 29.7.0
       pretty-format: 29.7.0
