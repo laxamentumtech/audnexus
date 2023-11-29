@@ -49,7 +49,7 @@ services:
       - "6379:6379"
 
   traefik:
-    image: traefik:v3.0@sha256:a25aa319fe3cc8095e4b1dcd8394430103a2e324e1af321312b45c266ba3e129
+    image: traefik:v3.0@sha256:9afeb3c0c8e227ba7558a779bc438a9f36924e672a961f8f25f3ae229330f473
     restart: always
     command:
       - "--providers.docker=true"
