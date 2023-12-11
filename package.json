@@ -28,7 +28,7 @@
 	"author": "David Dembeck",
 	"license": "GPL-3.0",
 	"dependencies": {
-		"@fastify/cors": "8.4.1",
+		"@fastify/cors": "8.4.2",
 		"@fastify/helmet": "^11.0.0",
 		"@fastify/rate-limit": "9.0.1",
 		"@fastify/redis": "6.1.1",
