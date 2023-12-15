@@ -69,7 +69,7 @@
 		"prettier": "3.1.0",
 		"standard-version": "9.5.0",
 		"ts-jest": "29.1.1",
-		"ts-node": "10.9.1"
+		"ts-node": "10.9.2"
 	},
 	"_moduleAliases": {
 		"#config": "dist/config",
