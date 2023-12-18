@@ -53,6 +53,8 @@ describe('ChapterHelper should', () => {
 		expect(helper.chapterTitleCleanup('Chapter 1.')).toBe('Chapter 1')
 		// Title with just a number is changed
 		expect(helper.chapterTitleCleanup('123')).toBe('Chapter 123')
+        // Title with an underscore is changed
+        expect(helper.chapterTitleCleanup('Chapter_1')).toBe('Chapter 1')
 	})
 
 	test('sign request', () => {
