@@ -59,8 +59,8 @@ class ChapterHelper {
 		let chapterTitle = strippedTitle
 		// Check if title is just numbers
 		const isNotNumber = isNaN(Number(strippedTitle))
-        // Check if title has an underscore between Chapter and number
-        const hasUnderscore = strippedTitle.includes('_')
+		// Check if title has an underscore between Chapter and number
+		const hasUnderscore = strippedTitle.includes('_')
 		if (!isNotNumber && strippedTitle.length <= 3) {
 			// Remove trailing period in some cases
 			const stripPeriod: string = strippedTitle
@@ -70,10 +70,10 @@ class ChapterHelper {
 			const strTitle: string = numTitle.toString()
 			chapterTitle = `${chapterNameLocale} ${strTitle}`
 		} else if (hasUnderscore) {
-            const splitTitle = strippedTitle.split('_')
-            const numTitle = splitTitle[1]
-            chapterTitle = `${chapterNameLocale} ${numTitle}`
-        }
+			const splitTitle = strippedTitle.split('_')
+			const numTitle = splitTitle[1]
+			chapterTitle = `${chapterNameLocale} ${numTitle}`
+		}
 
 		return chapterTitle
 	}
