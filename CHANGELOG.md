@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.9.0](https://github.com/djdembeck/audnexus/compare/v1.8.0...v1.9.0) (2023-12-18)
+
+
+### Features
+
+* **helper:** :sparkles: cleanup chapter titles with underscore ([7ff0148](https://github.com/djdembeck/audnexus/commit/7ff014883abc9b4fc1b1f41db84218a6ec40f164))
+* **schema:** :sparkles: add `literatureType` field for fiction/nonfiction ([84536aa](https://github.com/djdembeck/audnexus/commit/84536aa20ce4f6159e477a3c9eeac97c4edf2eea))
+
 ## [1.8.0](https://github.com/djdembeck/audnexus/compare/v1.7.0...v1.8.0) (2023-08-29)
 
 
