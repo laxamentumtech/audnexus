@@ -71,8 +71,8 @@ devDependencies:
     specifier: 29.6.3
     version: 29.6.3
   '@redocly/cli':
-    specifier: 1.5.0
-    version: 1.5.0
+    specifier: 1.6.0
+    version: 1.6.0
   '@types/html-to-text':
     specifier: 9.0.4
     version: 9.0.4
@@ -881,12 +881,12 @@ packages:
       uri-js: 4.4.1
     dev: true
 
-  /@redocly/cli@1.5.0:
-    resolution: {integrity: sha512-2E6yhYIs/dj6pFM9ahzuyI4AzFOjmOK1dkwYCtTWT1w5kROlW4HVVgHrxnOIUupRDTD5TdScWSH28n2U1VivWQ==}
+  /@redocly/cli@1.6.0:
+    resolution: {integrity: sha512-0naVFJGR2tVcpMIHSFRr2HAoyy70qMqDAP6kXcnOdkGkwLRJ8s/5n1STwsym/yZwNkhrt2M0cKT6KAMlTUeCeg==}
     engines: {node: '>=14.19.0', npm: '>=7.0.0'}
     hasBin: true
     dependencies:
-      '@redocly/openapi-core': 1.5.0
+      '@redocly/openapi-core': 1.6.0
       chokidar: 3.5.3
       colorette: 1.4.0
       core-js: 3.34.0
@@ -910,8 +910,8 @@ packages:
       - utf-8-validate
     dev: true
 
-  /@redocly/openapi-core@1.5.0:
-    resolution: {integrity: sha512-AnDLoDl1+a7mZO4+lx0KG8zH04BQx4ez6yh403PuNl9/0ygbicPPc9QG/y0/0OImChOA+knKLpJazNFjzhOAeg==}
+  /@redocly/openapi-core@1.6.0:
+    resolution: {integrity: sha512-oao6Aey4peLKfagzWGb6N7OBI6CoDWEP4ka/XjrUNZw+UoKVVg3hVBXW4Vr3CJ2O8j6wEa2i+Lbb92VQQsoxwg==}
     engines: {node: '>=14.19.0', npm: '>=7.0.0'}
     dependencies:
       '@redocly/ajv': 8.11.0
@@ -3948,7 +3948,7 @@ packages:
       oas-kit-common: 1.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
     dev: true
 
   /oas-schema-walker@1.1.5:
@@ -4491,7 +4491,7 @@ packages:
       react-dom: ^16.8.4 || ^17.0.0 || ^18.0.0
       styled-components: ^4.1.1 || ^5.1.1 || ^6.0.5
     dependencies:
-      '@redocly/openapi-core': 1.5.0
+      '@redocly/openapi-core': 1.6.0
       classnames: 2.3.2
       core-js: 3.34.0
       decko: 1.2.0
@@ -4972,7 +4972,7 @@ packages:
       oas-validator: 5.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
     transitivePeerDependencies:
       - encoding
     dev: true
