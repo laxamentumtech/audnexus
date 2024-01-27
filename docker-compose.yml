@@ -41,7 +41,7 @@ services:
       - "27017:27017"
 
   redis:
-    image: redis:alpine@sha256:771316de17c3eaa0824734099785cf984061f06a0bb765eef5953264fea7f0a9
+    image: redis:alpine@sha256:b62fb4b69249a3c7bd7443d41353d2cda8260b05bebd64814e77db99536bc876
     restart: always
     networks:
       - internal
