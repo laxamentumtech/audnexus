@@ -1,0 +1,21 @@
+{
+	"compilerOptions": {
+		"target": "es2021",
+		"module": "commonjs",
+		"rootDir": "./src",
+		"moduleResolution": "node",
+		"baseUrl": "./src",
+		"paths": {
+			"#config/*": ["config/*"],
+			"#helpers/*": ["helpers/*"],
+			"#static/*": ["static/*"]
+		},
+		"outDir": "./dist",
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"strict": true,
+		"noImplicitAny": true,
+		"skipLibCheck": true
+	},
+	"include": ["src/"]
+}

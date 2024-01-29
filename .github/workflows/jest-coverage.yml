@@ -1,0 +1,26 @@
+name: 'jest-coverage'
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+jobs:
+  coverage:
+    env:
+      ADP_TOKEN: ${{ secrets.ADP_TOKEN }}
+      PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+    permissions:
+      checks: write
+      pull-requests: write
+      contents: read
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    steps:
+      - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
+      - uses: pnpm/action-setup@d882d12c64e032187b2edb46d3a0d003b7a43598 # v2.4.0
+        with:
+          version: latest
+      - uses: ArtiomTr/jest-coverage-report-action@d438b94580c2c47599ce7abc62d26d1acd1661eb # v2
+        with:
+          test-script: pnpm test
+          package-manager: pnpm
