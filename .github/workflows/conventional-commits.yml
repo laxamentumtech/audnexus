@@ -11,4 +11,4 @@ jobs:
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4
 
-      - uses: webiny/action-conventional-commits@0cc64c05ba23b8179973090d3509f31dba971afb # v1.2.0
+      - uses: webiny/action-conventional-commits@8bc41ff4e7d423d56fa4905f6ff79209a78776c7 # v1.3.0
