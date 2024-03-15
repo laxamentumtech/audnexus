@@ -31,7 +31,7 @@ services:
       replicas: 15
 
   mongo:
-    image: mongo:7@sha256:5a6889e9f5e0c71ad8d1cf94b6d83d38162ba198e6083371e5141fc38137a01a
+    image: mongo:7@sha256:019bf5423a08363f253d81a3f16cc6527e7342a7f5420a5ad74663cc2c62d0e7
     restart: always
     volumes:
       - /mnt/docker/mongo/data:/data/db
