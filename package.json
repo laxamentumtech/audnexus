@@ -54,7 +54,7 @@
 		"@redocly/cli": "1.10.3",
 		"@types/html-to-text": "9.0.4",
 		"@types/jest": "29.5.12",
-		"@types/jsrsasign": "10.5.12",
+		"@types/jsrsasign": "10.5.13",
 		"@types/lodash": "4.14.202",
 		"@types/node": "20.11.25",
 		"@typescript-eslint/eslint-plugin": "6.21.0",
