@@ -43,7 +43,7 @@
 		"lodash": "4.17.21",
 		"module-alias": "2.2.3",
 		"moment": "^2.29.4",
-		"mongodb": "6.4.0",
+		"mongodb": "6.5.0",
 		"papr": "15.2.0",
 		"toad-scheduler": "^3.0.0",
 		"typescript": "5.4.2",
