@@ -51,7 +51,7 @@
 	},
 	"devDependencies": {
 		"@jest/types": "29.6.3",
-		"@redocly/cli": "1.10.5",
+		"@redocly/cli": "1.10.6",
 		"@types/html-to-text": "9.0.4",
 		"@types/jest": "29.5.12",
 		"@types/jsrsasign": "10.5.13",
