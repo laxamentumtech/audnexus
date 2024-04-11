@@ -1,5 +1,5 @@
 # Base with pnpm installed
-FROM node:lts-alpine@sha256:7e227295e96f5b00aa79555ae166f50610940d888fc2e321cf36304cbd17d7d6 AS base
+FROM node:lts-alpine@sha256:c292c7b936fc9875b2b271f18693a2b1ce0be70d5120b9cecc138011509fd92c AS base
 WORKDIR /app
 
 RUN apk add --no-cache curl \
