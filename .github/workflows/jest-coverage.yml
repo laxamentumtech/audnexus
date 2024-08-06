@@ -22,5 +22,4 @@ jobs:
           version: latest
       - uses: ArtiomTr/jest-coverage-report-action@c026e98ae079f4b0b027252c8e957f5ebd420610 # v2
         with:
-          test-script: pnpm test
           package-manager: pnpm
