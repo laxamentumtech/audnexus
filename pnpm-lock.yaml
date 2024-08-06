@@ -39,8 +39,8 @@ dependencies:
     specifier: 3.0.5
     version: 3.0.5(jest@29.7.0)(typescript@5.4.4)
   jsrsasign:
-    specifier: ^10.8.6
-    version: 10.9.0
+    specifier: ^11.0.0
+    version: 11.1.0
   lodash:
     specifier: 4.17.21
     version: 4.17.21
@@ -3834,8 +3834,8 @@ packages:
     engines: {'0': node >= 0.2.0}
     dev: true
 
-  /jsrsasign@10.9.0:
-    resolution: {integrity: sha512-QWLUikj1SBJGuyGK8tjKSx3K7Y69KYJnrs/pQ1KZ6wvZIkHkWjZ1PJDpuvc1/28c1uP0KW9qn1eI1LzHQqDOwQ==}
+  /jsrsasign@11.1.0:
+    resolution: {integrity: sha512-Ov74K9GihaK9/9WncTe1mPmvrO7Py665TUfUKvraXBpu+xcTWitrtuOwcjf4KMU9maPaYn0OuaWy0HOzy/GBXg==}
     dev: false
 
   /keyv@4.5.4:
