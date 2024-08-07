@@ -98,7 +98,7 @@ class ApiHelper {
 			try {
 				const years = match[1].split('-').map(Number)
 				return Math.min(...years)
-			} catch (error) {
+			} catch {
 				return undefined
 			}
 		}

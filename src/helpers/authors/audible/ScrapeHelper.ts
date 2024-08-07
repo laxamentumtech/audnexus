@@ -56,7 +56,7 @@ class ScrapeHelper {
 				'__01_SX120_CR0,0,120,120__.',
 				''
 			)
-		} catch (error) {
+		} catch {
 			return ''
 		}
 	}
@@ -71,7 +71,7 @@ class ScrapeHelper {
 				.first()
 				.text()
 			name = html.trim()
-		} catch (error) {
+		} catch {
 			throw new Error(ErrorMessageNotFound(this.asin, 'author name'))
 		}
 
@@ -105,7 +105,7 @@ class ScrapeHelper {
 				})
 				.get()
 			return similarAuthors
-		} catch (error) {
+		} catch {
 			return []
 		}
 	}
