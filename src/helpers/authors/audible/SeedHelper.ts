@@ -24,7 +24,7 @@ class SeedHelper {
 							return response.status === 200
 						}
 						return false
-					} catch (error) {
+					} catch {
 						return false
 					}
 				})
