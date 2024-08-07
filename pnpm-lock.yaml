@@ -15,8 +15,8 @@ dependencies:
     specifier: 9.1.0
     version: 9.1.0
   '@fastify/redis':
-    specifier: 6.1.1
-    version: 6.1.1
+    specifier: 6.2.0
+    version: 6.2.0
   '@fastify/schedule':
     specifier: ^4.1.1
     version: 4.1.1(fastify@4.26.2)(toad-scheduler@3.0.1)
@@ -539,8 +539,8 @@ packages:
       toad-cache: 3.7.0
     dev: false
 
-  /@fastify/redis@6.1.1:
-    resolution: {integrity: sha512-NZpHK+d3uJJ+w1iHx5n1woFvrHhhG52XjM9byWvU81KSsQpO0N/OikgQvz83frLV7UD4UQtTUgPvVbLxW0X81w==}
+  /@fastify/redis@6.2.0:
+    resolution: {integrity: sha512-0M4oTYRJz/ETPdfXvs/ToFI0ZNFjrz1jYFxEr+wHgnW6hswDsLDs+gxLMff2cb5Fegg3siG4hJzhmvvpvqqqbA==}
     dependencies:
       fastify-plugin: 4.5.1
       ioredis: 5.4.1
