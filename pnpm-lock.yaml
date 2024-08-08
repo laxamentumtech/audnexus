@@ -71,8 +71,8 @@ devDependencies:
     specifier: 29.6.3
     version: 29.6.3
   '@redocly/cli':
-    specifier: 1.11.0
-    version: 1.11.0(enzyme@3.11.0)
+    specifier: 1.18.1
+    version: 1.18.1(enzyme@3.11.0)
   '@types/html-to-text':
     specifier: 9.0.4
     version: 9.0.4
@@ -876,12 +876,12 @@ packages:
       uri-js: 4.4.1
     dev: true
 
-  /@redocly/cli@1.11.0(enzyme@3.11.0):
-    resolution: {integrity: sha512-ZBNaSdbX+A5CR4X3sxLYqUI3z9CazK7GoQqpTXijZ+bJ0R0Sd+DuR3dZqrd6Fh9k+UdYPRitOkU19bjPQ+fJjQ==}
+  /@redocly/cli@1.18.1(enzyme@3.11.0):
+    resolution: {integrity: sha512-+bRKj46R9wvTzMdnoYfMueJ9/ek0NprEsQNowV7XcHgOXifeFFikRtBFcpkwqCNxaQ/nWAJn4LHZaFcssbcHow==}
     engines: {node: '>=14.19.0', npm: '>=7.0.0'}
     hasBin: true
     dependencies:
-      '@redocly/openapi-core': 1.11.0
+      '@redocly/openapi-core': 1.18.1
       abort-controller: 3.0.0
       chokidar: 3.6.0
       colorette: 1.4.0
@@ -892,6 +892,7 @@ packages:
       handlebars: 4.7.8
       mobx: 6.13.1
       node-fetch: 2.7.0
+      pluralize: 8.0.0
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       redoc: 2.1.5(core-js@3.38.0)(enzyme@3.11.0)(mobx@6.13.1)(react-dom@18.3.1)(react@18.3.1)(styled-components@6.1.12)
@@ -908,17 +909,18 @@ packages:
       - utf-8-validate
     dev: true
 
-  /@redocly/config@0.2.0:
-    resolution: {integrity: sha512-r0TqTPVXrxdvhpbOntWnJofOx0rC7u+A+tfC0KFwMtw38QCNb3pwodVjeLa7MT5Uu+fcPxfO119yLBj0QHvBuQ==}
+  /@redocly/config@0.7.0:
+    resolution: {integrity: sha512-6GKxTo/9df0654Mtivvr4lQnMOp+pRj9neVywmI5+BwfZLTtkJnj2qB3D6d8FHTr4apsNOf6zTa5FojX0Evh4g==}
     dev: true
 
-  /@redocly/openapi-core@1.11.0:
-    resolution: {integrity: sha512-VH10SAkDu+jVW9tDFJWWYroFxHVY9N5VS4gorXw0cK8L+LydUOQ4KiZaKbTsTF2piWmZCxngZI7sNPHMiJ4Ftg==}
+  /@redocly/openapi-core@1.18.1:
+    resolution: {integrity: sha512-y2ZR3aaVF80XRVoFP0Dp2z5DeCOilPTuS7V4HnHIYZdBTfsqzjkO169h5JqAaifnaLsLBhe3YArdgLb7W7wW6Q==}
     engines: {node: '>=14.19.0', npm: '>=7.0.0'}
     dependencies:
       '@redocly/ajv': 8.11.0
-      '@redocly/config': 0.2.0
+      '@redocly/config': 0.7.0
       colorette: 1.4.0
+      https-proxy-agent: 7.0.5
       js-levenshtein: 1.1.6
       js-yaml: 4.1.0
       lodash.isequal: 4.5.0
@@ -928,6 +930,7 @@ packages:
       yaml-ast-parser: 0.0.43
     transitivePeerDependencies:
       - encoding
+      - supports-color
     dev: true
 
   /@selderee/plugin-htmlparser2@0.11.0:
@@ -1294,6 +1297,15 @@ packages:
 
   /add-stream@1.0.0:
     resolution: {integrity: sha512-qQLMr+8o0WC4FZGQTcJiKBVC59JylcPSrTtk6usvmIDFUOCKegapy1VHQwRbFMOFyb/inzUVqHs+eMYKDM1YeQ==}
+    dev: true
+
+  /agent-base@7.1.1:
+    resolution: {integrity: sha512-H0TSyFNDMomMNJQBn8wFV5YC/2eJ+VXECwOadZJT554xP6cODZHPX3H9QMQECxvrgiSOP1pHjy1sMWQVYJOUOA==}
+    engines: {node: '>= 14'}
+    dependencies:
+      debug: 4.3.6(supports-color@5.5.0)
+    transitivePeerDependencies:
+      - supports-color
     dev: true
 
   /ajv-formats@2.1.1(ajv@8.17.1):
@@ -3105,6 +3117,16 @@ packages:
     resolution: {integrity: sha512-EC2utToWl4RKfs5zd36Mxq7nzHHBuomZboI0yYL6Y0RmBgT7Sgkq4rQ0ezFTYoIsSs7Tm9SJe+o2FcAg6GBhGA==}
     dev: true
 
+  /https-proxy-agent@7.0.5:
+    resolution: {integrity: sha512-1e4Wqeblerz+tMKPIq2EMGiiWW1dIjZOksyHWSUm1rmuvw/how9hBHZ38lAGj5ID4Ik6EdkOw7NmWPy6LAwalw==}
+    engines: {node: '>= 14'}
+    dependencies:
+      agent-base: 7.1.1
+      debug: 4.3.6(supports-color@5.5.0)
+    transitivePeerDependencies:
+      - supports-color
+    dev: true
+
   /human-signals@2.1.0:
     resolution: {integrity: sha512-B4FFZ6q/T2jhhksgkbEW3HBvWIfDW85snkQgawt07S7J5QXTk6BkNV+0yAeZrM5QpMAdYlocGoljn0sJ/WQkFw==}
     engines: {node: '>=10.17.0'}
@@ -4390,7 +4412,7 @@ packages:
       oas-kit-common: 1.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
     dev: true
 
   /oas-schema-walker@1.1.5:
@@ -5015,7 +5037,7 @@ packages:
       styled-components: ^4.1.1 || ^5.1.1 || ^6.0.5
     dependencies:
       '@cfaester/enzyme-adapter-react-18': 0.8.0(enzyme@3.11.0)(react-dom@18.3.1)(react@18.3.1)
-      '@redocly/openapi-core': 1.11.0
+      '@redocly/openapi-core': 1.18.1
       classnames: 2.5.1
       core-js: 3.38.0
       decko: 1.2.0
@@ -5045,6 +5067,7 @@ packages:
       - encoding
       - enzyme
       - react-native
+      - supports-color
     dev: true
 
   /reftools@1.1.9:
@@ -5596,7 +5619,7 @@ packages:
       oas-validator: 5.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
     transitivePeerDependencies:
       - encoding
     dev: true
