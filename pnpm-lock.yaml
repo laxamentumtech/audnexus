@@ -51,11 +51,11 @@ dependencies:
     specifier: ^2.29.4
     version: 2.30.1
   mongodb:
-    specifier: 6.5.0
-    version: 6.5.0
+    specifier: 6.8.0
+    version: 6.8.0
   papr:
     specifier: 15.2.2
-    version: 15.2.2(mongodb@6.5.0)
+    version: 15.2.2(mongodb@6.8.0)
   toad-scheduler:
     specifier: ^3.0.0
     version: 3.0.1
@@ -4259,8 +4259,8 @@ packages:
       whatwg-url: 13.0.0
     dev: false
 
-  /mongodb@6.5.0:
-    resolution: {integrity: sha512-Fozq68InT+JKABGLqctgtb8P56pRrJFkbhW0ux+x1mdHeyinor8oNzJqwLjV/t5X5nJGfTlluxfyMnOXNggIUA==}
+  /mongodb@6.8.0:
+    resolution: {integrity: sha512-HGQ9NWDle5WvwMnrvUxsFYPd3JEbqD3RgABHBQRuoCEND0qzhsd0iH5ypHsf1eJ+sXmvmyKpP+FLOKY8Il7jMw==}
     engines: {node: '>=16.20.1'}
     peerDependencies:
       '@aws-sdk/credential-providers': ^3.188.0
@@ -4590,13 +4590,13 @@ packages:
     resolution: {integrity: sha512-R4nPAVTAU0B9D35/Gk3uJf/7XYbQcyohSKdvAxIRSNghFl4e71hVoGnBNQz9cWaXxO2I10KTC+3jMdvvoKw6dQ==}
     engines: {node: '>=6'}
 
-  /papr@15.2.2(mongodb@6.5.0):
+  /papr@15.2.2(mongodb@6.8.0):
     resolution: {integrity: sha512-2DqfOiMGEMikKhE3gEyptqgtgdfIzdGBLlhIk4i3gh+TIWzNY6Yqc3lJ3bAkJRrSdqAdgjvmbGSgN9LV6/8ShQ==}
     engines: {node: '>=16.20.1'}
     peerDependencies:
       mongodb: ^6.0.0
     dependencies:
-      mongodb: 6.5.0
+      mongodb: 6.8.0
     dev: false
 
   /parent-module@1.0.1:
