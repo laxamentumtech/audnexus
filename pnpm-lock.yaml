@@ -71,8 +71,8 @@ devDependencies:
     specifier: 29.6.3
     version: 29.6.3
   '@redocly/cli':
-    specifier: 1.18.1
-    version: 1.18.1(enzyme@3.11.0)
+    specifier: 1.19.0
+    version: 1.19.0(enzyme@3.11.0)
   '@types/html-to-text':
     specifier: 9.0.4
     version: 9.0.4
@@ -876,12 +876,12 @@ packages:
       uri-js: 4.4.1
     dev: true
 
-  /@redocly/cli@1.18.1(enzyme@3.11.0):
-    resolution: {integrity: sha512-+bRKj46R9wvTzMdnoYfMueJ9/ek0NprEsQNowV7XcHgOXifeFFikRtBFcpkwqCNxaQ/nWAJn4LHZaFcssbcHow==}
+  /@redocly/cli@1.19.0(enzyme@3.11.0):
+    resolution: {integrity: sha512-ev6J0eD+quprvW9PVCl9JmRFZbj6cuK+mnYPAjcrPvesy2RF752fflcpgQjGnyFaGb1Cj+DiwDi3dYr3EAp04A==}
     engines: {node: '>=14.19.0', npm: '>=7.0.0'}
     hasBin: true
     dependencies:
-      '@redocly/openapi-core': 1.18.1
+      '@redocly/openapi-core': 1.19.0
       abort-controller: 3.0.0
       chokidar: 3.6.0
       colorette: 1.4.0
@@ -913,8 +913,8 @@ packages:
     resolution: {integrity: sha512-6GKxTo/9df0654Mtivvr4lQnMOp+pRj9neVywmI5+BwfZLTtkJnj2qB3D6d8FHTr4apsNOf6zTa5FojX0Evh4g==}
     dev: true
 
-  /@redocly/openapi-core@1.18.1:
-    resolution: {integrity: sha512-y2ZR3aaVF80XRVoFP0Dp2z5DeCOilPTuS7V4HnHIYZdBTfsqzjkO169h5JqAaifnaLsLBhe3YArdgLb7W7wW6Q==}
+  /@redocly/openapi-core@1.19.0:
+    resolution: {integrity: sha512-ezK6qr80sXvjDgHNrk/zmRs9vwpIAeHa0T/qmo96S+ib4ThQ5a8f3qjwEqxMeVxkxCTbkaY9sYSJKOxv4ejg5w==}
     engines: {node: '>=14.19.0', npm: '>=7.0.0'}
     dependencies:
       '@redocly/ajv': 8.11.0
@@ -5041,7 +5041,7 @@ packages:
       styled-components: ^4.1.1 || ^5.1.1 || ^6.0.5
     dependencies:
       '@cfaester/enzyme-adapter-react-18': 0.8.0(enzyme@3.11.0)(react-dom@18.3.1)(react@18.3.1)
-      '@redocly/openapi-core': 1.18.1
+      '@redocly/openapi-core': 1.19.0
       classnames: 2.5.1
       core-js: 3.38.0
       decko: 1.2.0
