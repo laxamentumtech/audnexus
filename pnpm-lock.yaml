@@ -7226,7 +7226,6 @@ snapshots:
   uri-js@4.4.1:
     dependencies:
       punycode: 2.3.1
-    dev: true
 
   url-template@2.0.8: {}
 
