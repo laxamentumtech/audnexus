@@ -20,7 +20,11 @@ import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBoo
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import SharedHelper from '#helpers/utils/shared'
-import { ErrorMessageDataType, ErrorMessageMissingOriginal } from '#static/messages'
+import {
+	ErrorMessageDataType,
+	ErrorMessageMissingOriginal,
+	ErrorMessageUpdate
+} from '#static/messages'
 
 export default class GenericShowHelper {
 	asin: string
@@ -189,7 +193,7 @@ export default class GenericShowHelper {
 			(await this.createOrUpdateData()
 				.then((data) => data)
 				.catch((err) => {
-					console.log(`Error updating ${this.type}`, err)
+					throw new Error(err)
 				})) || dataOnError
 
 		// 3. Return the data
@@ -221,7 +225,12 @@ export default class GenericShowHelper {
 		if (this.originalData) {
 			// 3.
 			if (this.options.update === '1') {
-				return this.updateActions()
+				// Try to update the data, if it fails, throw an error
+				try {
+					return await this.updateActions()
+				} catch {
+					throw new Error(ErrorMessageUpdate(this.asin, this.type))
+				}
 			}
 
 			// 2.
