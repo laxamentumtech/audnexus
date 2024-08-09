@@ -46,7 +46,7 @@
 		"mongodb": "6.8.0",
 		"papr": "15.2.2",
 		"toad-scheduler": "^3.0.0",
-		"typescript": "5.4.4",
+		"typescript": "5.5.4",
 		"zod": "^3.20.6"
 	},
 	"devDependencies": {
