@@ -8,6 +8,11 @@ export const parsedB08G9PRS1K: HtmlBook = {
 			type: 'genre'
 		},
 		{
+			asin: '18580629011',
+			name: 'Adventure',
+			type: 'tag'
+		},
+		{
 			asin: '18580639011',
 			name: 'Hard Science Fiction',
 			type: 'tag'
@@ -27,7 +32,10 @@ export const parsedB017V4IM1G: HtmlBook = {
 			name: "Children's Audiobooks",
 			type: 'genre'
 		},
-		{ asin: '18572588011', name: 'Action & Adventure', type: 'tag' }
+		{ asin: '18572323011', name: 'Growing Up & Facts of Life', type: 'tag' },
+		{ asin: '18572505011', name: 'Family Life', type: 'tag' },
+		{ asin: '18572587011', name: 'Fantasy & Magic', type: 'tag' },
+		{ asin: '18580607011', name: 'Fantasy', type: 'tag' }
 	]
 }
 

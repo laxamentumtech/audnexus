@@ -102,7 +102,7 @@ export const ApiBookSchema = z.object({
 	rating: z.string(),
 	region: RegionSchema,
 	releaseDate: z.date(),
-	runtimeLengthMin: z.number().default(0),
+	runtimeLengthMin: z.number().or(z.literal(0)),
 	seriesPrimary: ApiSeriesSchema.optional(),
 	seriesSecondary: ApiSeriesSchema.optional(),
 	subtitle: z.string().optional(),

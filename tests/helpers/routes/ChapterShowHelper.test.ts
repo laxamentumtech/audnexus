@@ -83,6 +83,12 @@ describe('ChapterShowHelper should', () => {
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedChapters)
 	})
 
+	test('run all update actions and return undefined if there was an error', async () => {
+		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('Error'))
+		helper.originalData = chaptersWithoutProjection
+		await expect(helper.updateActions()).resolves.toBeUndefined()
+	})
+
 	test('run all update actions and return undefined if no chapters', async () => {
 		jest.spyOn(ChapterHelper.prototype, 'process').mockResolvedValue(undefined)
 		helper.originalData = chaptersWithoutProjection
@@ -145,7 +151,6 @@ describe('ChapterShowHelper should throw error when', () => {
 			`Data type for ${asin} is not ApiChapter`
 		)
 	})
-
 	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
 		jest
 			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
@@ -154,7 +159,6 @@ describe('ChapterShowHelper should throw error when', () => {
 			`Data type for ${asin} is not ApiChapter`
 		)
 	})
-
 	test('createOrUpdateData is not a chapter type', async () => {
 		jest
 			.spyOn(helper.paprHelper, 'createOrUpdate')
@@ -163,17 +167,10 @@ describe('ChapterShowHelper should throw error when', () => {
 			`Data type for ${asin} is not ApiChapter`
 		)
 	})
-
 	test('update has no originalData', async () => {
 		helper.originalData = null
 		await expect(helper.updateActions()).rejects.toThrow(
 			`Missing original chapter data for ASIN: ${asin}`
 		)
-	})
-
-	test('updateActions fails to update', async () => {
-		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('Error'))
-		helper.originalData = chaptersWithoutProjection
-		await expect(helper.updateActions()).rejects.toThrow('Error')
 	})
 })
