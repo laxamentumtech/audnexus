@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## 1.9.1 (2024-08-10)
+
+
+### Features
+
+* **helper:** :sparkles: cleanup chapter titles with underscore ([7d4831f](https://github.com/laxamentumtech/audnexus/commit/7d4831f24f6ab39b2fc134ec7785bb2e2c447a77))
+* **helper:** :sparkles: cleanup chapter titles with underscore ([7ff0148](https://github.com/laxamentumtech/audnexus/commit/7ff014883abc9b4fc1b1f41db84218a6ec40f164))
+
+
+### Bug Fixes
+
+* **route:** :bug: properly show error when updating an item fails ([c457327](https://github.com/laxamentumtech/audnexus/commit/c457327f73fc7d38adaf46ecda330f97221162e5))
+* **types:** :bug: default runtimeLengthMin to 0 to allow podcast content ([1bd00c1](https://github.com/laxamentumtech/audnexus/commit/1bd00c18a77506663f01d3f1ee95dfa14e964e58))
+
+
+### Miscellaneous Chores
+
+* release 1.9.1 ([665f763](https://github.com/laxamentumtech/audnexus/commit/665f7639c348f8afaca3058943d77fdb36458d07))
+
 ## [1.9.0](https://github.com/djdembeck/audnexus/compare/v1.8.0...v1.9.0) (2023-12-18)
 
 
