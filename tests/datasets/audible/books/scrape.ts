@@ -7,6 +7,11 @@ export const parsedB08G9PRS1K: HtmlBook = {
 			name: 'Science Fiction & Fantasy',
 			type: 'genre'
 		},
+        {
+            asin: '18580629011',
+            name: 'Adventure',
+            type: 'tag'
+        },
 		{
 			asin: '18580639011',
 			name: 'Hard Science Fiction',
