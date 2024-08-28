@@ -34,7 +34,7 @@
 		"@fastify/redis": "6.2.0",
 		"@fastify/schedule": "^4.1.1",
 		"axios": "^1.2.4",
-		"cheerio": "1.0.0-rc.12",
+		"cheerio": "1.0.0",
 		"domhandler": "5.0.3",
 		"fastify": "4.28.1",
 		"html-to-text": "9.0.5",
