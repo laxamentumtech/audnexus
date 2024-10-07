@@ -82,8 +82,8 @@ importers:
         specifier: 29.6.3
         version: 29.6.3
       '@redocly/cli':
-        specifier: 1.19.0
-        version: 1.19.0(enzyme@3.11.0)
+        specifier: 1.25.4
+        version: 1.25.4(enzyme@3.11.0)
       '@types/html-to-text':
         specifier: 9.0.4
         version: 9.0.4
@@ -533,19 +533,19 @@ packages:
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
 
-  '@redocly/ajv@8.11.0':
-    resolution: {integrity: sha512-9GWx27t7xWhDIR02PA18nzBdLcKQRgc46xNQvjFkrYk4UOmvKhJ/dawwiX0cCOeetN5LcaaiqQbVOWYK62SGHw==}
+  '@redocly/ajv@8.11.2':
+    resolution: {integrity: sha512-io1JpnwtIcvojV7QKDUSIuMN/ikdOUd1ReEnUnMKGfDVridQZ31J0MmIuqwuRjWDZfmvr+Q0MqCcfHM2gTivOg==}
 
-  '@redocly/cli@1.19.0':
-    resolution: {integrity: sha512-ev6J0eD+quprvW9PVCl9JmRFZbj6cuK+mnYPAjcrPvesy2RF752fflcpgQjGnyFaGb1Cj+DiwDi3dYr3EAp04A==}
+  '@redocly/cli@1.25.4':
+    resolution: {integrity: sha512-Qe1ystZqwbytYvwgHWsuRoiB92LXGtSUGn2kNRbBeplR81D//69YkYHWPia/h14zgGKGpFUtWMsR4jyGSHR/ZA==}
     engines: {node: '>=14.19.0', npm: '>=7.0.0'}
     hasBin: true
 
-  '@redocly/config@0.7.0':
-    resolution: {integrity: sha512-6GKxTo/9df0654Mtivvr4lQnMOp+pRj9neVywmI5+BwfZLTtkJnj2qB3D6d8FHTr4apsNOf6zTa5FojX0Evh4g==}
+  '@redocly/config@0.12.1':
+    resolution: {integrity: sha512-RW3rSirfsPdr0uvATijRDU3f55SuZV3m7/ppdTDvGw4IB0cmeZRkFmqTrchxMqWP50Gfg1tpHnjdxUCNo0E2qg==}
 
-  '@redocly/openapi-core@1.19.0':
-    resolution: {integrity: sha512-ezK6qr80sXvjDgHNrk/zmRs9vwpIAeHa0T/qmo96S+ib4ThQ5a8f3qjwEqxMeVxkxCTbkaY9sYSJKOxv4ejg5w==}
+  '@redocly/openapi-core@1.25.4':
+    resolution: {integrity: sha512-qnpr4Z1rzfXdtxQxt/lfGD0wW3UVrm3qhrTpzLG5R/Ze+z+1u8sSRiQHp9N+RT3IuMjh00wq59nop9x9PPa1jQ==}
     engines: {node: '>=14.19.0', npm: '>=7.0.0'}
 
   '@selderee/plugin-htmlparser2@0.11.0':
@@ -3339,6 +3339,9 @@ packages:
     peerDependencies:
       browserslist: '>= 4.21.0'
 
+  uri-js-replace@1.0.1:
+    resolution: {integrity: sha512-W+C9NWNLFOoBI2QWDp4UT9pv65r2w5Cx+3sTYFvtMdDBxkKt1syCqsUdSFAChbEe1uK5TfS04wt/nGwmaeIQ0g==}
+
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
@@ -4011,16 +4014,16 @@ snapshots:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.17.1
 
-  '@redocly/ajv@8.11.0':
+  '@redocly/ajv@8.11.2':
     dependencies:
       fast-deep-equal: 3.1.3
       json-schema-traverse: 1.0.0
       require-from-string: 2.0.2
-      uri-js: 4.4.1
+      uri-js-replace: 1.0.1
 
-  '@redocly/cli@1.19.0(enzyme@3.11.0)':
+  '@redocly/cli@1.25.4(enzyme@3.11.0)':
     dependencies:
-      '@redocly/openapi-core': 1.19.0
+      '@redocly/openapi-core': 1.25.4
       abort-controller: 3.0.0
       chokidar: 3.6.0
       colorette: 1.4.0
@@ -4047,12 +4050,12 @@ snapshots:
       - supports-color
       - utf-8-validate
 
-  '@redocly/config@0.7.0': {}
+  '@redocly/config@0.12.1': {}
 
-  '@redocly/openapi-core@1.19.0':
+  '@redocly/openapi-core@1.25.4':
     dependencies:
-      '@redocly/ajv': 8.11.0
-      '@redocly/config': 0.7.0
+      '@redocly/ajv': 8.11.2
+      '@redocly/config': 0.12.1
       colorette: 1.4.0
       https-proxy-agent: 7.0.5
       js-levenshtein: 1.1.6
@@ -6338,7 +6341,7 @@ snapshots:
       oas-kit-common: 1.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
 
   oas-schema-walker@1.1.5: {}
 
@@ -6711,7 +6714,7 @@ snapshots:
   redoc@2.1.5(core-js@3.38.1)(enzyme@3.11.0)(mobx@6.13.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(styled-components@6.1.12(react-dom@18.3.1(react@18.3.1))(react@18.3.1)):
     dependencies:
       '@cfaester/enzyme-adapter-react-18': 0.8.0(enzyme@3.11.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@redocly/openapi-core': 1.19.0
+      '@redocly/openapi-core': 1.25.4
       classnames: 2.5.1
       core-js: 3.38.1
       decko: 1.2.0
@@ -7087,7 +7090,7 @@ snapshots:
       oas-validator: 5.0.8
       reftools: 1.1.9
       yaml: 1.10.2
-      yargs: 17.0.1
+      yargs: 17.7.2
     transitivePeerDependencies:
       - encoding
 
@@ -7260,6 +7263,8 @@ snapshots:
       browserslist: 4.23.3
       escalade: 3.1.2
       picocolors: 1.0.1
+
+  uri-js-replace@1.0.1: {}
 
   uri-js@4.4.1:
     dependencies:
