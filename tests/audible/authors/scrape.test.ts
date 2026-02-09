@@ -1,4 +1,4 @@
-import type { AxiosResponse } from 'axios'
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 
 import { ApiAuthorProfile } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
@@ -21,7 +21,7 @@ const createMockResponse = (data: string, status: number): AxiosResponse => ({
 	status,
 	statusText: status === 200 ? 'OK' : 'Not Found',
 	headers: {},
-	config: {} as any
+	config: {} as InternalAxiosRequestConfig
 })
 
 describe('Audible Author HTML', () => {
@@ -111,9 +111,7 @@ describe('Audible Author HTML', () => {
 		it('threw an error', async () => {
 			asin = '103940202X'
 			helper = new ScrapeHelper(asin, 'us')
-			jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
-				Promise.reject({ status: 404 })
-			)
+			jest.spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 404 }))
 			await expect(helper.fetchAuthor()).rejects.toThrowError(
 				`An error occured while fetching data from Audible HTML. Response: 404, ASIN: ${asin}`
 			)
@@ -124,9 +122,16 @@ describe('Audible Author HTML', () => {
 		it('threw an error', async () => {
 			asin = 'B079LRSMNN'
 			helper = new ScrapeHelper(asin, 'us')
-			jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
-				Promise.resolve(createMockResponse('<html><body><h1 class="bc-heading bc-color-base bc-size-extra-large bc-text-secondary bc-text-bold">Showing titles\n in All Categories</h1></body></html>', 200))
-			)
+			jest
+				.spyOn(fetchPlus, 'default')
+				.mockImplementation(() =>
+					Promise.resolve(
+						createMockResponse(
+							'<html><body><h1 class="bc-heading bc-color-base bc-size-extra-large bc-text-secondary bc-text-bold">Showing titles\n in All Categories</h1></body></html>',
+							200
+						)
+					)
+				)
 			const response = await helper.fetchAuthor()
 			await expect(helper.parseResponse(response)).rejects.toThrowError(
 				`Item not available in region 'us' for ASIN: ${asin}`

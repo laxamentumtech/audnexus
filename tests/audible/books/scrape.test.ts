@@ -1,16 +1,16 @@
-import type { AxiosResponse } from 'axios'
+import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import * as cheerio from 'cheerio'
 
 import { HtmlBook } from '#config/types'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import {
-	parsedB08C6YJ1LS,
-	parsedB08G9PRS1K,
-	parsedB017V4IM1G,
+	mockHtmlB08C6YJ1LS,
 	mockHtmlB08G9PRS1K,
 	mockHtmlB017V4IM1G,
-	mockHtmlB08C6YJ1LS
+	parsedB08C6YJ1LS,
+	parsedB08G9PRS1K,
+	parsedB017V4IM1G
 } from '#tests/datasets/audible/books/scrape'
 
 jest.mock('#helpers/utils/fetchPlus')
@@ -23,7 +23,7 @@ const createMockResponse = (data: string, status: number): AxiosResponse => ({
 	status,
 	statusText: status === 200 ? 'OK' : 'Not Found',
 	headers: {},
-	config: {} as any
+	config: {} as InternalAxiosRequestConfig
 })
 
 describe('Audible HTML', () => {
