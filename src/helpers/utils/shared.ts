@@ -37,11 +37,7 @@ class SharedHelper {
 	 * @param {string} type the type to assign to the returned objects
 	 * @returns {ApiGenre[]}
 	 */
-	collectGenres(
-		asin: string,
-		genres: cheerio.Cheerio<Element>[],
-		type: string
-	): ApiGenre[] {
+	collectGenres(asin: string, genres: cheerio.Cheerio<Element>[], type: string): ApiGenre[] {
 		// Check and label each genre
 		const genreArr: ApiGenre[] = genres
 			.map((genre, index) => {
