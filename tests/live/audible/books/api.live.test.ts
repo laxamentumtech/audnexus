@@ -187,7 +187,7 @@ describe('Audible API Live Tests', () => {
 		it('should handle non-existent ASIN gracefully', async () => {
 			const helper = new ApiHelper('B000000000', 'us')
 			const response = await helper.fetchBook()
-			// Audible returns a valid response with empty data for non-existent ASINs
+			// Audible returns a valid product object containing the requested ASIN even for non-existent ASINs
 			expect(response).toBeDefined()
 			expect(response.product).toBeDefined()
 			expect(response.product.asin).toBe('B000000000')
@@ -198,6 +198,7 @@ describe('Audible API Live Tests', () => {
 			const fetched = await helper.fetchBook()
 			try {
 				await helper.parseResponse(fetched)
+				fail('Expected parseResponse to throw an error for content not available in region')
 			} catch (error) {
 				expect(error).toBeDefined()
 			}
