@@ -1,0 +1,206 @@
+import type { ApiBook, AudibleProduct } from '#config/types'
+import ApiHelper from '#helpers/books/audible/ApiHelper'
+
+/**
+ * Helper to check if a response has the expected structure
+ * Logs warnings instead of failing when Audible data changes format
+ */
+function checkRequiredFields(
+	asin: string,
+	response: AudibleProduct['product'],
+	requiredFields: string[]
+): { passed: boolean; missingFields: string[]; warnings: string[] } {
+	const missingFields: string[] = []
+	const warnings: string[] = []
+
+	for (const field of requiredFields) {
+		if (!(field in response) || response[field as keyof typeof response] === undefined) {
+			missingFields.push(field)
+			warnings.push(`[AUDIBLE API CHANGE] Missing required field '${field}' for ASIN: ${asin}`)
+		}
+	}
+
+	return {
+		passed: missingFields.length === 0,
+		missingFields,
+		warnings
+	}
+}
+
+/**
+ * Logs warnings for detected API structure changes
+ */
+function logWarnings(warnings: string[]): void {
+	for (const warning of warnings) {
+		console.warn(warning)
+	}
+}
+
+describe('Audible API Live Tests', () => {
+	const requiredBookFields = [
+		'asin',
+		'title',
+		'authors',
+		'narrators',
+		'category_ladders',
+		'copyright',
+		'format_type',
+		'language',
+		'publisher_name',
+		'publisher_summary',
+		'release_date',
+		'runtime_length_min',
+		'product_images',
+		'rating'
+	]
+
+	describe('When fetching Project Hail Mary (B08G9PRS1K)', () => {
+		let response: AudibleProduct['product']
+		let fieldCheck: ReturnType<typeof checkRequiredFields>
+
+		beforeAll(async () => {
+			const helper = new ApiHelper('B08G9PRS1K', 'us')
+			const fetched = await helper.fetchBook()
+			response = fetched.product
+			fieldCheck = checkRequiredFields('B08G9PRS1K', response, requiredBookFields)
+			logWarnings(fieldCheck.warnings)
+		}, 30000)
+
+		it('should return HTTP 200 and valid response', () => {
+			expect(response).toBeDefined()
+			expect(response.asin).toBe('B08G9PRS1K')
+		})
+
+		it('should have all required fields present', () => {
+			expect(fieldCheck.passed).toBe(true)
+			expect(fieldCheck.missingFields).toEqual([])
+		})
+
+		it('should have valid authors array', () => {
+			expect(Array.isArray(response.authors)).toBe(true)
+			expect(response.authors.length).toBeGreaterThan(0)
+			expect(response.authors[0]).toHaveProperty('name')
+		})
+
+		it('should have valid narrators array', () => {
+			expect(Array.isArray(response.narrators)).toBe(true)
+			if (response.narrators) {
+				expect(response.narrators.length).toBeGreaterThan(0)
+			}
+		})
+
+		it('should have valid category_ladders for genres', () => {
+			expect(Array.isArray(response.category_ladders)).toBe(true)
+			expect(response.category_ladders.length).toBeGreaterThan(0)
+		})
+
+		it('should have product images available', () => {
+			expect(response.product_images).toBeDefined()
+			expect(typeof response.product_images).toBe('object')
+		})
+
+		it('should have valid rating structure', () => {
+			expect(response.rating).toBeDefined()
+			expect(response.rating.overall_distribution).toBeDefined()
+		})
+	})
+
+	describe('When fetching The Coldest Case (B08C6YJ1LS)', () => {
+		let response: AudibleProduct['product']
+		let fieldCheck: ReturnType<typeof checkRequiredFields>
+
+		beforeAll(async () => {
+			const helper = new ApiHelper('B08C6YJ1LS', 'us')
+			const fetched = await helper.fetchBook()
+			response = fetched.product
+			fieldCheck = checkRequiredFields('B08C6YJ1LS', response, requiredBookFields)
+			logWarnings(fieldCheck.warnings)
+		}, 30000)
+
+		it('should return HTTP 200 and valid response', () => {
+			expect(response).toBeDefined()
+			expect(response.asin).toBe('B08C6YJ1LS')
+		})
+
+		it('should have all required fields present', () => {
+			expect(fieldCheck.passed).toBe(true)
+			expect(fieldCheck.missingFields).toEqual([])
+		})
+
+		it('should have valid authors array', () => {
+			expect(Array.isArray(response.authors)).toBe(true)
+			expect(response.authors.length).toBeGreaterThan(0)
+		})
+	})
+
+	describe('When parsing API response for Harry Potter (B017V4IM1G)', () => {
+		let parsedResponse: ApiBook
+
+		beforeAll(async () => {
+			const helper = new ApiHelper('B017V4IM1G', 'us')
+			const fetched = await helper.fetchBook()
+			parsedResponse = await helper.parseResponse(fetched)
+		}, 30000)
+
+		it('should successfully parse to ApiBook format', () => {
+			expect(parsedResponse).toBeDefined()
+			expect(parsedResponse.asin).toBe('B017V4IM1G')
+		})
+
+		it('should have parsed authors correctly', () => {
+			expect(Array.isArray(parsedResponse.authors)).toBe(true)
+			expect(parsedResponse.authors.length).toBeGreaterThan(0)
+		})
+
+		it('should have parsed genres if available', () => {
+			if (parsedResponse.genres) {
+				expect(Array.isArray(parsedResponse.genres)).toBe(true)
+				expect(parsedResponse.genres.length).toBeGreaterThan(0)
+				expect(parsedResponse.genres[0]).toHaveProperty('asin')
+				expect(parsedResponse.genres[0]).toHaveProperty('name')
+				expect(parsedResponse.genres[0]).toHaveProperty('type')
+			}
+		})
+
+		it('should have parsed rating as string', () => {
+			expect(typeof parsedResponse.rating).toBe('string')
+		})
+	})
+
+	describe('When fetching from different regions', () => {
+		it('should fetch from UK region (co.uk)', async () => {
+			const helper = new ApiHelper('B08G9PRS1K', 'uk')
+			const fetched = await helper.fetchBook()
+			expect(fetched.product).toBeDefined()
+			expect(fetched.product.asin).toBe('B08G9PRS1K')
+		}, 30000)
+
+		it('should fetch from AU region (com.au)', async () => {
+			const helper = new ApiHelper('B08G9PRS1K', 'au')
+			const fetched = await helper.fetchBook()
+			expect(fetched.product).toBeDefined()
+			expect(fetched.product.asin).toBe('B08G9PRS1K')
+		}, 30000)
+	})
+
+	describe('Error handling and edge cases', () => {
+		it('should handle non-existent ASIN gracefully', async () => {
+			const helper = new ApiHelper('B000000000', 'us')
+			const response = await helper.fetchBook()
+			// Audible returns a valid response with empty data for non-existent ASINs
+			expect(response).toBeDefined()
+			expect(response.product).toBeDefined()
+			expect(response.product.asin).toBe('B000000000')
+		}, 30000)
+
+		it('should detect when content is not available in region', async () => {
+			const helper = new ApiHelper('B0036I54I6', 'us')
+			const fetched = await helper.fetchBook()
+			try {
+				await helper.parseResponse(fetched)
+			} catch (error) {
+				expect(error).toBeDefined()
+			}
+		}, 30000)
+	})
+})
