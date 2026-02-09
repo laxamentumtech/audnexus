@@ -368,7 +368,6 @@ export const htmlResponseGenreNoHref =
         >\
             <div id="" class="bc-row-responsive" style="">\
                 <div class="bc-col-responsive 0 bc-col-8 bc-col-offset-2">\
-\
                     <div\
                         class="bc-box bc-box-padding-none bc-spacing-top-medium bc-text-center"\
                     >\
@@ -381,17 +380,13 @@ export const htmlResponseGenreNoHref =
                                 >Science Fiction & Fantasy</span\
                             >\
                         </a>\
-\
                         <span\
                             class="bc-letter-space bc-letter-space-base"\
                         ></span>\
-\
                         |\
-\
                         <span\
                             class="bc-letter-space bc-letter-space-base"\
                         ></span>\
-\
                         <a\
                             class="bc-link bc-color-link"\
                             tabindex="0"\
@@ -401,7 +396,6 @@ export const htmlResponseGenreNoHref =
                             >\
                         </a>\
                     </div>\
-\
                 </div>\
             </div>\
         </div>\
@@ -409,3 +403,67 @@ export const htmlResponseGenreNoHref =
 </div>\
 </div>\
 '
+
+// Mock HTML for author B00G0WYW92 (Andy Weir)
+export const mockHtmlB00G0WYW92 = `
+<html>
+<body>
+	<div class="contentPositionClass">
+		<div class="bc-box">
+			<a class="bc-color-link" href="/cat/Science-Fiction-Fantasy-Audiobooks/18580606011">Science Fiction & Fantasy</a>
+		</div>
+		<div class="bc-box">
+			<a class="bc-color-link" href="/cat/Mystery-Thriller-Suspense-Audiobooks/18574597011">Mystery, Thriller & Suspense</a>
+		</div>
+		<div class="bc-box">
+			<a class="bc-color-link" href="/cat/Literature-Fiction-Audiobooks/18574426011">Literature & Fiction</a>
+		</div>
+	</div>
+	<h1 class="bc-heading bc-color-base bc-size-extra-large bc-text-secondary bc-text-bold">Andy Weir</h1>
+	<img class="author-image-outline" src="https://images-na.ssl-images-amazon.com/images/S/amzn-author-media-prod/dcqug62o4s52ubd61ogont4t3l.jpg">
+	<div class="bc-expander-content">
+		<p>ANDY WEIR built a two-decade career as a software engineer until the success of his first published novel, The Martian, allowed him to live out his dream of writing full-time. He is a lifelong space nerd and a devoted hobbyist of such subjects as relativistic physics, orbital mechanics, and the history of manned spaceflight. He also mixes a mean cocktail. He lives in California.</p>
+	</div>
+	<div class="bc-col-responsive bc-pub-max-width-large bc-col-3 bc-col-offset-0">
+		<a class="bc-link bc-color-link" href="/author/B002XLHS8Q"><h3>Adrian Tchaikovsky</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B001H6U8X0"><h3>Blake Crouch</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B001IGFHW6"><h3>Brandon Sanderson</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B007JP96JU"><h3>Cixin Liu</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B010ETTBJC"><h3>Dennis E. Taylor</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B004XRR8Z6"><h3>Ernest Cline</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B000APO5OM"><h3>Frank Herbert</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B00EDBZVNI"><h3>Pierce Brown</h3></a>
+	</div>
+</body>
+</html>
+`
+
+// Mock HTML for author B0034NFIOI (Simon Pegg)
+export const mockHtmlB0034NFIOI = `
+<html>
+<body>
+	<div class="contentPositionClass">
+		<div class="bc-box">
+			<a class="bc-color-link" href="/cat/Biographies-Memoirs-Audiobooks/18571951011">Biographies & Memoirs</a>
+		</div>
+		<div class="bc-box">
+			<a class="bc-color-link" href="/cat/Arts-Entertainment-Audiobooks/18571910011">Arts & Entertainment</a>
+		</div>
+	</div>
+	<h1 class="bc-heading bc-color-base bc-size-extra-large bc-text-secondary bc-text-bold">Simon Pegg</h1>
+	<div class="bc-expander-content">
+		<p></p>
+	</div>
+	<div class="bc-col-responsive bc-pub-max-width-large bc-col-3 bc-col-offset-0">
+		<a class="bc-link bc-color-link" href="/author/B08ZQR2D1D"><h3>Bruce Campbell</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B0733LGBYC"><h3>Craig Sanborn</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B07DF9WNDP"><h3>H. Jon Benjamin</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B01MZ20I4J"><h3>Jay Chandrasekhar</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B00456OTMA"><h3>John Cleese</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B004MP9F32"><h3>Kevin Smith</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B015OJNTUO"><h3>Nick Frost</h3></a>
+		<a class="bc-link bc-color-link" href="/author/B004ANSCLC"><h3>Patton Oswalt</h3></a>
+	</div>
+</body>
+</html>
+`
