@@ -10,6 +10,9 @@ import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
 jest.mock('#helpers/utils/fetchPlus')
 jest.mock('#helpers/utils/shared')
 
+// Save original environment variables to restore after each test
+const ORIG_ENV = process.env
+
 let asin: string
 let helper: ChapterHelper
 let mockResponse: AudibleChapter
@@ -23,6 +26,24 @@ beforeEach(() => {
 	region = 'us'
 	url = `https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info&quality=High`
 	mockResponse = deepCopy(apiChapters)
+	// Set up environment variables for ChapterHelper constructor
+	process.env.ADP_TOKEN = 'mock_adp_token'
+	// FAKE/MOCK RSA private key for testing only - NOT a real credential
+	process.env.PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
+MIICXQIBAAKBgQDWGw8THIbueiDYRczKw15iLGhwkOJ5mvO3b12lZJYNyAqmVKqo
+I3So1xJZveKLFkdjK9tIJ9Y2jfsNSpPR0oZTTaGGVs6JejN6sPP8dq+RsNheL+No
+Poi5ae5OtXst+09exHAK+Td5lD+jSPbpgH0z6H2Ymxkzcj/0nfncdotQJwIDAQAB
+AoGAY7/ljQzcXFyv0rLqT4kn/usbmV4W9XrYkxyib3zmX/NT6txFSeKC5mqVFRRf
+aFdv2OdE2WAd7/rD/RRCvB2uEGUX1Nbyhw0Fd04tfdOUW5xYvD4Ij62eQzM+/axB
+fxRrudMK1ZLnHY6y1SVFdISgcOXBjzSnVp62VVtzPoHXLBkCQQD1L2JgKu0NLuNz
+VJZa+3uCkzaozvQLPWlPJ181RKXvPtAMmqAFT/BRXp6IRt/jDVLYYeNI9cnCjOsA
+4ztMMxNzAkEA34y6VseUezMwOZVFP9A7O9dufIz/mPA8KYx6+y1BaNS7opcs6R3J
+nwlmJQj/XDchHAboL+I0jdxFdGcCyK+rfQJBAK5eVIgv/wYxInES5xstXlkueOD0
+zXpw4kP4rC0l9RyAf1V3YfZlM3Oq5vPj87V19EUO2KU6p5JExZyL/c/jQyECQHTm
+Y38DyPqP7xT9oQPYwVDuvCE3nmV8owlbI+h7ZuwJ6sEAawTQheG7iYWuadLwJUlB
+t2Nq1+6jFFLll0gYzQUCQQDdosNVYv5LB4hPYbV4yQK90WIQmiFL3GBm0afQVcxy
+wJhvGwWnOXbc/RAmdfeZH4H2XJCEZ/yzCG9d0XOpnyAZ
+-----END RSA PRIVATE KEY-----`
 	// Set up spys
 	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
 	jest
@@ -31,6 +52,15 @@ beforeEach(() => {
 	// Set up helpers
 	helper = new ChapterHelper(asin, region)
 })
+
+afterEach(() => {
+	// Restore environment variables to prevent cross-test leakage
+	restoreEnv()
+})
+
+function restoreEnv() {
+	process.env = { ...ORIG_ENV }
+}
 
 describe('ChapterHelper should', () => {
 	test('setup constructor correctly', () => {
@@ -53,8 +83,8 @@ describe('ChapterHelper should', () => {
 		expect(helper.chapterTitleCleanup('Chapter 1.')).toBe('Chapter 1')
 		// Title with just a number is changed
 		expect(helper.chapterTitleCleanup('123')).toBe('Chapter 123')
-        // Title with an underscore is changed
-        expect(helper.chapterTitleCleanup('Chapter_1')).toBe('Chapter 1')
+		// Title with an underscore is changed
+		expect(helper.chapterTitleCleanup('Chapter_1')).toBe('Chapter 1')
 	})
 
 	test('sign request', () => {

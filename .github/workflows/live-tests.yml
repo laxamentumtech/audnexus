@@ -1,0 +1,118 @@
+name: Live Integration Tests
+
+on:
+  schedule:
+    # Run daily at 9 AM UTC to detect Audible changes early
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+    # Allow manual trigger with optional credentials
+    inputs:
+      run_chapter_tests:
+        description: 'Run chapter API tests (requires credentials)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  live-tests:
+    name: Run Live Integration Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@eae0cfeb286e66ffb5155f1a79b90583a127a68b # v2
+        with:
+          version: 8
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Run live tests without credentials (API and HTML scraping only)
+      - name: Run Live Tests (No Credentials)
+        env:
+          RUN_LIVE_TESTS: true
+        run: pnpm test:live
+
+      # Optional: Run with chapter API credentials if available and manually triggered
+      - name: Run Live Tests with Chapter API
+        if: github.event_name == 'workflow_dispatch' && inputs.run_chapter_tests == true
+        env:
+          RUN_LIVE_TESTS: true
+          ADP_TOKEN: ${{ secrets.ADP_TOKEN }}
+          PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
+        run: pnpm test:live
+
+  # Check for Audible changes and create issue if detected
+  check-changes:
+    name: Check for Audible API/HTML Changes
+    runs-on: ubuntu-latest
+    needs: live-tests
+    if: failure() || success()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Analyze test results
+        run: |
+          echo "Checking for Audible changes in test output..."
+          # This step can be extended to parse test output and create issues
+          # when [AUDIBLE * CHANGE] warnings are detected
+
+      - name: Create Issue on Change Detection
+        if: failure()
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const title = '🚨 Live Tests Detected Audible Changes';
+            const body = `
+            ## Audible API/HTML Structure Changes Detected
+
+            The live integration tests have detected changes in Audible's API or HTML structure.
+
+            ### Action Required
+
+            1. Review the test output in the Actions tab
+            2. Look for \`[AUDIBLE API CHANGE]\` or \`[AUDIBLE HTML CHANGE]\` warnings
+            3. Update the corresponding helpers in \`src/helpers/audible/\`
+            4. Update unit tests in \`tests/audible/\` if needed
+            5. Re-run live tests to confirm fixes
+
+            ### Run Details
+            - Workflow: ${{ github.workflow }}
+            - Run ID: ${{ github.run_id }}
+            - Timestamp: ${{ github.event.head_commit.timestamp || github.event.schedule }}
+
+            ---
+            *This issue was automatically created by the live test workflow.*
+            `;
+
+            // Check if an open issue already exists
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'audible-change',
+              state: 'open'
+            });
+
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['audible-change', 'automated']
+              });
+              console.log('Created new issue for Audible changes');
+            } else {
+              console.log('Issue already exists for Audible changes');
+            }

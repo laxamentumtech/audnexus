@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import { Element } from 'domhandler'
 import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
@@ -36,11 +37,7 @@ class SharedHelper {
 	 * @param {string} type the type to assign to the returned objects
 	 * @returns {ApiGenre[]}
 	 */
-	collectGenres(
-		asin: string,
-		genres: cheerio.Cheerio<cheerio.Element>[],
-		type: string
-	): ApiGenre[] {
+	collectGenres(asin: string, genres: cheerio.Cheerio<Element>[], type: string): ApiGenre[] {
 		// Check and label each genre
 		const genreArr: ApiGenre[] = genres
 			.map((genre, index) => {
@@ -113,10 +110,10 @@ class SharedHelper {
 	 * @param {string} selector the selector to extract from
 	 * @returns {cheerio.Cheerio<cheerio.Element>[]} the genres from the selector
 	 */
-	getGenresFromHtml(dom: cheerio.CheerioAPI, selector: string): cheerio.Cheerio<cheerio.Element>[] {
+	getGenresFromHtml(dom: cheerio.CheerioAPI, selector: string): cheerio.Cheerio<Element>[] {
 		return dom(selector)
 			.toArray()
-			.map((element) => dom(element)) as cheerio.Cheerio<cheerio.Element>[]
+			.map((element) => dom(element)) as cheerio.Cheerio<Element>[]
 	}
 
 	/**

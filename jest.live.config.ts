@@ -11,8 +11,8 @@ const config: Config.InitialOptions = {
 	clearMocks: true,
 	resetMocks: true,
 	roots: ['<rootDir>'],
-	testMatch: ['tests/**/*.+(ts|tsx|js)', '**/?(*.)+(spec|test).+(ts|tsx|js)'],
-	testPathIgnorePatterns: ['tests/live/'],
+	testMatch: ['**/tests/live/**/*.live.test.ts'],
+	testTimeout: 30000,
 	transform: {
 		'^.+\\.(ts|tsx)$': [
 			'ts-jest',
@@ -20,6 +20,10 @@ const config: Config.InitialOptions = {
 				tsconfig: '<rootDir>/tests/tsconfig.json'
 			}
 		]
-	}
+	},
+	// Only run live tests when explicitly enabled
+	testPathIgnorePatterns: process.env.RUN_LIVE_TESTS !== 'true' ? ['.*'] : [],
+	passWithNoTests: true,
+	verbose: true
 }
 export default config
