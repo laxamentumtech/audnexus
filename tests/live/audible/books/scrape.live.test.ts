@@ -124,7 +124,6 @@ describe('Audible Book HTML Scraping Live Tests', () => {
 			const genreLinks = dom('li.categoriesLabel a')
 			if (genreLinks.length === 0) {
 				logHtmlWarning('li.categoriesLabel a', 'B08G9PRS1K')
-				console.warn('[AUDIBLE HTML CHANGE] Genre category selector li.categoriesLabel a not found')
 			}
 
 			// Warn but don't fail when selector doesn't match
@@ -142,7 +141,6 @@ describe('Audible Book HTML Scraping Live Tests', () => {
 			const tagLinks = dom('div.bc-chip-group a')
 			if (tagLinks.length === 0) {
 				logHtmlWarning('div.bc-chip-group a', 'B08G9PRS1K')
-				console.warn('[AUDIBLE HTML CHANGE] Tag chip selector div.bc-chip-group a not found')
 			}
 
 			expect(tagLinks.length).toBeGreaterThanOrEqual(0)

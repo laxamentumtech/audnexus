@@ -10,6 +10,9 @@ import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
 jest.mock('#helpers/utils/fetchPlus')
 jest.mock('#helpers/utils/shared')
 
+// Save original environment variables to restore after each test
+const ORIG_ENV = process.env
+
 let asin: string
 let helper: ChapterHelper
 let mockResponse: AudibleChapter
@@ -49,6 +52,15 @@ wJhvGwWnOXbc/RAmdfeZH4H2XJCEZ/yzCG9d0XOpnyAZ
 	// Set up helpers
 	helper = new ChapterHelper(asin, region)
 })
+
+afterEach(() => {
+	// Restore environment variables to prevent cross-test leakage
+	restoreEnv()
+})
+
+function restoreEnv() {
+	process.env = { ...ORIG_ENV }
+}
 
 describe('ChapterHelper should', () => {
 	test('setup constructor correctly', () => {

@@ -76,7 +76,9 @@ describeOrSkip('Audible Chapter API Live Tests', () => {
 			const chapters = response?.content_metadata?.chapter_info?.chapters
 			expect(chapters).toBeDefined()
 			expect(Array.isArray(chapters)).toBe(true)
-			expect(chapters!.length).toBeGreaterThan(0)
+			if (chapters) {
+				expect(chapters.length).toBeGreaterThan(0)
+			}
 		})
 
 		it('should have chapter titles', () => {
