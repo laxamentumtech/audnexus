@@ -11,6 +11,7 @@ import { combinedB08C6YJ1LS, combinedB017V4IM1G } from '#tests/datasets/audible/
 
 // Set up environment variables for ChapterHelper
 process.env.ADP_TOKEN = 'mock_adp_token'
+// FAKE/MOCK RSA private key for testing only - NOT a real credential
 process.env.PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQDWGw8THIbueiDYRczKw15iLGhwkOJ5mvO3b12lZJYNyAqmVKqo
 I3So1xJZveKLFkdjK9tIJ9Y2jfsNSpPR0oZTTaGGVs6JejN6sPP8dq+RsNheL+No

@@ -25,7 +25,7 @@ beforeEach(() => {
 	mockResponse = deepCopy(apiChapters)
 	// Set up environment variables for ChapterHelper constructor
 	process.env.ADP_TOKEN = 'mock_adp_token'
-	// Valid RSA private key for jsrsasign testing (1024-bit test key)
+	// FAKE/MOCK RSA private key for testing only - NOT a real credential
 	process.env.PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQDWGw8THIbueiDYRczKw15iLGhwkOJ5mvO3b12lZJYNyAqmVKqo
 I3So1xJZveKLFkdjK9tIJ9Y2jfsNSpPR0oZTTaGGVs6JejN6sPP8dq+RsNheL+No
