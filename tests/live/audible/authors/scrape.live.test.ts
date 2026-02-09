@@ -1,5 +1,3 @@
-import type * as cheerio from 'cheerio'
-
 import type { ApiAuthorProfile } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 
