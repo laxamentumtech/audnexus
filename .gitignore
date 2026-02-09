@@ -69,3 +69,6 @@ typings/
 # Docker
 docker-compose.env
 .opencode
+
+# Sisyphus AI orchestration (local planning/debugging)
+.sisyphus/
