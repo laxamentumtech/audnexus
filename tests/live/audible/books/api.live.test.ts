@@ -196,12 +196,7 @@ describe('Audible API Live Tests', () => {
 		it('should detect when content is not available in region', async () => {
 			const helper = new ApiHelper('B0036I54I6', 'us')
 			const fetched = await helper.fetchBook()
-			try {
-				await helper.parseResponse(fetched)
-				fail('Expected parseResponse to throw an error for content not available in region')
-			} catch (error) {
-				expect(error).toBeDefined()
-			}
+			await expect(helper.parseResponse(fetched)).rejects.toBeDefined()
 		}, 30000)
 	})
 })
