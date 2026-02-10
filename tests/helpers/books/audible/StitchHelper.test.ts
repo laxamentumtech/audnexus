@@ -4,6 +4,7 @@ import { ApiBook, AudibleProduct } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageHTTPFetch, ErrorMessageParse } from '#static/messages'
 import {
 	apiResponse,
@@ -13,9 +14,6 @@ import {
 	parsedBookWithGenres
 } from '#tests/datasets/helpers/books'
 
-jest.mock('#helpers/books/audible/ApiHelper')
-jest.mock('#helpers/utils/shared')
-jest.mock('#helpers/books/audible/ScrapeHelper')
 jest.mock('#helpers/utils/fetchPlus')
 
 let asin: string
@@ -30,12 +28,18 @@ beforeEach(() => {
 	region = 'us'
 	mockApiResponse = deepCopy(apiResponse)
 	mockHTMLResponse = cheerio.load(htmlResponse)
-	// Set up helpers
-	helper = new StitchHelper(asin, region)
+	jest
+		.spyOn(SharedHelper.prototype, 'buildUrl')
+		.mockReturnValue('https://api.audible.com/1.0/catalog/products/B079LRSMNN')
+	jest.spyOn(SharedHelper.prototype, 'getParamString').mockReturnValue('test_params')
+	jest.spyOn(fetchPlus, 'default').mockImplementation(() => {
+		return Promise.reject(new Error('Unexpected fetch call'))
+	})
 })
 
 describe('StitchHelper should', () => {
 	beforeEach(() => {
+		helper = new StitchHelper(asin, region)
 		// Set up spys
 		jest
 			.spyOn(helper.apiHelper, 'fetchBook')
@@ -84,6 +88,7 @@ describe('StitchHelper should', () => {
 
 describe('SitchHelper should handle fallback', () => {
 	beforeEach(() => {
+		helper = new StitchHelper(asin, region)
 		// Set up spys
 		jest
 			.spyOn(helper.apiHelper, 'parseResponse')
@@ -129,8 +134,7 @@ describe('SitchHelper should handle fallback', () => {
 
 describe('StitchHelper should throw error when', () => {
 	beforeEach(() => {
-		// Mock Fetch to fail
-		jest.spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 400 }))
+		helper = new StitchHelper(asin, region)
 		jest
 			.spyOn(helper.apiHelper, 'fetchBook')
 			.mockRejectedValue(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible API')))
