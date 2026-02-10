@@ -10,6 +10,14 @@ const config: Config.InitialOptions = {
 	restoreMocks: true,
 	clearMocks: true,
 	resetMocks: true,
+	coverageThreshold: {
+		global: {
+			branches: 80,
+			functions: 85,
+			lines: 85,
+			statements: 85
+		}
+	},
 	roots: ['<rootDir>'],
 	testMatch: ['tests/**/*.+(ts|tsx|js)', '**/?(*.)+(spec|test).+(ts|tsx|js)'],
 	testPathIgnorePatterns: ['tests/live/'],
@@ -19,7 +27,10 @@ const config: Config.InitialOptions = {
 			{
 				tsconfig: '<rootDir>/tests/tsconfig.json'
 			}
-		]
-	}
+		],
+		'^.+\\.js$': 'babel-jest'
+	},
+	// Papr 17.x is now ES modules, needs to be transformed
+	transformIgnorePatterns: ['node_modules/(?!.*papr)']
 }
 export default config
