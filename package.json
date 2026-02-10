@@ -60,7 +60,7 @@
 		"@types/jest": "29.5.12",
 		"@types/jsrsasign": "10.5.14",
 		"@types/lodash": "4.17.7",
-		"@types/node": "20.16.1",
+		"@types/node": "20.19.30",
 		"@typescript-eslint/eslint-plugin": "8.2.0",
 		"@typescript-eslint/parser": "8.2.0",
 		"concurrently": "8.2.2",
