@@ -1,5 +1,5 @@
-import { mock, mockDeep } from 'jest-mock-extended'
 import type { FastifyInstance } from 'fastify'
+import { mockDeep } from 'jest-mock-extended'
 import type { MongoClient } from 'mongodb'
 
 import health, { HealthCheckResponse } from '#config/routes/health'
@@ -16,6 +16,7 @@ jest.mock('mongodb', () => ({
 }))
 
 describe('health route should', () => {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let app: any
 	let mockMongoClient: MongoClient
 

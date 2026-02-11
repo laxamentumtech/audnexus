@@ -65,7 +65,7 @@ async function health(app: FastifyInstance) {
 		}
 
 		// Check Redis (conditional on Redis being registered)
-		const redis = (app as any).redis
+		const redis = (app as unknown as { redis?: { ping: () => Promise<string> } }).redis
 		if (redis) {
 			try {
 				await redis.ping()
