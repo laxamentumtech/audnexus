@@ -10,6 +10,7 @@ import {
 	B07BS4RKGH,
 	B017V4IM1G,
 	B0GFYFCX3D,
+	bookWithoutContentDeliveryType,
 	podcast,
 	podcastWithoutProgramParticipation,
 	setupMinimalParsed
@@ -299,6 +300,32 @@ describe('ApiHelper edge cases should', () => {
 		expect(data.asin).toBe('B0GFYFCX3D')
 		expect(data.title).toBe('Test Book Without Social Media Images')
 		expect(data.authors).toEqual([{ asin: 'B000AP9A6K', name: 'Test Author' }])
+	})
+
+	test('parses book without content_delivery_type successfully', async () => {
+		helper = new ApiHelper('B0GM8R53L2', region)
+		const data = await helper.parseResponse(
+			bookWithoutContentDeliveryType as unknown as AudibleProduct
+		)
+		expect(data.asin).toBe('B0GM8R53L2')
+		expect(data.title).toBe('Test Book Without Content Delivery Type')
+	})
+
+	test('parses book with unknown content_delivery_type successfully', async () => {
+		// Create a response with unknown content_delivery_type
+		const unknownTypeResponse = deepCopy(mockResponse)
+		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
+		helper = new ApiHelper(asin, region)
+		const data = await helper.parseResponse(unknownTypeResponse)
+		expect(data.asin).toBe(asin)
+	})
+
+	test('throws region unavailable when baseShape also fails', async () => {
+		// Create a response with empty product (missing required baseShape fields)
+		const emptyProductResponse = { product: {} } as AudibleProduct
+		await expect(helper.parseResponse(emptyProductResponse)).rejects.toThrow(
+			`Item not available in region '${region}' for ASIN: ${asin}`
+		)
 	})
 })
 
