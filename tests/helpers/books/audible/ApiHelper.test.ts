@@ -9,7 +9,9 @@ import { regions } from '#static/regions'
 import {
 	B07BS4RKGH,
 	B017V4IM1G,
+	B0GFYFCX3D,
 	podcast,
+	podcastWithoutProgramParticipation,
 	setupMinimalParsed
 } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
@@ -175,6 +177,28 @@ describe('ApiHelper should', () => {
 		await expect(helper.parseResponse(podcast)).resolves.toEqual(minimalParsed)
 	})
 
+	test('parse podcast without program_participation', async () => {
+		const copyright = 2024
+		const genres = [
+			{
+				asin: '18580606011',
+				name: 'Science Fiction & Fantasy',
+				type: 'genre'
+			}
+		]
+		const image = 'https://m.media-amazon.com/images/I/51test.jpg'
+		const minimalParsed = setupMinimalParsed(
+			podcastWithoutProgramParticipation.product,
+			copyright,
+			podcastWithoutProgramParticipation.product.merchandising_summary,
+			image,
+			genres
+		)
+		await expect(helper.parseResponse(podcastWithoutProgramParticipation)).resolves.toEqual(
+			minimalParsed
+		)
+	})
+
 	describe('handle region: ', () => {
 		test.each(Object.keys(regions))('%s', async (region) => {
 			helper = new ApiHelper('B079LRSMNN', region)
@@ -267,6 +291,14 @@ describe('ApiHelper edge cases should', () => {
 
 	test('return false on empty input to isGenre', async () => {
 		expect(helper.isGenre(null)).toBeFalsy()
+	})
+
+	test('parse a book without social_media_images', async () => {
+		helper = new ApiHelper('B0GFYFCX3D', region)
+		const data = await helper.parseResponse(B0GFYFCX3D)
+		expect(data.asin).toBe('B0GFYFCX3D')
+		expect(data.title).toBe('Test Book Without Social Media Images')
+		expect(data.authors).toEqual([{ asin: 'B000AP9A6K', name: 'Test Author' }])
 	})
 })
 
