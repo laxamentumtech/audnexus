@@ -272,24 +272,24 @@ describe('ApiHelper edge cases should', () => {
 
 describe('ApiHelper should throw error when', () => {
 	test('no input data', () => {
-		expect(() => helper.getCategories()).toThrowError('No input data')
-		expect(() => helper.getGenres()).toThrowError('No input data')
-		expect(() => helper.getHighResImage()).toThrowError('No input data')
-		expect(() => helper.getReleaseDate()).toThrowError('No input data')
-		expect(() => helper.getSeriesPrimary(['1'] as unknown as AudibleSeries[])).toThrowError(
+		expect(() => helper.getCategories()).toThrow('No input data')
+		expect(() => helper.getGenres()).toThrow('No input data')
+		expect(() => helper.getHighResImage()).toThrow('No input data')
+		expect(() => helper.getReleaseDate()).toThrow('No input data')
+		expect(() => helper.getSeriesPrimary(['1'] as unknown as AudibleSeries[])).toThrow(
 			'No input data'
 		)
-		expect(() => helper.getSeriesSecondary(['1'] as unknown as AudibleSeries[])).toThrowError(
+		expect(() => helper.getSeriesSecondary(['1'] as unknown as AudibleSeries[])).toThrow(
 			'No input data'
 		)
-		expect(() => helper.getTags()).toThrowError('No input data')
-		expect(() => helper.getFinalData()).toThrowError('No input data')
+		expect(() => helper.getTags()).toThrow('No input data')
+		expect(() => helper.getFinalData()).toThrow('No input data')
 	})
 
 	test('release_date is in the future', async () => {
 		helper.audibleResponse = mockResponse.product
 		helper.audibleResponse!.release_date = '2080-01-01'
-		expect(() => helper.getReleaseDate()).toThrowError('Release date is in the future')
+		expect(() => helper.getReleaseDate()).toThrow('Release date is in the future')
 	})
 
 	test('category is invalid', () => {
@@ -297,7 +297,7 @@ describe('ApiHelper should throw error when', () => {
 			id: '1',
 			name: ''
 		} as AudibleCategory
-		expect(() => helper.categoryToApiGenre(obj, 'genre')).toThrowError(
+		expect(() => helper.categoryToApiGenre(obj, 'genre')).toThrow(
 			`An error occurred while parsing ApiHelper. ASIN: ${asin}`
 		)
 	})
@@ -311,19 +311,19 @@ describe('ApiHelper should throw error when', () => {
 		)
 		asin = ''
 		helper = new ApiHelper(asin, region)
-		await expect(helper.fetchBook()).rejects.toThrowError(
+		await expect(helper.fetchBook()).rejects.toThrow(
 			`An error occured while fetching data from Audible API. Response: 403, ASIN: ${asin}`
 		)
 	})
 
 	test('input is undefined', async () => {
-		await expect(helper.parseResponse(undefined)).rejects.toThrowError(
+		await expect(helper.parseResponse(undefined)).rejects.toThrow(
 			`An error occurred while parsing Audible API. ASIN: ${asin}`
 		)
 	})
 
 	test('input has no data', async () => {
-		await expect(helper.parseResponse({ product: {} } as AudibleProduct)).rejects.toThrowError(
+		await expect(helper.parseResponse({ product: {} } as AudibleProduct)).rejects.toThrow(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
@@ -333,7 +333,7 @@ describe('ApiHelper should throw error when', () => {
 		helper = new ApiHelper(asin, region)
 		// Setup variable without title
 		const data = B07BS4RKGH as unknown as AudibleProduct
-		await expect(helper.parseResponse(data)).rejects.toThrowError(
+		await expect(helper.parseResponse(data)).rejects.toThrow(
 			`Required key 'title' does not exist in Audible API response for ASIN ${asin}`
 		)
 	})

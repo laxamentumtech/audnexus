@@ -130,7 +130,7 @@ describe('ChapterHelper should', () => {
 
 describe('ChapterHelper should throw error when', () => {
 	test('no input data', () => {
-		expect(() => helper.getFinalData()).toThrowError('No input data')
+		expect(() => helper.getFinalData()).toThrow('No input data')
 	})
 
 	const OLD_ENV = process.env
@@ -144,7 +144,7 @@ describe('ChapterHelper should throw error when', () => {
 		const bad_helper = function () {
 			new ChapterHelper(asin, region)
 		}
-		expect(bad_helper).toThrowError('Missing environment variable(s): ADP_TOKEN or PRIVATE_KEY')
+		expect(bad_helper).toThrow('Missing environment variable(s): ADP_TOKEN or PRIVATE_KEY')
 		// Restore environment
 		process.env = OLD_ENV
 	})
@@ -163,7 +163,7 @@ describe('ChapterHelper should throw error when', () => {
 				},
 				response_groups: ['chapter_info']
 			} as AudibleChapter)
-		).rejects.toThrowError(
+		).rejects.toThrow(
 			`Required key 'chapters' does not exist for chapter in Audible API response for ASIN ${asin}`
 		)
 	})

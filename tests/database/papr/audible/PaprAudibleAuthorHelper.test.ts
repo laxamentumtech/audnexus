@@ -191,30 +191,30 @@ describe('PaprAudibleAuthorHelper should catch error when', () => {
 	test('create', async () => {
 		jest.spyOn(AuthorModel, 'insertOne').mockRejectedValue(new Error('error'))
 		helper.setData(parsedAuthor)
-		await expect(helper.create()).rejects.toThrowError(
+		await expect(helper.create()).rejects.toThrow(
 			`An error occurred while creating author ${asin} in the DB`
 		)
 	})
 	test('delete', async () => {
 		jest.spyOn(AuthorModel, 'deleteOne').mockRejectedValue(new Error('error'))
-		await expect(helper.delete()).rejects.toThrowError(
+		await expect(helper.delete()).rejects.toThrow(
 			`An error occurred while deleting author ${asin} in the DB`
 		)
 	})
 	test('findByName has no name', async () => {
-		await expect(helper.findByName()).rejects.toThrowError('Invalid search parameters')
+		await expect(helper.findByName()).rejects.toThrow('Invalid search parameters')
 	})
 	test('update did not find existing', async () => {
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(null)
 		helper.setData(parsedAuthor)
-		await expect(helper.update()).rejects.toThrowError(
+		await expect(helper.update()).rejects.toThrow(
 			`An error occurred while updating author ${asin} in the DB`
 		)
 	})
 	test('update', async () => {
 		jest.spyOn(AuthorModel, 'updateOne').mockRejectedValue(new Error('error'))
 		helper.setData(parsedAuthor)
-		await expect(helper.update()).rejects.toThrowError(
+		await expect(helper.update()).rejects.toThrow(
 			`An error occurred while updating author ${asin} in the DB`
 		)
 	})

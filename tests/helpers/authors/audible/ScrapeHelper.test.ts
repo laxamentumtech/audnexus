@@ -157,7 +157,7 @@ describe('ScrapeHelper should throw error when', () => {
 
 	test('parse response fails validation', async () => {
 		jest.spyOn(helper, 'getName').mockReturnValue('')
-		await expect(helper.parseResponse(cheerio.load(mockResponse))).rejects.toThrowError(
+		await expect(helper.parseResponse(cheerio.load(mockResponse))).rejects.toThrow(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
@@ -165,7 +165,7 @@ describe('ScrapeHelper should throw error when', () => {
 	test('getName is header', async () => {
 		const html = cheerio.load(mockResponse)
 		html('h1').text('Showing titles\n in All Categories')
-		await expect(helper.parseResponse(html)).rejects.toThrowError(
+		await expect(helper.parseResponse(html)).rejects.toThrow(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
