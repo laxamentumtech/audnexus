@@ -15,7 +15,8 @@ import {
 	AudibleProductSchema,
 	AudibleSeries,
 	AudibleSeriesSchema,
-	baseShape
+	baseShape,
+	FallbackAudibleProduct
 } from '#config/types'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
@@ -33,7 +34,7 @@ import { regions } from '#static/regions'
 class ApiHelper {
 	asin: string
 	categories: AudibleCategory[][] | undefined
-	audibleResponse: AudibleProduct['product'] | undefined
+	audibleResponse: AudibleProduct['product'] | FallbackAudibleProduct | undefined
 	region: string
 	requestUrl: string
 	constructor(asin: string, region: string) {
@@ -219,8 +220,13 @@ class ApiHelper {
 		let seriesPrimary = {}
 		allSeries.forEach((series: AudibleSeries) => {
 			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
-			// Only return series for MultiPartBook, makes linter happy
-			if (this.audibleResponse.content_delivery_type === 'PodcastParent') return undefined
+			// Only return series for MultiPartBook/SinglePartBook, makes linter happy
+			if (
+				this.audibleResponse.content_delivery_type === 'PodcastParent' ||
+				this.audibleResponse.content_delivery_type === 'Unknown'
+			) {
+				return undefined
+			}
 			const seriesJson = this.getSeries(series)
 			// Check and set primary series
 			if (
@@ -244,8 +250,13 @@ class ApiHelper {
 		let seriesSecondary = {}
 		allSeries.forEach((series: AudibleSeries) => {
 			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
-			// Only return series for MultiPartBook, makes linter happy
-			if (this.audibleResponse.content_delivery_type === 'PodcastParent') return undefined
+			// Only return series for MultiPartBook/SinglePartBook, makes linter happy
+			if (
+				this.audibleResponse.content_delivery_type === 'PodcastParent' ||
+				this.audibleResponse.content_delivery_type === 'Unknown'
+			) {
+				return undefined
+			}
 			const seriesJson = this.getSeries(series)
 			// Check and set secondary series
 			if (
@@ -273,9 +284,10 @@ class ApiHelper {
 		// Find secondary series if available
 		let series1: ApiSeries | undefined
 		let series2: ApiSeries | undefined
-		// Only return series for MultiPartBook, makes linter happy
+		// Only return series for MultiPartBook/SinglePartBook, makes linter happy
 		if (
-			this.audibleResponse.content_delivery_type != 'PodcastParent' &&
+			this.audibleResponse.content_delivery_type !== 'PodcastParent' &&
+			this.audibleResponse.content_delivery_type !== 'Unknown' &&
 			this.audibleResponse.series
 		) {
 			series1 = this.getSeriesPrimary(this.audibleResponse.series)
@@ -379,7 +391,11 @@ class ApiHelper {
 				console.warn(
 					`[AUDIBLE API] Unknown content_delivery_type: ${contentType} for ASIN ${this.asin}`
 				)
-				this.audibleResponse = baseResult.data as unknown as AudibleProduct['product']
+				// Set the discriminant for the fallback type
+				this.audibleResponse = {
+					...baseResult.data,
+					content_delivery_type: 'Unknown' as const
+				}
 				return this.getFinalData()
 			}
 			// baseShape also failed - likely truly unavailable in region
