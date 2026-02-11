@@ -1,4 +1,4 @@
-version: "3.7"
+version: '3.7'
 
 services:
   node-server:
@@ -13,7 +13,7 @@ services:
       UPDATE_INTERVAL: ${NODE_UPDATE_INTERVAL:-30}
       UPDATE_THRESHOLD: ${NODE_UPDATE_THRESHOLD:-7}
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       - mongo
       - redis
@@ -22,45 +22,45 @@ services:
       - internal
     deploy:
       labels:
-        - "traefik.enable=true"
-        - "traefik.docker.network=traefik-overlay"
-        - "traefik.http.routers.node-server.rule=Host(`${TRAEFIK_DOMAIN}`)"
-        - "traefik.http.routers.node-server.entrypoints=websecure"
-        - "traefik.http.routers.redirs.entrypoints=websecure"
-        - "traefik.http.services.node-server.loadbalancer.server.port=3000"
+        - 'traefik.enable=true'
+        - 'traefik.docker.network=traefik-overlay'
+        - 'traefik.http.routers.node-server.rule=Host(`${TRAEFIK_DOMAIN}`)'
+        - 'traefik.http.routers.node-server.entrypoints=websecure'
+        - 'traefik.http.routers.redirs.entrypoints=websecure'
+        - 'traefik.http.services.node-server.loadbalancer.server.port=3000'
       replicas: 15
 
   mongo:
-    image: mongo:7@sha256:e64f27edef80b41715e5830312da25ea5e6874a2b62ed1adb3e8f74bde7475a6
+    image: mongo:7.0.30
     restart: always
     volumes:
       - /mnt/docker/mongo/data:/data/db
     networks:
       - internal
     ports:
-      - "27017:27017"
+      - '27017:27017'
 
   redis:
-    image: redis:alpine@sha256:eaea8264f74a95ea9a0767c794da50788cbd9cf5223951674d491fa1b3f4f2d2
+    image: redis:8.6-alpine
     restart: always
     networks:
       - internal
     ports:
-      - "6379:6379"
+      - '6379:6379'
 
   traefik:
-    image: traefik:v3.1@sha256:ec1a82940b8e00eaeef33fb4113aa1d1573b2ebb6440e10c023743fe96f08475
+    image: traefik:v3.6.7
     restart: always
     command:
-      - "--providers.docker=true"
-      - "--entryPoints.websecure.address=:443"
-      - "--providers.docker.exposedbydefault=false"
-      - "--entrypoints.websecure.http.tls=true"
-      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
-      - "--certificatesresolvers.myresolver.acme.email=${TRAEFIK_EMAIL}"
-      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+      - '--providers.docker=true'
+      - '--entryPoints.websecure.address=:443'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.websecure.http.tls=true'
+      - '--certificatesresolvers.myresolver.acme.tlschallenge=true'
+      - '--certificatesresolvers.myresolver.acme.email=${TRAEFIK_EMAIL}'
+      - '--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json'
     ports:
-      - "443:443"
+      - '443:443'
     volumes:
       - /mnt/docker/letsencrypt:/letsencrypt
       - /var/run/docker.sock:/var/run/docker.sock:ro
