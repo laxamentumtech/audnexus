@@ -4,7 +4,7 @@ import { MongoClient } from 'mongodb'
 /**
  * Timeout duration in milliseconds for health check pings
  */
-const PING_TIMEOUT_MS = 1500
+const PING_TIMEOUT_MS = 5000
 
 /**
  * Wraps a promise with a timeout, clearing the timer when the promise settles
