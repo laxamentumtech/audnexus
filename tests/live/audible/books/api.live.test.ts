@@ -99,9 +99,12 @@ describe('Audible API Live Tests', () => {
 			expect(typeof response.product_images).toBe('object')
 		})
 
-		it('should have valid rating structure', () => {
-			expect(response.rating).toBeDefined()
-			expect(response.rating.overall_distribution).toBeDefined()
+		it('should have valid rating structure if present', () => {
+			if (response.rating) {
+				expect(response.rating.overall_distribution).toBeDefined()
+			} else {
+				console.warn('[LIVE TEST] Rating not available for this ASIN')
+			}
 		})
 	})
 
