@@ -46,7 +46,6 @@
 		"mongodb": "^7.1.0",
 		"papr": "^17.0.0",
 		"toad-scheduler": "^3.0.1",
-		"typescript": "^5.9.3",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
@@ -76,7 +75,8 @@
 		"prettier": "^3.5.3",
 		"standard-version": "^9.5.0",
 		"ts-jest": "^29.4.6",
-		"ts-node": "^10.9.2"
+		"ts-node": "^10.9.2",
+		"typescript": "^5.9.3"
 	},
 	"_moduleAliases": {
 		"#config": "dist/config",
