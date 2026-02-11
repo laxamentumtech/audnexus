@@ -48,32 +48,6 @@ interface FastifyInstanceWithMongo extends FastifyInstance {
  * Checks server, database, and optionally Redis connectivity
  */
 async function health(app: FastifyInstance) {
-	// Decorate Fastify instance with MongoDB client if not already present
-	if (!('mongoClient' in app)) {
-		const mongoUri = process.env.MONGODB_URI
-		if (!mongoUri) {
-			throw new Error('MONGODB_URI environment variable is not set')
-		}
-		const client = new MongoClient(mongoUri)
-		await client.connect()
-		;(app as FastifyInstanceWithMongo).mongoClient = client
-
-		// Store cleanup function
-		;(app as FastifyInstanceWithMongo).mongoClientCleanup = async () => {
-			await client.close()
-		}
-
-		// Register cleanup hook on server shutdown
-		app.addHook('onClose', async () => {
-			const cleanup = (app as FastifyInstanceWithMongo).mongoClientCleanup
-			if (cleanup) {
-				await cleanup()
-			}
-		})
-	}
-
-	const mongoClient = (app as FastifyInstanceWithMongo).mongoClient
-
 	app.get<{ Reply: HealthCheckResponse }>('/health', async (request, reply) => {
 		const checks = {
 			server: true,
@@ -83,13 +57,16 @@ async function health(app: FastifyInstance) {
 
 		// Check server (always passes if the route is executing)
 
-		// Check MongoDB with timeout
-		try {
-			await withTimeout(mongoClient.db().command({ ping: 1 }), 'MongoDB ping')
-			checks.database = true
-		} catch (error) {
-			checks.database = false
-			console.error('MongoDB health check failed:', error)
+		// Check MongoDB with timeout (only if mongoClient is available)
+		const mongoClient = (app as FastifyInstanceWithMongo).mongoClient
+		if (mongoClient) {
+			try {
+				await withTimeout(mongoClient.db().command({ ping: 1 }), 'MongoDB ping')
+				checks.database = true
+			} catch (error) {
+				checks.database = false
+				console.error('MongoDB health check failed:', error)
+			}
 		}
 
 		// Check Redis (conditional on Redis being registered)
