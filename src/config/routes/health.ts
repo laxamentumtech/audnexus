@@ -2,6 +2,27 @@ import { FastifyInstance } from 'fastify'
 import { MongoClient } from 'mongodb'
 
 /**
+ * Timeout duration in milliseconds for health check pings
+ */
+const PING_TIMEOUT_MS = 1500
+
+/**
+ * Wraps a promise with a timeout, clearing the timer when the promise settles
+ */
+function withTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
+	let timer: NodeJS.Timeout
+	const timeoutPromise = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => {
+			reject(new Error(`${operation} timed out after ${PING_TIMEOUT_MS}ms`))
+		}, PING_TIMEOUT_MS)
+	})
+
+	return Promise.race([promise, timeoutPromise]).finally(() => {
+		clearTimeout(timer)
+	}) as Promise<T>
+}
+
+/**
  * Health check response structure
  */
 export interface HealthCheckResponse {
@@ -41,6 +62,14 @@ async function health(app: FastifyInstance) {
 		;(app as FastifyInstanceWithMongo).mongoClientCleanup = async () => {
 			await client.close()
 		}
+
+		// Register cleanup hook on server shutdown
+		app.addHook('onClose', async () => {
+			const cleanup = (app as FastifyInstanceWithMongo).mongoClientCleanup
+			if (cleanup) {
+				await cleanup()
+			}
+		})
 	}
 
 	const mongoClient = (app as FastifyInstanceWithMongo).mongoClient
@@ -55,9 +84,9 @@ async function health(app: FastifyInstance) {
 		// Check server (always passes if the route is executing)
 		checks.server = true
 
-		// Check MongoDB
+		// Check MongoDB with timeout
 		try {
-			await mongoClient.db().command({ ping: 1 })
+			await withTimeout(mongoClient.db().command({ ping: 1 }), 'MongoDB ping')
 			checks.database = true
 		} catch (error) {
 			checks.database = false
@@ -68,7 +97,7 @@ async function health(app: FastifyInstance) {
 		const redis = (app as unknown as { redis?: { ping: () => Promise<string> } }).redis
 		if (redis) {
 			try {
-				await redis.ping()
+				await withTimeout(redis.ping(), 'Redis ping')
 				checks.redis = true
 			} catch (error) {
 				checks.redis = false

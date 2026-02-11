@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import { mockDeep } from 'jest-mock-extended'
-import type { MongoClient } from 'mongodb'
+import { MongoClient } from 'mongodb'
 
 import health, { HealthCheckResponse } from '#config/routes/health'
 
@@ -19,8 +19,12 @@ describe('health route should', () => {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let app: any
 	let mockMongoClient: MongoClient
+	let originalMongoUri: string | undefined
 
 	beforeEach(() => {
+		// Save original MONGODB_URI to prevent environment variable leaks
+		originalMongoUri = process.env.MONGODB_URI
+
 		// Create a deep mock of FastifyInstance
 		app = mockDeep<FastifyInstance>()
 
@@ -46,6 +50,12 @@ describe('health route should', () => {
 
 	afterEach(() => {
 		jest.clearAllMocks()
+		// Restore original MONGODB_URI to prevent environment variable leaks
+		if (originalMongoUri === undefined) {
+			delete process.env.MONGODB_URI
+		} else {
+			process.env.MONGODB_URI = originalMongoUri
+		}
 	})
 
 	test('return 200 and healthy status when all services are up', async () => {
@@ -310,6 +320,54 @@ describe('health route should', () => {
 		expect(timestamp).toBeInstanceOf(Date)
 		expect(isNaN(timestamp.getTime())).toBe(false)
 		expect(capturedData!.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+	})
+
+	test('initialize MongoClient when not pre-populated', async () => {
+		// Remove pre-populated mongoClient to trigger initialization branch
+		delete app.mongoClient
+
+		// Set MONGODB_URI for the test
+		process.env.MONGODB_URI = 'mongodb://test:27017/testdb'
+
+		// Setup mock MongoDB responses for the new client instance
+		const mockNewClient = {
+			connect: jest.fn().mockResolvedValue(undefined),
+			db: jest.fn().mockReturnValue({
+				command: jest.fn().mockResolvedValue({ ok: 1 })
+			}),
+			close: jest.fn().mockResolvedValue(undefined)
+		}
+
+		// Get the mocked MongoClient constructor and set it to return our mock
+		const { MongoClient: MockedMongoClient } = jest.requireMock('mongodb')
+		MockedMongoClient.mockImplementation(() => mockNewClient)
+
+		// Mock Redis ping success
+		app.redis = {
+			ping: jest.fn().mockResolvedValue('PONG')
+		}
+
+		// Register health route
+		await health(app)
+
+		// Verify MongoClient constructor was called with the URI
+		expect(MockedMongoClient).toHaveBeenCalledWith('mongodb://test:27017/testdb')
+
+		// Verify app.mongoClient was set after initialization
+		expect(app.mongoClient).toBeDefined()
+
+		// Verify the route handler can be called successfully
+		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
+		const mockRequest = {}
+		const mockReply = {
+			status: jest.fn().mockReturnThis(),
+			send: jest.fn().mockReturnThis()
+		}
+
+		await routeHandler(mockRequest, mockReply)
+
+		// Verify the route executed successfully
+		expect(mockReply.status).toHaveBeenCalledWith(200)
 	})
 
 	test('throw error when MONGODB_URI is not set', async () => {
