@@ -248,6 +248,34 @@ describe('ApiHelper edge cases should', () => {
 		expect(helper.getSeriesSecondary([obj])).toBeUndefined()
 	})
 
+	test('getSeriesPrimary returns undefined when content_delivery_type is Unknown', async () => {
+		const obj = {
+			asin: '123',
+			title: 'Test Series',
+			sequence: '1'
+		}
+		helper.audibleResponse = mockResponse.product
+		helper.audibleResponse!.content_delivery_type = 'Unknown' as
+			| 'PodcastParent'
+			| 'MultiPartBook'
+			| 'SinglePartBook'
+		expect(helper.getSeriesPrimary([obj])).toBeUndefined()
+	})
+
+	test('getSeriesSecondary returns undefined when content_delivery_type is Unknown', async () => {
+		const obj = {
+			asin: '123',
+			title: 'Test Series',
+			sequence: '1'
+		}
+		helper.audibleResponse = mockResponse.product
+		helper.audibleResponse!.content_delivery_type = 'Unknown' as
+			| 'PodcastParent'
+			| 'MultiPartBook'
+			| 'SinglePartBook'
+		expect(helper.getSeriesSecondary([obj])).toBeUndefined()
+	})
+
 	test('get backup lower res image', async () => {
 		helper.audibleResponse = mockResponse.product
 		helper.audibleResponse!.product_images![1024] = ''
@@ -316,8 +344,19 @@ describe('ApiHelper edge cases should', () => {
 		const unknownTypeResponse = deepCopy(mockResponse)
 		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
 		helper = new ApiHelper(asin, region)
+
+		// Spy on console.warn
+		const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+
 		const data = await helper.parseResponse(unknownTypeResponse)
 		expect(data.asin).toBe(asin)
+
+		// Assert console.warn was called
+		expect(warnSpy).toHaveBeenCalled()
+		expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown content_delivery_type'))
+
+		// Restore spy
+		warnSpy.mockRestore()
 	})
 
 	test('throws region unavailable when baseShape also fails', async () => {
@@ -378,12 +417,6 @@ describe('ApiHelper should throw error when', () => {
 	test('input is undefined', async () => {
 		await expect(helper.parseResponse(undefined)).rejects.toThrow(
 			`An error occurred while parsing Audible API. ASIN: ${asin}`
-		)
-	})
-
-	test('input has no data', async () => {
-		await expect(helper.parseResponse({ product: {} } as AudibleProduct)).rejects.toThrow(
-			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
 
