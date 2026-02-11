@@ -1,7 +1,8 @@
 jest.mock('mongodb')
 import { Db } from 'mongodb'
 
-import { Context, createDefaultContext, createMockContext, MockContext } from '#config/context'
+import { Context, createDefaultContext } from '#config/context'
+import { createMockContext, MockContext } from '#config/test-context'
 import { initialize } from '#config/papr'
 
 let mockCtx: MockContext
