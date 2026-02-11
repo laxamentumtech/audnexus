@@ -88,8 +88,8 @@ importers:
         specifier: ^29.5.14
         version: 29.5.14
       '@types/jsrsasign':
-        specifier: 10.5.14
-        version: 10.5.14
+        specifier: 10.5.15
+        version: 10.5.15
       '@types/lodash':
         specifier: ^4.17.16
         version: 4.17.23
@@ -1339,8 +1339,8 @@ packages:
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
-  '@types/jsrsasign@10.5.14':
-    resolution: {integrity: sha512-lppSlfK6etu+cuKs40K4rg8As79PH6hzIB+v55zSqImbSH3SE6Fm8MBHCiI91cWlAP3Z4igtJK1VL3fSN09blQ==}
+  '@types/jsrsasign@10.5.15':
+    resolution: {integrity: sha512-3stUTaSRtN09PPzVWR6aySD9gNnuymz+WviNHoTb85dKu+BjaV4uBbWWGykBBJkfwPtcNZVfTn2lbX00U+yhpQ==}
 
   '@types/lodash@4.17.23':
     resolution: {integrity: sha512-RDvF6wTulMPjrNdCoYRC8gNR880JNGT8uB+REUpC2Ns4pRqQJhGz90wh7rgdXDPpCczF3VGktDuFGVnz8zP7HA==}
@@ -5846,7 +5846,7 @@ snapshots:
 
   '@types/json-schema@7.0.15': {}
 
-  '@types/jsrsasign@10.5.14': {}
+  '@types/jsrsasign@10.5.15': {}
 
   '@types/lodash@4.17.23': {}
 
