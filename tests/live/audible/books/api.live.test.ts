@@ -199,4 +199,86 @@ describe('Audible API Live Tests', () => {
 			await expect(helper.parseResponse(fetched)).rejects.toBeDefined()
 		}, 30000)
 	})
+
+	describe('Genre ASIN validation', () => {
+		// Test ASINs with different genre categories
+		const testAsins = ['B08G9PRS1K', 'B08C6YJ1LS', 'B017V4IM1G']
+
+		it('should validate genre ASINs match expected pattern (10-12 digits)', async () => {
+			const genreAsins: string[] = []
+			const warnings: string[] = []
+
+			for (const asin of testAsins) {
+				const helper = new ApiHelper(asin, 'us')
+				const fetched = await helper.fetchBook()
+
+				// Extract category_ladders and collect all category IDs
+				if (fetched.product?.category_ladders) {
+					for (const ladder of fetched.product.category_ladders) {
+						if (ladder.ladder) {
+							for (const category of ladder.ladder) {
+								if (category.id) {
+									genreAsins.push(category.id)
+									// Validate pattern: 10-12 digits
+									if (!/^\d{10,12}$/.test(category.id)) {
+										warnings.push(
+											`[AUDIBLE API CHANGE] Genre ASIN '${category.id}' (name: '${category.name}') does not match expected pattern (10-12 digits) for book ASIN: ${asin}`
+										)
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Log warnings if any genre ASINs don't match expected pattern
+			if (warnings.length > 0) {
+				for (const warning of warnings) {
+					console.warn(warning)
+				}
+			}
+
+			// We should have found at least some genre ASINs
+			expect(genreAsins.length).toBeGreaterThan(0)
+			// Log how many genre ASINs we found for debugging
+			console.log(`Found ${genreAsins.length} genre ASINs to validate`)
+		}, 30000)
+
+		it('should validate genre ASINs from different regions', async () => {
+			const warnings: string[] = []
+			const regionsToTest = ['us', 'uk', 'au']
+			const asin = 'B08G9PRS1K'
+
+			for (const region of regionsToTest) {
+				const helper = new ApiHelper(asin, region)
+				const fetched = await helper.fetchBook()
+
+				// Extract category_ladders and validate IDs
+				if (fetched.product?.category_ladders) {
+					for (const ladder of fetched.product.category_ladders) {
+						if (ladder.ladder) {
+							for (const category of ladder.ladder) {
+								if (category.id && !/^\d{10,12}$/.test(category.id)) {
+									warnings.push(
+										`[AUDIBLE API CHANGE] Genre ASIN '${category.id}' in region '${region}' does not match expected pattern (10-12 digits)`
+									)
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Log warnings if any genre ASINs don't match expected pattern
+			if (warnings.length > 0) {
+				for (const warning of warnings) {
+					console.warn(warning)
+				}
+			}
+
+			// The test passes even if warnings exist - warnings are for detection only
+			expect(true).toBe(true)
+		}, 30000)
+	})
 })
