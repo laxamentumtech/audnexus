@@ -354,6 +354,63 @@ RUN_LIVE_TESTS=true pnpm test:live
 - Creates automatic issue with `[AUDIBLE API CHANGE]` or `[AUDIBLE HTML CHANGE]` label
 - Requires human review and code updates
 
+### 4.5 Deployment Workflows
+
+**Coolify Workflow** (`.github/workflows/deploy-coolify.yml`):
+
+Triggers:
+
+- Push to `main` or `develop` branches
+
+**Required secrets:**
+
+| Secret Name       | Description                                                                      |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `COOLIFY_WEBHOOK` | Coolify deploy webhook URL from application's Webhook page                       |
+| `COOLIFY_TOKEN`   | Coolify API token from "Keys & Tokens" > "API Tokens" (with "Deploy" permission) |
+
+**Deployment process:**
+
+1. Builds Docker image from Dockerfile and pushes to ghcr.io
+2. Triggers Coolify deployment via API call on push to main/develop
+3. Uses Bearer token authentication with `COOLIFY_TOKEN`
+4. Coolify pulls the prebuilt image from ghcr.io and deploys it
+
+**CapRover Workflow** (`.github/workflows/deploy-caprover.yml`):
+
+Triggers:
+
+- Push to `main` branch
+
+**Required secrets:**
+
+| Secret Name         | Description              |
+| ------------------- | ------------------------ |
+| `CAPROVER_HOST`     | CapRover server host     |
+| `CAPROVER_PASSWORD` | CapRover server password |
+
+**Deployment process:**
+
+1. Installs CapRover CLI
+2. Deploys to CapRover using CLI
+3. Deploys from `main` branch
+
+**Docker Publish Workflow** (`.github/workflows/docker-publish.yml`):
+
+Triggers:
+
+- Schedule: Daily at 05:15 UTC
+- Push to `develop`, `main`, or semver tags (`v*.*.*`)
+- Pull requests to `main`
+
+**Process:**
+
+1. Builds Docker image using project Dockerfile
+2. Pushes to GitHub Container Registry (ghcr.io)
+3. Tags image with branch name or version tag
+
+**Note:** This workflow only builds and pushes images to ghcr.io - it does not deploy. Use the Coolify workflow for actual deployments.
+
 ---
 
 ## 5. Commit Standards
@@ -670,8 +727,11 @@ pnpm release           # Create new release (standard-version)
 | `.github/workflows/node.js.yml`              | CI/CD pipeline                             |
 | `.github/workflows/live-tests.yml`           | Live test workflow                         |
 | `.github/workflows/conventional-commits.yml` | Commit validation                          |
+| `.github/workflows/deploy-coolify.yml`       | Coolify deployment integration             |
+| `.github/workflows/deploy-caprover.yml`      | CapRover deployment integration            |
+| `.github/workflows/docker-publish.yml`       | Docker image publishing                    |
 
 ---
 
-_Last updated: 2025-02-09_
+_Last updated: 2026-02-11_
 _Maintained by: Repository maintainers_
