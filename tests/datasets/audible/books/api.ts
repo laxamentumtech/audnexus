@@ -69,7 +69,9 @@ export function setupMinimalParsed(
 			: 'nonfiction',
 		narrators: response.narrators,
 		image,
-		rating: response.rating.overall_distribution.display_average_rating.toString(),
+		...(response.rating && {
+			rating: response.rating.overall_distribution.display_average_rating.toString()
+		}),
 		publisherName: response.publisher_name,
 		summary: response.publisher_summary,
 		region: 'us',
@@ -1162,6 +1164,106 @@ export const podcast = AudibleProductSchema.parse({
 	]
 })
 
+export const podcastWithoutProgramParticipation = AudibleProductSchema.parse({
+	product: {
+		asin: 'B09X27Z3QL',
+		asset_details: [],
+		authors: [{ name: 'Test Author' }],
+		category_ladders: [
+			{
+				ladder: [{ id: '18580606011', name: 'Science Fiction & Fantasy' }],
+				root: 'Genres'
+			}
+		],
+		content_delivery_type: 'PodcastParent',
+		content_type: 'Podcast',
+		continuity: 'serial',
+		copyright: '©2024 Test Publisher',
+		episode_count: 5,
+		extended_product_description: 'A test podcast without program participation field',
+		format_type: 'original_recording',
+		has_children: true,
+		is_adult_product: false,
+		is_listenable: true,
+		is_pdf_url_available: false,
+		is_purchasability_suppressed: false,
+		is_vvab: false,
+		issue_date: '2024-01-15',
+		language: 'english',
+		merchandising_description: 'A test podcast without program participation',
+		merchandising_summary: 'A test podcast without program participation field',
+		narrators: [{ name: 'Test Narrator' }],
+		new_episode_added_date: '2024-01-15T10:00:00.000Z',
+		platinum_keywords: ['test', 'podcast'],
+		product_images: {
+			'500': 'https://m.media-amazon.com/images/I/51test._SL500_.jpg'
+		},
+		product_site_launch_date: '2024-01-15T07:00:00Z',
+		// NOTE: program_participation field is intentionally missing
+		publication_datetime: '2024-01-15T07:00:00Z',
+		publisher_name: 'Test Publisher',
+		publisher_summary: '<p>A test podcast without program participation field</p>',
+		rating: {
+			num_reviews: 0,
+			overall_distribution: {
+				average_rating: 0,
+				display_average_rating: '0.0',
+				display_stars: 0,
+				num_five_star_ratings: 0,
+				num_four_star_ratings: 0,
+				num_one_star_ratings: 0,
+				num_ratings: 0,
+				num_three_star_ratings: 0,
+				num_two_star_ratings: 0
+			},
+			performance_distribution: {
+				average_rating: 0,
+				display_average_rating: '0.0',
+				display_stars: 0,
+				num_five_star_ratings: 0,
+				num_four_star_ratings: 0,
+				num_one_star_ratings: 0,
+				num_ratings: 0,
+				num_three_star_ratings: 0,
+				num_two_star_ratings: 0
+			},
+			story_distribution: {
+				average_rating: 0,
+				display_average_rating: '0.0',
+				display_stars: 0,
+				num_five_star_ratings: 0,
+				num_four_star_ratings: 0,
+				num_one_star_ratings: 0,
+				num_ratings: 0,
+				num_three_star_ratings: 0,
+				num_two_star_ratings: 0
+			}
+		},
+		read_along_support: 'false',
+		release_date: '2024-01-15',
+		sku: 'PD_TEST_000001',
+		sku_lite: 'PD_TEST_000001',
+		social_media_images: {
+			facebook:
+				'https://m.media-amazon.com/images/I/51test._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51test.jpg%7C0,0,1200,630'
+		},
+		thesaurus_subject_keywords: ['test_podcast'],
+		title: 'Test Podcast Without Program Participation'
+	},
+	response_groups: [
+		'product_desc',
+		'always-returned',
+		'product_extended_attrs',
+		'contributors',
+		'series',
+		'rating',
+		'category_ladders',
+		'media',
+		'product_attrs',
+		'product_details'
+	]
+})
+
 export const minimalB0036I54I6: ApiBook = {
 	asin: 'B0036I54I6',
 	authors: [
@@ -1197,4 +1299,247 @@ export const minimalB0036I54I6: ApiBook = {
 	summary:
 		'Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions for American poetry and share the woman\'s perspective in distinct, powerful voices. Professor Middlebrook, author of the best selling <i>Anne Sexton: A Biography</i>, sheds light on the unique and important contributions of these poets by examining 4 works: "Morning Song" and "Ariel" by Plath and "The Fortress" and "The Double Image" by Sexton. Her conversations with Professor Lindenberger and an audience further delve into the work and lives of these women, their friendship, and their tragic deaths.',
 	title: 'The Poetry of Anne Sexton and Sylvia Plath'
+}
+
+// Book without social_media_images field - tests optional schema
+export const B0GFYFCX3D = AudibleProductSchema.parse({
+	product: {
+		asin: 'B0GFYFCX3D',
+		asset_details: [],
+		authors: [
+			{
+				asin: 'B000AP9A6K',
+				name: 'Test Author'
+			}
+		],
+		available_codecs: [
+			{
+				enhanced_codec: 'LC_128_44100_stereo',
+				format: 'Enhanced',
+				is_kindle_enhanced: true,
+				name: 'aax_44_128'
+			}
+		],
+		category_ladders: [
+			{
+				ladder: [
+					{
+						id: '18574426011',
+						name: 'Literature & Fiction'
+					}
+				],
+				root: 'Genres'
+			}
+		],
+		content_delivery_type: 'SinglePartBook',
+		content_type: 'Product',
+		copyright: '©2024 Test Author (P)2024 Audible Studios',
+		date_first_available: '2024-01-15',
+		extended_product_description: '<p>A test book without social media images field.</p>',
+		format_type: 'unabridged',
+		has_children: false,
+		is_adult_product: false,
+		is_listenable: true,
+		is_pdf_url_available: false,
+		is_purchasability_suppressed: false,
+		is_vvab: false,
+		isbn: '9781234567890',
+		issue_date: '2024-01-15',
+		language: 'english',
+		merchandising_description: '',
+		merchandising_summary: '<p>A test book without social media images field.</p>',
+		narrators: [
+			{
+				name: 'Test Narrator'
+			}
+		],
+		platinum_keywords: ['test', 'fiction'],
+		product_images: {
+			'1024': 'https://m.media-amazon.com/images/I/91test123._SL1024_.jpg',
+			'500': 'https://m.media-amazon.com/images/I/51test456._SL500_.jpg'
+		},
+		product_site_launch_date: '2024-01-15T00:00:00Z',
+		publication_datetime: '2024-01-15T08:00:00Z',
+		publisher_name: 'Test Publisher',
+		publisher_summary: '<p>A test book without social media images field.</p>',
+		rating: {
+			num_reviews: 10,
+			overall_distribution: {
+				average_rating: 4.5,
+				display_average_rating: '4.5',
+				display_stars: 5.0,
+				num_five_star_ratings: 5,
+				num_four_star_ratings: 3,
+				num_one_star_ratings: 0,
+				num_ratings: 10,
+				num_three_star_ratings: 2,
+				num_two_star_ratings: 0
+			},
+			performance_distribution: {
+				average_rating: 4.6,
+				display_average_rating: '4.6',
+				display_stars: 5.0,
+				num_five_star_ratings: 6,
+				num_four_star_ratings: 2,
+				num_one_star_ratings: 0,
+				num_ratings: 10,
+				num_three_star_ratings: 2,
+				num_two_star_ratings: 0
+			},
+			story_distribution: {
+				average_rating: 4.4,
+				display_average_rating: '4.4',
+				display_stars: 4.5,
+				num_five_star_ratings: 4,
+				num_four_star_ratings: 4,
+				num_one_star_ratings: 0,
+				num_ratings: 10,
+				num_three_star_ratings: 2,
+				num_two_star_ratings: 0
+			}
+		},
+		read_along_support: 'false',
+		release_date: '2024-01-15',
+		runtime_length_min: 300,
+		sku: 'BK_TEST_000001',
+		sku_lite: 'BK_TEST_000001',
+		// NOTE: social_media_images field is intentionally missing
+		thesaurus_subject_keywords: ['test'],
+		title: 'Test Book Without Social Media Images'
+	},
+	response_groups: [
+		'product_desc',
+		'always-returned',
+		'product_extended_attrs',
+		'contributors',
+		'series',
+		'rating',
+		'category_ladders',
+		'media',
+		'product_attrs',
+		'product_details'
+	]
+})
+
+// Test data for ASINs missing content_delivery_type - tests fallback logic
+// NOTE: content_delivery_type field is intentionally missing - schema validation skipped
+export const bookWithoutContentDeliveryType = {
+	product: {
+		asin: 'B0GM8R53L2',
+		asset_details: [],
+		authors: [
+			{
+				asin: 'B000AP9A6K',
+				name: 'Test Author 1'
+			}
+		],
+		available_codecs: [
+			{
+				enhanced_codec: 'LC_128_44100_stereo',
+				format: 'Enhanced',
+				is_kindle_enhanced: true,
+				name: 'aax_44_128'
+			}
+		],
+		category_ladders: [
+			{
+				ladder: [
+					{
+						id: '18574426011',
+						name: 'Literature & Fiction'
+					}
+				],
+				root: 'Genres'
+			}
+		],
+		content_type: 'Product',
+		copyright: '©2024 Test Publisher (P)2024 Audible Studios',
+		date_first_available: '2024-02-01',
+		extended_product_description: '<p>A test book missing content_delivery_type field.</p>',
+		format_type: 'unabridged',
+		has_children: false,
+		is_adult_product: false,
+		is_listenable: true,
+		is_pdf_url_available: false,
+		is_purchasability_suppressed: false,
+		is_vvab: false,
+		isbn: '9781234567891',
+		issue_date: '2024-02-01',
+		language: 'english',
+		merchandising_description: '',
+		merchandising_summary: '<p>A test book missing content_delivery_type field.</p>',
+		narrators: [
+			{
+				name: 'Test Narrator 1'
+			}
+		],
+		platinum_keywords: ['test', 'fiction'],
+		product_images: {
+			'1024': 'https://m.media-amazon.com/images/I/91test124._SL1024_.jpg',
+			'500': 'https://m.media-amazon.com/images/I/51test457._SL500_.jpg'
+		},
+		product_site_launch_date: '2024-02-01T00:00:00Z',
+		publication_datetime: '2024-02-01T08:00:00Z',
+		publisher_name: 'Test Publisher 1',
+		publisher_summary: '<p>A test book missing content_delivery_type field.</p>',
+		rating: {
+			num_reviews: 5,
+			overall_distribution: {
+				average_rating: 4.0,
+				display_average_rating: '4.0',
+				display_stars: 4.0,
+				num_five_star_ratings: 2,
+				num_four_star_ratings: 2,
+				num_one_star_ratings: 0,
+				num_ratings: 5,
+				num_three_star_ratings: 1,
+				num_two_star_ratings: 0
+			},
+			performance_distribution: {
+				average_rating: 4.2,
+				display_average_rating: '4.2',
+				display_stars: 4.5,
+				num_five_star_ratings: 3,
+				num_four_star_ratings: 1,
+				num_one_star_ratings: 0,
+				num_ratings: 5,
+				num_three_star_ratings: 1,
+				num_two_star_ratings: 0
+			},
+			story_distribution: {
+				average_rating: 3.8,
+				display_average_rating: '3.8',
+				display_stars: 4.0,
+				num_five_star_ratings: 1,
+				num_four_star_ratings: 3,
+				num_one_star_ratings: 0,
+				num_ratings: 5,
+				num_three_star_ratings: 1,
+				num_two_star_ratings: 0
+			}
+		},
+		read_along_support: 'false',
+		release_date: '2024-02-01',
+		runtime_length_min: 240,
+		sku: 'BK_TEST_000002',
+		sku_lite: 'BK_TEST_000002',
+		social_media_images: {
+			facebook:
+				'https://m.media-amazon.com/images/I/51test457._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51test457.jpg%7C0,0,1200,630'
+		},
+		thesaurus_subject_keywords: ['test'],
+		title: 'Test Book Without Content Delivery Type'
+	},
+	response_groups: [
+		'product_desc',
+		'always-returned',
+		'product_extended_attrs',
+		'contributors',
+		'series',
+		'rating',
+		'category_ladders',
+		'media',
+		'product_attrs',
+		'product_details'
+	]
 }
