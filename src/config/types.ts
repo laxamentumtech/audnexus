@@ -198,7 +198,7 @@ const baseShape = z.object({
 	runtime_length_min: z.number().or(z.literal(0)).optional(),
 	sku: z.string().optional(),
 	sku_lite: z.string().optional(),
-	social_media_images: z.record(z.string()),
+	social_media_images: z.record(z.string(), z.string()),
 	subtitle: z.string().optional(),
 	thesaurus_subject_keywords: z.array(z.string()).optional(),
 	title: TitleSchema

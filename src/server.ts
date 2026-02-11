@@ -73,7 +73,11 @@ async function registerPlugins() {
 	// Send 429 if rate limit is reached
 	server.setErrorHandler(function (error, _request, reply) {
 		if (reply.statusCode === 429) {
-			error.message = 'Rate limit reached. Please try again later.'
+			if (error instanceof Error) {
+				error.message = 'Rate limit reached. Please try again later.'
+			} else {
+				console.error('Non-error object in error handler:', error)
+			}
 		}
 		reply.send(error)
 	})

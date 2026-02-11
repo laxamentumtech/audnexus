@@ -4,6 +4,7 @@ import { ApiBook, AudibleProduct } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
+import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageHTTPFetch, ErrorMessageParse } from '#static/messages'
 import {
 	apiResponse,
@@ -13,9 +14,6 @@ import {
 	parsedBookWithGenres
 } from '#tests/datasets/helpers/books'
 
-jest.mock('#helpers/books/audible/ApiHelper')
-jest.mock('#helpers/utils/shared')
-jest.mock('#helpers/books/audible/ScrapeHelper')
 jest.mock('#helpers/utils/fetchPlus')
 
 let asin: string
@@ -30,12 +28,18 @@ beforeEach(() => {
 	region = 'us'
 	mockApiResponse = deepCopy(apiResponse)
 	mockHTMLResponse = cheerio.load(htmlResponse)
-	// Set up helpers
-	helper = new StitchHelper(asin, region)
+	jest
+		.spyOn(SharedHelper.prototype, 'buildUrl')
+		.mockReturnValue('https://api.audible.com/1.0/catalog/products/B079LRSMNN')
+	jest.spyOn(SharedHelper.prototype, 'getParamString').mockReturnValue('test_params')
+	jest.spyOn(fetchPlus, 'default').mockImplementation(() => {
+		return Promise.reject(new Error('Unexpected fetch call'))
+	})
 })
 
 describe('StitchHelper should', () => {
 	beforeEach(() => {
+		helper = new StitchHelper(asin, region)
 		// Set up spys
 		jest
 			.spyOn(helper.apiHelper, 'fetchBook')
@@ -84,6 +88,7 @@ describe('StitchHelper should', () => {
 
 describe('SitchHelper should handle fallback', () => {
 	beforeEach(() => {
+		helper = new StitchHelper(asin, region)
 		// Set up spys
 		jest
 			.spyOn(helper.apiHelper, 'parseResponse')
@@ -129,20 +134,22 @@ describe('SitchHelper should handle fallback', () => {
 
 describe('StitchHelper should throw error when', () => {
 	beforeEach(() => {
-		// Mock Fetch to fail
-		jest.spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 400 }))
-		jest
-			.spyOn(helper.apiHelper, 'fetchBook')
-			.mockRejectedValue(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible API')))
+		helper = new StitchHelper(asin, region)
 		jest.spyOn(helper.scrapeHelper, 'fetchBook').mockResolvedValue(undefined)
 		jest.spyOn(helper.scrapeHelper, 'parseResponse').mockResolvedValue(undefined)
-		jest
-			.spyOn(helper.apiHelper, 'parseResponse')
-			.mockRejectedValue(new Error(ErrorMessageParse(asin, 'Audible API')))
+	})
+
+	afterEach(() => {
+		jest.restoreAllMocks()
 	})
 
 	test('fetching api book data fails completely', async () => {
-		await expect(helper.fetchApiBook()).rejects.toThrowError(
+		jest
+			.spyOn(helper.apiHelper, 'fetchBook')
+			.mockImplementation(() =>
+				Promise.reject(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible API')))
+			)
+		await expect(helper.fetchApiBook()).rejects.toThrow(
 			`An error occured while fetching data from Audible API. Response: 400, ASIN: ${asin}`
 		)
 	})
@@ -154,14 +161,19 @@ describe('StitchHelper should throw error when', () => {
 	test('fetching scraper book data throws an error', async () => {
 		jest
 			.spyOn(helper.scrapeHelper, 'fetchBook')
-			.mockRejectedValueOnce(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible HTML')))
-		await expect(helper.fetchScraperBook()).rejects.toThrowError(
+			.mockImplementation(() =>
+				Promise.reject(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible HTML')))
+			)
+		await expect(helper.fetchScraperBook()).rejects.toThrow(
 			`An error occured while fetching data from Audible HTML. Response: 400, ASIN: ${asin}`
 		)
 	})
 
 	test('parsing api book data fails', async () => {
-		await expect(helper.parseApiResponse()).rejects.toThrowError(
+		jest
+			.spyOn(helper.apiHelper, 'parseResponse')
+			.mockImplementation(() => Promise.reject(new Error(ErrorMessageParse(asin, 'Audible API'))))
+		await expect(helper.parseApiResponse()).rejects.toThrow(
 			`An error occurred while parsing Audible API. ASIN: ${asin}`
 		)
 	})
@@ -173,28 +185,32 @@ describe('StitchHelper should throw error when', () => {
 	test('parsing scraper book throws an error', async () => {
 		jest
 			.spyOn(helper.scrapeHelper, 'parseResponse')
-			.mockRejectedValueOnce(new Error(ErrorMessageParse(asin, 'Audible HTML')))
-		await expect(helper.parseScraperResponse()).rejects.toThrowError(
+			.mockImplementation(() => Promise.reject(new Error(ErrorMessageParse(asin, 'Audible HTML'))))
+		await expect(helper.parseScraperResponse()).rejects.toThrow(
 			`An error occurred while parsing Audible HTML. ASIN: ${asin}`
 		)
 	})
 
 	test('processing book fails', async () => {
 		jest.spyOn(helper, 'fetchApiBook').mockImplementation()
-		helper.apiHelper.audibleResponse = {
-			asin: 'B07JZQZQZQ'
-		} as unknown as AudibleProduct['product']
-		await expect(helper.process()).rejects.toThrowError(
+		helper.apiResponse = {
+			product: { asin: 'B07JZQZQZQ' }
+		} as unknown as AudibleProduct
+		jest
+			.spyOn(helper.apiHelper, 'parseResponse')
+			.mockImplementation(() => Promise.reject(new Error(ErrorMessageParse(asin, 'Audible API'))))
+		await expect(helper.process()).rejects.toThrow(
 			`An error occurred while parsing Audible API. ASIN: ${asin}`
 		)
 	})
 
 	test('includeGenres returns a non-book type', async () => {
+		helper.apiParsed = parsedBook
 		jest
 			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
-			.mockImplementation(() => Promise.resolve(genresObject) as unknown as ApiBook)
+			.mockImplementation(() => genresObject as unknown as ApiBook)
 		helper.scraperParsed = genresObject
-		await expect(helper.includeGenres()).rejects.toThrowError(
+		await expect(helper.includeGenres()).rejects.toThrow(
 			`An error occurred while sorting book json: ${asin}`
 		)
 	})

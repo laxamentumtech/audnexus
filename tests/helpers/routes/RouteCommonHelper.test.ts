@@ -57,22 +57,22 @@ describe('RouteCommonHelper should', () => {
 describe('RouteCommonHelper should throw an error', () => {
 	test('if the asin is not valid', () => {
 		helper = new RouteCommonHelper('12345678910', query, ctx.client)
-		expect(() => helper.runValidations()).toThrowError()
+		expect(() => helper.runValidations()).toThrow()
 		expect(helper.reply.code).toHaveBeenCalledWith(400)
 	})
 	test('if the name is not valid', () => {
 		helper = new RouteCommonHelper('', { name: '' }, ctx.client)
-		expect(() => helper.runValidations()).toThrowError()
+		expect(() => helper.runValidations()).toThrow()
 		expect(helper.reply.code).toHaveBeenCalledWith(400)
 	})
 	test('if the region is not valid', () => {
 		helper = new RouteCommonHelper('', { region: 'mx' }, ctx.client)
-		expect(() => helper.runValidations()).toThrowError()
+		expect(() => helper.runValidations()).toThrow()
 		expect(helper.reply.code).toHaveBeenCalledWith(400)
 	})
 	test('if an invalid option is passed', () => {
 		helper = new RouteCommonHelper('', { seedAuthors: '2' }, ctx.client)
-		expect(() => helper.runValidations()).toThrowError()
+		expect(() => helper.runValidations()).toThrow()
 		expect(helper.reply.code).toHaveBeenCalledWith(400)
 	})
 })

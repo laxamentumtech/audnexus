@@ -107,7 +107,7 @@ describe('RedisHelper should catch error when', () => {
 	test('findOrCreate set rejects', async () => {
 		jest.spyOn(ctx.client, 'get').mockResolvedValue('')
 		jest.spyOn(ctx.client, 'set').mockRejectedValue(new Error('Error'))
-		await expect(helper.findOrCreate(parsedBook)).rejects.toThrowError(
+		await expect(helper.findOrCreate(parsedBook)).rejects.toThrow(
 			`An error occurred while setting ${region}-book-${asin} in redis`
 		)
 		expect(ctx.client.get).toHaveBeenCalledWith(`${region}-book-${asin}`)
