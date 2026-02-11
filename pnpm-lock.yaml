@@ -59,9 +59,6 @@ importers:
       toad-scheduler:
         specifier: ^3.0.1
         version: 3.0.1
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -147,6 +144,9 @@ importers:
       ts-node:
         specifier: ^10.9.2
         version: 10.9.2(@types/node@22.19.11)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
 
 packages:
 
