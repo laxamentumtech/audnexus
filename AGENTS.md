@@ -524,7 +524,8 @@ When live tests detect changes:
    ```
 
 4. **Review test output for warnings:**
-   ```
+
+   ```text
    [warning] Deprecated API usage detected
    [warning] Peer dependency mismatch
    ```
