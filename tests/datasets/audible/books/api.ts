@@ -69,7 +69,9 @@ export function setupMinimalParsed(
 			: 'nonfiction',
 		narrators: response.narrators,
 		image,
-		rating: response.rating.overall_distribution.display_average_rating.toString(),
+		...(response.rating && {
+			rating: response.rating.overall_distribution.display_average_rating.toString()
+		}),
 		publisherName: response.publisher_name,
 		summary: response.publisher_summary,
 		region: 'us',
