@@ -1,7 +1,13 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AxiosResponse } from 'axios'
 
-import { AudibleCategory, AudibleProduct, AudibleProductSchema, AudibleSeries } from '#config/types'
+import {
+	AudibleCategory,
+	AudibleProduct,
+	AudibleProductSchema,
+	AudibleSeries,
+	fallbackShape
+} from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
@@ -254,11 +260,10 @@ describe('ApiHelper edge cases should', () => {
 			title: 'Test Series',
 			sequence: '1'
 		}
-		helper.audibleResponse = mockResponse.product
-		helper.audibleResponse!.content_delivery_type = 'Unknown' as
-			| 'PodcastParent'
-			| 'MultiPartBook'
-			| 'SinglePartBook'
+		helper.audibleResponse = fallbackShape.parse({
+			...mockResponse.product,
+			content_delivery_type: 'Unknown'
+		})
 		expect(helper.getSeriesPrimary([obj])).toBeUndefined()
 	})
 
@@ -268,11 +273,10 @@ describe('ApiHelper edge cases should', () => {
 			title: 'Test Series',
 			sequence: '1'
 		}
-		helper.audibleResponse = mockResponse.product
-		helper.audibleResponse!.content_delivery_type = 'Unknown' as
-			| 'PodcastParent'
-			| 'MultiPartBook'
-			| 'SinglePartBook'
+		helper.audibleResponse = fallbackShape.parse({
+			...mockResponse.product,
+			content_delivery_type: 'Unknown'
+		})
 		expect(helper.getSeriesSecondary([obj])).toBeUndefined()
 	})
 
