@@ -221,6 +221,13 @@ const seriesShape = z.object({
 	series: z.array(AudibleSeriesSchema).optional()
 })
 
+// This is the shape for fallback when content_delivery_type is missing or unknown
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const fallbackShape = baseShape.extend({
+	content_delivery_type: z.literal('Unknown')
+})
+export type FallbackAudibleProduct = z.infer<typeof fallbackShape>
+
 // Make a discriminated union of the base shape and the two types of content we get from Audible's API based on the content_delivery_type field
 const resultShape = z
 	.discriminatedUnion('content_delivery_type', [podcastShape, seriesShape])
