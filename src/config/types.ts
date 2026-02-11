@@ -223,7 +223,7 @@ const seriesShape = z.object({
 
 // This is the shape for fallback when content_delivery_type is missing or unknown
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const fallbackShape = baseShape.extend({
+export const fallbackShape = baseShape.extend({
 	content_delivery_type: z.literal('Unknown')
 })
 export type FallbackAudibleProduct = z.infer<typeof fallbackShape>
