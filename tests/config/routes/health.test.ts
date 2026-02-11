@@ -285,7 +285,9 @@ describe('health route should', () => {
 		expect(typeof capturedData!.timestamp).toBe('string')
 		expect(typeof capturedData!.checks.server).toBe('boolean')
 		expect(typeof capturedData!.checks.database).toBe('boolean')
-		expect(capturedData!.checks.redis === null || typeof capturedData!.checks.redis).toBe('boolean')
+		expect(
+			capturedData!.checks.redis === null || typeof capturedData!.checks.redis === 'boolean'
+		).toBe(true)
 	})
 
 	test('verify timestamp is valid ISO format', async () => {
@@ -384,5 +386,43 @@ describe('health route should', () => {
 
 		// Register health route - should throw an error
 		await expect(health(app)).rejects.toThrow('MONGODB_URI environment variable is not set')
+	})
+
+	test('call mongoClientCleanup on server close when MongoClient was initialized', async () => {
+		// Delete app.mongoClient to force the initialization branch
+		delete app.mongoClient
+
+		// Set MONGODB_URI environment variable
+		process.env.MONGODB_URI = 'mongodb://test:27017/testdb'
+
+		// Create a mock MongoClient that will be returned by the constructor
+		const mockNewClient = {
+			connect: jest.fn().mockResolvedValue(undefined),
+			db: jest.fn().mockReturnValue({
+				command: jest.fn().mockResolvedValue({ ok: 1 })
+			}),
+			close: jest.fn().mockResolvedValue(undefined)
+		}
+
+		// Get the mocked MongoClient constructor and configure it to return our mock
+		const { MongoClient: MockedMongoClient } = jest.requireMock('mongodb')
+		MockedMongoClient.mockImplementation(() => mockNewClient)
+
+		// Mock Redis ping success
+		app.redis = {
+			ping: jest.fn().mockResolvedValue('PONG')
+		}
+
+		// Register health route to initialize MongoClient and register the onClose hook
+		await health(app)
+
+		// Capture the onClose hook callback from the first call to addHook
+		const onCloseCallback = (app.addHook as jest.Mock).mock.calls[0][1]
+
+		// Invoke the captured onClose callback to trigger cleanup
+		await onCloseCallback()
+
+		// Assert that the mocked MongoClient.close() was called
+		expect(mockNewClient.close).toHaveBeenCalled()
 	})
 })
