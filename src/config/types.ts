@@ -164,13 +164,13 @@ export const AudibleSeriesSchema = z.object({
 export type AudibleSeries = z.infer<typeof AudibleSeriesSchema>
 
 // This is the base shape of the data we get from Audible's API for all content
-const baseShape = z.object({
+export const baseShape = z.object({
 	asin: AsinSchema,
 	authors: z.array(ApiAuthorOnBookSchema),
 	available_codecs: z.array(AudibleCodecSchema).optional(),
 	category_ladders: z.array(AudibleCategoriesSchema),
 	content_type: z.string(),
-	copyright: z.string(),
+	copyright: z.string().optional(),
 	date_first_available: z.string().optional(),
 	editorial_reviews: z.array(z.string()).optional(),
 	extended_product_description: z.string().optional(),
@@ -190,15 +190,15 @@ const baseShape = z.object({
 	platinum_keywords: z.array(z.string()).optional(),
 	product_site_launch_date: z.string().datetime().optional(),
 	publisher_name: z.string(),
-	publisher_summary: z.string(),
-	rating: AudibleRatingSchema,
+	publisher_summary: z.string().optional(),
+	rating: AudibleRatingSchema.optional(),
 	// Audible passes this as a string, but it's a boolean in the string
 	read_along_support: z.coerce.boolean().optional(),
 	release_date: z.string(),
 	runtime_length_min: z.number().or(z.literal(0)).optional(),
 	sku: z.string().optional(),
 	sku_lite: z.string().optional(),
-	social_media_images: z.record(z.string(), z.string()),
+	social_media_images: z.record(z.string(), z.string()).optional(),
 	subtitle: z.string().optional(),
 	thesaurus_subject_keywords: z.array(z.string()).optional(),
 	title: TitleSchema
@@ -210,7 +210,7 @@ const podcastShape = z.object({
 	content_delivery_type: z.literal('PodcastParent'),
 	episode_count: z.number().or(z.literal(0)),
 	new_episode_added_date: z.string().datetime(),
-	program_participation: z.string(),
+	program_participation: z.string().optional(),
 	publication_datetime: z.string().datetime()
 })
 
@@ -220,6 +220,13 @@ const seriesShape = z.object({
 	publication_name: z.string().optional(),
 	series: z.array(AudibleSeriesSchema).optional()
 })
+
+// This is the shape for fallback when content_delivery_type is missing or unknown
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const fallbackShape = baseShape.extend({
+	content_delivery_type: z.literal('Unknown')
+})
+export type FallbackAudibleProduct = z.infer<typeof fallbackShape>
 
 // Make a discriminated union of the base shape and the two types of content we get from Audible's API based on the content_delivery_type field
 const resultShape = z

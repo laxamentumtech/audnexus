@@ -1,15 +1,24 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AxiosResponse } from 'axios'
 
-import { AudibleCategory, AudibleProduct, AudibleProductSchema, AudibleSeries } from '#config/types'
+import {
+	AudibleCategory,
+	AudibleProduct,
+	AudibleProductSchema,
+	AudibleSeries,
+	fallbackShape
+} from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
 import {
+	B0GFYFCX3D,
 	B07BS4RKGH,
 	B017V4IM1G,
+	bookWithoutContentDeliveryType,
 	podcast,
+	podcastWithoutProgramParticipation,
 	setupMinimalParsed
 } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
@@ -175,6 +184,28 @@ describe('ApiHelper should', () => {
 		await expect(helper.parseResponse(podcast)).resolves.toEqual(minimalParsed)
 	})
 
+	test('parse podcast without program_participation', async () => {
+		const copyright = 2024
+		const genres = [
+			{
+				asin: '18580606011',
+				name: 'Science Fiction & Fantasy',
+				type: 'genre'
+			}
+		]
+		const image = 'https://m.media-amazon.com/images/I/51test.jpg'
+		const minimalParsed = setupMinimalParsed(
+			podcastWithoutProgramParticipation.product,
+			copyright,
+			podcastWithoutProgramParticipation.product.merchandising_summary,
+			image,
+			genres
+		)
+		await expect(helper.parseResponse(podcastWithoutProgramParticipation)).resolves.toEqual(
+			minimalParsed
+		)
+	})
+
 	describe('handle region: ', () => {
 		test.each(Object.keys(regions))('%s', async (region) => {
 			helper = new ApiHelper('B079LRSMNN', region)
@@ -223,6 +254,32 @@ describe('ApiHelper edge cases should', () => {
 		expect(helper.getSeriesSecondary([obj])).toBeUndefined()
 	})
 
+	test('getSeriesPrimary returns undefined when content_delivery_type is Unknown', async () => {
+		const obj = {
+			asin: '123',
+			title: 'Test Series',
+			sequence: '1'
+		}
+		helper.audibleResponse = fallbackShape.parse({
+			...mockResponse.product,
+			content_delivery_type: 'Unknown'
+		})
+		expect(helper.getSeriesPrimary([obj])).toBeUndefined()
+	})
+
+	test('getSeriesSecondary returns undefined when content_delivery_type is Unknown', async () => {
+		const obj = {
+			asin: '123',
+			title: 'Test Series',
+			sequence: '1'
+		}
+		helper.audibleResponse = fallbackShape.parse({
+			...mockResponse.product,
+			content_delivery_type: 'Unknown'
+		})
+		expect(helper.getSeriesSecondary([obj])).toBeUndefined()
+	})
+
 	test('get backup lower res image', async () => {
 		helper.audibleResponse = mockResponse.product
 		helper.audibleResponse!.product_images![1024] = ''
@@ -267,6 +324,51 @@ describe('ApiHelper edge cases should', () => {
 
 	test('return false on empty input to isGenre', async () => {
 		expect(helper.isGenre(null)).toBeFalsy()
+	})
+
+	test('parse a book without social_media_images', async () => {
+		helper = new ApiHelper('B0GFYFCX3D', region)
+		const data = await helper.parseResponse(B0GFYFCX3D)
+		expect(data.asin).toBe('B0GFYFCX3D')
+		expect(data.title).toBe('Test Book Without Social Media Images')
+		expect(data.authors).toEqual([{ asin: 'B000AP9A6K', name: 'Test Author' }])
+	})
+
+	test('parses book without content_delivery_type successfully', async () => {
+		helper = new ApiHelper('B0GM8R53L2', region)
+		const data = await helper.parseResponse(
+			bookWithoutContentDeliveryType as unknown as AudibleProduct
+		)
+		expect(data.asin).toBe('B0GM8R53L2')
+		expect(data.title).toBe('Test Book Without Content Delivery Type')
+	})
+
+	test('parses book with unknown content_delivery_type successfully', async () => {
+		// Create a response with unknown content_delivery_type
+		const unknownTypeResponse = deepCopy(mockResponse)
+		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
+		helper = new ApiHelper(asin, region)
+
+		// Spy on console.warn
+		const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+
+		const data = await helper.parseResponse(unknownTypeResponse)
+		expect(data.asin).toBe(asin)
+
+		// Assert console.warn was called
+		expect(warnSpy).toHaveBeenCalled()
+		expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown content_delivery_type'))
+
+		// Restore spy
+		warnSpy.mockRestore()
+	})
+
+	test('throws region unavailable when baseShape also fails', async () => {
+		// Create a response with empty product (missing required baseShape fields)
+		const emptyProductResponse = { product: {} } as AudibleProduct
+		await expect(helper.parseResponse(emptyProductResponse)).rejects.toThrow(
+			`Item not available in region '${region}' for ASIN: ${asin}`
+		)
 	})
 })
 
@@ -319,12 +421,6 @@ describe('ApiHelper should throw error when', () => {
 	test('input is undefined', async () => {
 		await expect(helper.parseResponse(undefined)).rejects.toThrow(
 			`An error occurred while parsing Audible API. ASIN: ${asin}`
-		)
-	})
-
-	test('input has no data', async () => {
-		await expect(helper.parseResponse({ product: {} } as AudibleProduct)).rejects.toThrow(
-			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
 
