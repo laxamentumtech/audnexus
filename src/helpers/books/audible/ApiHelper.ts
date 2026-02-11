@@ -92,6 +92,7 @@ class ApiHelper {
 		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		const regex = /(?:©|\(c\)|copyright\b)\s*(\d{4})/iu
 		const copyright = this.audibleResponse.copyright
+		if (!copyright) return undefined
 		const match = regex.exec(copyright)
 
 		// find the lowest year in the string
