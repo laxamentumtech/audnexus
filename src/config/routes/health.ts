@@ -82,7 +82,6 @@ async function health(app: FastifyInstance) {
 		}
 
 		// Check server (always passes if the route is executing)
-		checks.server = true
 
 		// Check MongoDB with timeout
 		try {
