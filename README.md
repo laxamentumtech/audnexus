@@ -48,8 +48,9 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-- There are 2 ways to deploy this project - for the purposes of this project, this guide will only cover Docker deployment:
-  - [Docker Swarm](https://docs.docker.com/engine/swarm/swarm-tutorial/)
+- There are 3 ways to deploy this project:
+  - [Coolify](https://coolify.io) - Self-hosted PaaS platform with automatic deployments from Git
+  - [Docker Swarm](https://docs.docker.com/engine/swarm/swarm-tutorial/) - Docker Compose stack with Traefik reverse proxy
   - Directly, via `pnpm run` or `pm2`
     - Mongo 4 or greater
     - Node/NPM 16 or greater
@@ -90,6 +91,56 @@ pnpm run build-docs
 ```
 
 ## 🚀 Deployment <a name = "deployment"></a>
+
+### Coolify Deployment
+
+Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Vercel.
+
+**Setup Steps:**
+
+1. **Connect repository to Coolify:**
+   - In Coolify, create a new application
+   - Select "Git" and connect your GitHub repository
+   - Select the branch (e.g., `main` or `develop`)
+
+2. **Configure environment variables:**
+   - Set up the following environment variables in Coolify:
+   - `NODE_ADP_TOKEN`: Audible ADP_TOKEN value (optional, for chapters endpoint)
+   - `NODE_MAX_REQUESTS`: Max requests per minute per source (default: 100)
+   - `NODE_MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`)
+   - `NODE_PRIVATE_KEY`: Audible PRIVATE_KEY value (optional, for chapters endpoint)
+   - `NODE_REDIS_URL`: Redis connection URL (e.g., `redis://redis:6379`)
+   - `NODE_UPDATE_INTERVAL`: Update interval in days (default: 30)
+   - `NODE_UPDATE_THRESHOLD`: Minimum days before checking updates again (default: 7)
+
+3. **Configure build and deployment:**
+   - Build command: Coolify will automatically use the Dockerfile
+   - Port: 3000
+   - Health check: Coolify can use the `/health` endpoint
+
+4. **Enable GitHub webhook (optional):**
+   - In Coolify, get your webhook URL from the application's "Webhook" section
+   - Add `COOLIFY_WEBHOOK` to your GitHub repository secrets with this URL
+   - In Coolify, create an API token from "Keys & Tokens" > "API Tokens" (enable "Deploy" permission)
+   - Add `COOLIFY_TOKEN` to your GitHub repository secrets with the API token
+   - The workflow `.github/workflows/deploy-coolify.yml` will trigger deployments automatically on pushes to `main` or `develop`
+
+**Note:** The `.github/workflows/docker-publish.yml` workflow builds and pushes Docker images to GitHub Container Registry (ghcr.io) but does not deploy them. The Coolify workflow builds, pushes, and deploys the Docker image using the Coolify API.
+
+5. **Optional: Configure persistent volumes for MongoDB/Redis:**
+   - For production, consider using external MongoDB and Redis services
+   - Or configure Coolify to use managed databases
+
+**Important:** The audnexus application requires MongoDB and Redis services to run. You must either:
+
+- Use Coolify's managed database services or external databases
+- Deploy the full stack (including MongoDB and Redis containers) using the Docker Compose method in the Docker Swarm section below
+
+Do not proceed with Coolify deployment until you have the `NODE_MONGODB_URI` and `NODE_REDIS_URL` values ready.
+
+**Note:** For production deployments, consider using Coolify's managed database services for MongoDB and Redis, or deploy the full stack using the Docker Compose method below.
+
+### Docker Swarm Deployment
 
 Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, and use it to start the stack. Using something like Portainer for a Swarm GUI will make this much easier.
 
