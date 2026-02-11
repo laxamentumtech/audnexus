@@ -600,7 +600,11 @@ Reverts commit abc123def456
 
    ```bash
    git revert <commit-hash>
-   git push --force-with-lease origin main  # Only if necessary
+   # ⚠️ CRITICAL WARNING: Before force-pushing, confirm that no one else has pushed to main,
+   # notify your team, and exhaust all alternatives. First verify repo state:
+   git fetch origin main
+   git log origin/main..main
+   git push --force-with-lease origin main  # ONLY if absolutely necessary and after confirming no other pushes
    ```
 
 3. **Document the incident:**
