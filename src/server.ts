@@ -110,6 +110,7 @@ async function startServer() {
 
 	// Register routes
 	await registerRoutes().then(() => console.log('Routes registered'))
+	console.log('Registered routes:', server.printRoutes())
 
 	// Start main server
 	server.listen({ port: port, host: host }, async (err, address) => {
