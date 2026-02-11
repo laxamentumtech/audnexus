@@ -16,6 +16,7 @@ import {
 	AudibleSeries,
 	AudibleSeriesSchema,
 	baseShape,
+	fallbackShape,
 	FallbackAudibleProduct
 } from '#config/types'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
@@ -392,10 +393,10 @@ class ApiHelper {
 					`[AUDIBLE API] Unknown content_delivery_type: ${contentType} for ASIN ${this.asin}`
 				)
 				// Set the discriminant for the fallback type
-				this.audibleResponse = {
+				this.audibleResponse = fallbackShape.parse({
 					...baseResult.data,
-					content_delivery_type: 'Unknown' as const
-				}
+					content_delivery_type: 'Unknown'
+				})
 				return this.getFinalData()
 			}
 			// baseShape also failed - likely truly unavailable in region
