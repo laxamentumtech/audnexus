@@ -315,11 +315,13 @@ All pull requests must pass:
 1. **Check the workflow logs** in GitHub Actions
 2. **Identify the failing step** (lint, test, or build)
 3. **Fix locally**:
+
    ```bash
    pnpm lint   # Check for issues
    pnpm test   # Run tests
    pnpm build  # Verify build
    ```
+
 4. **Push fixes** to the PR branch
 5. **Re-run CI** by pushing new commits
 
