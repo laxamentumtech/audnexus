@@ -5,7 +5,8 @@ const config: Config.InitialOptions = {
 		'#helpers/(.*)': '<rootDir>/src/helpers/$1',
 		'#config/(.*)': '<rootDir>/src/config/$1',
 		'#static/(.*)': '<rootDir>/src/static/$1',
-		'#tests/(.*)': '<rootDir>/tests/$1'
+		'#tests/(.*)': '<rootDir>/tests/$1',
+		'^papr$': '<rootDir>/tests/mocks/papr.js'
 	},
 	restoreMocks: true,
 	clearMocks: true,
@@ -31,6 +32,7 @@ const config: Config.InitialOptions = {
 		'^.+\\.js$': 'babel-jest'
 	},
 	// Papr 17.x is now ES modules, needs to be transformed
+	// Handle pnpm's nested structure: node_modules/.pnpm/papr@version/node_modules/papr/
 	transformIgnorePatterns: ['node_modules/(?!.*papr)']
 }
 export default config

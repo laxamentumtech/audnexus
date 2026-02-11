@@ -165,27 +165,27 @@ describe('PaprAudibleChapterHelper should catch error when', () => {
 	test('create', async () => {
 		jest.spyOn(ChapterModel, 'insertOne').mockRejectedValue(new Error('error'))
 		helper.setData(parsedChapters)
-		await expect(helper.create()).rejects.toThrowError(
+		await expect(helper.create()).rejects.toThrow(
 			`An error occurred while creating chapter ${asin} in the DB`
 		)
 	})
 	test('delete', async () => {
 		jest.spyOn(ChapterModel, 'deleteOne').mockRejectedValue(new Error('error'))
-		await expect(helper.delete()).rejects.toThrowError(
+		await expect(helper.delete()).rejects.toThrow(
 			`An error occurred while deleting chapter ${asin} in the DB`
 		)
 	})
 	test('update did not find existing', async () => {
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
 		helper.setData(parsedChapters)
-		await expect(helper.update()).rejects.toThrowError(
+		await expect(helper.update()).rejects.toThrow(
 			`An error occurred while updating chapter ${asin} in the DB`
 		)
 	})
 	test('update', async () => {
 		jest.spyOn(ChapterModel, 'updateOne').mockRejectedValue(new Error('error'))
 		helper.setData(parsedChapters)
-		await expect(helper.update()).rejects.toThrowError(
+		await expect(helper.update()).rejects.toThrow(
 			`An error occurred while updating chapter ${asin} in the DB`
 		)
 	})
