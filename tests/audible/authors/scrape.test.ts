@@ -112,7 +112,7 @@ describe('Audible Author HTML', () => {
 			asin = '103940202X'
 			helper = new ScrapeHelper(asin, 'us')
 			jest.spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 404 }))
-			await expect(helper.fetchAuthor()).rejects.toThrowError(
+			await expect(helper.fetchAuthor()).rejects.toThrow(
 				`An error occured while fetching data from Audible HTML. Response: 404, ASIN: ${asin}`
 			)
 		})
@@ -133,7 +133,7 @@ describe('Audible Author HTML', () => {
 					)
 				)
 			const response = await helper.fetchAuthor()
-			await expect(helper.parseResponse(response)).rejects.toThrowError(
+			await expect(helper.parseResponse(response)).rejects.toThrow(
 				`Item not available in region 'us' for ASIN: ${asin}`
 			)
 		})
