@@ -16,8 +16,8 @@ import {
 	AudibleSeries,
 	AudibleSeriesSchema,
 	baseShape,
-	fallbackShape,
-	FallbackAudibleProduct
+	FallbackAudibleProduct,
+	fallbackShape
 } from '#config/types'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
