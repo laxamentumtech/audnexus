@@ -14,7 +14,8 @@ import {
 	AudibleProduct,
 	AudibleProductSchema,
 	AudibleSeries,
-	AudibleSeriesSchema
+	AudibleSeriesSchema,
+	baseShape
 } from '#config/types'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
@@ -364,7 +365,27 @@ class ApiHelper {
 			throw new Error(ErrorMessageParse(this.asin, 'Audible API'))
 		}
 
-		// Parse response with zod
+		const product = jsonResponse.product
+		const contentType = product?.content_delivery_type
+
+		// Check if content_delivery_type exists and is a known value
+		const knownTypes = ['PodcastParent', 'MultiPartBook', 'SinglePartBook']
+		if (!contentType || !knownTypes.includes(contentType)) {
+			// Try parsing with baseShape directly (fallback for missing/unknown type)
+			const baseResult = baseShape.safeParse(product)
+			if (baseResult.success) {
+				// Log unknown type for future analysis
+				console.warn(
+					`[AUDIBLE API] Unknown content_delivery_type: ${contentType} for ASIN ${this.asin}`
+				)
+				this.audibleResponse = baseResult.data as unknown as AudibleProduct['product']
+				return this.getFinalData()
+			}
+			// baseShape also failed - likely truly unavailable in region
+			throw new Error(ErrorMessageRegion(this.asin, this.region))
+		}
+
+		// Parse response with zod for known content_delivery_type values
 		const response = AudibleProductSchema.safeParse(jsonResponse)
 		// Handle error if response is not valid
 		if (!response.success) {
@@ -372,10 +393,6 @@ class ApiHelper {
 			const issuesPath = response.error.issues[0].path
 			// Get the last key from the path, which is the key that is missing
 			const key = issuesPath[issuesPath.length - 1]
-
-			// If the key is content_delivery_type, then the item is not available in the region
-			if (key === 'content_delivery_type')
-				throw new Error(ErrorMessageRegion(this.asin, this.region))
 
 			// Throw error with the missing key
 			throw new Error(ErrorMessageRequiredKey(this.asin, String(key), 'exist'))

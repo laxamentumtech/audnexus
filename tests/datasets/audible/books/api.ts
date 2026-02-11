@@ -1418,3 +1418,368 @@ export const B0GFYFCX3D = AudibleProductSchema.parse({
 		'product_details'
 	]
 })
+
+// Test data for ASINs missing content_delivery_type - tests fallback logic
+// NOTE: content_delivery_type field is intentionally missing - schema validation skipped
+export const bookWithoutContentDeliveryType = {
+	product: {
+		asin: 'B0GM8R53L2',
+		asset_details: [],
+		authors: [
+			{
+				asin: 'B000AP9A6K',
+				name: 'Test Author 1'
+			}
+		],
+		available_codecs: [
+			{
+				enhanced_codec: 'LC_128_44100_stereo',
+				format: 'Enhanced',
+				is_kindle_enhanced: true,
+				name: 'aax_44_128'
+			}
+		],
+		category_ladders: [
+			{
+				ladder: [
+					{
+						id: '18574426011',
+						name: 'Literature & Fiction'
+					}
+				],
+				root: 'Genres'
+			}
+		],
+		content_type: 'Product',
+		copyright: '©2024 Test Publisher (P)2024 Audible Studios',
+		date_first_available: '2024-02-01',
+		extended_product_description: '<p>A test book missing content_delivery_type field.</p>',
+		format_type: 'unabridged',
+		has_children: false,
+		is_adult_product: false,
+		is_listenable: true,
+		is_pdf_url_available: false,
+		is_purchasability_suppressed: false,
+		is_vvab: false,
+		isbn: '9781234567891',
+		issue_date: '2024-02-01',
+		language: 'english',
+		merchandising_description: '',
+		merchandising_summary: '<p>A test book missing content_delivery_type field.</p>',
+		narrators: [
+			{
+				name: 'Test Narrator 1'
+			}
+		],
+		platinum_keywords: ['test', 'fiction'],
+		product_images: {
+			'1024': 'https://m.media-amazon.com/images/I/91test124._SL1024_.jpg',
+			'500': 'https://m.media-amazon.com/images/I/51test457._SL500_.jpg'
+		},
+		product_site_launch_date: '2024-02-01T00:00:00Z',
+		publication_datetime: '2024-02-01T08:00:00Z',
+		publisher_name: 'Test Publisher 1',
+		publisher_summary: '<p>A test book missing content_delivery_type field.</p>',
+		rating: {
+			num_reviews: 5,
+			overall_distribution: {
+				average_rating: 4.0,
+				display_average_rating: '4.0',
+				display_stars: 4.0,
+				num_five_star_ratings: 2,
+				num_four_star_ratings: 2,
+				num_one_star_ratings: 0,
+				num_ratings: 5,
+				num_three_star_ratings: 1,
+				num_two_star_ratings: 0
+			},
+			performance_distribution: {
+				average_rating: 4.2,
+				display_average_rating: '4.2',
+				display_stars: 4.5,
+				num_five_star_ratings: 3,
+				num_four_star_ratings: 1,
+				num_one_star_ratings: 0,
+				num_ratings: 5,
+				num_three_star_ratings: 1,
+				num_two_star_ratings: 0
+			},
+			story_distribution: {
+				average_rating: 3.8,
+				display_average_rating: '3.8',
+				display_stars: 4.0,
+				num_five_star_ratings: 1,
+				num_four_star_ratings: 3,
+				num_one_star_ratings: 0,
+				num_ratings: 5,
+				num_three_star_ratings: 1,
+				num_two_star_ratings: 0
+			}
+		},
+		read_along_support: 'false',
+		release_date: '2024-02-01',
+		runtime_length_min: 240,
+		sku: 'BK_TEST_000002',
+		sku_lite: 'BK_TEST_000002',
+		social_media_images: {
+			facebook:
+				'https://m.media-amazon.com/images/I/51test457._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51test457.jpg%7C0,0,1200,630'
+		},
+		thesaurus_subject_keywords: ['test'],
+		title: 'Test Book Without Content Delivery Type'
+	},
+	response_groups: [
+		'product_desc',
+		'always-returned',
+		'product_extended_attrs',
+		'contributors',
+		'series',
+		'rating',
+		'category_ladders',
+		'media',
+		'product_attrs',
+		'product_details'
+	]
+}
+
+export const bookWithoutContentDeliveryType2 = {
+	product: {
+		asin: 'B0CYDDN594',
+		asset_details: [],
+		authors: [
+			{
+				asin: 'B000AP9A6K',
+				name: 'Test Author 2'
+			}
+		],
+		available_codecs: [
+			{
+				enhanced_codec: 'LC_64_44100_stereo',
+				format: 'Enhanced',
+				is_kindle_enhanced: true,
+				name: 'aax_44_64'
+			}
+		],
+		category_ladders: [
+			{
+				ladder: [
+					{
+						id: '18574597011',
+						name: 'Mystery, Thriller & Suspense'
+					}
+				],
+				root: 'Genres'
+			}
+		],
+		content_type: 'Product',
+		copyright: '©2024 Test Publisher 2 (P)2024 Audible Studios',
+		date_first_available: '2024-02-15',
+		extended_product_description: '<p>A second test book missing content_delivery_type field.</p>',
+		format_type: 'unabridged',
+		has_children: false,
+		is_adult_product: false,
+		is_listenable: true,
+		is_pdf_url_available: false,
+		is_purchasability_suppressed: false,
+		is_vvab: false,
+		isbn: '9781234567892',
+		issue_date: '2024-02-15',
+		language: 'english',
+		merchandising_description: '',
+		merchandising_summary: '<p>A second test book missing content_delivery_type field.</p>',
+		narrators: [
+			{
+				name: 'Test Narrator 2'
+			}
+		],
+		platinum_keywords: ['test', 'thriller'],
+		product_images: {
+			'1024': 'https://m.media-amazon.com/images/I/91test125._SL1024_.jpg',
+			'500': 'https://m.media-amazon.com/images/I/51test458._SL500_.jpg'
+		},
+		product_site_launch_date: '2024-02-15T00:00:00Z',
+		publication_datetime: '2024-02-15T08:00:00Z',
+		publisher_name: 'Test Publisher 2',
+		publisher_summary: '<p>A second test book missing content_delivery_type field.</p>',
+		rating: {
+			num_reviews: 8,
+			overall_distribution: {
+				average_rating: 4.3,
+				display_average_rating: '4.3',
+				display_stars: 4.5,
+				num_five_star_ratings: 4,
+				num_four_star_ratings: 2,
+				num_one_star_ratings: 0,
+				num_ratings: 8,
+				num_three_star_ratings: 2,
+				num_two_star_ratings: 0
+			},
+			performance_distribution: {
+				average_rating: 4.5,
+				display_average_rating: '4.5',
+				display_stars: 4.5,
+				num_five_star_ratings: 5,
+				num_four_star_ratings: 2,
+				num_one_star_ratings: 0,
+				num_ratings: 8,
+				num_three_star_ratings: 1,
+				num_two_star_ratings: 0
+			},
+			story_distribution: {
+				average_rating: 4.1,
+				display_average_rating: '4.1',
+				display_stars: 4.0,
+				num_five_star_ratings: 3,
+				num_four_star_ratings: 3,
+				num_one_star_ratings: 0,
+				num_ratings: 8,
+				num_three_star_ratings: 2,
+				num_two_star_ratings: 0
+			}
+		},
+		read_along_support: 'false',
+		release_date: '2024-02-15',
+		runtime_length_min: 360,
+		sku: 'BK_TEST_000003',
+		sku_lite: 'BK_TEST_000003',
+		social_media_images: {
+			facebook:
+				'https://m.media-amazon.com/images/I/51test458._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51test458.jpg%7C0,0,1200,630'
+		},
+		thesaurus_subject_keywords: ['test'],
+		title: 'Test Book Without Content Delivery Type 2'
+	},
+	response_groups: [
+		'product_desc',
+		'always-returned',
+		'product_extended_attrs',
+		'contributors',
+		'series',
+		'rating',
+		'category_ladders',
+		'media',
+		'product_attrs',
+		'product_details'
+	]
+}
+
+export const bookWithoutContentDeliveryType3 = {
+	product: {
+		asin: 'B08Y2NYFBY',
+		asset_details: [],
+		authors: [
+			{
+				asin: 'B000AP9A6K',
+				name: 'Test Author 3'
+			}
+		],
+		available_codecs: [
+			{
+				enhanced_codec: 'LC_128_44100_stereo',
+				format: 'Enhanced',
+				is_kindle_enhanced: true,
+				name: 'aax_44_128'
+			}
+		],
+		category_ladders: [
+			{
+				ladder: [
+					{
+						id: '18580606011',
+						name: 'Science Fiction & Fantasy'
+					}
+				],
+				root: 'Genres'
+			}
+		],
+		content_type: 'Product',
+		copyright: '©2024 Test Publisher 3 (P)2024 Audible Studios',
+		date_first_available: '2024-03-01',
+		extended_product_description: '<p>A third test book missing content_delivery_type field.</p>',
+		format_type: 'unabridged',
+		has_children: false,
+		is_adult_product: false,
+		is_listenable: true,
+		is_pdf_url_available: false,
+		is_purchasability_suppressed: false,
+		is_vvab: false,
+		isbn: '9781234567893',
+		issue_date: '2024-03-01',
+		language: 'english',
+		merchandising_description: '',
+		merchandising_summary: '<p>A third test book missing content_delivery_type field.</p>',
+		narrators: [
+			{
+				name: 'Test Narrator 3'
+			}
+		],
+		platinum_keywords: ['test', 'sci-fi'],
+		product_images: {
+			'1024': 'https://m.media-amazon.com/images/I/91test126._SL1024_.jpg',
+			'500': 'https://m.media-amazon.com/images/I/51test459._SL500_.jpg'
+		},
+		product_site_launch_date: '2024-03-01T00:00:00Z',
+		publication_datetime: '2024-03-01T08:00:00Z',
+		publisher_name: 'Test Publisher 3',
+		publisher_summary: '<p>A third test book missing content_delivery_type field.</p>',
+		rating: {
+			num_reviews: 12,
+			overall_distribution: {
+				average_rating: 4.6,
+				display_average_rating: '4.6',
+				display_stars: 5.0,
+				num_five_star_ratings: 7,
+				num_four_star_ratings: 3,
+				num_one_star_ratings: 0,
+				num_ratings: 12,
+				num_three_star_ratings: 2,
+				num_two_star_ratings: 0
+			},
+			performance_distribution: {
+				average_rating: 4.7,
+				display_average_rating: '4.7',
+				display_stars: 5.0,
+				num_five_star_ratings: 8,
+				num_four_star_ratings: 2,
+				num_one_star_ratings: 0,
+				num_ratings: 12,
+				num_three_star_ratings: 2,
+				num_two_star_ratings: 0
+			},
+			story_distribution: {
+				average_rating: 4.5,
+				display_average_rating: '4.5',
+				display_stars: 4.5,
+				num_five_star_ratings: 6,
+				num_four_star_ratings: 4,
+				num_one_star_ratings: 0,
+				num_ratings: 12,
+				num_three_star_ratings: 2,
+				num_two_star_ratings: 0
+			}
+		},
+		read_along_support: 'false',
+		release_date: '2024-03-01',
+		runtime_length_min: 480,
+		sku: 'BK_TEST_000004',
+		sku_lite: 'BK_TEST_000004',
+		social_media_images: {
+			facebook:
+				'https://m.media-amazon.com/images/I/51test459._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51test459.jpg%7C0,0,1200,630'
+		},
+		thesaurus_subject_keywords: ['test'],
+		title: 'Test Book Without Content Delivery Type 3'
+	},
+	response_groups: [
+		'product_desc',
+		'always-returned',
+		'product_extended_attrs',
+		'contributors',
+		'series',
+		'rating',
+		'category_ladders',
+		'media',
+		'product_attrs',
+		'product_details'
+	]
+}

@@ -164,7 +164,7 @@ export const AudibleSeriesSchema = z.object({
 export type AudibleSeries = z.infer<typeof AudibleSeriesSchema>
 
 // This is the base shape of the data we get from Audible's API for all content
-const baseShape = z.object({
+export const baseShape = z.object({
 	asin: AsinSchema,
 	authors: z.array(ApiAuthorOnBookSchema),
 	available_codecs: z.array(AudibleCodecSchema).optional(),
