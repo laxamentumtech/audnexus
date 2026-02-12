@@ -105,13 +105,13 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
 
 2. **Configure environment variables:**
    - Set up the following environment variables in Coolify:
-   - `NODE_ADP_TOKEN`: Audible ADP_TOKEN value (optional, for chapters endpoint)
-   - `NODE_MAX_REQUESTS`: Max requests per minute per source (default: 100)
-   - `NODE_MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`)
-   - `NODE_PRIVATE_KEY`: Audible PRIVATE_KEY value (optional, for chapters endpoint)
-   - `NODE_REDIS_URL`: Redis connection URL (e.g., `redis://redis:6379`)
-   - `NODE_UPDATE_INTERVAL`: Update interval in days (default: 30)
-   - `NODE_UPDATE_THRESHOLD`: Minimum days before checking updates again (default: 7)
+   - `ADP_TOKEN`: Audible ADP_TOKEN value (optional, for chapters endpoint)
+   - `MAX_REQUESTS`: Max requests per minute per source (default: 100)
+   - `MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`)
+   - `PRIVATE_KEY`: Audible PRIVATE_KEY value (optional, for chapters endpoint)
+   - `REDIS_URL`: Redis connection URL (e.g., `redis://redis:6379`)
+   - `UPDATE_INTERVAL`: Update interval in days (default: 30)
+   - `UPDATE_THRESHOLD`: Minimum days before checking updates again (default: 7)
 
 3. **Configure build and deployment:**
    - Build command: Coolify will automatically use the Dockerfile
@@ -148,13 +148,13 @@ The stack defaults to 15 replicas for the node-server container. Customize this 
 
 Environment variables to add:
 
-- `NODE_ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
-- `NODE_MAX_REQUESTS`: Maximum amount of requests per 1 minute period from a single source (default 100)
-- `NODE_MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
-- `NODE_PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
-- `NODE_REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
-- `NODE_UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default 30). Update task is also run at startup.
-- `NODE_UPDATE_THRESHOLD`: Minimum number of days after an item is updated, to allow it to check for updates again (either scheduled or param).
+- `ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
+- `MAX_REQUESTS`: Maximum amount of requests per 1 minute period from a single source (default 100)
+- `MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
+- `PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
+- `REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
+- `UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default 30). Update task is also run at startup.
+- `UPDATE_THRESHOLD`: Minimum number of days after an item is updated, to allow it to check for updates again (either scheduled or param).
 - `TRAEFIK_DOMAIN`: FQDN for the API server
 - `TRAEFIK_EMAIL`: Email to register SSL cert with
 
