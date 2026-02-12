@@ -24,8 +24,7 @@ All notable changes to this project will be documented in this file. See [standa
   		"code": "REGION_UNAVAILABLE",
   		"message": "Item not available in region 'us' for ASIN: B12345",
   		"details": {
-  			"asin": "B12345",
-  			"code": "REGION_UNAVAILABLE"
+  			"asin": "B12345"
   		}
   	}
   }
@@ -69,7 +68,6 @@ All notable changes to this project will be documented in this file. See [standa
 ### Features
 
 - **helper:** :sparkles: cleanup chapter titles with underscore ([7ff0148](https://github.com/djdembeck/audnexus/commit/7ff014883abc9b4fc1b1f41db84218a6ec40f164))
-- **schema:** :sparkles: add `literatureType` field for fiction/nonfiction ([84536aa](https://github.com/djdembeck/audnexus/commit/84536aa20ce4f6159e477a3c9eeac97c4edf2eea))
 
 ## [1.8.0](https://github.com/djdembeck/audnexus/compare/v1.7.0...v1.8.0) (2023-08-29)
 

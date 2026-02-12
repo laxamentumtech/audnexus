@@ -86,16 +86,14 @@ The API returns structured error responses with error codes, HTTP status codes, 
 
 ### Error Response Format
 
-All errors follow this structure:
+All errors follow this structure. The `details` field is optional and may be omitted or set to `null`:
 
 ```json
 {
 	"error": {
 		"code": "ERROR_CODE",
 		"message": "Human-readable error message",
-		"details": {
-			// Additional context about the error
-		}
+		"details": null
 	}
 }
 ```
@@ -136,8 +134,7 @@ All errors follow this structure:
 		"code": "REGION_UNAVAILABLE",
 		"message": "Item not available in region 'us' for ASIN: B12345",
 		"details": {
-			"asin": "B12345",
-			"code": "REGION_UNAVAILABLE"
+			"asin": "B12345"
 		}
 	}
 }

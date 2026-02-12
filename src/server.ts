@@ -119,13 +119,28 @@ async function registerPlugins() {
 		// Check if error has a custom statusCode property
 		if (error instanceof Error && 'statusCode' in error) {
 			const statusCode = (error as Error & { statusCode: number }).statusCode
+			const errorCode = String(statusCode || 'UNKNOWN_ERROR')
 			reply.status(statusCode)
-			reply.send({ error: error.message })
+			reply.send({
+				error: {
+					code: errorCode,
+					message: error.message || 'An error occurred',
+					details: null
+				}
+			})
 			return
 		}
 		if (reply.statusCode === 429) {
 			if (error instanceof Error) {
-				error.message = 'Rate limit reached. Please try again later.'
+				reply.status(429)
+				reply.send({
+					error: {
+						code: 'RATE_LIMIT_EXCEEDED',
+						message: 'Rate limit reached. Please try again later.',
+						details: null
+					}
+				})
+				return
 			} else {
 				server.log.error('Non-error object in error handler: %s', String(error))
 			}
