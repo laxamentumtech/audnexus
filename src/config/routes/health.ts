@@ -65,7 +65,7 @@ async function health(app: FastifyInstance) {
 				checks.database = true
 			} catch (error) {
 				checks.database = false
-				console.error('MongoDB health check failed:', error)
+				request.log.error('MongoDB health check failed: %s', error)
 			}
 		}
 
@@ -77,7 +77,7 @@ async function health(app: FastifyInstance) {
 				checks.redis = true
 			} catch (error) {
 				checks.redis = false
-				console.error('Redis health check failed:', error)
+				request.log.error('Redis health check failed: %s', error)
 			}
 		} else {
 			checks.redis = null

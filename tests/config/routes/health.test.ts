@@ -74,7 +74,14 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {}
+		const mockRequest = {
+			log: {
+				error: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+				warn: jest.fn()
+			}
+		}
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -113,7 +120,14 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {}
+		const mockRequest = {
+			log: {
+				error: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+				warn: jest.fn()
+			}
+		}
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -150,7 +164,14 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {}
+		const mockRequest = {
+			log: {
+				error: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+				warn: jest.fn()
+			}
+		}
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -189,7 +210,14 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {}
+		const mockRequest = {
+			log: {
+				error: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+				warn: jest.fn()
+			}
+		}
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -224,7 +252,14 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {}
+		const mockRequest = {
+			log: {
+				error: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+				warn: jest.fn()
+			}
+		}
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -259,7 +294,14 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {}
+		const mockRequest = {
+			log: {
+				error: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+				warn: jest.fn()
+			}
+		}
 		let capturedData: HealthCheckResponse | null = null
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
@@ -304,7 +346,14 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {}
+		const mockRequest = {
+			log: {
+				error: jest.fn(),
+				info: jest.fn(),
+				debug: jest.fn(),
+				warn: jest.fn()
+			}
+		}
 		let capturedData: HealthCheckResponse | null = null
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),

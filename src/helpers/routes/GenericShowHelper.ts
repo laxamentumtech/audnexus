@@ -1,4 +1,5 @@
 import { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
 
 import type { AuthorDocument } from '#config/models/Author'
 import type { BookDocument } from '#config/models/Book'
@@ -35,19 +36,22 @@ export default class GenericShowHelper {
 	schema: typeof ApiAuthorProfileSchema | typeof ApiBookSchema | typeof ApiChapterSchema
 	sharedHelper: SharedHelper
 	type: 'author' | 'book' | 'chapter'
+	logger?: FastifyBaseLogger
 	constructor(
 		asin: string,
 		options: ApiQueryString,
 		redis: FastifyRedis | null,
-		type: 'author' | 'book' | 'chapter'
+		type: 'author' | 'book' | 'chapter',
+		logger?: FastifyBaseLogger
 	) {
 		this.asin = asin
 		this.options = options
 		this.type = type
+		this.logger = logger
 		this.paprHelper = this.setupPaprHelper()
-		this.redisHelper = new RedisHelper(redis, type, asin, options.region)
+		this.redisHelper = new RedisHelper(redis, type, asin, options.region, logger)
 		this.schema = this.setupSchema()
-		this.sharedHelper = new SharedHelper()
+		this.sharedHelper = new SharedHelper(logger)
 	}
 
 	/**
@@ -67,13 +71,13 @@ export default class GenericShowHelper {
 	 */
 	getNewData(): Promise<ApiAuthorProfile | ApiBook | ApiChapter | undefined> {
 		if (this.type === 'author') {
-			const helper = new ScrapeHelper(this.asin, this.options.region)
+			const helper = new ScrapeHelper(this.asin, this.options.region, this.logger)
 			return helper.process()
 		} else if (this.type === 'book') {
-			const helper = new StitchHelper(this.asin, this.options.region)
+			const helper = new StitchHelper(this.asin, this.options.region, this.logger)
 			return helper.process()
 		} else {
-			const helper = new ChapterHelper(this.asin, this.options.region)
+			const helper = new ChapterHelper(this.asin, this.options.region, this.logger)
 			return helper.process()
 		}
 	}
@@ -85,11 +89,11 @@ export default class GenericShowHelper {
 	 */
 	setupPaprHelper(): PaprAudibleAuthorHelper | PaprAudibleBookHelper | PaprAudibleChapterHelper {
 		if (this.type === 'author') {
-			return new PaprAudibleAuthorHelper(this.asin, this.options)
+			return new PaprAudibleAuthorHelper(this.asin, this.options, this.logger)
 		} else if (this.type === 'book') {
-			return new PaprAudibleBookHelper(this.asin, this.options)
+			return new PaprAudibleBookHelper(this.asin, this.options, this.logger)
 		} else {
-			return new PaprAudibleChapterHelper(this.asin, this.options)
+			return new PaprAudibleChapterHelper(this.asin, this.options, this.logger)
 		}
 	}
 
@@ -193,6 +197,10 @@ export default class GenericShowHelper {
 			(await this.createOrUpdateData()
 				.then((data) => data)
 				.catch((err) => {
+					// Preserve custom errors with statusCode (NotFoundError, BadRequestError)
+					if (err instanceof Error && 'statusCode' in err) {
+						throw err
+					}
 					throw new Error(err)
 				})) || dataOnError
 

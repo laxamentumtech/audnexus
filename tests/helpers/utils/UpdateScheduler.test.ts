@@ -40,7 +40,8 @@ const createMockContext = (): MockContext => {
 
 beforeEach(() => {
 	ctx = createMockContext()
-	helper = new UpdateScheduler(1, ctx.client)
+	const mockLogger = { info: jest.fn(), error: jest.fn(), debug: jest.fn() }
+	helper = new UpdateScheduler(1, ctx.client, mockLogger as never)
 })
 
 describe('UpdateScheduler should', () => {

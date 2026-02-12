@@ -1,3 +1,5 @@
+import type { FastifyBaseLogger } from 'fastify'
+
 import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
 import { ApiChapter, ApiChapterSchema, ApiQueryString } from '#config/types'
 import { isChapterDocument } from '#config/typing/checkers'
@@ -17,10 +19,12 @@ export default class PaprAudibleChapterHelper {
 	chapterData!: ApiChapter
 	options: ApiQueryString
 	sharedHelper = new SharedHelper()
+	logger?: FastifyBaseLogger
 
-	constructor(asin: string, options: ApiQueryString) {
+	constructor(asin: string, options: ApiQueryString, logger?: FastifyBaseLogger) {
 		this.asin = asin
 		this.options = options
+		this.logger = logger
 	}
 
 	/**
@@ -36,7 +40,7 @@ export default class PaprAudibleChapterHelper {
 			}
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageCreate(this.asin, 'chapter'))
 		}
 	}
@@ -57,7 +61,7 @@ export default class PaprAudibleChapterHelper {
 			}
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageDelete(this.asin, 'chapter'))
 		}
 	}
@@ -135,7 +139,7 @@ export default class PaprAudibleChapterHelper {
 				}
 			}
 			if (this.chapterData.chapters.length) {
-				console.log(NoticeUpdateAsin(this.asin, 'chapters'))
+				this.logger?.info(NoticeUpdateAsin(this.asin, 'chapters'))
 				// Update
 				return this.update()
 			}
@@ -173,7 +177,7 @@ export default class PaprAudibleChapterHelper {
 			return updatedChapter
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageUpdate(this.asin, 'chapter'))
 		}
 	}

@@ -1,4 +1,5 @@
 import type { AxiosResponse } from 'axios'
+import type { FastifyBaseLogger } from 'fastify'
 
 import type { AudibleChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
@@ -190,15 +191,15 @@ describe('ChapterHelper should throw error when', () => {
 	// 	})
 	// })
 	test('error fetching Chapter data', async () => {
-		// Mock Fetch to fail once
+		const mockLogger = { info: jest.fn() }
 		jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
 			Promise.reject({
 				status: 403
 			})
 		)
-		jest.spyOn(global.console, 'log')
+		helper = new ChapterHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		await expect(helper.fetchChapter()).resolves.toBeUndefined()
-		expect(console.log).toHaveBeenCalledWith(
+		expect(mockLogger.info).toHaveBeenCalledWith(
 			`An error occured while fetching data from chapters. Response: 403, ASIN: ${asin}`
 		)
 	})

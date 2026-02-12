@@ -117,15 +117,17 @@ describe('RedisHelper should catch error when', () => {
 		)
 	})
 	test('setExpiration rejects', async () => {
-		jest.spyOn(global.console, 'error')
+		const mockLogger = { error: jest.fn() }
+		// Create helper with mock logger
+		const helperWithLogger = new RedisHelper(ctx.client, 'book', asin, region, mockLogger as never)
 		jest
 			.spyOn(ctx.client, 'expire')
 			.mockRejectedValue(
 				new Error(`An error occurred while setting expiration for ${region}-book-${asin} in redis`)
 			)
-		await expect(helper.setExpiration()).resolves.toBeUndefined()
+		await expect(helperWithLogger.setExpiration()).resolves.toBeUndefined()
 		expect(ctx.client.expire).toHaveBeenCalledWith(`${region}-book-${asin}`, 432000)
-		expect(console.error).toHaveBeenCalledWith(
+		expect(mockLogger.error).toHaveBeenCalledWith(
 			`An error occurred while setting expiration for ${region}-book-${asin} in redis`
 		)
 	})
