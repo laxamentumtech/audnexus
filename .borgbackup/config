@@ -1,0 +1,28 @@
+# MongoDB Borg Backup Configuration
+# This file is sourced by backup scripts
+
+# MongoDB Connection Settings
+export MONGODB_HOST="dw4cwkk0kkcgwgsck8co88ss"
+export MONGODB_PORT="27017"
+export MONGODB_USER="audnexus"
+export MONGODB_PASSWORD="fNO7QokATLr5I7ah482IH9SJKxywzVwy1SFKQVqnYg9zErVlBPP67QJk8JdZsaJM"
+export MONGODB_DATABASE="audnexus"
+export MONGODB_AUTH_SOURCE="admin"
+export CONTAINER_NAME="dw4cwkk0kkcgwgsck8co88ss"
+
+# Backup Settings
+export BACKUP_DIR="/mnt/backups/borg/mongodb"
+export RETENTION_DAYS="30"
+
+# Borg Settings
+export BORG_REPO="/mnt/backups/borg/mongodb"
+export BORG_ARCHIVE_PREFIX="mongodb"
+export BORG_RETENTION_DAILY="7"
+export BORG_RETENTION_WEEKLY="4"
+export BORG_RETENTION_MONTHLY="12"
+
+# Borg Encryption (optional - set your own passphrase)
+# export BORG_PASSPHRASE="your-secure-passphrase-here"
+
+# Logging
+export LOG_FILE="/var/log/borg-backup.log"
