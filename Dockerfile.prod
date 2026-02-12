@@ -18,6 +18,9 @@ RUN pnpm install --frozen-lockfile \
 # Stage 2: Production
 FROM node:lts-alpine AS prod
 
+# Install curl for healthcheck
+RUN apk add --no-cache curl
+
 WORKDIR /app
 
 # Copy built files from build stage
