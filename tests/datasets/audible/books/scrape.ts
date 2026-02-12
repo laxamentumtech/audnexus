@@ -53,7 +53,7 @@ export const mockHtmlB08G9PRS1K = `
 <body>
 	<ul>
 		<li class="categoriesLabel">
-			<a href="/cat/Science-Fiction-Fantasy-Audiobooks/18580606011">Science Fiction & Fantasy</a>
+			<a href="/tag/Science-Fiction-Fantasy-Audiobooks/18580606011">Science Fiction & Fantasy</a>
 		</li>
 	</ul>
 	<div class="bc-chip-group">
@@ -70,7 +70,7 @@ export const mockHtmlB017V4IM1G = `
 <body>
 	<ul>
 		<li class="categoriesLabel">
-			<a href="/cat/Childrens-Audiobooks/18572091011">Children's Audiobooks</a>
+			<a href="/tag/Childrens-Audiobooks/18572091011">Children's Audiobooks</a>
 		</li>
 	</ul>
 	<div class="bc-chip-group">
@@ -85,7 +85,7 @@ export const mockHtmlB08C6YJ1LS = `
 <body>
 	<ul>
 		<li class="categoriesLabel">
-			<a href="/cat/Mystery-Thriller-Suspense-Audiobooks/18574597011">Mystery, Thriller & Suspense</a>
+			<a href="/tag/Mystery-Thriller-Suspense-Audiobooks/18574597011">Mystery, Thriller & Suspense</a>
 		</li>
 	</ul>
 	<div class="bc-chip-group">

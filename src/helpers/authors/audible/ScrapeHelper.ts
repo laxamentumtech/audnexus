@@ -2,7 +2,7 @@ import * as cheerio from 'cheerio'
 import type { FastifyBaseLogger } from 'fastify'
 import { htmlToText } from 'html-to-text'
 
-import { ApiAuthorOnBook, ApiAuthorProfile, ApiAuthorProfileSchema } from '#config/types'
+import { ApiAuthorOnBook, ApiAuthorProfile, ApiAuthorProfileSchema, ApiGenre } from '#config/types'
 import { NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
@@ -136,12 +136,8 @@ class ScrapeHelper {
 
 		// Description
 		const description = cleanupDescription(this.getDescription(dom))
-		// Genres
-		const genres = this.helper.collectGenres(
-			this.asin,
-			this.helper.getGenresFromHtml(dom, 'div.contentPositionClass div.bc-box a.bc-color-link'),
-			'genre'
-		)
+		// Genres - Author pages do not have genres (genres are per-book, not per-author)
+		const genres: ApiGenre[] = []
 		// Image
 		const image = this.getImage(dom)
 		// Name
