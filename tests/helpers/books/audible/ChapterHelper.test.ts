@@ -207,53 +207,23 @@ describe('ChapterHelper should throw error when', () => {
 		)
 	})
 
-	test('content type is invalid (Podcast)', () => {
-		expect(() => helper.validateContentType('Podcast')).toThrow(ContentTypeMismatchError)
-		expect(() => helper.validateContentType('Podcast')).toThrow(
-			`Item type is 'Podcast', expected 'book'. ASIN: ${asin}`
+	test.each([
+		['Podcast', 'Podcast'],
+		[undefined, 'unknown'],
+		['AudibleOriginal', 'AudibleOriginal']
+	])('content type is invalid (%s)', (actualType, expectedActualType) => {
+		expect(() => helper.validateContentType(actualType)).toThrow(ContentTypeMismatchError)
+		expect(() => helper.validateContentType(actualType)).toThrow(
+			`Item is a ${expectedActualType}, not a book. ASIN: ${asin}`
 		)
 		try {
-			helper.validateContentType('Podcast')
+			helper.validateContentType(actualType)
 		} catch (error) {
 			expect(error).toBeInstanceOf(ContentTypeMismatchError)
 			expect((error as ContentTypeMismatchError).details).toEqual({
 				asin: asin,
 				requestedType: 'book',
-				actualType: 'Podcast'
-			})
-		}
-	})
-
-	test('content type is undefined', () => {
-		expect(() => helper.validateContentType(undefined)).toThrow(ContentTypeMismatchError)
-		expect(() => helper.validateContentType(undefined)).toThrow(
-			`Item type is 'unknown', expected 'book'. ASIN: ${asin}`
-		)
-		try {
-			helper.validateContentType(undefined)
-		} catch (error) {
-			expect(error).toBeInstanceOf(ContentTypeMismatchError)
-			expect((error as ContentTypeMismatchError).details).toEqual({
-				asin: asin,
-				requestedType: 'book',
-				actualType: 'unknown'
-			})
-		}
-	})
-
-	test('content type is invalid (AudibleOriginal)', () => {
-		expect(() => helper.validateContentType('AudibleOriginal')).toThrow(ContentTypeMismatchError)
-		expect(() => helper.validateContentType('AudibleOriginal')).toThrow(
-			`Item type is 'AudibleOriginal', expected 'book'. ASIN: ${asin}`
-		)
-		try {
-			helper.validateContentType('AudibleOriginal')
-		} catch (error) {
-			expect(error).toBeInstanceOf(ContentTypeMismatchError)
-			expect((error as ContentTypeMismatchError).details).toEqual({
-				asin: asin,
-				requestedType: 'book',
-				actualType: 'AudibleOriginal'
+				actualType: expectedActualType
 			})
 		}
 	})

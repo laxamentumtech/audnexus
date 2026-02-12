@@ -107,6 +107,7 @@ All errors follow this structure. The `details` field is optional and may be omi
 | `REGION_UNAVAILABLE`    | 404         | Content not available in the requested region                                             |
 | `NOT_FOUND`             | 404         | Generic not found error                                                                   |
 | `BAD_REQUEST`           | 400         | Bad request                                                                               |
+| `RATE_LIMIT_EXCEEDED`   | 429         | Too many requests — client has exceeded allowed request rate                              |
 
 ### Example Error Responses
 

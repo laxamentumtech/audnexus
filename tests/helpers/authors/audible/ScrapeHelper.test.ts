@@ -183,12 +183,9 @@ describe('ScrapeHelper should throw error when', () => {
 			'<body><button data-testid="buy-button">Buy</button>'
 		)
 		const dom = cheerio.load(bookPageHtml)
-		await expect(helper.parseResponse(dom)).rejects.toThrow(ContentTypeMismatchError)
-		await expect(helper.parseResponse(dom)).rejects.toThrow(
-			ErrorMessageContentTypeMismatch(asin, 'book', 'author')
-		)
 		try {
 			await helper.parseResponse(dom)
+			fail('Expected ContentTypeMismatchError to be thrown')
 		} catch (error) {
 			expect(error).toBeInstanceOf(ContentTypeMismatchError)
 			expect((error as ContentTypeMismatchError).details).toEqual({
@@ -196,6 +193,9 @@ describe('ScrapeHelper should throw error when', () => {
 				requestedType: 'author',
 				actualType: 'book'
 			})
+			expect((error as ContentTypeMismatchError).message).toBe(
+				ErrorMessageContentTypeMismatch(asin, 'book', 'author')
+			)
 		}
 	})
 
