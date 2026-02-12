@@ -201,7 +201,12 @@ export default class GenericShowHelper {
 					if (err instanceof Error && 'statusCode' in err) {
 						throw err
 					}
-					throw new Error(err)
+					// If err is already an Error instance, rethrow it as-is
+					if (err instanceof Error) {
+						throw err
+					}
+					// Otherwise wrap with string conversion
+					throw new Error(String(err))
 				})) || dataOnError
 
 		// 3. Return the data

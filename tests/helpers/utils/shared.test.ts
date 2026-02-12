@@ -24,6 +24,10 @@ beforeAll(() => {
 })
 
 describe('SharedHelper should', () => {
+	afterEach(() => {
+		jest.restoreAllMocks()
+	})
+
 	test('build a URL', () => {
 		const baseDomain = 'https://api.audible'
 		const baseUrl = '1.0/catalog/products'
@@ -135,9 +139,6 @@ describe('SharedHelper should', () => {
 
 		expect(mockWarn).toHaveBeenCalledWith(mockError)
 		expect(mockWarn).toHaveBeenCalledTimes(2) // Two genres in the HTML
-
-		// Restore the original implementation
-		jest.restoreAllMocks()
 	})
 
 	test('collectGenres logs info when genre has no href', () => {
