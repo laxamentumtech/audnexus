@@ -20,7 +20,7 @@ import health from '#config/routes/health'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
 // Heroku or local port
-const host = '0.0.0.0'
+const host = process.env.HOST || '0.0.0.0'
 const port = Number(process.env.PORT) || 3000
 const server = fastify({
 	logger: {
