@@ -1,7 +1,7 @@
 import { ApiBook, ApiChapter } from '#config/types'
-import { NotFoundError } from '#helpers/errors/ApiErrors'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
+import { NotFoundError } from '#helpers/errors/ApiErrors'
 import { minimalB0036I54I6 } from '#tests/datasets/audible/books/api'
 import {
 	chapterResponseB08C6YJ1LS,
@@ -46,7 +46,7 @@ describe('Audible API and HTML Parsing', () => {
 			try {
 				const chapterData = await chapterHelper.process()
 				chapters = chapterData
-			} catch (e) {
+			} catch {
 				// Expected error without valid API credentials
 				chapters = undefined
 			}
@@ -74,7 +74,7 @@ describe('Audible API and HTML Parsing', () => {
 			try {
 				const chapterData = await chapterHelper.process()
 				chapters = chapterData
-			} catch (e) {
+			} catch {
 				// Expected error without valid API credentials
 				chapters = undefined
 			}

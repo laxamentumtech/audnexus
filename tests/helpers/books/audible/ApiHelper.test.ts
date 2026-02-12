@@ -20,8 +20,7 @@ import {
 	B017V4IM1G,
 	bookWithoutContentDeliveryType,
 	podcast,
-	podcastWithoutProgramParticipation,
-	setupMinimalParsed
+	podcastWithoutProgramParticipation
 } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
 
