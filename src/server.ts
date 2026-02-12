@@ -4,10 +4,18 @@ import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
 import schedule from '@fastify/schedule'
 import { fastify } from 'fastify'
+import { MongoClient } from 'mongodb'
 
 import 'module-alias/register'
 
 import { Context, createDefaultContext } from '#config/context'
+
+// Extend FastifyInstance to include mongoClient for health check
+declare module 'fastify' {
+	interface FastifyInstance {
+		mongoClient?: MongoClient
+	}
+}
 import { initialize } from '#config/papr'
 import deleteAuthor from '#config/routes/authors/delete'
 import searchAuthor from '#config/routes/authors/search/show'
@@ -121,6 +129,7 @@ async function startServer() {
 		initialize({ client: await ctx.client.connect() })
 			.then(() => {
 				console.log(`Connected to DB`)
+				server.mongoClient = ctx.client
 			})
 			.catch((err) => {
 				console.error(err)
