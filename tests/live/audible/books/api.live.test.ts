@@ -197,7 +197,7 @@ describe('Audible API Live Tests', () => {
 		}, 30000)
 
 		it('should detect when content is not available in region', async () => {
-			const helper = new ApiHelper('B0036I54I6', 'us')
+			const helper = new ApiHelper('B07V2K2N5L', 'us')
 			const fetched = await helper.fetchBook()
 			await expect(helper.parseResponse(fetched)).rejects.toBeDefined()
 		}, 30000)
