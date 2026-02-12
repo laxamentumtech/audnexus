@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio'
 import { ApiBook, AudibleProduct } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
+import { BadRequestError, NotFoundError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageHTTPFetch, ErrorMessageParse } from '#static/messages'
@@ -213,5 +214,65 @@ describe('StitchHelper should throw error when', () => {
 		await expect(helper.includeGenres()).rejects.toThrow(
 			`An error occurred while sorting book json: ${asin}`
 		)
+	})
+
+	test('fetchApiBook rethrows NotFoundError without wrapping', async () => {
+		const notFoundError = new NotFoundError('Not found')
+		jest.spyOn(helper.apiHelper, 'fetchBook').mockRejectedValue(notFoundError)
+		await expect(helper.fetchApiBook()).rejects.toBe(notFoundError)
+		expect(notFoundError.statusCode).toBe(404)
+	})
+
+	test('fetchApiBook rethrows BadRequestError without wrapping', async () => {
+		const badRequestError = new BadRequestError('Bad request')
+		jest.spyOn(helper.apiHelper, 'fetchBook').mockRejectedValue(badRequestError)
+		await expect(helper.fetchApiBook()).rejects.toBe(badRequestError)
+		expect(badRequestError.statusCode).toBe(400)
+	})
+
+	test('fetchScraperBook rethrows NotFoundError without wrapping', async () => {
+		const notFoundError = new NotFoundError('Not found')
+		jest.spyOn(helper.scrapeHelper, 'fetchBook').mockRejectedValue(notFoundError)
+		await expect(helper.fetchScraperBook()).rejects.toBe(notFoundError)
+		expect(notFoundError.statusCode).toBe(404)
+	})
+
+	test('fetchScraperBook rethrows BadRequestError without wrapping', async () => {
+		const badRequestError = new BadRequestError('Bad request')
+		jest.spyOn(helper.scrapeHelper, 'fetchBook').mockRejectedValue(badRequestError)
+		await expect(helper.fetchScraperBook()).rejects.toBe(badRequestError)
+		expect(badRequestError.statusCode).toBe(400)
+	})
+
+	test('parseApiResponse rethrows NotFoundError without wrapping', async () => {
+		helper.apiResponse = mockApiResponse
+		const notFoundError = new NotFoundError('Not found')
+		jest.spyOn(helper.apiHelper, 'parseResponse').mockRejectedValue(notFoundError)
+		await expect(helper.parseApiResponse()).rejects.toBe(notFoundError)
+		expect(notFoundError.statusCode).toBe(404)
+	})
+
+	test('parseApiResponse rethrows BadRequestError without wrapping', async () => {
+		helper.apiResponse = mockApiResponse
+		const badRequestError = new BadRequestError('Bad request')
+		jest.spyOn(helper.apiHelper, 'parseResponse').mockRejectedValue(badRequestError)
+		await expect(helper.parseApiResponse()).rejects.toBe(badRequestError)
+		expect(badRequestError.statusCode).toBe(400)
+	})
+
+	test('parseScraperResponse rethrows NotFoundError without wrapping', async () => {
+		helper.scraperResponse = mockHTMLResponse
+		const notFoundError = new NotFoundError('Not found')
+		jest.spyOn(helper.scrapeHelper, 'parseResponse').mockRejectedValue(notFoundError)
+		await expect(helper.parseScraperResponse()).rejects.toBe(notFoundError)
+		expect(notFoundError.statusCode).toBe(404)
+	})
+
+	test('parseScraperResponse rethrows BadRequestError without wrapping', async () => {
+		helper.scraperResponse = mockHTMLResponse
+		const badRequestError = new BadRequestError('Bad request')
+		jest.spyOn(helper.scrapeHelper, 'parseResponse').mockRejectedValue(badRequestError)
+		await expect(helper.parseScraperResponse()).rejects.toBe(badRequestError)
+		expect(badRequestError.statusCode).toBe(400)
 	})
 })

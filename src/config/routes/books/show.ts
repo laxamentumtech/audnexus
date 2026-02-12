@@ -17,7 +17,7 @@ async function _show(fastify: FastifyInstance) {
 
 		// Setup Helper
 		const { redis } = fastify
-		const helper = new BookShowHelper(asin, handler.options, redis)
+		const helper = new BookShowHelper(asin, handler.options, redis, request.log)
 
 		// Call helper handler
 		return helper.handler()

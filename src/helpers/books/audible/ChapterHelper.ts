@@ -1,3 +1,4 @@
+import type { FastifyBaseLogger } from 'fastify'
 import jsrsasign from 'jsrsasign'
 import moment from 'moment'
 
@@ -26,10 +27,12 @@ class ChapterHelper {
 	privateKey: string
 	region: string
 	requestUrl: string
+	logger?: FastifyBaseLogger
 
-	constructor(asin: string, region: string) {
+	constructor(asin: string, region: string, logger?: FastifyBaseLogger) {
 		this.asin = asin
 		this.region = region
+		this.logger = logger
 		const helper = new SharedHelper()
 		const baseDomain = 'https://api.audible'
 		const regionTLD = regions[region].tld
@@ -125,7 +128,7 @@ class ChapterHelper {
 				return json
 			})
 			.catch((error) => {
-				console.log(ErrorMessageHTTPFetch(this.asin, error.status, 'chapters'))
+				this.logger?.error(ErrorMessageHTTPFetch(this.asin, error.status, 'chapters'))
 				return undefined
 			})
 	}

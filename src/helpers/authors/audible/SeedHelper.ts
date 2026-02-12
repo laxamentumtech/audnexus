@@ -1,12 +1,16 @@
+import type { FastifyBaseLogger } from 'fastify'
+
 import { ApiBook } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 
 class SeedHelper {
 	book: ApiBook
+	logger?: FastifyBaseLogger
 
-	constructor(book: ApiBook) {
+	constructor(book: ApiBook, logger?: FastifyBaseLogger) {
 		this.book = book
+		this.logger = logger
 	}
 
 	/**
@@ -31,7 +35,7 @@ class SeedHelper {
 			)
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 		}
 	}
 }

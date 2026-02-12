@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio'
+import type { FastifyBaseLogger } from 'fastify'
 
 import { HtmlBook, HtmlBookSchema } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
@@ -10,9 +11,11 @@ class ScrapeHelper {
 	asin: string
 	helper: SharedHelper
 	reqUrl: string
-	constructor(asin: string, region: string) {
+	logger?: FastifyBaseLogger
+	constructor(asin: string, region: string, logger?: FastifyBaseLogger) {
 		this.asin = asin
-		this.helper = new SharedHelper()
+		this.logger = logger
+		this.helper = new SharedHelper(logger)
 		const baseDomain = 'https://www.audible'
 		const regionTLD = regions[region].tld
 		const baseUrl = 'pd'
@@ -32,7 +35,7 @@ class ScrapeHelper {
 			.catch((error) => {
 				const message = ErrorMessageHTTPFetch(this.asin, error.status, 'HTML')
 				if (error.status !== 404) {
-					console.log(message)
+					this.logger?.info(message)
 				}
 				return undefined
 			})
