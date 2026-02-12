@@ -236,7 +236,11 @@ export default class GenericShowHelper {
 				// Try to update the data, if it fails, throw an error
 				try {
 					return await this.updateActions()
-				} catch {
+				} catch (err) {
+					// Preserve custom errors with statusCode (NotFoundError, BadRequestError)
+					if (err instanceof Error && 'statusCode' in err) {
+						throw err
+					}
 					throw new Error(ErrorMessageUpdate(this.asin, this.type))
 				}
 			}
