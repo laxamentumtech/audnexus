@@ -1,4 +1,5 @@
 import { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
 
 import { BookDocument } from '#config/models/Book'
 import { ApiQueryString } from '#config/types'
@@ -10,10 +11,15 @@ export default class BookDeleteHelper {
 	paprHelper: PaprAudibleBookHelper
 	redisHelper: RedisHelper
 	originalBook: BookDocument | null = null
-	constructor(asin: string, options: ApiQueryString, redis: FastifyRedis | null) {
+	constructor(
+		asin: string,
+		options: ApiQueryString,
+		redis: FastifyRedis | null,
+		logger?: FastifyBaseLogger
+	) {
 		this.asin = asin
-		this.paprHelper = new PaprAudibleBookHelper(this.asin, options)
-		this.redisHelper = new RedisHelper(redis, 'book', this.asin, options.region)
+		this.paprHelper = new PaprAudibleBookHelper(this.asin, options, logger)
+		this.redisHelper = new RedisHelper(redis, 'book', this.asin, options.region, logger)
 	}
 
 	async getBookFromPapr(): Promise<BookDocument | null> {

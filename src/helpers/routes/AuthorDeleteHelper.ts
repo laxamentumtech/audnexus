@@ -1,4 +1,5 @@
 import { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
 
 import { AuthorDocument } from '#config/models/Author'
 import { ApiQueryString } from '#config/types'
@@ -10,10 +11,15 @@ export default class AuthorDeleteHelper {
 	paprHelper: PaprAudibleAuthorHelper
 	redisHelper: RedisHelper
 	originalAuthor: AuthorDocument | null = null
-	constructor(asin: string, options: ApiQueryString, redis: FastifyRedis | null) {
+	constructor(
+		asin: string,
+		options: ApiQueryString,
+		redis: FastifyRedis | null,
+		logger?: FastifyBaseLogger
+	) {
 		this.asin = asin
-		this.paprHelper = new PaprAudibleAuthorHelper(this.asin, options)
-		this.redisHelper = new RedisHelper(redis, 'author', this.asin, options.region)
+		this.paprHelper = new PaprAudibleAuthorHelper(this.asin, options, logger)
+		this.redisHelper = new RedisHelper(redis, 'author', this.asin, options.region, logger)
 	}
 
 	async getAuthorFromPapr(): Promise<AuthorDocument | null> {

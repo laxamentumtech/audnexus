@@ -1,7 +1,9 @@
 import * as cheerio from 'cheerio'
+import type { FastifyBaseLogger } from 'fastify'
 import { htmlToText } from 'html-to-text'
 
 import { ApiAuthorOnBook, ApiAuthorProfile, ApiAuthorProfileSchema } from '#config/types'
+import { NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
@@ -18,10 +20,12 @@ class ScrapeHelper {
 	helper: SharedHelper
 	reqUrl: string
 	region: string
-	constructor(asin: string, region: string) {
+	logger?: FastifyBaseLogger
+	constructor(asin: string, region: string, logger?: FastifyBaseLogger) {
 		this.asin = asin
 		this.region = region
-		this.helper = new SharedHelper()
+		this.logger = logger
+		this.helper = new SharedHelper(logger)
 		const baseDomain = 'https://www.audible'
 		const regionTLD = regions[region].tld
 		const baseUrl = 'author'
@@ -72,12 +76,12 @@ class ScrapeHelper {
 				.text()
 			name = html.trim()
 		} catch {
-			throw new Error(ErrorMessageNotFound(this.asin, 'author name'))
+			throw new NotFoundError(ErrorMessageNotFound(this.asin, 'author name'))
 		}
 
 		// Method might retrieve header text instead of valid author
 		if (name === 'Showing titles\n in All Categories') {
-			throw new Error(ErrorMessageRegion(this.asin, this.region))
+			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region))
 		}
 		return name
 	}
@@ -161,7 +165,7 @@ class ScrapeHelper {
 		// Handle error if response is not valid
 		if (!response.success) {
 			// If the key is content_delivery_type, then the item is not available in the region
-			throw new Error(ErrorMessageRegion(this.asin, this.region))
+			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region))
 		}
 
 		// Return the parsed response data if it is valid

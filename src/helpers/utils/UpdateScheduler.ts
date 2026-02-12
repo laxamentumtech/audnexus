@@ -1,4 +1,5 @@
 import { FastifyRedis } from '@fastify/redis'
+import { FastifyBaseLogger } from 'fastify'
 import { AsyncTask, LongIntervalJob } from 'toad-scheduler'
 
 import AuthorModel from '#config/models/Author'
@@ -16,9 +17,11 @@ const randomWait = () => waitFor(Math.floor(Math.random() * 5000))
 class UpdateScheduler {
 	interval: number
 	redis: FastifyRedis
-	constructor(interval: number, redis: FastifyRedis) {
+	logger: FastifyBaseLogger
+	constructor(interval: number, redis: FastifyRedis, logger: FastifyBaseLogger) {
 		this.interval = interval
 		this.redis = redis
+		this.logger = logger
 	}
 
 	getAllAuthorAsins = async () => {
@@ -44,7 +47,7 @@ class UpdateScheduler {
 
 	updateAuthors() {
 		return this.getAllAuthorAsins().then(async (authors) => {
-			console.debug(NoticeUpdateScheduled('Authors'))
+			this.logger.debug(NoticeUpdateScheduled('Authors'))
 			for await (const author of authors) {
 				try {
 					const helper = new AuthorShowHelper(
@@ -55,7 +58,7 @@ class UpdateScheduler {
 					await helper.handler()
 					await randomWait()
 				} catch (error) {
-					console.error(error)
+					this.logger.error(error)
 				}
 			}
 		})
@@ -63,7 +66,7 @@ class UpdateScheduler {
 
 	updateBooks() {
 		return this.getAllBookAsins().then(async (books) => {
-			console.debug(NoticeUpdateScheduled('Books'))
+			this.logger.debug(NoticeUpdateScheduled('Books'))
 			for await (const book of books) {
 				try {
 					const helper = new BookShowHelper(
@@ -74,7 +77,7 @@ class UpdateScheduler {
 					await helper.handler()
 					await randomWait()
 				} catch (error) {
-					console.error(error)
+					this.logger.error(error)
 				}
 			}
 		})
@@ -82,7 +85,7 @@ class UpdateScheduler {
 
 	updateChapters() {
 		return this.getAllChapterAsins().then(async (chapters) => {
-			console.debug(NoticeUpdateScheduled('Chapters'))
+			this.logger.debug(NoticeUpdateScheduled('Chapters'))
 			for await (const chapter of chapters) {
 				try {
 					const helper = new ChapterShowHelper(
@@ -93,7 +96,7 @@ class UpdateScheduler {
 					await helper.handler()
 					await randomWait()
 				} catch (error) {
-					console.error(error)
+					this.logger.error(error)
 				}
 			}
 		})
@@ -114,7 +117,7 @@ class UpdateScheduler {
 				return this.updateAll().then((res) => res)
 			},
 			(err) => {
-				console.error(err)
+				this.logger.error(err)
 			}
 		)
 	}

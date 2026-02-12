@@ -1,3 +1,5 @@
+import type { FastifyBaseLogger } from 'fastify'
+
 import BookModel, { BookDocument } from '#config/models/Book'
 import { ApiBook, ApiBookSchema, ApiQueryString } from '#config/types'
 import { isBookDocument } from '#config/typing/checkers'
@@ -17,10 +19,12 @@ export default class PaprAudibleBookHelper {
 	bookData!: ApiBook
 	options: ApiQueryString
 	sharedHelper = new SharedHelper()
+	logger?: FastifyBaseLogger
 
-	constructor(asin: string, options: ApiQueryString) {
+	constructor(asin: string, options: ApiQueryString, logger?: FastifyBaseLogger) {
 		this.asin = asin
 		this.options = options
+		this.logger = logger
 	}
 
 	/**
@@ -36,7 +40,7 @@ export default class PaprAudibleBookHelper {
 			}
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageCreate(this.asin, 'book'))
 		}
 	}
@@ -57,7 +61,7 @@ export default class PaprAudibleBookHelper {
 			}
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageDelete(this.asin, 'book'))
 		}
 	}
@@ -140,7 +144,7 @@ export default class PaprAudibleBookHelper {
 			if (data.genres || (!data.genres && this.bookData.genres)) {
 				// Only update if it's not nuked data
 				if (this.bookData.genres?.length) {
-					console.log(NoticeUpdateAsin(this.asin, 'book'))
+					this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
 					// Update
 					return this.update()
 				}
@@ -182,7 +186,7 @@ export default class PaprAudibleBookHelper {
 			return updatedBook
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageUpdate(this.asin, 'book'))
 		}
 	}

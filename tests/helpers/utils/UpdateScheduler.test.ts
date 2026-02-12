@@ -6,6 +6,7 @@ jest.mock('#helpers/routes/AuthorShowHelper')
 jest.mock('#helpers/routes/BookShowHelper')
 jest.mock('#helpers/routes/ChapterShowHelper')
 import type { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 import { AsyncTask, LongIntervalJob } from 'toad-scheduler'
 
@@ -40,7 +41,8 @@ const createMockContext = (): MockContext => {
 
 beforeEach(() => {
 	ctx = createMockContext()
-	helper = new UpdateScheduler(1, ctx.client)
+	const mockLogger = mockDeep<FastifyBaseLogger>()
+	helper = new UpdateScheduler(1, ctx.client, mockLogger)
 })
 
 describe('UpdateScheduler should', () => {

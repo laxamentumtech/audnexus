@@ -1,3 +1,4 @@
+import type { FastifyBaseLogger } from 'fastify'
 import { htmlToText } from 'html-to-text'
 
 import {
@@ -19,6 +20,7 @@ import {
 	FallbackAudibleProduct,
 	fallbackShape
 } from '#config/types'
+import { NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
@@ -38,9 +40,11 @@ class ApiHelper {
 	audibleResponse: AudibleProduct['product'] | FallbackAudibleProduct | undefined
 	region: string
 	requestUrl: string
-	constructor(asin: string, region: string) {
+	logger?: FastifyBaseLogger
+	constructor(asin: string, region: string, logger?: FastifyBaseLogger) {
 		this.asin = asin
 		this.region = region
+		this.logger = logger
 		const helper = new SharedHelper()
 		const baseDomain = 'https://api.audible'
 		const regionTLD = regions[region].tld
@@ -389,7 +393,7 @@ class ApiHelper {
 			const baseResult = baseShape.safeParse(product)
 			if (baseResult.success) {
 				// Log unknown type for future analysis
-				console.warn(
+				this.logger?.warn(
 					`[AUDIBLE API] Unknown content_delivery_type: ${contentType} for ASIN ${this.asin}`
 				)
 				// Set the discriminant for the fallback type
@@ -400,7 +404,7 @@ class ApiHelper {
 				return this.getFinalData()
 			}
 			// baseShape also failed - likely truly unavailable in region
-			throw new Error(ErrorMessageRegion(this.asin, this.region))
+			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region))
 		}
 
 		// Parse response with zod for known content_delivery_type values
