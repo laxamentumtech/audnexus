@@ -128,7 +128,7 @@ class ChapterHelper {
 				return json
 			})
 			.catch((error) => {
-				this.logger?.info(ErrorMessageHTTPFetch(this.asin, error.status, 'chapters'))
+				this.logger?.error(ErrorMessageHTTPFetch(this.asin, error.status, 'chapters'))
 				return undefined
 			})
 	}

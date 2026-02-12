@@ -191,7 +191,7 @@ describe('ChapterHelper should throw error when', () => {
 	// 	})
 	// })
 	test('error fetching Chapter data', async () => {
-		const mockLogger = { info: jest.fn() }
+		const mockLogger = { error: jest.fn() }
 		jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
 			Promise.reject({
 				status: 403
@@ -199,7 +199,7 @@ describe('ChapterHelper should throw error when', () => {
 		)
 		helper = new ChapterHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		await expect(helper.fetchChapter()).resolves.toBeUndefined()
-		expect(mockLogger.info).toHaveBeenCalledWith(
+		expect(mockLogger.error).toHaveBeenCalledWith(
 			`An error occured while fetching data from chapters. Response: 403, ASIN: ${asin}`
 		)
 	})
