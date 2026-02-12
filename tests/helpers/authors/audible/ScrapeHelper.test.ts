@@ -11,8 +11,7 @@ import { regions } from '#static/regions'
 import { htmlResponseMinified, htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
 import {
 	cleanupDescription,
-	genres,
-	parsedAuthor,
+	parsedAuthorWithoutGenres,
 	similarUnsorted
 } from '#tests/datasets/helpers/authors'
 
@@ -36,7 +35,6 @@ beforeEach(() => {
 	url = `https://www.audible.com/author/${asin}/`
 	// Set up spys
 	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
-	jest.spyOn(SharedHelper.prototype, 'collectGenres').mockReturnValue(genres)
 	jest.spyOn(SharedHelper.prototype, 'getAsinFromUrl').mockImplementation((url: string) => {
 		return url.match(baseAsin10Regex)?.[0]
 	})
@@ -65,8 +63,9 @@ describe('ScrapeHelper should', () => {
 	test('parse response', async () => {
 		const author = await helper.fetchAuthor()
 		await expect(helper.parseResponse(author)).resolves.toEqual({
-			...parsedAuthor,
-			description: cleanupDescription
+			...parsedAuthorWithoutGenres,
+			description: cleanupDescription,
+			genres: []
 		})
 	})
 
@@ -76,24 +75,25 @@ describe('ScrapeHelper should', () => {
 
 	test('process author', async () => {
 		await expect(helper.process()).resolves.toEqual({
-			...parsedAuthor,
-			description: cleanupDescription
+			...parsedAuthorWithoutGenres,
+			description: cleanupDescription,
+			genres: []
 		})
 	})
 
 	test('return description', () => {
 		const description = helper.getDescription(cheerioHtml)
-		expect(description).toEqual(parsedAuthor.description)
+		expect(description).toEqual(parsedAuthorWithoutGenres.description)
 	})
 
 	test('return image', () => {
 		const image = helper.getImage(cheerioHtml)
-		expect(image).toEqual(parsedAuthor.image)
+		expect(image).toEqual(parsedAuthorWithoutGenres.image)
 	})
 
 	test('return name', () => {
 		const name = helper.getName(cheerioHtml)
-		expect(name).toEqual(parsedAuthor.name)
+		expect(name).toEqual(parsedAuthorWithoutGenres.name)
 	})
 
 	test('throw NotFoundError when dom throws for getName', () => {
@@ -116,7 +116,7 @@ describe('ScrapeHelper should', () => {
 	test('return sorted similar', () => {
 		const similar = helper.getSimilarAuthors(cheerioHtml)
 		const sorted = helper.sortSimilarAuthors(similar)
-		expect(sorted).toEqual(parsedAuthor.similar)
+		expect(sorted).toEqual(parsedAuthorWithoutGenres.similar)
 	})
 
 	test('return sorted similar when no similar authors', () => {
