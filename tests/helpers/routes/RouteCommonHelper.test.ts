@@ -78,11 +78,7 @@ describe('RouteCommonHelper should throw an error', () => {
 	})
 	test('BadRequestError has statusCode 400', () => {
 		helper = new RouteCommonHelper('12345678910', query, ctx.client)
-		try {
-			helper.runValidations()
-		} catch (err) {
-			expect(err).toBeInstanceOf(BadRequestError)
-			expect((err as BadRequestError).statusCode).toBe(400)
-		}
+		expect(() => helper.runValidations()).toThrow(BadRequestError)
+		expect(() => helper.runValidations()).toThrow(expect.objectContaining({ statusCode: 400 }))
 	})
 })

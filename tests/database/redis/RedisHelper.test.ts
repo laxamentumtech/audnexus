@@ -1,5 +1,6 @@
 jest.mock('@fastify/redis')
 import type { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import RedisHelper from '#helpers/database/redis/RedisHelper'
@@ -117,9 +118,9 @@ describe('RedisHelper should catch error when', () => {
 		)
 	})
 	test('setExpiration rejects', async () => {
-		const mockLogger = { error: jest.fn() }
+		const mockLogger = mockDeep<FastifyBaseLogger>()
 		// Create helper with mock logger
-		const helperWithLogger = new RedisHelper(ctx.client, 'book', asin, region, mockLogger as never)
+		const helperWithLogger = new RedisHelper(ctx.client, 'book', asin, region, mockLogger)
 		jest
 			.spyOn(ctx.client, 'expire')
 			.mockRejectedValue(

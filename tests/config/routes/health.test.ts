@@ -21,6 +21,16 @@ describe('health route should', () => {
 	let mockMongoClient: MongoClient
 	let originalMongoUri: string | undefined
 
+	// Shared mock request factory
+	const createMockRequest = () => ({
+		log: {
+			error: jest.fn(),
+			info: jest.fn(),
+			debug: jest.fn(),
+			warn: jest.fn()
+		}
+	})
+
 	beforeEach(() => {
 		// Save original MONGODB_URI to prevent environment variable leaks
 		originalMongoUri = process.env.MONGODB_URI
@@ -74,14 +84,7 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {
-			log: {
-				error: jest.fn(),
-				info: jest.fn(),
-				debug: jest.fn(),
-				warn: jest.fn()
-			}
-		}
+		const mockRequest = createMockRequest()
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -120,14 +123,7 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {
-			log: {
-				error: jest.fn(),
-				info: jest.fn(),
-				debug: jest.fn(),
-				warn: jest.fn()
-			}
-		}
+		const mockRequest = createMockRequest()
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -164,14 +160,7 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {
-			log: {
-				error: jest.fn(),
-				info: jest.fn(),
-				debug: jest.fn(),
-				warn: jest.fn()
-			}
-		}
+		const mockRequest = createMockRequest()
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -210,14 +199,7 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {
-			log: {
-				error: jest.fn(),
-				info: jest.fn(),
-				debug: jest.fn(),
-				warn: jest.fn()
-			}
-		}
+		const mockRequest = createMockRequest()
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -252,14 +234,7 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {
-			log: {
-				error: jest.fn(),
-				info: jest.fn(),
-				debug: jest.fn(),
-				warn: jest.fn()
-			}
-		}
+		const mockRequest = createMockRequest()
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
 			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
@@ -294,14 +269,7 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {
-			log: {
-				error: jest.fn(),
-				info: jest.fn(),
-				debug: jest.fn(),
-				warn: jest.fn()
-			}
-		}
+		const mockRequest = createMockRequest()
 		let capturedData: HealthCheckResponse | null = null
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
@@ -346,14 +314,7 @@ describe('health route should', () => {
 		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
 		// Create mock request and reply
-		const mockRequest = {
-			log: {
-				error: jest.fn(),
-				info: jest.fn(),
-				debug: jest.fn(),
-				warn: jest.fn()
-			}
-		}
+		const mockRequest = createMockRequest()
 		let capturedData: HealthCheckResponse | null = null
 		const mockReply = {
 			status: jest.fn().mockReturnThis(),
