@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AxiosResponse } from 'axios'
+import type { FastifyBaseLogger } from 'fastify'
 
 import {
 	AudibleCategory,
@@ -9,6 +10,7 @@ import {
 	fallbackShape
 } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
+import { NotFoundError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
@@ -344,23 +346,16 @@ describe('ApiHelper edge cases should', () => {
 	})
 
 	test('parses book with unknown content_delivery_type successfully', async () => {
-		// Create a response with unknown content_delivery_type
 		const unknownTypeResponse = deepCopy(mockResponse)
 		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
-		helper = new ApiHelper(asin, region)
-
-		// Spy on console.warn
-		const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
-
+		const mockLogger = { warn: jest.fn() }
+		helper = new ApiHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		const data = await helper.parseResponse(unknownTypeResponse)
 		expect(data.asin).toBe(asin)
-
-		// Assert console.warn was called
-		expect(warnSpy).toHaveBeenCalled()
-		expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Unknown content_delivery_type'))
-
-		// Restore spy
-		warnSpy.mockRestore()
+		expect(mockLogger.warn).toHaveBeenCalled()
+		expect(mockLogger.warn).toHaveBeenCalledWith(
+			expect.stringContaining('Unknown content_delivery_type')
+		)
 	})
 
 	test('throws region unavailable when baseShape also fails', async () => {
@@ -369,6 +364,17 @@ describe('ApiHelper edge cases should', () => {
 		await expect(helper.parseResponse(emptyProductResponse)).rejects.toThrow(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
+	})
+
+	test('throws NotFoundError with statusCode 404 for unavailable region', async () => {
+		// Create a response with empty product (missing required baseShape fields)
+		const emptyProductResponse = { product: {} } as AudibleProduct
+		await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
+		await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
+			name: 'NotFoundError',
+			statusCode: 404,
+			message: `Item not available in region '${region}' for ASIN: ${asin}`
+		})
 	})
 })
 

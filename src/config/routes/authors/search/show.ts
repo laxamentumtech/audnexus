@@ -15,7 +15,7 @@ async function _show(fastify: FastifyInstance) {
 
 		// Setup Helper
 		const { redis } = fastify
-		const helper = new AuthorShowHelper('', handler.options, redis)
+		const helper = new AuthorShowHelper('', handler.options, redis, request.log)
 
 		// Call helper for search
 		return helper.getAuthorsByName()

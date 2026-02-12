@@ -18,7 +18,7 @@ async function _delete(fastify: FastifyInstance) {
 
 		// Setup helper
 		const { redis } = fastify
-		const helper = new BookDeleteHelper(asin, handler.options, redis)
+		const helper = new BookDeleteHelper(asin, handler.options, redis, request.log)
 
 		// Call helper handler
 		const isHandled = await helper.handler()

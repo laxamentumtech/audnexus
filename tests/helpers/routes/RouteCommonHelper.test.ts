@@ -4,6 +4,7 @@ import type { FastifyReply } from 'fastify'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import { ApiQueryString, ApiQueryStringSchema } from '#config/types'
+import { BadRequestError } from '#helpers/errors/ApiErrors'
 import RouteCommonHelper from '#helpers/routes/RouteCommonHelper'
 
 type MockContext = {
@@ -57,22 +58,27 @@ describe('RouteCommonHelper should', () => {
 describe('RouteCommonHelper should throw an error', () => {
 	test('if the asin is not valid', () => {
 		helper = new RouteCommonHelper('12345678910', query, ctx.client)
-		expect(() => helper.runValidations()).toThrow()
-		expect(helper.reply.code).toHaveBeenCalledWith(400)
+		expect(() => helper.runValidations()).toThrow(BadRequestError)
+		expect(() => helper.runValidations()).toThrow('Bad ASIN')
 	})
 	test('if the name is not valid', () => {
 		helper = new RouteCommonHelper('', { name: '' }, ctx.client)
-		expect(() => helper.runValidations()).toThrow()
-		expect(helper.reply.code).toHaveBeenCalledWith(400)
+		expect(() => helper.runValidations()).toThrow(BadRequestError)
+		expect(() => helper.runValidations()).toThrow('Invalid search parameters')
 	})
 	test('if the region is not valid', () => {
 		helper = new RouteCommonHelper('', { region: 'mx' }, ctx.client)
-		expect(() => helper.runValidations()).toThrow()
-		expect(helper.reply.code).toHaveBeenCalledWith(400)
+		expect(() => helper.runValidations()).toThrow(BadRequestError)
+		expect(() => helper.runValidations()).toThrow('Invalid region')
 	})
 	test('if an invalid option is passed', () => {
 		helper = new RouteCommonHelper('', { seedAuthors: '2' }, ctx.client)
-		expect(() => helper.runValidations()).toThrow()
-		expect(helper.reply.code).toHaveBeenCalledWith(400)
+		expect(() => helper.runValidations()).toThrow(BadRequestError)
+		expect(() => helper.runValidations()).toThrow('Bad query')
+	})
+	test('BadRequestError has statusCode 400', () => {
+		helper = new RouteCommonHelper('12345678910', query, ctx.client)
+		expect(() => helper.runValidations()).toThrow(BadRequestError)
+		expect(() => helper.runValidations()).toThrow(expect.objectContaining({ statusCode: 400 }))
 	})
 })

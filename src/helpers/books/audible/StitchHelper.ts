@@ -1,4 +1,5 @@
 import type { CheerioAPI } from 'cheerio'
+import type { FastifyBaseLogger } from 'fastify'
 
 import { ApiBook, ApiBookSchema, AudibleProduct, HtmlBook } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
@@ -16,13 +17,15 @@ class StitchHelper {
 	scrapeHelper: ScrapeHelper
 	scraperParsed: HtmlBook | undefined
 	scraperResponse: CheerioAPI | undefined
+	logger?: FastifyBaseLogger
 
-	constructor(asin: string, region: string) {
+	constructor(asin: string, region: string, logger?: FastifyBaseLogger) {
 		this.asin = asin
+		this.logger = logger
 		// Set up helpers
-		this.apiHelper = new ApiHelper(asin, region)
+		this.apiHelper = new ApiHelper(asin, region, logger)
 		this.sharedHelper = new SharedHelper()
-		this.scrapeHelper = new ScrapeHelper(asin, region)
+		this.scrapeHelper = new ScrapeHelper(asin, region, logger)
 	}
 
 	/**
@@ -35,6 +38,10 @@ class StitchHelper {
 			// Set the helper data
 			this.apiHelper.audibleResponse = this.apiResponse.product
 		} catch (error) {
+			// Preserve custom errors with statusCode (NotFoundError, BadRequestError)
+			if (error instanceof Error && 'statusCode' in error) {
+				throw error
+			}
 			throw new Error(getErrorMessage(error))
 		}
 	}
@@ -47,6 +54,10 @@ class StitchHelper {
 		try {
 			this.scraperResponse = await scraperResponse
 		} catch (error) {
+			// Preserve custom errors with statusCode (NotFoundError, BadRequestError)
+			if (error instanceof Error && 'statusCode' in error) {
+				throw error
+			}
 			throw new Error(getErrorMessage(error))
 		}
 	}
@@ -59,6 +70,10 @@ class StitchHelper {
 		try {
 			this.apiParsed = await apiParsed
 		} catch (error) {
+			// Preserve custom errors with statusCode (NotFoundError, BadRequestError)
+			if (error instanceof Error && 'statusCode' in error) {
+				throw error
+			}
 			throw new Error(getErrorMessage(error))
 		}
 	}
@@ -71,6 +86,10 @@ class StitchHelper {
 		try {
 			this.scraperParsed = await scraperParsed
 		} catch (error) {
+			// Preserve custom errors with statusCode (NotFoundError, BadRequestError)
+			if (error instanceof Error && 'statusCode' in error) {
+				throw error
+			}
 			throw new Error(getErrorMessage(error))
 		}
 	}
@@ -104,7 +123,7 @@ class StitchHelper {
 
 		// Check if we need to scrape for genres
 		if (!this.apiResponse.product.category_ladders.length) {
-			console.debug(NoticeChaptersFallback(this.asin))
+			this.logger?.debug(NoticeChaptersFallback(this.asin))
 			await this.fetchScraperBook()
 			await this.parseScraperResponse()
 		}
