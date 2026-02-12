@@ -2,9 +2,11 @@ import type { AxiosResponse } from 'axios'
 import * as cheerio from 'cheerio'
 
 import { baseAsin10Regex } from '#config/types'
+import { NotFoundError } from '#helpers/errors/ApiErrors'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
+import { ErrorMessageNotFound } from '#static/messages'
 import { regions } from '#static/regions'
 import { htmlResponseMinified, htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
 import {
@@ -92,6 +94,18 @@ describe('ScrapeHelper should', () => {
 	test('return name', () => {
 		const name = helper.getName(cheerioHtml)
 		expect(name).toEqual(parsedAuthor.name)
+	})
+
+	test('throw NotFoundError when dom throws for getName', () => {
+		const mockDom = {
+			first: jest.fn().mockReturnThis(),
+			text: jest.fn().mockImplementation(() => {
+				throw new Error('DOM error')
+			})
+		}
+		const mockCheerio = jest.fn().mockReturnValue(mockDom) as unknown as cheerio.CheerioAPI
+		expect(() => helper.getName(mockCheerio)).toThrow(NotFoundError)
+		expect(() => helper.getName(mockCheerio)).toThrow(ErrorMessageNotFound(asin, 'author name'))
 	})
 
 	test('return similar', () => {

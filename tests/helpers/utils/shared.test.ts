@@ -1,7 +1,11 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
+import type { FastifyBaseLogger } from 'fastify'
 import * as cheerio from 'cheerio'
+import type { z } from 'zod'
 
+import { ApiGenreSchema } from '#config/types'
 import SharedHelper from '#helpers/utils/shared'
+import { NoticeGenreNotAvailable } from '#static/messages'
 import {
 	htmlResponseGenreNoHref,
 	htmlResponseGenreOnly,
@@ -99,6 +103,63 @@ describe('SharedHelper should', () => {
 			.toArray()
 			.map((element) => html(element))
 		expect(helper.collectGenres(asin, genres, 'genre')).toEqual([parsedAuthor.genres![0]])
+	})
+
+	test('collectGenres logs warning when ApiGenreSchema.safeParse fails', () => {
+		const mockWarn = jest.fn()
+		const mockLogger = {
+			warn: mockWarn,
+			info: jest.fn()
+		}
+		const helperWithLogger = new SharedHelper(mockLogger as unknown as FastifyBaseLogger)
+		const asin = 'B012DQ3BCM'
+
+		// Create HTML with a valid genre link
+		const html = cheerio.load(htmlResponseGenreOnly)
+		const genres = html('div.contentPositionClass div.bc-box a.bc-color-link')
+			.toArray()
+			.map((element) => html(element))
+
+		// Mock safeParse to return failure
+		const mockError = { issues: [{ message: 'Invalid genre ASIN' }] } as unknown as z.ZodError<{
+			asin: string
+			name: string
+			type: string
+		}>
+		jest.spyOn(ApiGenreSchema, 'safeParse').mockReturnValue({
+			success: false,
+			error: mockError
+		})
+
+		helperWithLogger.collectGenres(asin, genres, 'genre')
+
+		expect(mockWarn).toHaveBeenCalledWith(mockError)
+		expect(mockWarn).toHaveBeenCalledTimes(2) // Two genres in the HTML
+
+		// Restore the original implementation
+		jest.restoreAllMocks()
+	})
+
+	test('collectGenres logs info when genre has no href', () => {
+		const mockInfo = jest.fn()
+		const mockLogger = {
+			warn: jest.fn(),
+			info: mockInfo
+		}
+		const helperWithLogger = new SharedHelper(mockLogger as unknown as FastifyBaseLogger)
+		const asin = 'B012DQ3BCM'
+
+		// Use HTML that has a genre without href (second genre)
+		const html = cheerio.load(htmlResponseGenreNoHref)
+		const genres = html('div.contentPositionClass div.bc-box a.bc-color-link')
+			.toArray()
+			.map((element) => html(element))
+
+		helperWithLogger.collectGenres(asin, genres, 'genre')
+
+		// Second genre has no href, so it should log info with index 1
+		expect(mockInfo).toHaveBeenCalledWith(NoticeGenreNotAvailable(asin, 1))
+		expect(mockInfo).toHaveBeenCalledTimes(1)
 	})
 
 	test('sortObjectByKeys', () => {
