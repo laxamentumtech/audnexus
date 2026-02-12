@@ -121,22 +121,16 @@ async function startServer() {
 	console.log('Registered routes:', server.printRoutes())
 
 	// Start main server
-	server.listen({ port: port, host: host }, async (err, address) => {
-		if (err) {
-			console.error(err)
-			process.exit(1)
-		}
-		initialize({ client: await ctx.client.connect() })
-			.then(() => {
-				console.log(`Connected to DB`)
-				server.mongoClient = ctx.client
-			})
-			.catch((err) => {
-				console.error(err)
-				process.exit(1)
-			})
+	try {
+		const address = await server.listen({ port, host })
+		await initialize({ client: await ctx.client.connect() })
+		console.log('Connected to DB')
+		server.mongoClient = ctx.client
 		console.log(`Server listening at ${address}`)
-	})
+	} catch (err) {
+		console.error(err)
+		process.exit(1)
+	}
 
 	server.ready(() => {
 		// test that db is connected
@@ -164,20 +158,17 @@ async function startServer() {
 async function stopServer() {
 	console.log('Closing HTTP server')
 	server.scheduler.stop()
-	server.close(() => {
+	try {
+		await server.close()
 		console.log('HTTP server closed')
-		//   Close Papr/mongo connection
-		ctx.client
-			.close()
-			.then(() => {
-				console.log('DB connection closed')
-				process.exit(0)
-			})
-			.catch((err) => {
-				console.error(err)
-				process.exit(1)
-			})
-	})
+		// Close Papr/mongo connection
+		await ctx.client.close()
+		console.log('DB connection closed')
+		process.exit(0)
+	} catch (err) {
+		console.error(err)
+		process.exit(1)
+	}
 }
 
 // Start the server
