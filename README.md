@@ -186,6 +186,20 @@ All errors follow this structure. The `details` field is optional and may be omi
 }
 ```
 
+**Rate Limit Exceeded:**
+
+```json
+{
+	"error": {
+		"code": "RATE_LIMIT_EXCEEDED",
+		"message": "Too many requests — client has exceeded allowed request rate",
+		"details": {
+			"retryAfter": 60
+		}
+	}
+}
+```
+
 ## 🎈 Usage <a name="usage"></a>
 
 API usage documentation can be read here: https://audnex.us/

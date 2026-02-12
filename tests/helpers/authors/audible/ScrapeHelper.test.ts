@@ -178,6 +178,7 @@ describe('ScrapeHelper should throw error when', () => {
 
 	test('parse response throws ContentTypeMismatchError when book page detected', async () => {
 		jest.spyOn(helper, 'getName').mockReturnValue('')
+		expect.assertions(3)
 		const bookPageHtml = mockResponse.replace(
 			'<body>',
 			'<body><button data-testid="buy-button">Buy</button>'
@@ -185,7 +186,7 @@ describe('ScrapeHelper should throw error when', () => {
 		const dom = cheerio.load(bookPageHtml)
 		try {
 			await helper.parseResponse(dom)
-			fail('Expected ContentTypeMismatchError to be thrown')
+			throw new Error('Expected ContentTypeMismatchError to be thrown')
 		} catch (error) {
 			expect(error).toBeInstanceOf(ContentTypeMismatchError)
 			expect((error as ContentTypeMismatchError).details).toEqual({
