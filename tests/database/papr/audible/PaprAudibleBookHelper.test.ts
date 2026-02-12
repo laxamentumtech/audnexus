@@ -1,6 +1,8 @@
 jest.mock('#config/models/Book')
 jest.mock('#helpers/utils/shared')
 
+import type { FastifyBaseLogger } from 'fastify'
+
 import BookModel, { BookDocument } from '#config/models/Book'
 import { ApiQueryString } from '#config/types'
 import * as checkers from '#config/typing/checkers'
@@ -201,5 +203,67 @@ describe('PaprAudibleBookHelper should catch error when', () => {
 		await expect(helper.update()).rejects.toThrow(
 			`An error occurred while updating book ${asin} in the DB`
 		)
+	})
+})
+
+describe('PaprAudibleBookHelper should log error when', () => {
+	test('create logs error on BookModel.insertOne failure', async () => {
+		const mockLogger = { error: jest.fn(), info: jest.fn() }
+		const helperWithLogger = new PaprAudibleBookHelper(
+			asin,
+			options,
+			mockLogger as unknown as FastifyBaseLogger
+		)
+		helperWithLogger.setData(parsedBook)
+		jest.spyOn(BookModel, 'insertOne').mockRejectedValue(new Error('DB error'))
+		await expect(helperWithLogger.create()).rejects.toThrow(
+			`An error occurred while creating book ${asin} in the DB`
+		)
+		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
+	})
+
+	test('delete logs error on BookModel.deleteOne failure', async () => {
+		const mockLogger = { error: jest.fn(), info: jest.fn() }
+		const helperWithLogger = new PaprAudibleBookHelper(
+			asin,
+			options,
+			mockLogger as unknown as FastifyBaseLogger
+		)
+		jest.spyOn(BookModel, 'deleteOne').mockRejectedValue(new Error('DB error'))
+		await expect(helperWithLogger.delete()).rejects.toThrow(
+			`An error occurred while deleting book ${asin} in the DB`
+		)
+		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
+	})
+
+	test('update logs error when BookModel.findOne returns null (not found)', async () => {
+		const mockLogger = { error: jest.fn(), info: jest.fn() }
+		const helperWithLogger = new PaprAudibleBookHelper(
+			asin,
+			options,
+			mockLogger as unknown as FastifyBaseLogger
+		)
+		helperWithLogger.setData(parsedBook)
+		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(null)
+		await expect(helperWithLogger.update()).rejects.toThrow(
+			`An error occurred while updating book ${asin} in the DB`
+		)
+		expect(mockLogger.error).toHaveBeenCalledWith(`Book ${asin} not found in the DB for update`)
+	})
+
+	test('update logs error on BookModel.updateOne failure', async () => {
+		const mockLogger = { error: jest.fn(), info: jest.fn() }
+		const helperWithLogger = new PaprAudibleBookHelper(
+			asin,
+			options,
+			mockLogger as unknown as FastifyBaseLogger
+		)
+		helperWithLogger.setData(parsedBook)
+		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(bookWithoutProjection)
+		jest.spyOn(BookModel, 'updateOne').mockRejectedValue(new Error('DB error'))
+		await expect(helperWithLogger.update()).rejects.toThrow(
+			`An error occurred while updating book ${asin} in the DB`
+		)
+		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
 	})
 })
