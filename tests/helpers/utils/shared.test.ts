@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
-import type { FastifyBaseLogger } from 'fastify'
 import * as cheerio from 'cheerio'
+import type { FastifyBaseLogger } from 'fastify'
 import type { z } from 'zod'
 
 import { ApiGenreSchema } from '#config/types'

@@ -1,7 +1,7 @@
 jest.mock('#helpers/database/redis/RedisHelper')
 jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
 
-import { NotFoundError, BadRequestError } from '#helpers/errors/ApiErrors'
+import { BadRequestError, NotFoundError } from '#helpers/errors/ApiErrors'
 import GenericShowHelper from '#helpers/routes/GenericShowHelper'
 import { bookWithoutProjection } from '#tests/datasets/helpers/books'
 
@@ -28,16 +28,14 @@ describe('GenericShowHelper handler error propagation', () => {
 		// Mock updateActions to throw the NotFoundError
 		jest.spyOn(helper, 'updateActions').mockRejectedValue(notFoundError)
 
-		// Call handler and expect it to throw the SAME NotFoundError
-		await expect(helper.handler()).rejects.toThrow(notFoundError)
-		await expect(helper.handler()).rejects.toThrow('Book not found')
-
-		// Verify the error has the correct statusCode
+		// Call handler once and verify it throws the NotFoundError with statusCode preserved
 		try {
 			await helper.handler()
+			fail('Expected handler to throw')
 		} catch (err: unknown) {
-			const error = err as Error
+			const error = err as NotFoundError
 			expect(error).toBeInstanceOf(NotFoundError)
+			expect(error.message).toBe('Book not found')
 			expect(error).toHaveProperty('statusCode', 404)
 			expect(error).toHaveProperty('name', 'NotFoundError')
 		}
@@ -53,16 +51,14 @@ describe('GenericShowHelper handler error propagation', () => {
 		// Mock updateActions to throw the BadRequestError
 		jest.spyOn(helper, 'updateActions').mockRejectedValue(badRequestError)
 
-		// Call handler and expect it to throw the SAME BadRequestError
-		await expect(helper.handler()).rejects.toThrow(badRequestError)
-		await expect(helper.handler()).rejects.toThrow('Invalid request')
-
-		// Verify the error has the correct statusCode
+		// Call handler once and verify it throws the BadRequestError with statusCode preserved
 		try {
 			await helper.handler()
+			fail('Expected handler to throw')
 		} catch (err: unknown) {
-			const error = err as Error
+			const error = err as BadRequestError
 			expect(error).toBeInstanceOf(BadRequestError)
+			expect(error.message).toBe('Invalid request')
 			expect(error).toHaveProperty('statusCode', 400)
 			expect(error).toHaveProperty('name', 'BadRequestError')
 		}
