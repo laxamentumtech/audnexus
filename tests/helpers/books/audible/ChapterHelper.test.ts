@@ -113,8 +113,10 @@ describe('ChapterHelper should', () => {
 		await expect(helper.parseResponse(chapters)).resolves.toEqual(parsedChapters)
 	})
 
-	test('return undefined if no dom for parse response', async () => {
-		await expect(helper.parseResponse(undefined)).resolves.toBeUndefined()
+	test('throw NotFoundError if no chapter data in region', async () => {
+		await expect(helper.parseResponse(undefined)).rejects.toThrow(
+			`Item not available in region '${region}' for ASIN: ${asin}`
+		)
 	})
 
 	test('process', async () => {
