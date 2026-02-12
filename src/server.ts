@@ -3,7 +3,7 @@ import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
 import schedule from '@fastify/schedule'
-import { fastify,FastifyBaseLogger } from 'fastify'
+import { fastify, FastifyBaseLogger } from 'fastify'
 import { MongoClient } from 'mongodb'
 
 import 'module-alias/register'
