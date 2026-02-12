@@ -1,6 +1,6 @@
 import { ApiChapter, AudibleChapter } from '#config/types'
-import { NotFoundError } from '#helpers/errors/ApiErrors'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
+import { NotFoundError } from '#helpers/errors/ApiErrors'
 import {
 	chapterParsed1721358595,
 	chapterResponseB017V4IM1G

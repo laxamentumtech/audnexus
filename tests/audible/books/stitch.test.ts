@@ -46,9 +46,13 @@ describe('Audible API and HTML Parsing', () => {
 			try {
 				const chapterData = await chapterHelper.process()
 				chapters = chapterData
-			} catch {
+			} catch (error) {
 				// Expected error without valid API credentials
-				chapters = undefined
+				if (error instanceof NotFoundError) {
+					chapters = undefined
+				} else {
+					throw error
+				}
 			}
 			const newBook = await helper.process()
 			// Set variables
@@ -74,9 +78,13 @@ describe('Audible API and HTML Parsing', () => {
 			try {
 				const chapterData = await chapterHelper.process()
 				chapters = chapterData
-			} catch {
+			} catch (error) {
 				// Expected error without valid API credentials
-				chapters = undefined
+				if (error instanceof NotFoundError) {
+					chapters = undefined
+				} else {
+					throw error
+				}
 			}
 			const newBook = await helper.process()
 			// Set variables

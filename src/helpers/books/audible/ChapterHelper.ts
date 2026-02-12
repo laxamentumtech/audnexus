@@ -14,7 +14,6 @@ import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErro
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
-	ErrorMessageContentTypeMismatch,
 	ErrorMessageHTTPFetch,
 	ErrorMessageMissingEnv,
 	ErrorMessageNoData,
@@ -95,7 +94,7 @@ class ChapterHelper {
 		if (!contentType || !validBookTypes.includes(contentType)) {
 			const actualType = contentType || 'unknown'
 			throw new ContentTypeMismatchError(
-				ErrorMessageContentTypeMismatch(this.asin, actualType, 'book'),
+				`Item type is '${actualType}', expected 'book'. ASIN: ${this.asin}`,
 				{ asin: this.asin, requestedType: 'book', actualType }
 			)
 		}
