@@ -18,13 +18,14 @@ export default class PaprAudibleChapterHelper {
 	asin: string
 	chapterData!: ApiChapter
 	options: ApiQueryString
-	sharedHelper = new SharedHelper()
+	sharedHelper: SharedHelper
 	logger?: FastifyBaseLogger
 
 	constructor(asin: string, options: ApiQueryString, logger?: FastifyBaseLogger) {
 		this.asin = asin
 		this.options = options
 		this.logger = logger
+		this.sharedHelper = new SharedHelper(logger)
 	}
 
 	/**

@@ -15,7 +15,7 @@ class ScrapeHelper {
 	constructor(asin: string, region: string, logger?: FastifyBaseLogger) {
 		this.asin = asin
 		this.logger = logger
-		this.helper = new SharedHelper()
+		this.helper = new SharedHelper(logger)
 		const baseDomain = 'https://www.audible'
 		const regionTLD = regions[region].tld
 		const baseUrl = 'pd'
