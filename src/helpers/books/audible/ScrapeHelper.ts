@@ -55,13 +55,13 @@ class ScrapeHelper {
 		// Genres
 		const genres = this.helper.collectGenres(
 			this.asin,
-			this.helper.getGenresFromHtml(dom, 'li.categoriesLabel a'),
+			this.helper.getGenresFromHtml(dom, 'a[href*="/tag/"]'),
 			'genre'
 		)
 		// Tags
 		const tags = this.helper.collectGenres(
 			this.asin,
-			this.helper.getGenresFromHtml(dom, 'div.bc-chip-group a'),
+			this.helper.getGenresFromHtml(dom, 'a[href*="/cat/"]'),
 			'tag'
 		)
 
