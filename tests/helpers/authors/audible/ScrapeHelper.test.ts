@@ -3,14 +3,15 @@ import * as cheerio from 'cheerio'
 
 import { baseAsin10Regex } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
+import { ErrorMessageContentTypeMismatch, ErrorMessageNotFound } from '#static/messages'
 import { regions } from '#static/regions'
 import { htmlResponseMinified, htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
 import {
 	cleanupDescription,
-	genres,
-	parsedAuthor,
+	parsedAuthorWithoutGenres,
 	similarUnsorted
 } from '#tests/datasets/helpers/authors'
 
@@ -34,7 +35,6 @@ beforeEach(() => {
 	url = `https://www.audible.com/author/${asin}/`
 	// Set up spys
 	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
-	jest.spyOn(SharedHelper.prototype, 'collectGenres').mockReturnValue(genres)
 	jest.spyOn(SharedHelper.prototype, 'getAsinFromUrl').mockImplementation((url: string) => {
 		return url.match(baseAsin10Regex)?.[0]
 	})
@@ -63,8 +63,9 @@ describe('ScrapeHelper should', () => {
 	test('parse response', async () => {
 		const author = await helper.fetchAuthor()
 		await expect(helper.parseResponse(author)).resolves.toEqual({
-			...parsedAuthor,
-			description: cleanupDescription
+			...parsedAuthorWithoutGenres,
+			description: cleanupDescription,
+			genres: []
 		})
 	})
 
@@ -74,24 +75,37 @@ describe('ScrapeHelper should', () => {
 
 	test('process author', async () => {
 		await expect(helper.process()).resolves.toEqual({
-			...parsedAuthor,
-			description: cleanupDescription
+			...parsedAuthorWithoutGenres,
+			description: cleanupDescription,
+			genres: []
 		})
 	})
 
 	test('return description', () => {
 		const description = helper.getDescription(cheerioHtml)
-		expect(description).toEqual(parsedAuthor.description)
+		expect(description).toEqual(parsedAuthorWithoutGenres.description)
 	})
 
 	test('return image', () => {
 		const image = helper.getImage(cheerioHtml)
-		expect(image).toEqual(parsedAuthor.image)
+		expect(image).toEqual(parsedAuthorWithoutGenres.image)
 	})
 
 	test('return name', () => {
 		const name = helper.getName(cheerioHtml)
-		expect(name).toEqual(parsedAuthor.name)
+		expect(name).toEqual(parsedAuthorWithoutGenres.name)
+	})
+
+	test('throw NotFoundError when dom throws for getName', () => {
+		const mockDom = {
+			first: jest.fn().mockReturnThis(),
+			text: jest.fn().mockImplementation(() => {
+				throw new Error('DOM error')
+			})
+		}
+		const mockCheerio = jest.fn().mockReturnValue(mockDom) as unknown as cheerio.CheerioAPI
+		expect(() => helper.getName(mockCheerio)).toThrow(NotFoundError)
+		expect(() => helper.getName(mockCheerio)).toThrow(ErrorMessageNotFound(asin, 'author name'))
 	})
 
 	test('return similar', () => {
@@ -102,7 +116,7 @@ describe('ScrapeHelper should', () => {
 	test('return sorted similar', () => {
 		const similar = helper.getSimilarAuthors(cheerioHtml)
 		const sorted = helper.sortSimilarAuthors(similar)
-		expect(sorted).toEqual(parsedAuthor.similar)
+		expect(sorted).toEqual(parsedAuthorWithoutGenres.similar)
 	})
 
 	test('return sorted similar when no similar authors', () => {
@@ -157,15 +171,39 @@ describe('ScrapeHelper should throw error when', () => {
 
 	test('parse response fails validation', async () => {
 		jest.spyOn(helper, 'getName').mockReturnValue('')
-		await expect(helper.parseResponse(cheerio.load(mockResponse))).rejects.toThrowError(
+		await expect(helper.parseResponse(cheerio.load(mockResponse))).rejects.toThrow(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
+	})
+
+	test('parse response throws ContentTypeMismatchError when book page detected', async () => {
+		jest.spyOn(helper, 'getName').mockReturnValue('')
+		expect.assertions(3)
+		const bookPageHtml = mockResponse.replace(
+			'<body>',
+			'<body><button data-testid="buy-button">Buy</button>'
+		)
+		const dom = cheerio.load(bookPageHtml)
+		try {
+			await helper.parseResponse(dom)
+			throw new Error('Expected ContentTypeMismatchError to be thrown')
+		} catch (error) {
+			expect(error).toBeInstanceOf(ContentTypeMismatchError)
+			expect((error as ContentTypeMismatchError).details).toEqual({
+				asin: asin,
+				requestedType: 'author',
+				actualType: 'book'
+			})
+			expect((error as ContentTypeMismatchError).message).toBe(
+				ErrorMessageContentTypeMismatch(asin, 'book', 'author')
+			)
+		}
 	})
 
 	test('getName is header', async () => {
 		const html = cheerio.load(mockResponse)
 		html('h1').text('Showing titles\n in All Categories')
-		await expect(helper.parseResponse(html)).rejects.toThrowError(
+		await expect(helper.parseResponse(html)).rejects.toThrow(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})

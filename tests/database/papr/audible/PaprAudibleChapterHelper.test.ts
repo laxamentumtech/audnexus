@@ -1,6 +1,9 @@
 jest.mock('#config/models/Chapter')
 jest.mock('#helpers/utils/shared')
 
+import { FastifyBaseLogger } from 'fastify'
+import { mock } from 'jest-mock-extended'
+
 import ChapterModel, { ChapterDocument } from '#config/models/Chapter'
 import { ApiQueryString } from '#config/types'
 import * as checkers from '#config/typing/checkers'
@@ -143,6 +146,23 @@ describe('PaprAudibleChapterHelper should', () => {
 		helper.setData(parsedChapters)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
+	test('createOrUpdate logs info when updating', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		const helperWithLogger = new PaprAudibleChapterHelper(asin, options, mockLogger)
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValueOnce(parsedChapters as unknown as ChapterDocument)
+		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(chaptersWithoutProjection)
+		jest
+			.spyOn(ChapterModel, 'findOne')
+			.mockResolvedValue(parsedChapters as unknown as ChapterDocument)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
+		helperWithLogger.setData(parsedChapters)
+		await helperWithLogger.createOrUpdate()
+		expect(mockLogger.info).toHaveBeenCalledWith(
+			expect.stringContaining(`Updating chapters ASIN ${asin}`)
+		)
+	})
 	test('update', async () => {
 		const obj = { data: parsedChapters, modified: true }
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(chaptersWithoutProjection)
@@ -165,28 +185,60 @@ describe('PaprAudibleChapterHelper should catch error when', () => {
 	test('create', async () => {
 		jest.spyOn(ChapterModel, 'insertOne').mockRejectedValue(new Error('error'))
 		helper.setData(parsedChapters)
-		await expect(helper.create()).rejects.toThrowError(
+		await expect(helper.create()).rejects.toThrow(
 			`An error occurred while creating chapter ${asin} in the DB`
 		)
 	})
+	test('create logs error on failure', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		const helperWithLogger = new PaprAudibleChapterHelper(asin, options, mockLogger)
+		jest.spyOn(ChapterModel, 'insertOne').mockRejectedValue(new Error('DB error'))
+		helperWithLogger.setData(parsedChapters)
+		await expect(helperWithLogger.create()).rejects.toThrow()
+		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
+	})
 	test('delete', async () => {
 		jest.spyOn(ChapterModel, 'deleteOne').mockRejectedValue(new Error('error'))
-		await expect(helper.delete()).rejects.toThrowError(
+		await expect(helper.delete()).rejects.toThrow(
 			`An error occurred while deleting chapter ${asin} in the DB`
 		)
+	})
+	test('delete logs error on failure', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		const helperWithLogger = new PaprAudibleChapterHelper(asin, options, mockLogger)
+		jest.spyOn(ChapterModel, 'deleteOne').mockRejectedValue(new Error('DB error'))
+		await expect(helperWithLogger.delete()).rejects.toThrow()
+		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
 	})
 	test('update did not find existing', async () => {
 		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
 		helper.setData(parsedChapters)
-		await expect(helper.update()).rejects.toThrowError(
+		await expect(helper.update()).rejects.toThrow(
 			`An error occurred while updating chapter ${asin} in the DB`
 		)
+	})
+	test('update did not find existing logs error', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		const helperWithLogger = new PaprAudibleChapterHelper(asin, options, mockLogger)
+		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(null)
+		helperWithLogger.setData(parsedChapters)
+		await expect(helperWithLogger.update()).rejects.toThrow()
+		expect(mockLogger.error).toHaveBeenCalledWith(`Chapter ${asin} not found in the DB for update`)
 	})
 	test('update', async () => {
 		jest.spyOn(ChapterModel, 'updateOne').mockRejectedValue(new Error('error'))
 		helper.setData(parsedChapters)
-		await expect(helper.update()).rejects.toThrowError(
+		await expect(helper.update()).rejects.toThrow(
 			`An error occurred while updating chapter ${asin} in the DB`
 		)
+	})
+	test('update logs error on failure', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		const helperWithLogger = new PaprAudibleChapterHelper(asin, options, mockLogger)
+		jest.spyOn(ChapterModel, 'findOne').mockResolvedValueOnce(chaptersWithoutProjection)
+		jest.spyOn(ChapterModel, 'updateOne').mockRejectedValue(new Error('DB error'))
+		helperWithLogger.setData(parsedChapters)
+		await expect(helperWithLogger.update()).rejects.toThrow()
+		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
 	})
 })

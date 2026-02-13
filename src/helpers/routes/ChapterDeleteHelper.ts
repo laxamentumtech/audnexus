@@ -1,4 +1,5 @@
 import { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
 
 import { ChapterDocument } from '#config/models/Chapter'
 import { ApiQueryString } from '#config/types'
@@ -10,10 +11,15 @@ export default class ChapterDeleteHelper {
 	paprHelper: PaprAudibleChapterHelper
 	redisHelper: RedisHelper
 	originalChapter: ChapterDocument | null = null
-	constructor(asin: string, options: ApiQueryString, redis: FastifyRedis | null) {
+	constructor(
+		asin: string,
+		options: ApiQueryString,
+		redis: FastifyRedis | null,
+		logger?: FastifyBaseLogger
+	) {
 		this.asin = asin
-		this.paprHelper = new PaprAudibleChapterHelper(this.asin, options)
-		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin, options.region)
+		this.paprHelper = new PaprAudibleChapterHelper(this.asin, options, logger)
+		this.redisHelper = new RedisHelper(redis, 'chapter', this.asin, options.region, logger)
 	}
 
 	async getChaptersFromPapr(): Promise<ChapterDocument | null> {

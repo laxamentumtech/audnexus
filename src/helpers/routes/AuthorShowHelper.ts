@@ -1,12 +1,18 @@
 import { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
 
 import { ApiQueryString } from '#config/types'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import GenericShowHelper from '#helpers/routes/GenericShowHelper'
 
 export default class AuthorShowHelper extends GenericShowHelper {
-	constructor(asin: string, options: ApiQueryString, redis: FastifyRedis | null) {
-		super(asin, options, redis, 'author')
+	constructor(
+		asin: string,
+		options: ApiQueryString,
+		redis: FastifyRedis | null,
+		logger?: FastifyBaseLogger
+	) {
+		super(asin, options, redis, 'author', logger)
 	}
 
 	/**

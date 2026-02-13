@@ -1,7 +1,9 @@
 import type { AxiosResponse } from 'axios'
+import type { FastifyBaseLogger } from 'fastify'
 
 import type { AudibleChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
+import { ContentTypeMismatchError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
@@ -112,8 +114,10 @@ describe('ChapterHelper should', () => {
 		await expect(helper.parseResponse(chapters)).resolves.toEqual(parsedChapters)
 	})
 
-	test('return undefined if no dom for parse response', async () => {
-		await expect(helper.parseResponse(undefined)).resolves.toBeUndefined()
+	test('throw NotFoundError if no chapter data in region', async () => {
+		await expect(helper.parseResponse(undefined)).rejects.toThrow(
+			`Item not available in region '${region}' for ASIN: ${asin}`
+		)
 	})
 
 	test('process', async () => {
@@ -130,7 +134,7 @@ describe('ChapterHelper should', () => {
 
 describe('ChapterHelper should throw error when', () => {
 	test('no input data', () => {
-		expect(() => helper.getFinalData()).toThrowError('No input data')
+		expect(() => helper.getFinalData()).toThrow('No input data')
 	})
 
 	const OLD_ENV = process.env
@@ -144,7 +148,7 @@ describe('ChapterHelper should throw error when', () => {
 		const bad_helper = function () {
 			new ChapterHelper(asin, region)
 		}
-		expect(bad_helper).toThrowError('Missing environment variable(s): ADP_TOKEN or PRIVATE_KEY')
+		expect(bad_helper).toThrow('Missing environment variable(s): ADP_TOKEN or PRIVATE_KEY')
 		// Restore environment
 		process.env = OLD_ENV
 	})
@@ -163,7 +167,7 @@ describe('ChapterHelper should throw error when', () => {
 				},
 				response_groups: ['chapter_info']
 			} as AudibleChapter)
-		).rejects.toThrowError(
+		).rejects.toThrow(
 			`Required key 'chapters' does not exist for chapter in Audible API response for ASIN ${asin}`
 		)
 	})
@@ -190,16 +194,37 @@ describe('ChapterHelper should throw error when', () => {
 	// 	})
 	// })
 	test('error fetching Chapter data', async () => {
-		// Mock Fetch to fail once
+		const mockLogger = { error: jest.fn() }
 		jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
 			Promise.reject({
 				status: 403
 			})
 		)
-		jest.spyOn(global.console, 'log')
+		helper = new ChapterHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		await expect(helper.fetchChapter()).resolves.toBeUndefined()
-		expect(console.log).toHaveBeenCalledWith(
+		expect(mockLogger.error).toHaveBeenCalledWith(
 			`An error occured while fetching data from chapters. Response: 403, ASIN: ${asin}`
 		)
+	})
+
+	test.each([
+		['Podcast', 'Podcast'],
+		[undefined, 'unknown'],
+		['AudibleOriginal', 'AudibleOriginal']
+	])('content type is invalid (%s)', (actualType, expectedActualType) => {
+		expect(() => helper.validateContentType(actualType)).toThrow(ContentTypeMismatchError)
+		expect(() => helper.validateContentType(actualType)).toThrow(
+			`Item is a ${expectedActualType}, not a book. ASIN: ${asin}`
+		)
+		try {
+			helper.validateContentType(actualType)
+		} catch (error) {
+			expect(error).toBeInstanceOf(ContentTypeMismatchError)
+			expect((error as ContentTypeMismatchError).details).toEqual({
+				asin: asin,
+				requestedType: 'book',
+				actualType: expectedActualType
+			})
+		}
 	})
 })

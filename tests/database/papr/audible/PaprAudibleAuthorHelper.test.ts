@@ -1,6 +1,9 @@
 jest.mock('#config/models/Author')
 jest.mock('#helpers/utils/shared')
 
+import type { FastifyBaseLogger } from 'fastify'
+import { mock } from 'jest-mock-extended'
+
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
 import { ApiQueryString } from '#config/types'
 import * as checkers from '#config/typing/checkers'
@@ -171,6 +174,19 @@ describe('PaprAudibleAuthorHelper should', () => {
 		helper.setData(parsedAuthorWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
+	test('createOrUpdate logs info when updating', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		const helperWithLogger = new PaprAudibleAuthorHelper(asin, options, mockLogger)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
+		jest
+			.spyOn(AuthorModel, 'findOne')
+			.mockResolvedValueOnce(parsedAuthor as unknown as AuthorDocument)
+		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(authorWithoutProjection)
+		jest.spyOn(AuthorModel, 'findOne').mockResolvedValue(parsedAuthor as unknown as AuthorDocument)
+		helperWithLogger.setData(parsedAuthor)
+		await helperWithLogger.createOrUpdate()
+		expect(mockLogger.info).toHaveBeenCalledWith(`Updating author ASIN ${asin}`)
+	})
 	test('update', async () => {
 		const obj = { data: parsedAuthor, modified: true }
 		helper.setData(parsedAuthor)
@@ -191,31 +207,55 @@ describe('PaprAudibleAuthorHelper should catch error when', () => {
 	test('create', async () => {
 		jest.spyOn(AuthorModel, 'insertOne').mockRejectedValue(new Error('error'))
 		helper.setData(parsedAuthor)
-		await expect(helper.create()).rejects.toThrowError(
+		await expect(helper.create()).rejects.toThrow(
 			`An error occurred while creating author ${asin} in the DB`
 		)
 	})
+	test('create logs error on failure', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		const helperWithLogger = new PaprAudibleAuthorHelper(asin, options, mockLogger)
+		jest.spyOn(AuthorModel, 'insertOne').mockRejectedValue(new Error('DB error'))
+		helperWithLogger.setData(parsedAuthor)
+		await expect(helperWithLogger.create()).rejects.toThrow()
+		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
+	})
 	test('delete', async () => {
 		jest.spyOn(AuthorModel, 'deleteOne').mockRejectedValue(new Error('error'))
-		await expect(helper.delete()).rejects.toThrowError(
+		await expect(helper.delete()).rejects.toThrow(
 			`An error occurred while deleting author ${asin} in the DB`
 		)
 	})
+	test('delete logs error on failure', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		const helperWithLogger = new PaprAudibleAuthorHelper(asin, options, mockLogger)
+		jest.spyOn(AuthorModel, 'deleteOne').mockRejectedValue(new Error('DB error'))
+		await expect(helperWithLogger.delete()).rejects.toThrow()
+		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
+	})
 	test('findByName has no name', async () => {
-		await expect(helper.findByName()).rejects.toThrowError('Invalid search parameters')
+		await expect(helper.findByName()).rejects.toThrow('Invalid search parameters')
 	})
 	test('update did not find existing', async () => {
 		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(null)
 		helper.setData(parsedAuthor)
-		await expect(helper.update()).rejects.toThrowError(
+		await expect(helper.update()).rejects.toThrow(
 			`An error occurred while updating author ${asin} in the DB`
 		)
 	})
 	test('update', async () => {
 		jest.spyOn(AuthorModel, 'updateOne').mockRejectedValue(new Error('error'))
 		helper.setData(parsedAuthor)
-		await expect(helper.update()).rejects.toThrowError(
+		await expect(helper.update()).rejects.toThrow(
 			`An error occurred while updating author ${asin} in the DB`
 		)
+	})
+	test('update logs error on failure', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		const helperWithLogger = new PaprAudibleAuthorHelper(asin, options, mockLogger)
+		jest.spyOn(AuthorModel, 'findOne').mockResolvedValueOnce(authorWithoutProjection)
+		jest.spyOn(AuthorModel, 'updateOne').mockRejectedValue(new Error('DB error'))
+		helperWithLogger.setData(parsedAuthor)
+		await expect(helperWithLogger.update()).rejects.toThrow()
+		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
 	})
 })

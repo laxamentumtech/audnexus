@@ -1,3 +1,4 @@
+import type { FastifyBaseLogger } from 'fastify'
 import { htmlToText } from 'html-to-text'
 
 import {
@@ -14,12 +15,17 @@ import {
 	AudibleProduct,
 	AudibleProductSchema,
 	AudibleSeries,
-	AudibleSeriesSchema
+	AudibleSeriesSchema,
+	baseShape,
+	FallbackAudibleProduct,
+	fallbackShape
 } from '#config/types'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
+	ErrorMessageContentTypeMismatch,
 	ErrorMessageHTTPFetch,
 	ErrorMessageNoData,
 	ErrorMessageParse,
@@ -32,12 +38,14 @@ import { regions } from '#static/regions'
 class ApiHelper {
 	asin: string
 	categories: AudibleCategory[][] | undefined
-	audibleResponse: AudibleProduct['product'] | undefined
+	audibleResponse: AudibleProduct['product'] | FallbackAudibleProduct | undefined
 	region: string
 	requestUrl: string
-	constructor(asin: string, region: string) {
+	logger?: FastifyBaseLogger
+	constructor(asin: string, region: string, logger?: FastifyBaseLogger) {
 		this.asin = asin
 		this.region = region
+		this.logger = logger
 		const helper = new SharedHelper()
 		const baseDomain = 'https://api.audible'
 		const regionTLD = regions[region].tld
@@ -91,6 +99,7 @@ class ApiHelper {
 		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		const regex = /(?:©|\(c\)|copyright\b)\s*(\d{4})/iu
 		const copyright = this.audibleResponse.copyright
+		if (!copyright) return undefined
 		const match = regex.exec(copyright)
 
 		// find the lowest year in the string
@@ -217,8 +226,13 @@ class ApiHelper {
 		let seriesPrimary = {}
 		allSeries.forEach((series: AudibleSeries) => {
 			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
-			// Only return series for MultiPartBook, makes linter happy
-			if (this.audibleResponse.content_delivery_type === 'PodcastParent') return undefined
+			// Only return series for MultiPartBook/SinglePartBook, makes linter happy
+			if (
+				this.audibleResponse.content_delivery_type === 'PodcastParent' ||
+				this.audibleResponse.content_delivery_type === 'Unknown'
+			) {
+				return undefined
+			}
 			const seriesJson = this.getSeries(series)
 			// Check and set primary series
 			if (
@@ -242,8 +256,13 @@ class ApiHelper {
 		let seriesSecondary = {}
 		allSeries.forEach((series: AudibleSeries) => {
 			if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
-			// Only return series for MultiPartBook, makes linter happy
-			if (this.audibleResponse.content_delivery_type === 'PodcastParent') return undefined
+			// Only return series for MultiPartBook/SinglePartBook, makes linter happy
+			if (
+				this.audibleResponse.content_delivery_type === 'PodcastParent' ||
+				this.audibleResponse.content_delivery_type === 'Unknown'
+			) {
+				return undefined
+			}
 			const seriesJson = this.getSeries(series)
 			// Check and set secondary series
 			if (
@@ -271,9 +290,10 @@ class ApiHelper {
 		// Find secondary series if available
 		let series1: ApiSeries | undefined
 		let series2: ApiSeries | undefined
-		// Only return series for MultiPartBook, makes linter happy
+		// Only return series for MultiPartBook/SinglePartBook, makes linter happy
 		if (
-			this.audibleResponse.content_delivery_type != 'PodcastParent' &&
+			this.audibleResponse.content_delivery_type !== 'PodcastParent' &&
+			this.audibleResponse.content_delivery_type !== 'Unknown' &&
 			this.audibleResponse.series
 		) {
 			series1 = this.getSeriesPrimary(this.audibleResponse.series)
@@ -364,7 +384,42 @@ class ApiHelper {
 			throw new Error(ErrorMessageParse(this.asin, 'Audible API'))
 		}
 
-		// Parse response with zod
+		const product = jsonResponse.product
+		const contentType = product?.content_delivery_type
+
+		// Check for content type mismatch (e.g., podcast instead of book)
+		if (contentType === 'PodcastParent') {
+			throw new ContentTypeMismatchError(
+				ErrorMessageContentTypeMismatch(this.asin, 'podcast', 'book'),
+				{ asin: this.asin, requestedType: 'book', actualType: 'PodcastParent' }
+			)
+		}
+
+		// Check if content_delivery_type exists and is a known book type
+		const knownTypes = ['MultiPartBook', 'SinglePartBook']
+		if (!contentType || !knownTypes.includes(contentType)) {
+			// Try parsing with baseShape directly (fallback for missing/unknown type)
+			const baseResult = baseShape.safeParse(product)
+			if (baseResult.success) {
+				// Log unknown type for future analysis
+				this.logger?.warn(
+					`[AUDIBLE API] Unknown content_delivery_type: ${contentType} for ASIN ${this.asin}`
+				)
+				// Set the discriminant for the fallback type
+				this.audibleResponse = fallbackShape.parse({
+					...baseResult.data,
+					content_delivery_type: 'Unknown'
+				})
+				return this.getFinalData()
+			}
+			// baseShape also failed - likely truly unavailable in region
+			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region), {
+				asin: this.asin,
+				code: 'REGION_UNAVAILABLE'
+			})
+		}
+
+		// Parse response with zod for known content_delivery_type values
 		const response = AudibleProductSchema.safeParse(jsonResponse)
 		// Handle error if response is not valid
 		if (!response.success) {
@@ -372,10 +427,6 @@ class ApiHelper {
 			const issuesPath = response.error.issues[0].path
 			// Get the last key from the path, which is the key that is missing
 			const key = issuesPath[issuesPath.length - 1]
-
-			// If the key is content_delivery_type, then the item is not available in the region
-			if (key === 'content_delivery_type')
-				throw new Error(ErrorMessageRegion(this.asin, this.region))
 
 			// Throw error with the missing key
 			throw new Error(ErrorMessageRequiredKey(this.asin, String(key), 'exist'))

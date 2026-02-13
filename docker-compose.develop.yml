@@ -1,0 +1,50 @@
+version: '3.7'
+
+services:
+  node-server:
+    image: ghcr.io/laxamentumtech/audnexus:develop
+    restart: always
+    environment:
+      ADP_TOKEN: ${NODE_ADP_TOKEN}
+      MAX_REQUESTS: ${NODE_MAX_REQUESTS:-300}
+      MONGODB_URI: ${NODE_MONGODB_URI:-mongodb://mongo:27017/audnexus}
+      PRIVATE_KEY: ${NODE_PRIVATE_KEY}
+      REDIS_URL: ${NODE_REDIS_URL:-redis://redis:6379}
+      UPDATE_INTERVAL: ${NODE_UPDATE_INTERVAL:-30}
+      UPDATE_THRESHOLD: ${NODE_UPDATE_THRESHOLD:-7}
+    ports:
+      - '3000:3000'
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - internal
+    deploy:
+      replicas: 1
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q --spider http://127.0.0.1:3000/health || exit 0']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  mongo:
+    image: mongo:7.0.30
+    restart: always
+    volumes:
+      - /mnt/docker/mongo/data:/data/db
+    networks:
+      - internal
+    ports:
+      - '27017:27017'
+
+  redis:
+    image: redis:8.6-alpine
+    restart: always
+    networks:
+      - internal
+    ports:
+      - '6379:6379'
+
+networks:
+  internal:

@@ -26,8 +26,10 @@
 
 - [About](#about)
 - [Getting Started](#getting_started)
-- [Deployment](#deployment)
+- [Running the tests](#tests)
+- [Error Handling](#error_handling)
 - [Usage](#usage)
+- [Deployment](#deployment)
 - [Built Using](#built_using)
 - [TODO](../TODO.md)
 - [Contributing](../CONTRIBUTING.md)
@@ -48,8 +50,9 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-- There are 2 ways to deploy this project - for the purposes of this project, this guide will only cover Docker deployment:
-  - [Docker Swarm](https://docs.docker.com/engine/swarm/swarm-tutorial/)
+- There are 3 ways to deploy this project:
+  - [Coolify](https://coolify.io) - Self-hosted PaaS platform with automatic deployments from Git
+  - [Docker Swarm](https://docs.docker.com/engine/swarm/swarm-tutorial/) - Docker Compose stack with Traefik reverse proxy
   - Directly, via `pnpm run` or `pm2`
     - Mongo 4 or greater
     - Node/NPM 16 or greater
@@ -77,6 +80,126 @@ Tests for this project use the Jest framework. Tests can be done locally in a de
 
 After the tests have run, you may also browse the test coverage. This is generated in `coverage/lcov-report/index.html` under the project directory.
 
+## ⚠️ Error Handling <a name = "error_handling"></a>
+
+The API returns structured error responses with error codes, HTTP status codes, and detailed messages.
+
+### Error Response Format
+
+All errors follow this structure. The `details` field is optional and may be omitted or set to `null`:
+
+```json
+{
+	"error": {
+		"code": "ERROR_CODE",
+		"message": "Human-readable error message",
+		"details": null
+	}
+}
+```
+
+### Error Codes
+
+| Code                    | HTTP Status | Description                                                                               |
+| ----------------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `CONTENT_TYPE_MISMATCH` | 400         | Content type doesn't match the requested endpoint (e.g., podcast ASIN on /books endpoint) |
+| `VALIDATION_ERROR`      | 422         | Schema validation failed                                                                  |
+| `REGION_UNAVAILABLE`    | 404         | Content not available in the requested region                                             |
+| `NOT_FOUND`             | 404         | Generic not found error                                                                   |
+| `BAD_REQUEST`           | 400         | Bad request                                                                               |
+| `RATE_LIMIT_EXCEEDED`   | 429         | Too many requests — client has exceeded allowed request rate                              |
+
+### Example Error Responses
+
+**Content Type Mismatch (Podcast on Book endpoint):**
+
+```json
+{
+	"error": {
+		"code": "CONTENT_TYPE_MISMATCH",
+		"message": "Item is a podcast, not a book. ASIN: B017V4U2VQ",
+		"details": {
+			"asin": "B017V4U2VQ",
+			"requestedType": "book",
+			"actualType": "PodcastParent"
+		}
+	}
+}
+```
+
+**Region Unavailable:**
+
+```json
+{
+	"error": {
+		"code": "REGION_UNAVAILABLE",
+		"message": "Item not available in region 'us' for ASIN: B12345",
+		"details": {
+			"asin": "B12345"
+		}
+	}
+}
+```
+
+**Validation Error:**
+
+```json
+{
+	"error": {
+		"code": "VALIDATION_ERROR",
+		"message": "Schema validation failed for request",
+		"details": {
+			"field": "asin",
+			"issue": "Invalid ASIN format"
+		}
+	}
+}
+```
+
+**Not Found:**
+
+```json
+{
+	"error": {
+		"code": "NOT_FOUND",
+		"message": "Book with ASIN B12345 not found",
+		"details": {
+			"asin": "B12345",
+			"endpoint": "/books"
+		}
+	}
+}
+```
+
+**Bad Request:**
+
+```json
+{
+	"error": {
+		"code": "BAD_REQUEST",
+		"message": "Invalid request parameters",
+		"details": {
+			"parameter": "region",
+			"issue": "Unsupported region 'xx'"
+		}
+	}
+}
+```
+
+**Rate Limit Exceeded:**
+
+```json
+{
+	"error": {
+		"code": "RATE_LIMIT_EXCEEDED",
+		"message": "Too many requests — client has exceeded allowed request rate",
+		"details": {
+			"retryAfterSeconds": 60
+		}
+	}
+}
+```
+
 ## 🎈 Usage <a name="usage"></a>
 
 API usage documentation can be read here: https://audnex.us/
@@ -91,19 +214,69 @@ pnpm run build-docs
 
 ## 🚀 Deployment <a name = "deployment"></a>
 
+### Coolify Deployment
+
+Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Vercel.
+
+**Setup Steps:**
+
+1. **Connect repository to Coolify:**
+   - In Coolify, create a new application
+   - Select "Git" and connect your GitHub repository
+   - Select the branch (e.g., `main` or `develop`)
+
+2. **Configure environment variables:**
+   - Set up the following environment variables in Coolify:
+   - `ADP_TOKEN`: Audible ADP_TOKEN value (optional, for chapters endpoint)
+   - `MAX_REQUESTS`: Max requests per minute per source (default: 100)
+   - `MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`)
+   - `PRIVATE_KEY`: Audible PRIVATE_KEY value (optional, for chapters endpoint)
+   - `REDIS_URL`: Redis connection URL (e.g., `redis://redis:6379`)
+   - `UPDATE_INTERVAL`: Update interval in days (default: 30)
+   - `UPDATE_THRESHOLD`: Minimum days before checking updates again (default: 7)
+
+3. **Configure build and deployment:**
+   - Build command: Coolify will automatically use the Dockerfile
+   - Port: 3000
+   - Health check: Coolify can use the `/health` endpoint
+
+4. **Enable GitHub webhook (optional):**
+   - In Coolify, get your webhook URL from the application's "Webhook" section
+   - Add `COOLIFY_WEBHOOK` to your GitHub repository secrets with this URL
+   - In Coolify, create an API token from "Keys & Tokens" > "API Tokens" (enable "Deploy" permission)
+   - Add `COOLIFY_TOKEN` to your GitHub repository secrets with the API token
+   - The workflow `.github/workflows/deploy-coolify.yml` will trigger deployments automatically on pushes to `main` or `develop`
+
+**Note:** The `.github/workflows/docker-publish.yml` workflow builds and pushes Docker images to GitHub Container Registry (ghcr.io) but does not deploy them. The Coolify workflow builds, pushes, and deploys the Docker image using the Coolify API.
+
+5. **Optional: Configure persistent volumes for MongoDB/Redis:**
+   - For production, consider using external MongoDB and Redis services
+   - Or configure Coolify to use managed databases
+
+**Important:** The audnexus application requires MongoDB and Redis services to run. You must either:
+
+- Use Coolify's managed database services or external databases
+- Deploy the full stack (including MongoDB and Redis containers) using the Docker Compose method in the Docker Swarm section below
+
+Do not proceed with Coolify deployment until you have the `NODE_MONGODB_URI` and `NODE_REDIS_URL` values ready.
+
+**Note:** For production deployments, consider using Coolify's managed database services for MongoDB and Redis, or deploy the full stack using the Docker Compose method below.
+
+### Docker Swarm Deployment
+
 Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, and use it to start the stack. Using something like Portainer for a Swarm GUI will make this much easier.
 
 The stack defaults to 15 replicas for the node-server container. Customize this as needed.
 
 Environment variables to add:
 
-- `NODE_ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
-- `NODE_MAX_REQUESTS`: Maximum amount of requests per 1 minute period from a single source (default 100)
-- `NODE_MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
-- `NODE_PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
-- `NODE_REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
-- `NODE_UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default 30). Update task is also run at startup.
-- `NODE_UPDATE_THRESHOLD`: Minimum number of days after an item is updated, to allow it to check for updates again (either scheduled or param).
+- `ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
+- `MAX_REQUESTS`: Maximum amount of requests per 1 minute period from a single source (default 100)
+- `MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
+- `PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
+- `REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
+- `UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default 30). Update task is also run at startup.
+- `UPDATE_THRESHOLD`: Minimum number of days after an item is updated, to allow it to check for updates again (either scheduled or param).
 - `TRAEFIK_DOMAIN`: FQDN for the API server
 - `TRAEFIK_EMAIL`: Email to register SSL cert with
 

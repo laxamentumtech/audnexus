@@ -72,3 +72,6 @@ docker-compose.env
 
 # Sisyphus AI orchestration (local planning/debugging)
 .sisyphus/
+
+# Chunkhound code search database
+.chunkhound/

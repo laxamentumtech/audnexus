@@ -1,5 +1,6 @@
 import { ApiChapter, AudibleChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
+import { NotFoundError } from '#helpers/errors/ApiErrors'
 import {
 	chapterParsed1721358595,
 	chapterResponseB017V4IM1G
@@ -62,17 +63,24 @@ describe('Audible API', () => {
 	})
 
 	describe("When fetching a broken ASIN's chapters", () => {
-		let response: ApiChapter | undefined
+		let error: NotFoundError
 		beforeAll(async () => {
 			asin = 'B0036I54I6'
 			helper = new ChapterHelper(asin, 'us')
 			const fetched = await helper.fetchChapter()
-			const parsed = await helper.parseResponse(fetched)
-			response = parsed
+			try {
+				await helper.parseResponse(fetched)
+				fail('Expected NotFoundError to be thrown')
+			} catch (e) {
+				error = e as NotFoundError
+			}
 		}, 10000)
 
-		it('returned undefined', () => {
-			expect(response).toBeUndefined()
+		it('throws NotFoundError with correct properties', () => {
+			expect(error).toBeInstanceOf(NotFoundError)
+			expect(error.statusCode).toBe(404)
+			expect(error.details?.code).toBe('REGION_UNAVAILABLE')
+			expect(error.message).toContain('Item not available in region')
 		})
 	})
 })

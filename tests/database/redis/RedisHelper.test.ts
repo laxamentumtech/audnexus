@@ -1,5 +1,6 @@
 jest.mock('@fastify/redis')
 import type { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import RedisHelper from '#helpers/database/redis/RedisHelper'
@@ -107,7 +108,7 @@ describe('RedisHelper should catch error when', () => {
 	test('findOrCreate set rejects', async () => {
 		jest.spyOn(ctx.client, 'get').mockResolvedValue('')
 		jest.spyOn(ctx.client, 'set').mockRejectedValue(new Error('Error'))
-		await expect(helper.findOrCreate(parsedBook)).rejects.toThrowError(
+		await expect(helper.findOrCreate(parsedBook)).rejects.toThrow(
 			`An error occurred while setting ${region}-book-${asin} in redis`
 		)
 		expect(ctx.client.get).toHaveBeenCalledWith(`${region}-book-${asin}`)
@@ -117,15 +118,17 @@ describe('RedisHelper should catch error when', () => {
 		)
 	})
 	test('setExpiration rejects', async () => {
-		jest.spyOn(global.console, 'error')
+		const mockLogger = mockDeep<FastifyBaseLogger>()
+		// Create helper with mock logger
+		const helperWithLogger = new RedisHelper(ctx.client, 'book', asin, region, mockLogger)
 		jest
 			.spyOn(ctx.client, 'expire')
 			.mockRejectedValue(
 				new Error(`An error occurred while setting expiration for ${region}-book-${asin} in redis`)
 			)
-		await expect(helper.setExpiration()).resolves.toBeUndefined()
+		await expect(helperWithLogger.setExpiration()).resolves.toBeUndefined()
 		expect(ctx.client.expire).toHaveBeenCalledWith(`${region}-book-${asin}`, 432000)
-		expect(console.error).toHaveBeenCalledWith(
+		expect(mockLogger.error).toHaveBeenCalledWith(
 			`An error occurred while setting expiration for ${region}-book-${asin} in redis`
 		)
 	})
