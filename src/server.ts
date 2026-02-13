@@ -9,6 +9,12 @@ import { MongoClient } from 'mongodb'
 import 'module-alias/register'
 
 import { Context, createDefaultContext } from '#config/context'
+import {
+	BadRequestError,
+	ContentTypeMismatchError,
+	NotFoundError,
+	ValidationError
+} from '#helpers/errors/ApiErrors'
 
 // Extend FastifyInstance to include mongoClient for health check
 declare module 'fastify' {
@@ -83,16 +89,58 @@ async function registerPlugins() {
 	// Send 429 if rate limit is reached
 	// Check for custom error status codes (404, 400, etc.)
 	server.setErrorHandler(function (error, _request, reply) {
+		const errorCodeMap: Record<string, string> = {
+			ContentTypeMismatchError: 'CONTENT_TYPE_MISMATCH',
+			ValidationError: 'VALIDATION_ERROR',
+			NotFoundError: 'NOT_FOUND',
+			BadRequestError: 'BAD_REQUEST'
+		}
+
+		if (
+			error instanceof ContentTypeMismatchError ||
+			error instanceof ValidationError ||
+			error instanceof NotFoundError ||
+			error instanceof BadRequestError
+		) {
+			const statusCode = error.statusCode
+			const errorCode = error.details?.code || errorCodeMap[error.name] || 'UNKNOWN_ERROR'
+
+			reply.status(statusCode)
+			reply.send({
+				error: {
+					code: errorCode,
+					message: error.message,
+					details: error.details
+				}
+			})
+			return
+		}
+
 		// Check if error has a custom statusCode property
 		if (error instanceof Error && 'statusCode' in error) {
 			const statusCode = (error as Error & { statusCode: number }).statusCode
+			const errorCode = String(statusCode || 'UNKNOWN_ERROR')
 			reply.status(statusCode)
-			reply.send({ error: error.message })
+			reply.send({
+				error: {
+					code: errorCode,
+					message: error.message || 'An error occurred',
+					details: null
+				}
+			})
 			return
 		}
 		if (reply.statusCode === 429) {
 			if (error instanceof Error) {
-				error.message = 'Rate limit reached. Please try again later.'
+				reply.status(429)
+				reply.send({
+					error: {
+						code: 'RATE_LIMIT_EXCEEDED',
+						message: 'Rate limit reached. Please try again later.',
+						details: null
+					}
+				})
+				return
 			} else {
 				server.log.error('Non-error object in error handler: %s', String(error))
 			}

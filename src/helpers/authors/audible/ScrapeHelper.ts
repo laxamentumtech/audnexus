@@ -3,11 +3,12 @@ import type { FastifyBaseLogger } from 'fastify'
 import { htmlToText } from 'html-to-text'
 
 import { ApiAuthorOnBook, ApiAuthorProfile, ApiAuthorProfileSchema, ApiGenre } from '#config/types'
-import { NotFoundError } from '#helpers/errors/ApiErrors'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
+	ErrorMessageContentTypeMismatch,
 	ErrorMessageHTTPFetch,
 	ErrorMessageNoResponse,
 	ErrorMessageNotFound,
@@ -81,7 +82,10 @@ class ScrapeHelper {
 
 		// Method might retrieve header text instead of valid author
 		if (name === 'Showing titles\n in All Categories') {
-			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region))
+			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region), {
+				asin: this.asin,
+				code: 'REGION_UNAVAILABLE'
+			})
 		}
 		return name
 	}
@@ -124,6 +128,32 @@ class ScrapeHelper {
 	}
 
 	/**
+	 * Detect if the page is a book page instead of an author page
+	 * Book pages have elements like buy buttons, sample buttons, or book-specific structures
+	 * @param {cheerio.CheerioAPI} dom the fetched dom object
+	 * @returns {boolean} true if the page is likely a book page
+	 */
+	isBookPage(dom: cheerio.CheerioAPI): boolean {
+		// Check for book-specific elements:
+		// 1. Buy/Add to Cart buttons (book pages have purchase buttons, author pages don't)
+		const hasBuyButton = dom('[data-testid="buy-button"]').length > 0
+		// 2. Sample/Listen buttons (book pages have audio samples)
+		const hasSampleButton =
+			dom('button:contains("Sample")').length > 0 ||
+			dom('[data-testid="sample-button"]').length > 0 ||
+			dom('.bc-button-text:contains("Sample")').length > 0
+		// 3. Book title structure (book pages have different title structure than author pages)
+		const hasBookTitle = dom('h1.bc-heading').find('.bc-text-bold').length > 0
+		// 4. Chapter list elements (books have chapter lists)
+		const hasChapterList = dom('[data-testid="chapter-list"]').length > 0
+		// 5. Product listener/review elements specific to books
+		const hasProductListener = dom('.product-listener').length > 0
+
+		// If any of these book-specific elements are found, it's likely a book page
+		return hasBuyButton || hasSampleButton || hasBookTitle || hasChapterList || hasProductListener
+	}
+
+	/**
 	 * Parses fetched HTML page to extract genres and series'
 	 * @param {JSDOM} dom the fetched dom object
 	 * @returns {HtmlBook} genre and series.
@@ -160,8 +190,18 @@ class ScrapeHelper {
 		})
 		// Handle error if response is not valid
 		if (!response.success) {
-			// If the key is content_delivery_type, then the item is not available in the region
-			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region))
+			// Check if this might be a book page instead of an author page
+			if (this.isBookPage(dom)) {
+				throw new ContentTypeMismatchError(
+					ErrorMessageContentTypeMismatch(this.asin, 'book', 'author'),
+					{ asin: this.asin, requestedType: 'author', actualType: 'book' }
+				)
+			}
+			// If not a book page, then the item is not available in the region
+			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region), {
+				asin: this.asin,
+				code: 'REGION_UNAVAILABLE'
+			})
 		}
 
 		// Return the parsed response data if it is valid

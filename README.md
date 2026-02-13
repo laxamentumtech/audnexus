@@ -26,8 +26,10 @@
 
 - [About](#about)
 - [Getting Started](#getting_started)
-- [Deployment](#deployment)
+- [Running the tests](#tests)
+- [Error Handling](#error_handling)
 - [Usage](#usage)
+- [Deployment](#deployment)
 - [Built Using](#built_using)
 - [TODO](../TODO.md)
 - [Contributing](../CONTRIBUTING.md)
@@ -77,6 +79,126 @@ Tests for this project use the Jest framework. Tests can be done locally in a de
 - `pnpm test`
 
 After the tests have run, you may also browse the test coverage. This is generated in `coverage/lcov-report/index.html` under the project directory.
+
+## ⚠️ Error Handling <a name = "error_handling"></a>
+
+The API returns structured error responses with error codes, HTTP status codes, and detailed messages.
+
+### Error Response Format
+
+All errors follow this structure. The `details` field is optional and may be omitted or set to `null`:
+
+```json
+{
+	"error": {
+		"code": "ERROR_CODE",
+		"message": "Human-readable error message",
+		"details": null
+	}
+}
+```
+
+### Error Codes
+
+| Code                    | HTTP Status | Description                                                                               |
+| ----------------------- | ----------- | ----------------------------------------------------------------------------------------- |
+| `CONTENT_TYPE_MISMATCH` | 400         | Content type doesn't match the requested endpoint (e.g., podcast ASIN on /books endpoint) |
+| `VALIDATION_ERROR`      | 422         | Schema validation failed                                                                  |
+| `REGION_UNAVAILABLE`    | 404         | Content not available in the requested region                                             |
+| `NOT_FOUND`             | 404         | Generic not found error                                                                   |
+| `BAD_REQUEST`           | 400         | Bad request                                                                               |
+| `RATE_LIMIT_EXCEEDED`   | 429         | Too many requests — client has exceeded allowed request rate                              |
+
+### Example Error Responses
+
+**Content Type Mismatch (Podcast on Book endpoint):**
+
+```json
+{
+	"error": {
+		"code": "CONTENT_TYPE_MISMATCH",
+		"message": "Item is a podcast, not a book. ASIN: B017V4U2VQ",
+		"details": {
+			"asin": "B017V4U2VQ",
+			"requestedType": "book",
+			"actualType": "PodcastParent"
+		}
+	}
+}
+```
+
+**Region Unavailable:**
+
+```json
+{
+	"error": {
+		"code": "REGION_UNAVAILABLE",
+		"message": "Item not available in region 'us' for ASIN: B12345",
+		"details": {
+			"asin": "B12345"
+		}
+	}
+}
+```
+
+**Validation Error:**
+
+```json
+{
+	"error": {
+		"code": "VALIDATION_ERROR",
+		"message": "Schema validation failed for request",
+		"details": {
+			"field": "asin",
+			"issue": "Invalid ASIN format"
+		}
+	}
+}
+```
+
+**Not Found:**
+
+```json
+{
+	"error": {
+		"code": "NOT_FOUND",
+		"message": "Book with ASIN B12345 not found",
+		"details": {
+			"asin": "B12345",
+			"endpoint": "/books"
+		}
+	}
+}
+```
+
+**Bad Request:**
+
+```json
+{
+	"error": {
+		"code": "BAD_REQUEST",
+		"message": "Invalid request parameters",
+		"details": {
+			"parameter": "region",
+			"issue": "Unsupported region 'xx'"
+		}
+	}
+}
+```
+
+**Rate Limit Exceeded:**
+
+```json
+{
+	"error": {
+		"code": "RATE_LIMIT_EXCEEDED",
+		"message": "Too many requests — client has exceeded allowed request rate",
+		"details": {
+			"retryAfterSeconds": 60
+		}
+	}
+}
+```
 
 ## 🎈 Usage <a name="usage"></a>
 

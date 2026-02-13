@@ -10,7 +10,7 @@ import {
 	fallbackShape
 } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
-import { NotFoundError } from '#helpers/errors/ApiErrors'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
@@ -20,8 +20,7 @@ import {
 	B017V4IM1G,
 	bookWithoutContentDeliveryType,
 	podcast,
-	podcastWithoutProgramParticipation,
-	setupMinimalParsed
+	podcastWithoutProgramParticipation
 } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
 
@@ -156,56 +155,34 @@ describe('ApiHelper should', () => {
 		await expect(parsed).resolves.toEqual(parsedBook)
 	})
 
-	test('parse response with podcast', async () => {
-		const copyright = 2020
-		const genres = [
-			{
-				asin: '18580606011',
-				name: 'Science Fiction & Fantasy',
-				type: 'genre'
-			},
-			{
-				asin: '18580607011',
-				name: 'Fantasy',
-				type: 'tag'
-			},
-			{
-				asin: '18580628011',
-				name: 'Science Fiction',
-				type: 'tag'
+	test('throws ContentTypeMismatchError for podcast content', async () => {
+		await expect(helper.parseResponse(podcast)).rejects.toBeInstanceOf(ContentTypeMismatchError)
+		await expect(helper.parseResponse(podcast)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a podcast, not a book. ASIN: ${asin}`,
+			details: {
+				asin: asin,
+				requestedType: 'book',
+				actualType: 'PodcastParent'
 			}
-		]
-		const image = 'https://m.media-amazon.com/images/I/9125JjSWeCL.jpg'
-		const minimalParsed = setupMinimalParsed(
-			podcast.product,
-			copyright,
-			podcast.product.merchandising_summary,
-			image,
-			genres
-		)
-		await expect(helper.parseResponse(podcast)).resolves.toEqual(minimalParsed)
+		})
 	})
 
-	test('parse podcast without program_participation', async () => {
-		const copyright = 2024
-		const genres = [
-			{
-				asin: '18580606011',
-				name: 'Science Fiction & Fantasy',
-				type: 'genre'
+	test('throws ContentTypeMismatchError for podcast without program_participation', async () => {
+		await expect(helper.parseResponse(podcastWithoutProgramParticipation)).rejects.toBeInstanceOf(
+			ContentTypeMismatchError
+		)
+		await expect(helper.parseResponse(podcastWithoutProgramParticipation)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a podcast, not a book. ASIN: ${asin}`,
+			details: {
+				asin: asin,
+				requestedType: 'book',
+				actualType: 'PodcastParent'
 			}
-		]
-		const image = 'https://m.media-amazon.com/images/I/51test.jpg'
-		const minimalParsed = setupMinimalParsed(
-			podcastWithoutProgramParticipation.product,
-			copyright,
-			podcastWithoutProgramParticipation.product.merchandising_summary,
-			image,
-			genres
-		)
-		await expect(helper.parseResponse(podcastWithoutProgramParticipation)).resolves.toEqual(
-			minimalParsed
-		)
+		})
 	})
 
 	describe('handle region: ', () => {
