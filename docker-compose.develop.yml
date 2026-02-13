@@ -2,7 +2,7 @@ version: '3.7'
 
 services:
   node-server:
-    image: ghcr.io/laxamentumtech/audnexus:develop
+    image: ghcr.io/laxamentumtech/audnexus:develop@sha256:f43c59b310d8778d3f5d88264258e3fce255b70e261ec9874ed528fd46c8c341
     restart: always
     environment:
       ADP_TOKEN: ${NODE_ADP_TOKEN}
@@ -29,7 +29,7 @@ services:
       start_period: 30s
 
   mongo:
-    image: mongo:7.0.30
+    image: mongo:7.0.30@sha256:6159d784bc2ed3e6e97648bb28d93d43cf9660401c1230f4f340d14d68421119
     restart: always
     volumes:
       - /mnt/docker/mongo/data:/data/db
@@ -39,7 +39,7 @@ services:
       - '27017:27017'
 
   redis:
-    image: redis:8.6-alpine
+    image: redis:8.6-alpine@sha256:fd83658b0e40e2164617d262f13c02ca9ee9e1e6b276fd2fa06617e09bd5c780
     restart: always
     networks:
       - internal
