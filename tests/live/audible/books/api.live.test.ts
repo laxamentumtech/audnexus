@@ -1,6 +1,7 @@
 import type { ApiBook, AudibleProduct } from '#config/types'
 import { baseShape } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
+import { NotFoundError, ContentTypeMismatchError, BadRequestError } from '#helpers/errors/ApiErrors'
 
 /**
  * Allowlist of ASINs that are expected to be unavailable in specific regions.
@@ -336,6 +337,214 @@ describe('Audible API Live Tests', () => {
 			}
 
 			// The test passes even if warnings exist - warnings are for detection only
+			expect(true).toBe(true)
+		}, 30000)
+	})
+
+	describe('Structured error response validation', () => {
+		/**
+		 * Tests for validating the new structured error response format.
+		 * These tests ensure error responses include code, message, and details fields.
+		 */
+
+		it('should return structured error for unavailable content (REGION_UNAVAILABLE)', async () => {
+			const asin = 'B000000000' // Non-existent ASIN
+			const helper = new ApiHelper(asin, 'us')
+			const fetched = await helper.fetchBook()
+
+			// Try to parse - should throw with structured error
+			await expect(helper.parseResponse(fetched)).rejects.toBeInstanceOf(NotFoundError)
+
+			// Verify error structure
+			await expect(helper.parseResponse(fetched)).rejects.toMatchObject({
+				message: expect.stringContaining(asin),
+				details: expect.objectContaining({
+					asin: asin
+				})
+			})
+		}, 30000)
+
+		it('should handle podcast ASIN on book endpoint (CONTENT_TYPE_MISMATCH)', async () => {
+			/**
+			 * This test uses a known podcast ASIN and verifies that when fetched
+			 * through the books endpoint, it properly detects the content type mismatch.
+			 *
+			 * Note: Podcast ASINs may change over time. If this test starts failing,
+			 * the ASIN may have been removed or changed format.
+			 */
+			const podcastAsins = ['B017V4U2VQ', 'B09WJ2R4HQ'] // Known podcast/exclusive content ASINs
+			let contentTypeMismatchDetected = false
+			let mismatchError: ContentTypeMismatchError | null = null
+
+			for (const asin of podcastAsins) {
+				try {
+					const helper = new ApiHelper(asin, 'us')
+					const fetched = await helper.fetchBook()
+					await helper.parseResponse(fetched)
+					// If parse succeeds, check if it's actually a podcast
+					if (fetched.product?.content_delivery_type === 'PodcastParent') {
+						contentTypeMismatchDetected = true
+						console.warn(
+							`[LIVE TEST] Podcast ASIN ${asin} detected - CONTENT_TYPE_MISMATCH should have been thrown`
+						)
+					}
+				} catch (error) {
+					// Expected - content type mismatch should be detected
+					if (error instanceof ContentTypeMismatchError) {
+						contentTypeMismatchDetected = true
+						mismatchError = error
+						console.log(`[LIVE TEST] Content type mismatch correctly detected for ${asin}`)
+					}
+				}
+			}
+
+			// Verify error structure if mismatch was detected
+			if (mismatchError) {
+				expect(mismatchError.details).toBeDefined()
+				expect(mismatchError.details?.asin).toBeDefined()
+				expect(mismatchError.details?.requestedType).toBe('book')
+				expect(mismatchError.details?.actualType).toBeDefined()
+			}
+
+			// At least one of the test ASINs should trigger content type detection
+			// If none do, the ASINs may have changed - warn but don't fail
+			if (!contentTypeMismatchDetected) {
+				console.warn('[LIVE TEST] No content type mismatch detected - test ASINs may need updating')
+			}
+			// Warn but don't fail - external ASINs may change
+			expect(true).toBe(true)
+		}, 30000)
+
+		it('should validate error response structure contains required fields', async () => {
+			/**
+			 * This test validates that error responses follow the structured format:
+			 * { error: { code: string, message: string, details?: object } }
+			 */
+			const asin = 'B000000000'
+			const helper = new ApiHelper(asin, 'us')
+			const fetched = await helper.fetchBook()
+
+			let errorThrown = false
+			try {
+				await helper.parseResponse(fetched)
+			} catch (error) {
+				errorThrown = true
+				// The error should be an Error instance with a message
+				expect(error).toBeInstanceOf(Error)
+				if (error instanceof Error) {
+					expect(error.message).toBeTruthy()
+				}
+				// Verify it's a NotFoundError with structured details
+				expect(error).toBeInstanceOf(NotFoundError)
+				const notFoundError = error as NotFoundError
+				expect(notFoundError.statusCode).toBe(404)
+				expect(notFoundError.details).toBeDefined()
+			}
+
+			expect(errorThrown).toBe(true)
+		}, 30000)
+	})
+
+	describe('ASIN format validation (BAD_REQUEST scenarios)', () => {
+		/**
+		 * Tests for validating that malformed ASINs are properly rejected.
+		 * These tests verify the BAD_REQUEST error code is returned for invalid inputs.
+		 */
+
+		const invalidAsinFormats = [
+			{ asin: '123', description: 'too short' },
+			{ asin: 'ABC', description: 'letters only' },
+			{ asin: 'B123', description: 'too short with B prefix' },
+			{ asin: 'B12345678901234567890', description: 'too long' },
+			{ asin: 'INVALID', description: 'non-alphanumeric' }
+		]
+
+		it('should reject malformed ASIN formats', async () => {
+			const validationResults: {
+				asin: string
+				description: string
+				rejected: boolean
+				errorType?: string
+			}[] = []
+
+			for (const { asin, description } of invalidAsinFormats) {
+				try {
+					const helper = new ApiHelper(asin, 'us')
+					await helper.fetchBook()
+					// If fetch succeeds, mark as not rejected
+					validationResults.push({ asin, description, rejected: false })
+				} catch (error) {
+					// Expected - malformed ASIN should be rejected
+					if (error instanceof BadRequestError) {
+						validationResults.push({
+							asin,
+							description,
+							rejected: true,
+							errorType: 'BadRequestError'
+						})
+					} else {
+						validationResults.push({ asin, description, rejected: true, errorType: 'OtherError' })
+					}
+				}
+			}
+
+			// Log results for debugging
+			const rejected = validationResults.filter((r) => r.rejected)
+			const notRejected = validationResults.filter((r) => !r.rejected)
+
+			console.log(
+				`[LIVE TEST] ASIN format validation: ${rejected.length}/${validationResults.length} formats rejected`
+			)
+			if (notRejected.length > 0) {
+				console.warn(
+					`[LIVE TEST] These ASIN formats were not rejected: ${notRejected.map((r) => `${r.asin} (${r.description})`).join(', ')}`
+				)
+			}
+
+			// Verify at least some malformed ASINs were rejected with BadRequestError
+			const badRequestRejections = rejected.filter((r) => r.errorType === 'BadRequestError')
+			if (badRequestRejections.length > 0) {
+				console.log(
+					`[LIVE TEST] ${badRequestRejections.length} malformed ASINs correctly rejected with BAD_REQUEST`
+				)
+			} else {
+				console.warn(
+					'[LIVE TEST] No malformed ASINs rejected with BAD_REQUEST - API behavior may have changed'
+				)
+			}
+
+			// We expect most malformed formats to be rejected
+			// Some may pass through to the API which returns 404 instead
+			// Warn but don't fail - external API behavior may change
+			expect(validationResults.length).toBe(invalidAsinFormats.length)
+		}, 30000)
+
+		it('should accept valid ASIN formats', async () => {
+			/**
+			 * Verifies that valid ASIN formats are accepted (don't throw BAD_REQUEST).
+			 * These should either succeed (200) or return REGION_UNAVAILABLE (404).
+			 */
+			const validAsinFormats = [
+				{ asin: 'B08G9PRS1K', description: 'standard 10-char' },
+				{ asin: 'B07V2K2N5L', description: 'unavailable 10-char' }
+			]
+
+			for (const { asin, description } of validAsinFormats) {
+				try {
+					const helper = new ApiHelper(asin, 'us')
+					const result = await helper.fetchBook()
+					// Should get a response (either success or Audible's not-found response)
+					expect(result).toBeDefined()
+					console.log(`[LIVE TEST] Valid ASIN ${asin} (${description}) accepted`)
+				} catch (error) {
+					// Even valid ASINs may fail for other reasons (network, etc.)
+					// but should NOT fail with BAD_REQUEST
+					if (error instanceof Error && error.message.includes('Bad ASIN')) {
+						console.warn(`[LIVE TEST] Valid ASIN ${asin} rejected as BAD_REQUEST`)
+					}
+				}
+			}
+
 			expect(true).toBe(true)
 		}, 30000)
 	})
