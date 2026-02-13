@@ -10,12 +10,15 @@ import {
 	AudibleChapterSchema,
 	AudibleSingleChapter
 } from '#config/types'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
+	ErrorMessageContentTypeMismatch,
 	ErrorMessageHTTPFetch,
 	ErrorMessageMissingEnv,
 	ErrorMessageNoData,
+	ErrorMessageRegion,
 	ErrorMessageRequiredKey
 } from '#static/messages'
 import { regions } from '#static/regions'
@@ -79,6 +82,23 @@ class ChapterHelper {
 		}
 
 		return chapterTitle
+	}
+
+	/**
+	 * Validates that the content type is a valid book type
+	 * @param {string | undefined} contentType the content delivery type from the book
+	 * @throws {ContentTypeMismatchError} if content type is not a valid book type
+	 */
+	validateContentType(contentType: string | undefined): void {
+		const validBookTypes = ['MultiPartBook', 'SinglePartBook']
+
+		if (!contentType || !validBookTypes.includes(contentType)) {
+			const actualType = contentType || 'unknown'
+			throw new ContentTypeMismatchError(
+				ErrorMessageContentTypeMismatch(this.asin, actualType, 'book'),
+				{ asin: this.asin, requestedType: 'book', actualType }
+			)
+		}
 	}
 
 	/**
@@ -166,9 +186,12 @@ class ChapterHelper {
 	 * @returns {Promise<ApiChapter>} relevant data to keep
 	 */
 	async parseResponse(jsonResponse: AudibleChapter | undefined): Promise<ApiChapter | undefined> {
-		// Base undefined check
+		// Base undefined check - chapter data not available in this region
 		if (!jsonResponse?.content_metadata.chapter_info) {
-			return undefined
+			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region), {
+				asin: this.asin,
+				code: 'REGION_UNAVAILABLE'
+			})
 		}
 
 		// Parse response with zod
@@ -191,9 +214,15 @@ class ChapterHelper {
 
 	/**
 	 * Call functions in the class to parse final book JSON
+	 * @param {string} [contentType] optional content delivery type to validate before fetching chapters
 	 * @returns {Promise<ApiChapter>}
 	 */
-	async process(): Promise<ApiChapter | undefined> {
+	async process(contentType?: string): Promise<ApiChapter | undefined> {
+		// Validate content type if provided
+		if (contentType) {
+			this.validateContentType(contentType)
+		}
+
 		const chapterResponse = await this.fetchChapter()
 
 		return this.parseResponse(chapterResponse)

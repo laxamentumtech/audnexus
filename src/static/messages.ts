@@ -22,6 +22,15 @@ export const ErrorMessageParse = (asin: string, source: string) =>
 // Item not available in region
 export const ErrorMessageRegion = (asin: string, region: string) =>
 	`Item not available in region '${region}' for ASIN: ${asin}`
+// Content type mismatch
+export const ErrorMessageContentTypeMismatch = (
+	asin: string,
+	actualType: string,
+	expectedType: string
+) => `Item is a ${actualType}, not a ${expectedType}. ASIN: ${asin}`
+// Validation failed
+export const ErrorMessageValidationFailed = (asin: string, reason: string) =>
+	`Validation failed for ASIN: ${asin}. ${reason}`
 // Release date is in the future
 export const ErrorMessageReleaseDate = (asin: string) =>
 	`Release date is in the future for ASIN: ${asin}`

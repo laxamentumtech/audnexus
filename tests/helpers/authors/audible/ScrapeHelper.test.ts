@@ -3,10 +3,10 @@ import * as cheerio from 'cheerio'
 
 import { baseAsin10Regex } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
-import { NotFoundError } from '#helpers/errors/ApiErrors'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
-import { ErrorMessageNotFound } from '#static/messages'
+import { ErrorMessageContentTypeMismatch, ErrorMessageNotFound } from '#static/messages'
 import { regions } from '#static/regions'
 import { htmlResponseMinified, htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
 import {
@@ -174,6 +174,30 @@ describe('ScrapeHelper should throw error when', () => {
 		await expect(helper.parseResponse(cheerio.load(mockResponse))).rejects.toThrow(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
+	})
+
+	test('parse response throws ContentTypeMismatchError when book page detected', async () => {
+		jest.spyOn(helper, 'getName').mockReturnValue('')
+		expect.assertions(3)
+		const bookPageHtml = mockResponse.replace(
+			'<body>',
+			'<body><button data-testid="buy-button">Buy</button>'
+		)
+		const dom = cheerio.load(bookPageHtml)
+		try {
+			await helper.parseResponse(dom)
+			throw new Error('Expected ContentTypeMismatchError to be thrown')
+		} catch (error) {
+			expect(error).toBeInstanceOf(ContentTypeMismatchError)
+			expect((error as ContentTypeMismatchError).details).toEqual({
+				asin: asin,
+				requestedType: 'author',
+				actualType: 'book'
+			})
+			expect((error as ContentTypeMismatchError).message).toBe(
+				ErrorMessageContentTypeMismatch(asin, 'book', 'author')
+			)
+		}
 	})
 
 	test('getName is header', async () => {
