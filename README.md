@@ -194,7 +194,7 @@ All errors follow this structure. The `details` field is optional and may be omi
 		"code": "RATE_LIMIT_EXCEEDED",
 		"message": "Too many requests — client has exceeded allowed request rate",
 		"details": {
-			"retryAfter": 60
+			"retryAfterSeconds": 60
 		}
 	}
 }
