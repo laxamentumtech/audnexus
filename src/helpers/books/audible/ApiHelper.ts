@@ -20,11 +20,12 @@ import {
 	FallbackAudibleProduct,
 	fallbackShape
 } from '#config/types'
-import { NotFoundError } from '#helpers/errors/ApiErrors'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import {
+	ErrorMessageContentTypeMismatch,
 	ErrorMessageHTTPFetch,
 	ErrorMessageNoData,
 	ErrorMessageParse,
@@ -386,8 +387,16 @@ class ApiHelper {
 		const product = jsonResponse.product
 		const contentType = product?.content_delivery_type
 
-		// Check if content_delivery_type exists and is a known value
-		const knownTypes = ['PodcastParent', 'MultiPartBook', 'SinglePartBook']
+		// Check for content type mismatch (e.g., podcast instead of book)
+		if (contentType === 'PodcastParent') {
+			throw new ContentTypeMismatchError(
+				ErrorMessageContentTypeMismatch(this.asin, 'podcast', 'book'),
+				{ asin: this.asin, requestedType: 'book', actualType: 'PodcastParent' }
+			)
+		}
+
+		// Check if content_delivery_type exists and is a known book type
+		const knownTypes = ['MultiPartBook', 'SinglePartBook']
 		if (!contentType || !knownTypes.includes(contentType)) {
 			// Try parsing with baseShape directly (fallback for missing/unknown type)
 			const baseResult = baseShape.safeParse(product)
@@ -404,7 +413,10 @@ class ApiHelper {
 				return this.getFinalData()
 			}
 			// baseShape also failed - likely truly unavailable in region
-			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region))
+			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region), {
+				asin: this.asin,
+				code: 'REGION_UNAVAILABLE'
+			})
 		}
 
 		// Parse response with zod for known content_delivery_type values
