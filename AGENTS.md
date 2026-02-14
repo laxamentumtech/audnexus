@@ -419,7 +419,7 @@ Triggers:
 
 All commits must follow the Conventional Commits specification:
 
-```
+```text
 <type>(<scope>): <description>
 ```
 
@@ -519,7 +519,7 @@ pnpm test:live
 
 **Warnings (non-blocking):**
 
-```
+```text
 [AUDIBLE API CHANGE] - Minor structure change detected
 [AUDIBLE HTML CHANGE] - HTML parsing warning
 ```
@@ -528,7 +528,7 @@ Warnings indicate potential issues that should be reviewed but don't fail the bu
 
 **Failures (blocking):**
 
-```
+```text
 [AUDIBLE API CHANGE] - Breaking API change detected
 [AUDIBLE HTML CHANGE] - Critical HTML structure change
 ```
@@ -545,7 +545,8 @@ When live tests detect changes:
 4. **Update tests** in `tests/audible/` if needed
 5. **Re-run live tests** to confirm fixes
 6. **Commit changes** with appropriate message:
-   ```
+
+   ```bash
    fix(audible): update book scraper for new HTML structure
    ```
 

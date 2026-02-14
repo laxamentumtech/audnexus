@@ -258,7 +258,7 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
 - Use Coolify's managed database services or external databases
 - Deploy the full stack (including MongoDB and Redis containers) using the Docker Compose method in the Docker Swarm section below
 
-Do not proceed with Coolify deployment until you have the `NODE_MONGODB_URI` and `NODE_REDIS_URL` values ready.
+Do not proceed with Coolify deployment until you have the `MONGODB_URI` and `REDIS_URL` values ready.
 
 **Note:** For production deployments, consider using Coolify's managed database services for MongoDB and Redis, or deploy the full stack using the Docker Compose method below.
 
@@ -271,7 +271,7 @@ The stack defaults to 15 replicas for the node-server container. Customize this 
 Environment variables to add:
 
 - `ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
-- `MAX_REQUESTS`: Maximum amount of requests per 1 minute period from a single source (default 100)
+- `MAX_REQUESTS`: Maximum number of requests per 1-minute period from a single source (default 100)
 - `MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
 - `PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
 - `REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
