@@ -305,6 +305,7 @@ describe('Audible API Live Tests', () => {
 
 		it('should validate genre ASINs from different regions', async () => {
 			const warnings: string[] = []
+			const foundGenreAsins: string[] = []
 			const regionsToTest = ['us', 'uk', 'au']
 			const asin = 'B08G9PRS1K'
 
@@ -317,10 +318,13 @@ describe('Audible API Live Tests', () => {
 					for (const ladder of fetched.product.category_ladders) {
 						if (ladder.ladder) {
 							for (const category of ladder.ladder) {
-								if (category.id && !/^\d{10,12}$/.test(category.id)) {
-									warnings.push(
-										`[AUDIBLE API CHANGE] Genre ASIN '${category.id}' in region '${region}' does not match expected pattern (10-12 digits)`
-									)
+								if (category.id) {
+									foundGenreAsins.push(category.id)
+									if (!/^\d{10,12}$/.test(category.id)) {
+										warnings.push(
+											`[AUDIBLE API CHANGE] Genre ASIN '${category.id}' in region '${region}' does not match expected pattern (10-12 digits)`
+										)
+									}
 								}
 							}
 						}
@@ -335,7 +339,7 @@ describe('Audible API Live Tests', () => {
 				}
 			}
 
-			expect(warnings.length).toBe(0)
+			expect(foundGenreAsins.length).toBeGreaterThan(0)
 		}, 30000)
 	})
 
@@ -380,7 +384,8 @@ describe('Audible API Live Tests', () => {
 			 * the ASIN may have been removed or changed format.
 			 */
 			const podcastAsins = ['B017V4U2VQ', 'B09WJ2R4HQ'] // Known podcast/exclusive content ASINs
-			let contentTypeMismatchDetected = false
+			let mismatchDetectedByError = false
+			let parseSucceededButWasPodcast = false
 			let mismatchError: ContentTypeMismatchError | null = null
 
 			for (const asin of podcastAsins) {
@@ -388,9 +393,9 @@ describe('Audible API Live Tests', () => {
 					const helper = new ApiHelper(asin, 'us')
 					const fetched = await helper.fetchBook()
 					await helper.parseResponse(fetched)
-					// If parse succeeds, check if it's actually a podcast
+					// If parse succeeds but content is still a podcast, that's a failure
 					if (fetched.product?.content_delivery_type === 'PodcastParent') {
-						contentTypeMismatchDetected = true
+						parseSucceededButWasPodcast = true
 						console.warn(
 							`[LIVE TEST] Podcast ASIN ${asin} detected - CONTENT_TYPE_MISMATCH should have been thrown`
 						)
@@ -398,24 +403,31 @@ describe('Audible API Live Tests', () => {
 				} catch (error) {
 					// Expected - content type mismatch should be detected
 					if (error instanceof ContentTypeMismatchError) {
-						contentTypeMismatchDetected = true
+						mismatchDetectedByError = true
 						mismatchError = error
 						console.log(`[LIVE TEST] Content type mismatch correctly detected for ${asin}`)
 					}
 				}
 			}
 
-			// Verify error structure if mismatch was detected
-			if (mismatchError) {
+			// Verify error structure if mismatch was detected by error
+			if (mismatchDetectedByError && mismatchError) {
 				expect(mismatchError.details).toBeDefined()
 				expect(mismatchError.details?.asin).toBeDefined()
 				expect(mismatchError.details?.requestedType).toBe('book')
 				expect(mismatchError.details?.actualType).toBeDefined()
 			}
 
-			// At least one of the test ASINs should trigger content type detection
-			// If none do, the ASINs may have changed - warn but don't fail
-			if (!contentTypeMismatchDetected) {
+			// Fail explicitly if parse succeeded but was actually a podcast
+			if (parseSucceededButWasPodcast) {
+				throw new Error(
+					'Content type is PodcastParent but parseResponse succeeded - ContentTypeMismatchError should have been thrown'
+				)
+			}
+
+			// Expect at least one ASIN to trigger the ContentTypeMismatchError
+			// If none do, the ASINs may have changed
+			if (!mismatchDetectedByError) {
 				console.warn('[LIVE TEST] No content type mismatch detected - test ASINs may need updating')
 			}
 			// Warn but don't fail - external ASINs may change
@@ -524,6 +536,9 @@ describe('Audible API Live Tests', () => {
 			// Some may pass through to the API which returns 404 instead
 			// Warn but don't fail - external API behavior may change
 			expect(validationResults.length).toBe(invalidAsinFormats.length)
+
+			// Verify that at least some malformed ASINs were rejected (any error type)
+			expect(rejected.length).toBeGreaterThan(0)
 		}, 30000)
 
 		it('should accept valid ASIN formats', async () => {

@@ -35,6 +35,17 @@ let chapterHelper: ChapterHelper
 let response: ApiBook
 let chapters: ApiChapter | undefined
 
+async function safeProcessChapter<T>(operation: () => Promise<T>): Promise<T | undefined> {
+	try {
+		return await operation()
+	} catch (error) {
+		if (error instanceof NotFoundError) {
+			return undefined
+		}
+		throw error
+	}
+}
+
 describe('Audible API and HTML Parsing', () => {
 	describe('When stitching together Scorcerers Stone', () => {
 		beforeAll(async () => {
@@ -43,17 +54,7 @@ describe('Audible API and HTML Parsing', () => {
 			chapterHelper = new ChapterHelper(asin, 'us')
 			helper = new StitchHelper(asin, 'us')
 			// Run helpers - chapter helper may throw NotFoundError without valid credentials
-			try {
-				const chapterData = await chapterHelper.process()
-				chapters = chapterData
-			} catch (error) {
-				// Expected error without valid API credentials
-				if (error instanceof NotFoundError) {
-					chapters = undefined
-				} else {
-					throw error
-				}
-			}
+			chapters = await safeProcessChapter(() => chapterHelper.process())
 			const newBook = await helper.process()
 			// Set variables
 			response = newBook
@@ -75,17 +76,7 @@ describe('Audible API and HTML Parsing', () => {
 			chapterHelper = new ChapterHelper(asin, 'us')
 			helper = new StitchHelper(asin, 'us')
 			// Run helpers - chapter helper may throw NotFoundError without valid credentials
-			try {
-				const chapterData = await chapterHelper.process()
-				chapters = chapterData
-			} catch (error) {
-				// Expected error without valid API credentials
-				if (error instanceof NotFoundError) {
-					chapters = undefined
-				} else {
-					throw error
-				}
-			}
+			chapters = await safeProcessChapter(() => chapterHelper.process())
 			const newBook = await helper.process()
 			// Set variables
 			response = newBook

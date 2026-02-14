@@ -142,16 +142,20 @@ describe('RedisHelper fallbackLogger', () => {
 		// Spy on console.error to verify it's called
 		const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
 
-		// Mock redis instance to reject on get
-		jest.spyOn(ctx.client, 'get').mockRejectedValue(new Error('Redis connection failed'))
+		try {
+			// Mock redis instance to reject on get
+			jest.spyOn(ctx.client, 'get').mockRejectedValue(new Error('Redis connection failed'))
 
-		// Call findOne which should trigger the error path
-		await expect(helperWithoutLogger.findOne()).resolves.toBeUndefined()
+			// Call findOne which should trigger the error path
+			await expect(helperWithoutLogger.findOne()).resolves.toBeUndefined()
 
-		// Assert console.error was called via fallbackLogger.error
-		expect(consoleErrorSpy).toHaveBeenCalled()
-
-		// Cleanup
-		consoleErrorSpy.mockRestore()
+			// Assert console.error was called via fallbackLogger.error with the actual error message
+			expect(consoleErrorSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Redis connection failed')
+			)
+		} finally {
+			// Cleanup - ensure spy is always restored even if test fails
+			consoleErrorSpy.mockRestore()
+		}
 	})
 })
