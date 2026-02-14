@@ -7,9 +7,9 @@ set -euo pipefail
 BACKUP_DIR="./backups/mongodb"
 OLD_CONTAINER="${1:-${OLD_CONTAINER:-audnexus-mongo-1}}"
 
-# Validate container exists
-if ! docker ps -a --format '{{.Names}}' | grep -q "^${OLD_CONTAINER}$"; then
-    echo "Error: Container '$OLD_CONTAINER' not found" >&2
+# Validate container is running
+if ! docker ps --format '{{.Names}}' | grep -q "^${OLD_CONTAINER}$"; then
+    echo "Error: Container '$OLD_CONTAINER' is not running" >&2
     exit 1
 fi
 
