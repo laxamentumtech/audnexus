@@ -36,6 +36,7 @@ class SeedHelper {
 		} catch (error) {
 			const message = getErrorMessage(error)
 			this.logger?.error(message)
+			return []
 		}
 	}
 }

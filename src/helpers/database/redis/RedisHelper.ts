@@ -18,7 +18,18 @@ export default class RedisHelper {
 	) {
 		this.instance = instance
 		this.key = `${region}-${key}-${id}`
-		this.logger = logger
+		const fallbackLogger = {
+			level: 'info',
+			silent: () => undefined,
+			error: (...args: unknown[]) => console.error(...args),
+			info: (...args: unknown[]) => console.info(...args),
+			debug: (...args: unknown[]) => console.debug(...args),
+			warn: (...args: unknown[]) => console.warn(...args),
+			fatal: (...args: unknown[]) => console.error(...args),
+			trace: (...args: unknown[]) => console.trace(...args),
+			child: () => fallbackLogger
+		}
+		this.logger = logger ?? fallbackLogger
 	}
 
 	convertStringToDate(parsed: ApiBook) {
