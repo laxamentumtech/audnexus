@@ -5,13 +5,13 @@ services:
     image: ghcr.io/laxamentumtech/audnexus:latest@sha256:cdb7159b7ec0576e2a00a944709859e8fdf51bdb414aedf48093745abcf162ff
     restart: always
     environment:
-      ADP_TOKEN: ${NODE_ADP_TOKEN}
-      MAX_REQUESTS: ${NODE_MAX_REQUESTS:-300}
-      MONGODB_URI: ${NODE_MONGODB_URI:-mongodb://mongo:27017/audnexus}
-      PRIVATE_KEY: ${NODE_PRIVATE_KEY}
-      REDIS_URL: ${NODE_REDIS_URL:-redis://redis:6379}
-      UPDATE_INTERVAL: ${NODE_UPDATE_INTERVAL:-30}
-      UPDATE_THRESHOLD: ${NODE_UPDATE_THRESHOLD:-7}
+      ADP_TOKEN: ${ADP_TOKEN}
+      MAX_REQUESTS: ${MAX_REQUESTS:-300}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/audnexus}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      UPDATE_INTERVAL: ${UPDATE_INTERVAL:-30}
+      UPDATE_THRESHOLD: ${UPDATE_THRESHOLD:-7}
     ports:
       - '3000:3000'
     depends_on:
