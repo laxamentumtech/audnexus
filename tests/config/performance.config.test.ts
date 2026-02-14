@@ -135,7 +135,7 @@ describe('PerformanceConfig', () => {
 			expect(config.CIRCUIT_BREAKER_ENABLED).toBe(true)
 		})
 
-		it('should use default false for METRICS_ENABLED when not set', () => {
+		it('should use default true for METRICS_ENABLED when not set', () => {
 			delete process.env.METRICS_ENABLED
 			const config = createPerformanceConfig()
 			expect(config.METRICS_ENABLED).toBe(DEFAULT_PERFORMANCE_CONFIG.METRICS_ENABLED)

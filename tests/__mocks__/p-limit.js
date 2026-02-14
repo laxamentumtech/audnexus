@@ -16,7 +16,8 @@ module.exports = function pLimit(concurrency) {
 			if (!item) break
 			const { fn, resolve, reject } = item
 			activeCount++
-			Promise.resolve(fn())
+			Promise.resolve()
+				.then(() => fn())
 				.then(resolve)
 				.catch(reject)
 				.finally(() => {

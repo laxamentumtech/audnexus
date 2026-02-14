@@ -1,7 +1,7 @@
 import Fastify from 'fastify'
 
 import { PerformanceConfig, setPerformanceConfig } from '#config/performance'
-import { registerMetricsRoute } from '#config/routes/metrics'
+import { registerMetricsRoute, parseEnvArray } from '#config/routes/metrics'
 
 describe('Metrics Route - Authentication', () => {
 	const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
@@ -91,6 +91,63 @@ describe('Metrics Route - Authentication', () => {
 			})
 
 			expect(response.statusCode).toBe(200)
+			await fastify.close()
+		})
+
+		it('parseEnvArray returns undefined for whitespace-only commas', () => {
+			// Test the missing-entries branch: when all entries are whitespace/empty after split
+			const result = parseEnvArray(' , ,  ')
+			expect(result).toBeUndefined()
+		})
+
+		it('parseEnvArray returns undefined for empty string', () => {
+			const result = parseEnvArray('')
+			expect(result).toBeUndefined()
+		})
+
+		it('parseEnvArray returns undefined for only commas', () => {
+			const result = parseEnvArray(',,,')
+			expect(result).toBeUndefined()
+		})
+
+		it('returns 200 when METRICS_ALLOWED_IPS is whitespace-only (triggers fallback)', async () => {
+			// When parseEnvArray returns undefined due to empty result, auth fallback should allow access
+			process.env.METRICS_ALLOWED_IPS = ' , ,  '
+			delete process.env.METRICS_AUTH_TOKEN
+			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+
+			const fastify = Fastify()
+			registerMetricsRoute(fastify)
+			await fastify.ready()
+
+			const response = await fastify.inject({
+				method: 'GET',
+				url: '/metrics'
+			})
+
+			// Should return 200 because parseEnvArray returns undefined and no auth token is set
+			expect(response.statusCode).toBe(200)
+			await fastify.close()
+		})
+
+		it('returns 403 when METRICS_ALLOWED_IPS is whitespace-only but METRICS_AUTH_TOKEN is set', async () => {
+			// When parseEnvArray returns undefined but auth token is set, should check token
+			process.env.METRICS_ALLOWED_IPS = ' , ,  '
+			process.env.METRICS_AUTH_TOKEN = 'test-token'
+			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+
+			const fastify = Fastify()
+			registerMetricsRoute(fastify)
+			await fastify.ready()
+
+			const response = await fastify.inject({
+				method: 'GET',
+				url: '/metrics',
+				headers: { 'x-metrics-token': 'wrong-token' }
+			})
+
+			// Should return 403 because token doesn't match
+			expect(response.statusCode).toBe(403)
 			await fastify.close()
 		})
 	})

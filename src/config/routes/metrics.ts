@@ -7,7 +7,7 @@ import { getPerformanceMetrics } from '#config/performance/hooks'
  * Parse comma-separated environment variable into array
  * Returns undefined if value is not set or empty
  */
-function parseEnvArray(value: string | undefined): string[] | undefined {
+export function parseEnvArray(value: string | undefined): string[] | undefined {
 	if (value === undefined || value.trim() === '') return undefined
 	const result = value
 		.split(',')
@@ -20,7 +20,17 @@ function parseEnvArray(value: string | undefined): string[] | undefined {
  * Check if request IP is in allowed list
  */
 function isIpAllowed(request: FastifyRequest, allowedIps: string[]): boolean {
-	const clientIp = request.ip ?? request.headers['x-forwarded-for']?.toString() ?? 'unknown'
+	// Extract first IP from x-forwarded-for header (handles string or array)
+	const forwardedFor = request.headers['x-forwarded-for']
+	let firstForwardedIp: string | undefined
+
+	if (Array.isArray(forwardedFor)) {
+		firstForwardedIp = forwardedFor[0]
+	} else if (typeof forwardedFor === 'string') {
+		firstForwardedIp = forwardedFor.split(',')[0]
+	}
+
+	const clientIp = request.ip ?? firstForwardedIp?.trim() ?? 'unknown'
 	return allowedIps.includes(clientIp)
 }
 

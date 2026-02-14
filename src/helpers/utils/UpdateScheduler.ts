@@ -116,6 +116,7 @@ class UpdateScheduler {
 						await this.processAuthor(author)
 					} catch (error) {
 						this.logger.error(error)
+						throw error
 					}
 				},
 				{ concurrency: config.SCHEDULER_CONCURRENCY, maxPerRegion: perRegionLimit }
@@ -155,6 +156,7 @@ class UpdateScheduler {
 						await this.processBook(book)
 					} catch (error) {
 						this.logger.error(error)
+						throw error
 					}
 				},
 				{ concurrency: config.SCHEDULER_CONCURRENCY, maxPerRegion: perRegionLimit }
@@ -194,6 +196,7 @@ class UpdateScheduler {
 						await this.processChapter(chapter)
 					} catch (error) {
 						this.logger.error(error)
+						throw error
 					}
 				},
 				{ concurrency: config.SCHEDULER_CONCURRENCY, maxPerRegion: perRegionLimit }
