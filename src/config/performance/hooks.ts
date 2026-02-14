@@ -100,7 +100,7 @@ export function registerPerformanceHooks(fastify: FastifyInstance): void {
 
 		const endTime = process.hrtime.bigint()
 		const durationMs = Number(endTime - request.performanceStartTime) / MS_PER_NS
-		const path = request.url
+		const path = request.routeOptions?.url ?? new URL(request.url, 'http://dummy').pathname
 
 		const currentCount = metricsStore.requestCounts.get(path) ?? 0
 		metricsStore.requestCounts.set(path, currentCount + 1)

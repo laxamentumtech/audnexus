@@ -1,11 +1,28 @@
 import Fastify from 'fastify'
 
+import { PerformanceConfig } from '#config/performance'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import {
 	getPerformanceMetrics,
 	registerPerformanceHooks,
 	resetMetrics
 } from '#config/performance/hooks'
+
+/**
+ * Factory function for creating test PerformanceConfig instances.
+ * Provides a reusable base configuration with optional overrides.
+ */
+const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
+	USE_PARALLEL_SCHEDULER: false,
+	USE_CONNECTION_POOLING: true,
+	USE_COMPACT_JSON: true,
+	USE_SORTED_KEYS: false,
+	CIRCUIT_BREAKER_ENABLED: true,
+	METRICS_ENABLED: true,
+	MAX_CONCURRENT_REQUESTS: 50,
+	SCHEDULER_CONCURRENCY: 5,
+	...overrides
+})
 
 describe('Performance Hooks', () => {
 	beforeEach(() => {
@@ -36,16 +53,7 @@ describe('Performance Hooks', () => {
 		})
 
 		it('should not include request metrics when METRICS_ENABLED is false', () => {
-			setPerformanceConfig({
-				USE_PARALLEL_SCHEDULER: false,
-				USE_CONNECTION_POOLING: true,
-				USE_COMPACT_JSON: true,
-				USE_SORTED_KEYS: false,
-				CIRCUIT_BREAKER_ENABLED: true,
-				METRICS_ENABLED: false,
-				MAX_CONCURRENT_REQUESTS: 50,
-				SCHEDULER_CONCURRENCY: 5
-			})
+			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: false }))
 
 			const metrics = getPerformanceMetrics()
 			expect(metrics.requests).toEqual({})
@@ -53,6 +61,8 @@ describe('Performance Hooks', () => {
 	})
 
 	describe('registerPerformanceHooks', () => {
+		// Skipped: Fastify hook ordering issue - response-time hook may not fire before
+		// response is sent in test environment with inject()
 		it.skip('should add X-Response-Time header', async () => {
 			const fastify = Fastify()
 			fastify.get('/test', async () => ({ message: 'ok' }))
@@ -165,16 +175,7 @@ describe('Performance Hooks', () => {
 
 	describe('disabled monitoring', () => {
 		it('should not add hooks when METRICS_ENABLED is false', async () => {
-			setPerformanceConfig({
-				USE_PARALLEL_SCHEDULER: false,
-				USE_CONNECTION_POOLING: true,
-				USE_COMPACT_JSON: true,
-				USE_SORTED_KEYS: false,
-				CIRCUIT_BREAKER_ENABLED: true,
-				METRICS_ENABLED: false,
-				MAX_CONCURRENT_REQUESTS: 50,
-				SCHEDULER_CONCURRENCY: 5
-			})
+			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: false }))
 
 			const disabledFastify = Fastify()
 			disabledFastify.get('/test', async () => ({ message: 'ok' }))
