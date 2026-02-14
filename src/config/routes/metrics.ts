@@ -9,10 +9,11 @@ import { getPerformanceMetrics } from '#config/performance/hooks'
  */
 function parseEnvArray(value: string | undefined): string[] | undefined {
 	if (value === undefined || value.trim() === '') return undefined
-	return value
+	const result = value
 		.split(',')
 		.map((ip) => ip.trim())
 		.filter((ip) => ip.length > 0)
+	return result.length > 0 ? result : undefined
 }
 
 /**

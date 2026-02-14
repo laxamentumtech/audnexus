@@ -80,11 +80,8 @@ export function getPoolConfig() {
  * Should be called during application shutdown
  */
 export async function closePool(): Promise<void> {
-	await new Promise<void>((resolve) => {
-		httpAgent.destroy()
-		httpsAgent.destroy()
-		resolve()
-	})
+	httpAgent.destroy()
+	httpsAgent.destroy()
 }
 
 export default pooledAxios
