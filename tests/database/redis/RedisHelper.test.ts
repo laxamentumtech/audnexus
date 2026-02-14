@@ -133,3 +133,25 @@ describe('RedisHelper should catch error when', () => {
 		)
 	})
 })
+
+describe('RedisHelper fallbackLogger', () => {
+	test('should use fallbackLogger.error when Redis operation fails without external logger', async () => {
+		// Create helper without logger - uses fallbackLogger
+		const helperWithoutLogger = new RedisHelper(ctx.client, 'book', asin, region)
+
+		// Spy on console.error to verify it's called
+		const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
+
+		// Mock redis instance to reject on get
+		jest.spyOn(ctx.client, 'get').mockRejectedValue(new Error('Redis connection failed'))
+
+		// Call findOne which should trigger the error path
+		await expect(helperWithoutLogger.findOne()).resolves.toBeUndefined()
+
+		// Assert console.error was called via fallbackLogger.error
+		expect(consoleErrorSpy).toHaveBeenCalled()
+
+		// Cleanup
+		consoleErrorSpy.mockRestore()
+	})
+})
