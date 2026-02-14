@@ -84,7 +84,7 @@ export class CircuitBreaker {
 		this.transitionState()
 
 		if (this.state === 'OPEN') {
-			const timeUntilRetry = Math.ceil((this.nextAttempt - Date.now()) / 1000)
+			const timeUntilRetry = Math.max(1, Math.ceil((this.nextAttempt - Date.now()) / 1000))
 			throw new Error(`Circuit breaker is OPEN. Retry in ${timeUntilRetry}s`)
 		}
 
