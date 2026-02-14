@@ -9,7 +9,7 @@ import https from 'node:https'
 function parsePositiveInt(value: string | undefined, defaultValue: number): number {
 	if (!value) return defaultValue
 	const parsed = Number(value)
-	if (Number.isNaN(parsed) || !Number.isFinite(parsed) || parsed < 0) {
+	if (Number.isNaN(parsed) || !Number.isFinite(parsed) || parsed <= 0) {
 		return defaultValue
 	}
 	return parsed

@@ -59,7 +59,7 @@ class UpdateScheduler {
 	private async processAuthor(author: DocumentWithRegion): Promise<void> {
 		const helper = new AuthorShowHelper(
 			author.asin,
-			{ region: author.region ? author.region : 'us', update: '1' },
+			{ region: author.region ?? 'us', update: '1' },
 			this.redis
 		)
 		await helper.handler()
@@ -72,7 +72,7 @@ class UpdateScheduler {
 	private async processBook(book: DocumentWithRegion): Promise<void> {
 		const helper = new BookShowHelper(
 			book.asin,
-			{ region: book.region ? book.region : 'us', update: '1' },
+			{ region: book.region ?? 'us', update: '1' },
 			this.redis
 		)
 		await helper.handler()
@@ -85,7 +85,7 @@ class UpdateScheduler {
 	private async processChapter(chapter: DocumentWithRegion): Promise<void> {
 		const helper = new ChapterShowHelper(
 			chapter.asin,
-			{ region: chapter.region ? chapter.region : 'us', update: '1' },
+			{ region: chapter.region ?? 'us', update: '1' },
 			this.redis
 		)
 		await helper.handler()

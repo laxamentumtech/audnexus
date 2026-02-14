@@ -76,7 +76,7 @@ export function registerMetricsRoute(fastify: FastifyInstance): void {
 				}
 			}
 		},
-		async (_request: FastifyRequest, reply: FastifyReply) => {
+		async () => {
 			const metrics = getPerformanceMetrics()
 			return metrics
 		}
