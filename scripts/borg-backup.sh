@@ -149,11 +149,11 @@ main() {
     local action="${1:-backup}"
     local source_dir="${2:-}"
     
+    # Ensure log directory exists before logging
+    mkdir -p "$(dirname "$LOG_FILE")"
+    
     log "=== Borg Backup Started ==="
     log "Action: $action"
-    
-    # Ensure log directory exists
-    mkdir -p "$(dirname "$LOG_FILE")"
     
     check_borg_installation
     
