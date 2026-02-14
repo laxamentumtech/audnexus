@@ -116,20 +116,7 @@ async function registerPlugins() {
 			return
 		}
 
-		// Check if error has a custom statusCode property
-		if (error instanceof Error && 'statusCode' in error) {
-			const statusCode = (error as Error & { statusCode: number }).statusCode
-			const errorCode = String(statusCode || 'UNKNOWN_ERROR')
-			reply.status(statusCode)
-			reply.send({
-				error: {
-					code: errorCode,
-					message: error.message || 'An error occurred',
-					details: null
-				}
-			})
-			return
-		}
+		// Check for 429 rate limit errors first
 		if (reply.statusCode === 429) {
 			if (error instanceof Error) {
 				reply.status(429)
@@ -144,6 +131,21 @@ async function registerPlugins() {
 			} else {
 				server.log.error('Non-error object in error handler: %s', String(error))
 			}
+		}
+
+		// Check if error has a custom statusCode property
+		if (error instanceof Error && 'statusCode' in error) {
+			const statusCode = (error as Error & { statusCode: number }).statusCode
+			const errorCode = String(statusCode || 'UNKNOWN_ERROR')
+			reply.status(statusCode)
+			reply.send({
+				error: {
+					code: errorCode,
+					message: error.message || 'An error occurred',
+					details: null
+				}
+			})
+			return
 		}
 		reply.send(error)
 	})
