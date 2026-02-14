@@ -18,7 +18,7 @@ CONTAINER_NAME="${CONTAINER_NAME:-dw4cwkk0kkcgwgsck8co88ss}"
 
 # Logging function
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >&2
 }
 
 # Error handling function
@@ -48,13 +48,14 @@ create_mongodb_dump() {
     log "Starting MongoDB dump for database: $MONGODB_DATABASE"
     
     # Use mongodump from the MongoDB container
-    if docker exec -e MONGODB_PASSWORD "$CONTAINER_NAME" mongodump \
+    if docker exec "$CONTAINER_NAME" /bin/sh -lc 'mongodump \
         --host "$MONGODB_HOST" \
         --port "$MONGODB_PORT" \
         --username "$MONGODB_USER" \
+        --password "$MONGODB_PASSWORD" \
         --db "$MONGODB_DATABASE" \
         --authenticationDatabase "$MONGODB_AUTH_SOURCE" \
-        --out "$dump_path"; then
+        --out "$dump_path"'; then
         
         log "MongoDB dump completed successfully"
     else
