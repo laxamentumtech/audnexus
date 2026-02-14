@@ -112,7 +112,11 @@ describe('Audible API and HTML Parsing', () => {
 				await chapterHelper.process()
 				fail('Expected NotFoundError to be thrown')
 			} catch (e) {
-				chapterError = e as NotFoundError
+				if (e instanceof NotFoundError) {
+					chapterError = e
+				} else {
+					throw e
+				}
 			}
 			const newBook = await helper.process()
 			// Set variables
