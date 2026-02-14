@@ -129,8 +129,9 @@ class StitchHelper {
 		// Check if we need to scrape for genres
 		if (!this.apiResponse.product.category_ladders.length) {
 			this.logger?.debug(NoticeChaptersFallback(this.asin))
-			// Fetch and parse scraper data in parallel
-			await Promise.all([this.fetchScraperBook(), this.parseScraperResponse()])
+			// Fetch and parse scraper data sequentially to avoid race condition
+			await this.fetchScraperBook()
+			await this.parseScraperResponse()
 		}
 
 		// Return object with genres attached if it exists
