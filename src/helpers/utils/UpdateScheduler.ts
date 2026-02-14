@@ -9,7 +9,7 @@ import { getPerformanceConfig } from '#config/performance'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
-import { processBatchByRegion } from '#helpers/utils/batchProcessor'
+import { type BatchProcessSummary, processBatchByRegion } from '#helpers/utils/batchProcessor'
 import { NoticeUpdateScheduled } from '#static/messages'
 
 const waitFor = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -99,12 +99,14 @@ class UpdateScheduler {
 	async updateAuthors(): Promise<void> {
 		const authors = await this.getAllAuthorAsins()
 		this.logger.debug(NoticeUpdateScheduled('Authors'))
+		this.logMemoryUsage('authors:start')
 
 		const config = getPerformanceConfig()
 
 		if (config.USE_PARALLEL_SCHEDULER) {
 			// Parallel processing with concurrency control
-			await processBatchByRegion(
+			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, 5)
+			const { summary } = await processBatchByRegion(
 				authors,
 				async (author) => {
 					try {
@@ -113,8 +115,9 @@ class UpdateScheduler {
 						this.logger.error(error)
 					}
 				},
-				{ concurrency: config.SCHEDULER_CONCURRENCY }
+				{ concurrency: config.SCHEDULER_CONCURRENCY, maxPerRegion: perRegionLimit }
 			)
+			this.logBatchSummary('Authors', summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
 		} else {
 			// Sequential processing (original behavior)
 			for (const author of authors) {
@@ -125,6 +128,7 @@ class UpdateScheduler {
 				}
 			}
 		}
+		this.logMemoryUsage('authors:complete')
 	}
 
 	/**
@@ -134,12 +138,14 @@ class UpdateScheduler {
 	async updateBooks(): Promise<void> {
 		const books = await this.getAllBookAsins()
 		this.logger.debug(NoticeUpdateScheduled('Books'))
+		this.logMemoryUsage('books:start')
 
 		const config = getPerformanceConfig()
 
 		if (config.USE_PARALLEL_SCHEDULER) {
 			// Parallel processing with concurrency control
-			await processBatchByRegion(
+			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, 5)
+			const { summary } = await processBatchByRegion(
 				books,
 				async (book) => {
 					try {
@@ -148,8 +154,9 @@ class UpdateScheduler {
 						this.logger.error(error)
 					}
 				},
-				{ concurrency: config.SCHEDULER_CONCURRENCY }
+				{ concurrency: config.SCHEDULER_CONCURRENCY, maxPerRegion: perRegionLimit }
 			)
+			this.logBatchSummary('Books', summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
 		} else {
 			// Sequential processing (original behavior)
 			for (const book of books) {
@@ -160,6 +167,7 @@ class UpdateScheduler {
 				}
 			}
 		}
+		this.logMemoryUsage('books:complete')
 	}
 
 	/**
@@ -169,12 +177,14 @@ class UpdateScheduler {
 	async updateChapters(): Promise<void> {
 		const chapters = await this.getAllChapterAsins()
 		this.logger.debug(NoticeUpdateScheduled('Chapters'))
+		this.logMemoryUsage('chapters:start')
 
 		const config = getPerformanceConfig()
 
 		if (config.USE_PARALLEL_SCHEDULER) {
 			// Parallel processing with concurrency control
-			await processBatchByRegion(
+			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, 5)
+			const { summary } = await processBatchByRegion(
 				chapters,
 				async (chapter) => {
 					try {
@@ -183,8 +193,9 @@ class UpdateScheduler {
 						this.logger.error(error)
 					}
 				},
-				{ concurrency: config.SCHEDULER_CONCURRENCY }
+				{ concurrency: config.SCHEDULER_CONCURRENCY, maxPerRegion: perRegionLimit }
 			)
+			this.logBatchSummary('Chapters', summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
 		} else {
 			// Sequential processing (original behavior)
 			for (const chapter of chapters) {
@@ -195,6 +206,7 @@ class UpdateScheduler {
 				}
 			}
 		}
+		this.logMemoryUsage('chapters:complete')
 	}
 
 	/**
@@ -202,9 +214,39 @@ class UpdateScheduler {
 	 * Sequential execution between categories
 	 */
 	async updateAll(): Promise<void> {
+		this.logMemoryUsage('updateAll:start')
 		await this.updateAuthors()
 		await this.updateBooks()
 		await this.updateChapters()
+		this.logMemoryUsage('updateAll:complete')
+	}
+
+	private logBatchSummary(
+		label: string,
+		summary: BatchProcessSummary,
+		concurrency: number,
+		perRegionLimit: number
+	) {
+		this.logger.debug(
+			`${label} batch complete: total=${summary.total} success=${summary.success} failures=${summary.failures}`
+		)
+		this.logger.debug(
+			`${label} batch regions: ${Object.keys(summary.regions).length} maxConcurrency=${summary.maxConcurrencyObserved}`
+		)
+		if (summary.maxConcurrencyObserved > concurrency) {
+			this.logger.warn(
+				`${label} batch exceeded configured concurrency (${summary.maxConcurrencyObserved}/${concurrency})`
+			)
+		}
+		this.logger.debug(`${label} batch per-region limit: ${perRegionLimit}`)
+	}
+
+	private logMemoryUsage(stage: string) {
+		const usage = process.memoryUsage()
+		const toMb = (value: number) => Math.round((value / 1024 / 1024) * 100) / 100
+		this.logger.debug(
+			`UpdateScheduler memory ${stage}: heapUsed=${toMb(usage.heapUsed)}MB rss=${toMb(usage.rss)}MB`
+		)
 	}
 
 	updateAllTask() {
