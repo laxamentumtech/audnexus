@@ -1,4 +1,8 @@
 module.exports = function pLimit(concurrency) {
+	if (typeof concurrency !== 'number' || concurrency <= 0 || !Number.isInteger(concurrency)) {
+		throw new TypeError('Expected concurrency to be a number from 1 and up')
+	}
+
 	const queue = []
 	let activeCount = 0
 
