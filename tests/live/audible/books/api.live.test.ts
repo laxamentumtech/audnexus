@@ -335,7 +335,6 @@ describe('Audible API Live Tests', () => {
 				}
 			}
 
-			// The test passes even if warnings exist - warnings are for detection only
 			expect(warnings.length).toBe(0)
 		}, 30000)
 	})
