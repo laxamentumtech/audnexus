@@ -77,7 +77,7 @@ describe('RedisHelper should', () => {
 		expect(ctx.client.get).toHaveBeenCalledWith(`${region}-book-${asin}`)
 		expect(ctx.client.set).toHaveBeenCalledWith(
 			`${region}-book-${asin}`,
-			JSON.stringify(parsedBook, null, 2)
+			JSON.stringify(parsedBook)
 		)
 	})
 	test('setExpiration', async () => {
@@ -114,7 +114,7 @@ describe('RedisHelper should catch error when', () => {
 		expect(ctx.client.get).toHaveBeenCalledWith(`${region}-book-${asin}`)
 		expect(ctx.client.set).toHaveBeenCalledWith(
 			`${region}-book-${asin}`,
-			JSON.stringify(parsedBook, null, 2)
+			JSON.stringify(parsedBook)
 		)
 	})
 	test('setExpiration rejects', async () => {
