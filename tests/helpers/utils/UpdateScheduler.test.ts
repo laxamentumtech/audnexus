@@ -42,11 +42,11 @@ const createMockContext = (): MockContext => {
 	}
 }
 
-const createBatchSummary = () => ({
+const createBatchSummary = (regions?: Record<string, number>) => ({
 	total: 1,
 	success: 1,
 	failures: 0,
-	regions: { us: 1 },
+	regions: regions ?? { us: 1 },
 	maxConcurrencyObserved: 1
 })
 
