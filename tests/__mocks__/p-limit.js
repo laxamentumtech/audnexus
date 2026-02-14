@@ -1,5 +1,9 @@
 module.exports = function pLimit(concurrency) {
-	if (typeof concurrency !== 'number' || concurrency <= 0 || !Number.isInteger(concurrency)) {
+	if (
+		typeof concurrency !== 'number' ||
+		concurrency <= 0 ||
+		!(Number.isInteger(concurrency) || concurrency === Number.POSITIVE_INFINITY)
+	) {
 		throw new TypeError('Expected concurrency to be a number from 1 and up')
 	}
 
