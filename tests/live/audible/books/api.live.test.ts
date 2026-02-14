@@ -1,7 +1,7 @@
 import type { ApiBook, AudibleProduct } from '#config/types'
 import { baseShape } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
-import { NotFoundError, ContentTypeMismatchError, BadRequestError } from '#helpers/errors/ApiErrors'
+import { BadRequestError, ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 
 /**
  * Allowlist of ASINs that are expected to be unavailable in specific regions.
@@ -24,7 +24,7 @@ function isInUnavailableAllowlist(asin: string, region: string): boolean {
 function checkAvailability(response: AudibleProduct): boolean {
 	const product = response.product
 	const contentType = product?.content_delivery_type
-	const knownTypes = ['PodcastParent', 'MultiPartBook', 'SinglePartBook']
+	const knownTypes = ['PodcastParent', 'MultiPartBook', 'SinglePartBook'] // PodcastParent included for detection purposes - content type mismatch should be thrown
 
 	// If content_delivery_type is a known type, content is available
 	if (contentType && knownTypes.includes(contentType)) {
@@ -246,7 +246,6 @@ describe('Audible API Live Tests', () => {
 					// ASIN was expected to be unavailable but is now available
 					console.warn(`[LIVE TEST] ASIN ${asin} is now available in region ${region}`)
 					// Skip the test by returning early - test passes with warning
-					expect(true).toBe(true)
 					return
 				}
 
@@ -337,7 +336,7 @@ describe('Audible API Live Tests', () => {
 			}
 
 			// The test passes even if warnings exist - warnings are for detection only
-			expect(true).toBe(true)
+			expect(warnings.length).toBe(0)
 		}, 30000)
 	})
 
@@ -353,10 +352,19 @@ describe('Audible API Live Tests', () => {
 			const fetched = await helper.fetchBook()
 
 			// Try to parse - should throw with structured error
-			await expect(helper.parseResponse(fetched)).rejects.toBeInstanceOf(NotFoundError)
+			let error: unknown
+			try {
+				await helper.parseResponse(fetched)
+				throw new Error('Expected error to be thrown')
+			} catch (e) {
+				error = e
+			}
+
+			// Verify error is thrown and is the correct type
+			expect(error).toBeInstanceOf(NotFoundError)
 
 			// Verify error structure
-			await expect(helper.parseResponse(fetched)).rejects.toMatchObject({
+			expect(error).toMatchObject({
 				message: expect.stringContaining(asin),
 				details: expect.objectContaining({
 					asin: asin
@@ -456,7 +464,7 @@ describe('Audible API Live Tests', () => {
 			{ asin: 'ABC', description: 'letters only' },
 			{ asin: 'B123', description: 'too short with B prefix' },
 			{ asin: 'B12345678901234567890', description: 'too long' },
-			{ asin: 'INVALID', description: 'non-alphanumeric' }
+			{ asin: 'INVALID', description: 'all uppercase letters' }
 		]
 
 		it('should reject malformed ASIN formats', async () => {
@@ -539,6 +547,9 @@ describe('Audible API Live Tests', () => {
 				} catch (error) {
 					// Even valid ASINs may fail for other reasons (network, etc.)
 					// but should NOT fail with BAD_REQUEST
+					if (error instanceof BadRequestError) {
+						fail(`Valid ASIN ${asin} should not be rejected with BadRequestError`)
+					}
 					if (error instanceof Error && error.message.includes('Bad ASIN')) {
 						console.warn(`[LIVE TEST] Valid ASIN ${asin} rejected as BAD_REQUEST`)
 					}

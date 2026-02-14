@@ -101,7 +101,7 @@ describe('Audible API and HTML Parsing', () => {
 	})
 
 	describe('When fetching an ASIN that has no chapters or HTML', () => {
-		let chapterError: NotFoundError
+		let chapterError!: NotFoundError
 		beforeAll(async () => {
 			asin = 'B0036I54I6'
 			// Setup helpers

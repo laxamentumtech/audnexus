@@ -124,6 +124,22 @@ describe('ChapterHelper should', () => {
 		await expect(helper.process()).resolves.toEqual(parsedChapters)
 	})
 
+	test('process with valid contentType MultiPartBook', async () => {
+		await expect(helper.process('MultiPartBook')).resolves.toEqual(parsedChapters)
+	})
+
+	test('process with valid contentType SinglePartBook', async () => {
+		await expect(helper.process('SinglePartBook')).resolves.toEqual(parsedChapters)
+	})
+
+	test('validateContentType does not throw for valid MultiPartBook', () => {
+		expect(() => helper.validateContentType('MultiPartBook')).not.toThrow()
+	})
+
+	test('validateContentType does not throw for valid SinglePartBook', () => {
+		expect(() => helper.validateContentType('SinglePartBook')).not.toThrow()
+	})
+
 	describe('handle region: ', () => {
 		test.each(Object.keys(regions))('%s', (region) => {
 			helper = new ChapterHelper(asin, region)

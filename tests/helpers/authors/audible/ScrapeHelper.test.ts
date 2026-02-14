@@ -104,8 +104,13 @@ describe('ScrapeHelper should', () => {
 			})
 		}
 		const mockCheerio = jest.fn().mockReturnValue(mockDom) as unknown as cheerio.CheerioAPI
-		expect(() => helper.getName(mockCheerio)).toThrow(NotFoundError)
-		expect(() => helper.getName(mockCheerio)).toThrow(ErrorMessageNotFound(asin, 'author name'))
+		expect.assertions(2)
+		try {
+			helper.getName(mockCheerio)
+		} catch (error) {
+			expect(error).toBeInstanceOf(NotFoundError)
+			expect((error as Error).message).toBe(ErrorMessageNotFound(asin, 'author name'))
+		}
 	})
 
 	test('return similar', () => {

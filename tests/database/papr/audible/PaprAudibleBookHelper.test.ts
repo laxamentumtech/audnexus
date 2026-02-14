@@ -267,3 +267,33 @@ describe('PaprAudibleBookHelper should log error when', () => {
 		expect(mockLogger.error).toHaveBeenCalledWith('DB error')
 	})
 })
+
+describe('PaprAudibleBookHelper should log info when', () => {
+	test('createOrUpdate logs NoticeUpdateAsin when update=1, data differs, and genres non-empty', async () => {
+		const mockLogger = { error: jest.fn(), info: jest.fn() }
+		const helperWithLogger = new PaprAudibleBookHelper(
+			asin,
+			options,
+			mockLogger as unknown as FastifyBaseLogger
+		)
+
+		// Setup: data differs (isEqual returns false)
+		jest.spyOn(SharedHelper.prototype, 'isEqualData').mockReturnValue(false)
+
+		// Setup: findOneWithProjection returns book with genres (existing book)
+		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(parsedBook as unknown as BookDocument)
+		// Setup: findOne for update returns bookWithoutProjection
+		jest.spyOn(BookModel, 'findOne').mockResolvedValueOnce(bookWithoutProjection)
+		// Setup: findOneWithProjection after update returns parsedBook
+		jest.spyOn(BookModel, 'findOne').mockResolvedValue(parsedBook as unknown as BookDocument)
+
+		// Set data with genres (non-empty)
+		helperWithLogger.setData(parsedBook)
+
+		const result = await helperWithLogger.createOrUpdate()
+
+		// Verify logger.info was called with NoticeUpdateAsin result
+		expect(mockLogger.info).toHaveBeenCalledWith(`Updating book ASIN ${asin}`)
+		expect(result.modified).toBe(true)
+	})
+})
