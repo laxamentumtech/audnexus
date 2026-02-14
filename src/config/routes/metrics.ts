@@ -11,7 +11,7 @@ export function registerMetricsRoute(fastify: FastifyInstance): void {
 	fastify.get('/metrics', async (_request: FastifyRequest, reply: FastifyReply) => {
 		const config = getPerformanceConfig()
 
-		if (!config.CIRCUIT_BREAKER_ENABLED) {
+		if (!config.METRICS_ENABLED) {
 			reply.code(404)
 			return { error: 'Metrics endpoint disabled' }
 		}

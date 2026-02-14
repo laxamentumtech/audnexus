@@ -10,6 +10,7 @@ describe('Metrics Route', () => {
 		USE_COMPACT_JSON: true,
 		USE_SORTED_KEYS: false,
 		CIRCUIT_BREAKER_ENABLED: true,
+		METRICS_ENABLED: true,
 		MAX_CONCURRENT_REQUESTS: 50,
 		SCHEDULER_CONCURRENCY: 5,
 		...overrides
@@ -17,7 +18,7 @@ describe('Metrics Route', () => {
 
 	describe('GET /metrics', () => {
 		it('should return metrics when enabled', async () => {
-			setPerformanceConfig(createTestConfig({ CIRCUIT_BREAKER_ENABLED: true }))
+			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -38,7 +39,7 @@ describe('Metrics Route', () => {
 		})
 
 		it('should return 404 when disabled', async () => {
-			setPerformanceConfig(createTestConfig({ CIRCUIT_BREAKER_ENABLED: false }))
+			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: false }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)

@@ -63,7 +63,7 @@ export function getPerformanceMetrics(): PerformanceMetrics {
 	const config = getPerformanceConfig()
 	const requests: Record<string, RequestMetrics> = {}
 
-	if (config.CIRCUIT_BREAKER_ENABLED) {
+	if (config.METRICS_ENABLED) {
 		for (const [path] of metricsStore.requestCounts) {
 			const metrics = calculateRequestMetrics(path)
 			if (metrics) {
@@ -87,7 +87,7 @@ export function resetMetrics(): void {
 export function registerPerformanceHooks(fastify: FastifyInstance): void {
 	const config = getPerformanceConfig()
 
-	if (!config.CIRCUIT_BREAKER_ENABLED) {
+	if (!config.METRICS_ENABLED) {
 		return
 	}
 

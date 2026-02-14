@@ -44,6 +44,9 @@ export const PerformanceConfigSchema = z.object({
 	/** Enable circuit breaker pattern for external API calls */
 	CIRCUIT_BREAKER_ENABLED: z.boolean().default(true),
 
+	/** Enable performance metrics collection and /metrics endpoint */
+	METRICS_ENABLED: z.boolean().default(true),
+
 	/** HTTP connection pool size - max concurrent connections */
 	MAX_CONCURRENT_REQUESTS: z.number().int().positive().default(50),
 
@@ -68,6 +71,7 @@ export function createPerformanceConfig(): PerformanceConfig {
 		USE_COMPACT_JSON: parseBoolean(process.env.USE_COMPACT_JSON) ?? true,
 		USE_SORTED_KEYS: parseBoolean(process.env.USE_SORTED_KEYS) ?? false,
 		CIRCUIT_BREAKER_ENABLED: parseBoolean(process.env.CIRCUIT_BREAKER_ENABLED) ?? true,
+		METRICS_ENABLED: parseBoolean(process.env.METRICS_ENABLED) ?? true,
 		MAX_CONCURRENT_REQUESTS: process.env.MAX_CONCURRENT_REQUESTS
 			? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
 			: 50,
@@ -91,6 +95,7 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	USE_COMPACT_JSON: true,
 	USE_SORTED_KEYS: false,
 	CIRCUIT_BREAKER_ENABLED: true,
+	METRICS_ENABLED: true,
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5
 } as const

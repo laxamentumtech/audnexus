@@ -7,6 +7,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	USE_COMPACT_JSON: true,
 	USE_SORTED_KEYS: false,
 	CIRCUIT_BREAKER_ENABLED: true,
+	METRICS_ENABLED: true,
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5,
 	...overrides

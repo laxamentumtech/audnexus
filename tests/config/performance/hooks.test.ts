@@ -1,11 +1,6 @@
-import { FastifyInstance } from 'fastify'
 import Fastify from 'fastify'
 
-import {
-	getPerformanceConfig,
-	resetPerformanceConfig,
-	setPerformanceConfig
-} from '#config/performance'
+import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import {
 	getPerformanceMetrics,
 	registerPerformanceHooks,
@@ -40,13 +35,14 @@ describe('Performance Hooks', () => {
 			expect(metrics.requests).toEqual({})
 		})
 
-		it('should not include request metrics when CIRCUIT_BREAKER_ENABLED is false', () => {
+		it('should not include request metrics when METRICS_ENABLED is false', () => {
 			setPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: false,
 				USE_CONNECTION_POOLING: true,
 				USE_COMPACT_JSON: true,
 				USE_SORTED_KEYS: false,
-				CIRCUIT_BREAKER_ENABLED: false,
+				CIRCUIT_BREAKER_ENABLED: true,
+				METRICS_ENABLED: false,
 				MAX_CONCURRENT_REQUESTS: 50,
 				SCHEDULER_CONCURRENCY: 5
 			})
@@ -168,13 +164,14 @@ describe('Performance Hooks', () => {
 	})
 
 	describe('disabled monitoring', () => {
-		it('should not add hooks when CIRCUIT_BREAKER_ENABLED is false', async () => {
+		it('should not add hooks when METRICS_ENABLED is false', async () => {
 			setPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: false,
 				USE_CONNECTION_POOLING: true,
 				USE_COMPACT_JSON: true,
 				USE_SORTED_KEYS: false,
-				CIRCUIT_BREAKER_ENABLED: false,
+				CIRCUIT_BREAKER_ENABLED: true,
+				METRICS_ENABLED: false,
 				MAX_CONCURRENT_REQUESTS: 50,
 				SCHEDULER_CONCURRENCY: 5
 			})
