@@ -4,7 +4,8 @@ import {
 	getPerformanceConfig,
 	PerformanceConfig,
 	resetPerformanceConfig,
-	setPerformanceConfig} from '#config/performance'
+	setPerformanceConfig
+} from '#config/performance'
 
 describe('PerformanceConfig', () => {
 	const originalEnv = process.env
@@ -86,6 +87,20 @@ describe('PerformanceConfig', () => {
 			process.env.USE_PARALLEL_SCHEDULER = '  true  '
 			const config = createPerformanceConfig()
 			expect(config.USE_PARALLEL_SCHEDULER).toBe(true)
+		})
+	})
+
+	describe('METRICS_ENABLED Parsing', () => {
+		it('should parse "true" as true', () => {
+			process.env.METRICS_ENABLED = 'true'
+			const config = createPerformanceConfig()
+			expect(config.METRICS_ENABLED).toBe(true)
+		})
+
+		it('should parse "false" as false', () => {
+			process.env.METRICS_ENABLED = 'false'
+			const config = createPerformanceConfig()
+			expect(config.METRICS_ENABLED).toBe(false)
 		})
 	})
 
@@ -242,7 +257,7 @@ describe('PerformanceConfig', () => {
 				USE_COMPACT_JSON: false,
 				USE_SORTED_KEYS: true,
 				CIRCUIT_BREAKER_ENABLED: false,
-	METRICS_ENABLED: false,
+				METRICS_ENABLED: false,
 				MAX_CONCURRENT_REQUESTS: 100,
 				SCHEDULER_CONCURRENCY: 10
 			}
@@ -266,7 +281,7 @@ describe('PerformanceConfig', () => {
 				USE_COMPACT_JSON: true,
 				USE_SORTED_KEYS: false,
 				CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
+				METRICS_ENABLED: true,
 				MAX_CONCURRENT_REQUESTS: 50,
 				SCHEDULER_CONCURRENCY: 5
 			}
@@ -302,6 +317,7 @@ describe('PerformanceConfig', () => {
 				'USE_COMPACT_JSON',
 				'USE_SORTED_KEYS',
 				'CIRCUIT_BREAKER_ENABLED',
+				'METRICS_ENABLED',
 				'MAX_CONCURRENT_REQUESTS',
 				'SCHEDULER_CONCURRENCY'
 			]

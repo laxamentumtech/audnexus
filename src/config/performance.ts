@@ -65,20 +65,38 @@ export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
  * Falls back to sensible defaults when env vars are not set.
  */
 export function createPerformanceConfig(): PerformanceConfig {
-	return {
+	// Parse numeric values with NaN validation
+	const maxConcurrentRequests = process.env.MAX_CONCURRENT_REQUESTS
+		? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
+		: 50
+	const schedulerConcurrency = process.env.SCHEDULER_CONCURRENCY
+		? parseInt(process.env.SCHEDULER_CONCURRENCY, 10)
+		: 5
+
+	// Validate numeric values are finite and positive before using
+	const validatedMaxConcurrent =
+		!Number.isNaN(maxConcurrentRequests) &&
+		Number.isFinite(maxConcurrentRequests) &&
+		maxConcurrentRequests > 0
+			? maxConcurrentRequests
+			: 50
+	const validatedSchedulerConcurrency =
+		!Number.isNaN(schedulerConcurrency) &&
+		Number.isFinite(schedulerConcurrency) &&
+		schedulerConcurrency > 0
+			? schedulerConcurrency
+			: 5
+
+	return PerformanceConfigSchema.parse({
 		USE_PARALLEL_SCHEDULER: parseBoolean(process.env.USE_PARALLEL_SCHEDULER) ?? false,
 		USE_CONNECTION_POOLING: parseBoolean(process.env.USE_CONNECTION_POOLING) ?? true,
 		USE_COMPACT_JSON: parseBoolean(process.env.USE_COMPACT_JSON) ?? true,
 		USE_SORTED_KEYS: parseBoolean(process.env.USE_SORTED_KEYS) ?? false,
 		CIRCUIT_BREAKER_ENABLED: parseBoolean(process.env.CIRCUIT_BREAKER_ENABLED) ?? true,
 		METRICS_ENABLED: parseBoolean(process.env.METRICS_ENABLED) ?? true,
-		MAX_CONCURRENT_REQUESTS: process.env.MAX_CONCURRENT_REQUESTS
-			? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
-			: 50,
-		SCHEDULER_CONCURRENCY: process.env.SCHEDULER_CONCURRENCY
-			? parseInt(process.env.SCHEDULER_CONCURRENCY, 10)
-			: 5
-	}
+		MAX_CONCURRENT_REQUESTS: validatedMaxConcurrent,
+		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency
+	})
 }
 
 // ============================================================================
