@@ -39,7 +39,7 @@ export interface HealthCheckResponse {
  * Extended FastifyInstance with MongoDB client
  */
 interface FastifyInstanceWithMongo extends FastifyInstance {
-	mongoClient: MongoClient
+	mongoClient?: MongoClient
 	mongoClientCleanup?: () => Promise<void>
 }
 
