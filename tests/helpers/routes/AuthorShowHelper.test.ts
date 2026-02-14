@@ -7,7 +7,11 @@ jest.mock('@fastify/redis')
 import type { FastifyRedis } from '@fastify/redis'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
-import { PerformanceConfig, setPerformanceConfig } from '#config/performance'
+import {
+	PerformanceConfig,
+	resetPerformanceConfig,
+	setPerformanceConfig
+} from '#config/performance'
 import { ApiAuthorProfile } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
@@ -48,6 +52,10 @@ beforeEach(() => {
 		.mockResolvedValue({ data: parsedAuthor, modified: false })
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
 	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
+})
+
+afterEach(() => {
+	resetPerformanceConfig()
 })
 
 describe('AuthorShowHelper should', () => {
