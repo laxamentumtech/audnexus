@@ -228,14 +228,14 @@ describe('ChapterHelper should throw error when', () => {
 		[undefined, 'unknown'],
 		['AudibleOriginal', 'AudibleOriginal']
 	])('content type is invalid (%s)', (actualType, expectedActualType) => {
-		expect(() => helper.validateContentType(actualType)).toThrow(ContentTypeMismatchError)
-		expect(() => helper.validateContentType(actualType)).toThrow(
-			`Item is a ${expectedActualType}, not a book. ASIN: ${asin}`
-		)
 		try {
 			helper.validateContentType(actualType)
+			fail('Expected ContentTypeMismatchError to be thrown')
 		} catch (error) {
 			expect(error).toBeInstanceOf(ContentTypeMismatchError)
+			expect((error as ContentTypeMismatchError).message).toBe(
+				`Item is a ${expectedActualType}, not a book. ASIN: ${asin}`
+			)
 			expect((error as ContentTypeMismatchError).details).toEqual({
 				asin: asin,
 				requestedType: 'book',
