@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
 
+import { PerformanceConfig, setPerformanceConfig } from '#config/performance'
 import { ApiBook, AudibleProduct } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
@@ -206,6 +207,8 @@ describe('StitchHelper should throw error when', () => {
 	})
 
 	test('includeGenres returns a non-book type', async () => {
+		// Enable USE_SORTED_KEYS to test sorting error handling
+		setPerformanceConfig({ USE_SORTED_KEYS: true } as PerformanceConfig)
 		helper.apiParsed = parsedBook
 		jest
 			.spyOn(helper.sharedHelper, 'sortObjectByKeys')

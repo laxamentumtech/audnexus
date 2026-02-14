@@ -9,6 +9,7 @@ import type { FastifyRedis } from '@fastify/redis'
 import type { AxiosResponse } from 'axios'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
+import { PerformanceConfig, setPerformanceConfig } from '#config/performance'
 import { ApiBook } from '#config/types'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
@@ -142,6 +143,8 @@ describe('BookShowHelper should throw error when', () => {
 	})
 
 	test('getDataWithProjection sorted book is not a book type', async () => {
+		// Enable USE_SORTED_KEYS to test sorting error handling
+		setPerformanceConfig({ USE_SORTED_KEYS: true } as PerformanceConfig)
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as ApiBook)
 		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiBook`

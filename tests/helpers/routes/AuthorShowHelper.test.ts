@@ -7,6 +7,7 @@ jest.mock('@fastify/redis')
 import type { FastifyRedis } from '@fastify/redis'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
+import { PerformanceConfig, setPerformanceConfig } from '#config/performance'
 import { ApiAuthorProfile } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
@@ -138,6 +139,8 @@ describe('AuthorShowHelper should throw error when', () => {
 	})
 
 	test('getDataWithProjection sorted author is not a author type', async () => {
+		// Enable USE_SORTED_KEYS to test sorting error handling
+		setPerformanceConfig({ USE_SORTED_KEYS: true } as PerformanceConfig)
 		jest
 			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
 			.mockReturnValue(null as unknown as ApiAuthorProfile)
