@@ -3,11 +3,24 @@ import http from 'node:http'
 import https from 'node:https'
 
 /**
+ * Parse and validate a positive integer from environment variable
+ * Falls back to default value if invalid
+ */
+function parsePositiveInt(value: string | undefined, defaultValue: number): number {
+	if (!value) return defaultValue
+	const parsed = Number(value)
+	if (Number.isNaN(parsed) || !Number.isFinite(parsed) || parsed < 0) {
+		return defaultValue
+	}
+	return parsed
+}
+
+/**
  * Environment variable configurations for connection pooling
  */
 const CONFIG = {
-	maxSockets: parseInt(process.env.HTTP_MAX_SOCKETS || '50', 10),
-	timeout: parseInt(process.env.HTTP_TIMEOUT_MS || '30000', 10),
+	maxSockets: parsePositiveInt(process.env.HTTP_MAX_SOCKETS, 50),
+	timeout: parsePositiveInt(process.env.HTTP_TIMEOUT_MS, 30000),
 	maxFreeSockets: 10,
 	keepAlive: true
 } as const

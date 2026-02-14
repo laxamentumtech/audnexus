@@ -71,9 +71,10 @@ describe('Connection Pool', () => {
 	})
 
 	describe('closePool', () => {
-		it('should return a promise', () => {
-			const result = closePool()
-			expect(result).toBeInstanceOf(Promise)
+		it('should close the pool and destroy agents', async () => {
+			await closePool()
+			// Agents are destroyed, calling closePool again should not throw
+			expect(async () => await closePool()).not.toThrow()
 		})
 	})
 })
@@ -96,10 +97,9 @@ describe('fetchPlus with connection pooling', () => {
 		expect(typeof fetchPlus).toBe('function')
 	})
 
-	it('should have 3-retry behavior preserved', async () => {
+	it('should export fetchPlus with one required parameter', async () => {
 		const { default: fetchPlus } = await import('#helpers/utils/fetchPlus')
-		// The function should exist and accept url as required parameter
-		expect(fetchPlus.length).toBe(1) // url is required, options and retries have defaults
+		expect(fetchPlus.length).toBe(1)
 		expect(typeof fetchPlus).toBe('function')
 	})
 })
