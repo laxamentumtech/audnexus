@@ -16,6 +16,9 @@ const waitFor = (ms: number) => new Promise((r) => setTimeout(r, ms))
 // Wait for between 0 and 5 seconds
 const randomWait = () => waitFor(Math.floor(Math.random() * 5000))
 
+// Maximum per-region concurrency limit
+const MAX_PER_REGION_CONCURRENCY = 5
+
 // Document types with region
 interface DocumentWithRegion {
 	asin: string
@@ -105,7 +108,7 @@ class UpdateScheduler {
 
 		if (config.USE_PARALLEL_SCHEDULER) {
 			// Parallel processing with concurrency control
-			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, 5)
+			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, MAX_PER_REGION_CONCURRENCY)
 			const { summary } = await processBatchByRegion(
 				authors,
 				async (author) => {
@@ -144,7 +147,7 @@ class UpdateScheduler {
 
 		if (config.USE_PARALLEL_SCHEDULER) {
 			// Parallel processing with concurrency control
-			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, 5)
+			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, MAX_PER_REGION_CONCURRENCY)
 			const { summary } = await processBatchByRegion(
 				books,
 				async (book) => {
@@ -183,7 +186,7 @@ class UpdateScheduler {
 
 		if (config.USE_PARALLEL_SCHEDULER) {
 			// Parallel processing with concurrency control
-			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, 5)
+			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, MAX_PER_REGION_CONCURRENCY)
 			const { summary } = await processBatchByRegion(
 				chapters,
 				async (chapter) => {
