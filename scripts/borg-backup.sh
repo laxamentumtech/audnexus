@@ -38,10 +38,13 @@ init_borg_repo() {
         log "Initializing Borg repository at $BORG_REPO"
         
         if [[ -n "$BORG_ENCRYPTION_REPO_KEY" ]]; then
-            # Use key file for encryption
-            echo "$BORG_ENCRYPTION_REPO_KEY" > /tmp/borg_keyfile
-            borg init --encryption=repokey-blake2 --key-file /tmp/borg_keyfile "$BORG_REPO"
-            rm /tmp/borg_keyfile
+            # Use key file for encryption with secure temp file
+            local borg_keyfile
+            borg_keyfile=$(mktemp)
+            chmod 600 "$borg_keyfile"
+            trap 'rm -f "$borg_keyfile"' EXIT
+            echo "$BORG_ENCRYPTION_REPO_KEY" > "$borg_keyfile"
+            borg init --encryption=repokey-blake2 --key-file "$borg_keyfile" "$BORG_REPO"
         else
             # No encryption (not recommended for production)
             log "WARNING: No encryption configured for Borg repository"
@@ -117,6 +120,10 @@ verify_backup() {
     if [[ -z "$archive_name" ]]; then
         # Verify latest archive
         archive_name=$(borg list --short "$BORG_REPO" | tail -1)
+    fi
+
+    if [[ -z "$archive_name" ]]; then
+        error_exit "No backup archives found in repository"
     fi
     
     log "Verifying backup: $archive_name"

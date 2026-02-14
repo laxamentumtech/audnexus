@@ -2,8 +2,16 @@
 # MongoDB Migration Script
 # Backs up data from old Docker Compose MongoDB
 
+set -euo pipefail
+
 BACKUP_DIR="./backups/mongodb"
-OLD_CONTAINER="audnexus-mongo-1"
+OLD_CONTAINER="${1:-${OLD_CONTAINER:-audnexus-mongo-1}}"
+
+# Validate container exists
+if ! docker ps -a --format '{{.Names}}' | grep -q "^${OLD_CONTAINER}$"; then
+    echo "Error: Container '$OLD_CONTAINER' not found" >&2
+    exit 1
+fi
 
 # Create backup directory
 mkdir -p "$BACKUP_DIR"
@@ -14,6 +22,9 @@ docker exec "$OLD_CONTAINER" mongodump --out /tmp/backup
 
 # Copy backup to host
 docker cp "$OLD_CONTAINER:/tmp/backup" "$BACKUP_DIR"
+
+# Cleanup: remove backup from container
+docker exec "$OLD_CONTAINER" rm -rf /tmp/backup
 
 echo "Backup complete: $BACKUP_DIR/backup"
 echo ""

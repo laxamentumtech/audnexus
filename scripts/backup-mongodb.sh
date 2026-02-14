@@ -48,15 +48,13 @@ create_mongodb_dump() {
     log "Starting MongoDB dump for database: $MONGODB_DATABASE"
     
     # Use mongodump from the MongoDB container
-    if docker exec "$CONTAINER_NAME" mongodump \
+    if docker exec -e MONGODB_PASSWORD "$CONTAINER_NAME" mongodump \
         --host "$MONGODB_HOST" \
         --port "$MONGODB_PORT" \
         --username "$MONGODB_USER" \
-        --password "$MONGODB_PASSWORD" \
         --db "$MONGODB_DATABASE" \
         --authenticationDatabase "$MONGODB_AUTH_SOURCE" \
-        --out "$dump_path" \
-        --gzip; then
+        --out "$dump_path"; then
         
         log "MongoDB dump completed successfully"
     else
@@ -82,7 +80,7 @@ cleanup_old_archives() {
     
     log "Cleaning up archives older than $retention_days days..."
     
-    find "$BACKUP_DIR" -name "*.archive.gz" -type f -mtime +$retention_days -delete
+    find "$BACKUP_DIR" -name "*.archive.gz" -type f -mtime +"$retention_days" -delete
     
     log "Cleanup completed"
 }
