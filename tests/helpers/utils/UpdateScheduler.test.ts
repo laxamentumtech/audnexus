@@ -289,15 +289,35 @@ describe('UpdateScheduler should', () => {
 		})
 
 		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
-		;(processBatchByRegion as jest.Mock).mockResolvedValue({
-			results: [undefined],
-			summary: createBatchSummary()
-		})
 		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockRejectedValue(new Error('Test error'))
+		;(processBatchByRegion as jest.Mock).mockImplementation(
+			async <T, R>(items: T[], worker: (item: T) => Promise<R>) => {
+				const results: R[] = []
+				for (const item of items) {
+					try {
+						const result = await worker(item)
+						results.push(result)
+					} catch {
+						// Error is handled in worker, continue
+					}
+				}
+				return {
+					results,
+					summary: {
+						total: items.length,
+						success: 0,
+						failures: items.length,
+						regions: { us: items.length },
+						maxConcurrencyObserved: 1
+					}
+				}
+			}
+		)
 
 		await helper.updateAuthors()
 
 		expect(processBatchByRegion).toHaveBeenCalled()
+		expect(AuthorShowHelper.prototype.handler).toHaveBeenCalled()
 	})
 
 	test('updateBooks with parallel processing handles errors gracefully', async () => {
@@ -313,15 +333,35 @@ describe('UpdateScheduler should', () => {
 		})
 
 		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
-		;(processBatchByRegion as jest.Mock).mockResolvedValue({
-			results: [undefined],
-			summary: createBatchSummary()
-		})
 		jest.spyOn(BookShowHelper.prototype, 'handler').mockRejectedValue(new Error('Test error'))
+		;(processBatchByRegion as jest.Mock).mockImplementation(
+			async <T, R>(items: T[], worker: (item: T) => Promise<R>) => {
+				const results: R[] = []
+				for (const item of items) {
+					try {
+						const result = await worker(item)
+						results.push(result)
+					} catch {
+						// Error is handled in worker, continue
+					}
+				}
+				return {
+					results,
+					summary: {
+						total: items.length,
+						success: 0,
+						failures: items.length,
+						regions: { us: items.length },
+						maxConcurrencyObserved: 1
+					}
+				}
+			}
+		)
 
 		await helper.updateBooks()
 
 		expect(processBatchByRegion).toHaveBeenCalled()
+		expect(BookShowHelper.prototype.handler).toHaveBeenCalled()
 	})
 
 	test('updateChapters with parallel processing handles errors gracefully', async () => {
@@ -337,15 +377,35 @@ describe('UpdateScheduler should', () => {
 		})
 
 		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
-		;(processBatchByRegion as jest.Mock).mockResolvedValue({
-			results: [undefined],
-			summary: createBatchSummary()
-		})
 		jest.spyOn(ChapterShowHelper.prototype, 'handler').mockRejectedValue(new Error('Test error'))
+		;(processBatchByRegion as jest.Mock).mockImplementation(
+			async <T, R>(items: T[], worker: (item: T) => Promise<R>) => {
+				const results: R[] = []
+				for (const item of items) {
+					try {
+						const result = await worker(item)
+						results.push(result)
+					} catch {
+						// Error is handled in worker, continue
+					}
+				}
+				return {
+					results,
+					summary: {
+						total: items.length,
+						success: 0,
+						failures: items.length,
+						regions: { us: items.length },
+						maxConcurrencyObserved: 1
+					}
+				}
+			}
+		)
 
 		await helper.updateChapters()
 
 		expect(processBatchByRegion).toHaveBeenCalled()
+		expect(ChapterShowHelper.prototype.handler).toHaveBeenCalled()
 	})
 
 	test('updateAuthors uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {

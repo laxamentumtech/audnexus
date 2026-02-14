@@ -128,7 +128,7 @@ describe('Connection Pool', () => {
 		it('should close the pool and destroy agents', async () => {
 			await closePool()
 			// Agents are destroyed, calling closePool again should not throw
-			expect(async () => await closePool()).not.toThrow()
+			await expect(closePool()).resolves.toBeUndefined()
 		})
 	})
 })
