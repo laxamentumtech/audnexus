@@ -68,6 +68,60 @@ describe('Connection Pool', () => {
 
 			expect(config.maxSockets).toBe(50)
 		})
+
+		it('should fallback to default when HTTP_MAX_SOCKETS is non-numeric', async () => {
+			process.env.HTTP_MAX_SOCKETS = 'abc'
+			jest.resetModules()
+			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const config = getConfigWithEnv()
+
+			expect(config.maxSockets).toBe(50)
+		})
+
+		it('should fallback to default when HTTP_MAX_SOCKETS is negative', async () => {
+			process.env.HTTP_MAX_SOCKETS = '-1'
+			jest.resetModules()
+			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const config = getConfigWithEnv()
+
+			expect(config.maxSockets).toBe(50)
+		})
+
+		it('should fallback to default when HTTP_MAX_SOCKETS is zero', async () => {
+			process.env.HTTP_MAX_SOCKETS = '0'
+			jest.resetModules()
+			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const config = getConfigWithEnv()
+
+			expect(config.maxSockets).toBe(50)
+		})
+
+		it('should fallback to default when HTTP_TIMEOUT_MS is non-numeric', async () => {
+			process.env.HTTP_TIMEOUT_MS = 'xyz'
+			jest.resetModules()
+			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const config = getConfigWithEnv()
+
+			expect(config.timeout).toBe(30000)
+		})
+
+		it('should fallback to default when HTTP_TIMEOUT_MS is negative', async () => {
+			process.env.HTTP_TIMEOUT_MS = '-100'
+			jest.resetModules()
+			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const config = getConfigWithEnv()
+
+			expect(config.timeout).toBe(30000)
+		})
+
+		it('should fallback to default when HTTP_TIMEOUT_MS is zero', async () => {
+			process.env.HTTP_TIMEOUT_MS = '0'
+			jest.resetModules()
+			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const config = getConfigWithEnv()
+
+			expect(config.timeout).toBe(30000)
+		})
 	})
 
 	describe('closePool', () => {
