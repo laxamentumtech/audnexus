@@ -425,6 +425,7 @@ describe('PerformanceConfig', () => {
 			expect(typeof config.USE_COMPACT_JSON).toBe('boolean')
 			expect(typeof config.USE_SORTED_KEYS).toBe('boolean')
 			expect(typeof config.CIRCUIT_BREAKER_ENABLED).toBe('boolean')
+			expect(typeof config.METRICS_ENABLED).toBe('boolean')
 			expect(typeof config.MAX_CONCURRENT_REQUESTS).toBe('number')
 			expect(typeof config.SCHEDULER_CONCURRENCY).toBe('number')
 		})

@@ -1,21 +1,22 @@
+import { FastifyRequest } from 'fastify'
 import Fastify from 'fastify'
 
 import { PerformanceConfig, setPerformanceConfig } from '#config/performance'
-import { registerMetricsRoute, parseEnvArray } from '#config/routes/metrics'
+import { isIpAllowed, parseEnvArray, registerMetricsRoute } from '#config/routes/metrics'
+
+const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
+	USE_PARALLEL_SCHEDULER: false,
+	USE_CONNECTION_POOLING: true,
+	USE_COMPACT_JSON: true,
+	USE_SORTED_KEYS: false,
+	CIRCUIT_BREAKER_ENABLED: true,
+	METRICS_ENABLED: true,
+	MAX_CONCURRENT_REQUESTS: 50,
+	SCHEDULER_CONCURRENCY: 5,
+	...overrides
+})
 
 describe('Metrics Route - Authentication', () => {
-	const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-		USE_PARALLEL_SCHEDULER: false,
-		USE_CONNECTION_POOLING: true,
-		USE_COMPACT_JSON: true,
-		USE_SORTED_KEYS: false,
-		CIRCUIT_BREAKER_ENABLED: true,
-		METRICS_ENABLED: true,
-		MAX_CONCURRENT_REQUESTS: 50,
-		SCHEDULER_CONCURRENCY: 5,
-		...overrides
-	})
-
 	afterEach(() => {
 		delete process.env.METRICS_AUTH_TOKEN
 		delete process.env.METRICS_ALLOWED_IPS
@@ -268,18 +269,6 @@ describe('Metrics Route - Authentication', () => {
 })
 
 describe('Metrics Route', () => {
-	const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-		USE_PARALLEL_SCHEDULER: false,
-		USE_CONNECTION_POOLING: true,
-		USE_COMPACT_JSON: true,
-		USE_SORTED_KEYS: false,
-		CIRCUIT_BREAKER_ENABLED: true,
-		METRICS_ENABLED: true,
-		MAX_CONCURRENT_REQUESTS: 50,
-		SCHEDULER_CONCURRENCY: 5,
-		...overrides
-	})
-
 	describe('GET /metrics', () => {
 		it('should return metrics when enabled', async () => {
 			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
@@ -319,6 +308,158 @@ describe('Metrics Route', () => {
 			expect(body.error).toBe('Metrics endpoint disabled')
 
 			await fastify.close()
+		})
+	})
+})
+
+describe('isIpAllowed', () => {
+	afterEach(() => {
+		delete process.env.METRICS_ALLOWED_IPS
+	})
+
+	const createMockRequest = (
+		ip: string | undefined,
+		forwardedFor: string | string[] | undefined
+	): FastifyRequest => {
+		return {
+			ip,
+			headers: forwardedFor !== undefined ? { 'x-forwarded-for': forwardedFor } : {}
+		} as FastifyRequest
+	}
+
+	describe('x-forwarded-for as array', () => {
+		it('returns true when first IP in array is in allowed list', () => {
+			const mockRequest = createMockRequest(undefined, ['10.0.0.1', '192.168.1.1'])
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1', '192.168.1.1'])
+			expect(result).toBe(true)
+		})
+
+		it('returns false when first IP in array is not in allowed list', () => {
+			const mockRequest = createMockRequest(undefined, ['172.16.0.1', '192.168.1.1'])
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1', '192.168.1.1'])
+			expect(result).toBe(false)
+		})
+
+		it('uses request.ip when defined, ignoring x-forwarded-for array', () => {
+			const mockRequest = createMockRequest('10.0.0.1', ['172.16.0.1', '192.168.1.1'])
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1', '192.168.1.1'])
+			expect(result).toBe(true)
+		})
+	})
+
+	describe('x-forwarded-for as comma-separated string', () => {
+		it('returns true when first IP in string is in allowed list', () => {
+			const mockRequest = createMockRequest(undefined, '10.0.0.1, 192.168.1.1')
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1', '192.168.1.1'])
+			expect(result).toBe(true)
+		})
+
+		it('returns false when first IP in string is not in allowed list', () => {
+			const mockRequest = createMockRequest(undefined, '172.16.0.1, 192.168.1.1')
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1', '192.168.1.1'])
+			expect(result).toBe(false)
+		})
+
+		it('trims whitespace from comma-separated string', () => {
+			const mockRequest = createMockRequest(undefined, ' 10.0.0.1 , 192.168.1.1 ')
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1', '192.168.1.1'])
+			expect(result).toBe(true)
+		})
+
+		it('uses request.ip when defined, ignoring x-forwarded-for string', () => {
+			const mockRequest = createMockRequest('10.0.0.1', '172.16.0.1, 192.168.1.1')
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1', '192.168.1.1'])
+			expect(result).toBe(true)
+		})
+	})
+
+	describe('request.ip is undefined/null', () => {
+		it('falls back to firstForwardedIp from array when request.ip is undefined', () => {
+			const mockRequest = createMockRequest(undefined, ['10.0.0.1', '192.168.1.1'])
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(true)
+		})
+
+		it('falls back to firstForwardedIp from string when request.ip is undefined', () => {
+			const mockRequest = createMockRequest(undefined, '10.0.0.1, 192.168.1.1')
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(true)
+		})
+
+		it('returns false when both request.ip and x-forwarded-for are undefined', () => {
+			const mockRequest = createMockRequest(undefined, undefined)
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false when x-forwarded-for is empty array', () => {
+			const mockRequest = createMockRequest(undefined, [])
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false when x-forwarded-for is empty string', () => {
+			const mockRequest = createMockRequest(undefined, '')
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(false)
+		})
+	})
+
+	describe('IP not in allowed list', () => {
+		it('returns false when request.ip is not in allowed list', () => {
+			const mockRequest = createMockRequest('172.16.0.1', undefined)
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1', '192.168.1.1'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false when x-forwarded-for array IP is not in allowed list', () => {
+			const mockRequest = createMockRequest(undefined, ['172.16.0.1', '10.0.0.1'])
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false when x-forwarded-for string IP is not in allowed list', () => {
+			const mockRequest = createMockRequest(undefined, '172.16.0.1, 10.0.0.1')
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(false)
+		})
+	})
+
+	describe('clientIp usage', () => {
+		it('uses request.ip when available', () => {
+			const mockRequest = createMockRequest('10.0.0.1', '172.16.0.1')
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(true)
+		})
+
+		it('uses firstForwardedIp when request.ip is undefined', () => {
+			const mockRequest = createMockRequest(undefined, '10.0.0.1')
+
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(true)
+		})
+
+		it('defaults to unknown when both request.ip and x-forwarded-for are undefined', () => {
+			const mockRequest = createMockRequest(undefined, undefined)
+
+			const result = isIpAllowed(mockRequest, ['unknown'])
+			expect(result).toBe(true)
 		})
 	})
 })
