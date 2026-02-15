@@ -1,6 +1,6 @@
 import { AxiosError, AxiosResponse } from 'axios'
 
-import pooledAxios from './connectionPool'
+import pooledAxios from './connectionPool.js'
 
 /**
  * Fetches a url with axios and retries 3 additional times on non-200 status
