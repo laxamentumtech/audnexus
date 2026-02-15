@@ -6,7 +6,9 @@ const config: Config.InitialOptions = {
 		'#config/(.*)': '<rootDir>/src/config/$1',
 		'#static/(.*)': '<rootDir>/src/static/$1',
 		'#tests/(.*)': '<rootDir>/tests/$1',
-		'^papr$': '<rootDir>/tests/mocks/papr.js'
+		'^papr$': '<rootDir>/tests/mocks/papr.js',
+		'^#helpers/utils/batchProcessor$': '<rootDir>/tests/__mocks__/batchProcessor.ts',
+		'^p-limit$': '<rootDir>/tests/__mocks__/p-limit.js'
 	},
 	restoreMocks: true,
 	clearMocks: true,
@@ -33,6 +35,7 @@ const config: Config.InitialOptions = {
 	},
 	// Papr 17.x is now ES modules, needs to be transformed
 	// Handle pnpm's nested structure: node_modules/.pnpm/papr@version/node_modules/papr/
-	transformIgnorePatterns: ['node_modules/(?!.*papr)']
+	// p-limit is also ESM and needs transformation
+	transformIgnorePatterns: ['node_modules/.pnpm/(?!(papr|p-limit)@)']
 }
 export default config
