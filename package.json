@@ -28,6 +28,11 @@
 	},
 	"author": "David Dembeck",
 	"license": "GPL-3.0",
+	"type": "module",
+	"exports": "./dist/server.js",
+	"engines": {
+		"node": ">=20.11.0"
+	},
 	"dependencies": {
 		"@fastify/cors": "^11.2.0",
 		"@fastify/helmet": "^13.0.0",
