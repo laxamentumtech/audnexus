@@ -5,7 +5,8 @@ const config: Config.InitialOptions = {
 		'#helpers/(.*)': '<rootDir>/src/helpers/$1',
 		'#config/(.*)': '<rootDir>/src/config/$1',
 		'#static/(.*)': '<rootDir>/src/static/$1',
-		'#tests/(.*)': '<rootDir>/tests/$1'
+		'#tests/(.*)': '<rootDir>/tests/$1',
+		'^(\\.{1,2}/.*)\\.js$': '$1'
 	},
 	restoreMocks: true,
 	clearMocks: true,

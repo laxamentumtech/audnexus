@@ -11,6 +11,7 @@ class Papr {
 		}
 	}
 }
+
 const types = {
 	array: () => ({}),
 	boolean: () => ({}),
@@ -21,6 +22,7 @@ const types = {
 	objectId: () => ({}),
 	string: () => ({})
 }
+
 const schema = () => ({})
 
 module.exports = Papr

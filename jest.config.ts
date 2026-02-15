@@ -6,6 +6,7 @@ const config: Config.InitialOptions = {
 		'#config/(.*)': '<rootDir>/src/config/$1',
 		'#static/(.*)': '<rootDir>/src/static/$1',
 		'#tests/(.*)': '<rootDir>/tests/$1',
+		'^(\\.{1,2}/.*)\\.js$': '$1',
 		'^papr$': '<rootDir>/tests/mocks/papr.js',
 		'^#helpers/utils/batchProcessor$': '<rootDir>/tests/__mocks__/batchProcessor.ts',
 		'^p-limit$': '<rootDir>/tests/__mocks__/p-limit.js'
