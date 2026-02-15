@@ -19,7 +19,7 @@ export function parseEnvArray(value: string | undefined): string[] | undefined {
 /**
  * Check if request IP is in allowed list
  */
-function isIpAllowed(request: FastifyRequest, allowedIps: string[]): boolean {
+export function isIpAllowed(request: FastifyRequest, allowedIps: string[]): boolean {
 	// Extract first IP from x-forwarded-for header (handles string or array)
 	const forwardedFor = request.headers['x-forwarded-for']
 	let firstForwardedIp: string | undefined
