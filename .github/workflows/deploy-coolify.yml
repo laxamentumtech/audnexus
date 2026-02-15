@@ -29,17 +29,22 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.ref == 'refs/heads/main' && 'latest' || 'develop' }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         env:
           REGISTRY: ghcr.io
           IMAGE_NAME: ${{ github.repository }}
 
       - name: Deploy to Coolify
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" --request GET '${{ secrets.COOLIFY_WEBHOOK }}' \
+          response_body=$(mktemp)
+          response=$(curl -s -o "$response_body" -w "%{http_code}" --max-time 30 --request GET '${{ secrets.COOLIFY_WEBHOOK }}' \
             --header 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}')
           if [ "$response" -ne 200 ] && [ "$response" -ne 202 ]; then
             echo "Coolify deployment failed with status: $response"
+            echo "Response body:"
+            cat "$response_body"
+            rm -f "$response_body"
             exit 1
           fi
+          rm -f "$response_body"
           echo "Coolify deployment triggered successfully"

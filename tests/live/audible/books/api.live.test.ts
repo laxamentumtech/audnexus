@@ -19,21 +19,17 @@ function isInUnavailableAllowlist(asin: string, region: string): boolean {
 
 /**
  * Checks if content is available by validating the response structure.
- * Returns true if content appears to be available (has valid content_delivery_type or passes baseShape)
+ * Returns true only if content_delivery_type is present and is a known type.
+ * This prevents false positives from Audible product stubs.
  */
 function checkAvailability(response: AudibleProduct): boolean {
 	const product = response.product
 	const contentType = product?.content_delivery_type
 	const knownTypes = ['PodcastParent', 'MultiPartBook', 'SinglePartBook'] // PodcastParent included for detection purposes - content type mismatch should be thrown
 
-	// If content_delivery_type is a known type, content is available
-	if (contentType && knownTypes.includes(contentType)) {
-		return true
-	}
-
-	// If content_delivery_type is missing/unknown, check if baseShape validation passes
-	const baseResult = baseShape.safeParse(product)
-	return baseResult.success
+	// Content is only considered available when content_delivery_type is present and known
+	// This prevents false positives from incomplete product stubs
+	return contentType !== undefined && contentType !== null && knownTypes.includes(contentType)
 }
 
 /**
