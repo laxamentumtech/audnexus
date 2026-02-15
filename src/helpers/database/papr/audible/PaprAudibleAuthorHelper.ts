@@ -1,3 +1,5 @@
+import type { FastifyBaseLogger } from 'fastify'
+
 import AuthorModel, { AuthorDocument } from '#config/models/Author'
 import { ApiAuthorProfile, ApiAuthorProfileSchema, ApiQueryString } from '#config/types'
 import { isAuthorDocument } from '#config/typing/checkers'
@@ -23,10 +25,12 @@ export default class PaprAudibleAuthorHelper {
 	authorData!: ApiAuthorProfile
 	options: ApiQueryString
 	sharedHelper = new SharedHelper()
+	logger?: FastifyBaseLogger
 
-	constructor(asin: string, options: ApiQueryString) {
+	constructor(asin: string, options: ApiQueryString, logger?: FastifyBaseLogger) {
 		this.asin = asin
 		this.options = options
+		this.logger = logger
 	}
 
 	/**
@@ -42,7 +46,7 @@ export default class PaprAudibleAuthorHelper {
 			}
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageCreate(this.asin, 'author'))
 		}
 	}
@@ -63,7 +67,7 @@ export default class PaprAudibleAuthorHelper {
 			}
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageDelete(this.asin, 'author'))
 		}
 	}
@@ -171,7 +175,7 @@ export default class PaprAudibleAuthorHelper {
 			if (data.genres || (!data.genres && this.authorData.genres)) {
 				// Only update if it's not nuked data
 				if (this.authorData.genres?.length) {
-					console.log(NoticeUpdateAsin(this.asin, 'author'))
+					this.logger?.info(NoticeUpdateAsin(this.asin, 'author'))
 					// Update
 					return this.update()
 				}
@@ -210,7 +214,7 @@ export default class PaprAudibleAuthorHelper {
 			return updatedAuthor
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageUpdate(this.asin, 'author'))
 		}
 	}

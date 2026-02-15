@@ -1,16 +1,26 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AxiosResponse } from 'axios'
+import type { FastifyBaseLogger } from 'fastify'
 
-import { AudibleCategory, AudibleProduct, AudibleProductSchema, AudibleSeries } from '#config/types'
+import {
+	AudibleCategory,
+	AudibleProduct,
+	AudibleProductSchema,
+	AudibleSeries,
+	fallbackShape
+} from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
 import {
+	B0GFYFCX3D,
 	B07BS4RKGH,
 	B017V4IM1G,
+	bookWithoutContentDeliveryType,
 	podcast,
-	setupMinimalParsed
+	podcastWithoutProgramParticipation
 } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
 
@@ -145,34 +155,34 @@ describe('ApiHelper should', () => {
 		await expect(parsed).resolves.toEqual(parsedBook)
 	})
 
-	test('parse response with podcast', async () => {
-		const copyright = 2020
-		const genres = [
-			{
-				asin: '18580606011',
-				name: 'Science Fiction & Fantasy',
-				type: 'genre'
-			},
-			{
-				asin: '18580607011',
-				name: 'Fantasy',
-				type: 'tag'
-			},
-			{
-				asin: '18580628011',
-				name: 'Science Fiction',
-				type: 'tag'
+	test('throws ContentTypeMismatchError for podcast content', async () => {
+		await expect(helper.parseResponse(podcast)).rejects.toBeInstanceOf(ContentTypeMismatchError)
+		await expect(helper.parseResponse(podcast)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a podcast, not a book. ASIN: ${asin}`,
+			details: {
+				asin: asin,
+				requestedType: 'book',
+				actualType: 'PodcastParent'
 			}
-		]
-		const image = 'https://m.media-amazon.com/images/I/9125JjSWeCL.jpg'
-		const minimalParsed = setupMinimalParsed(
-			podcast.product,
-			copyright,
-			podcast.product.merchandising_summary,
-			image,
-			genres
+		})
+	})
+
+	test('throws ContentTypeMismatchError for podcast without program_participation', async () => {
+		await expect(helper.parseResponse(podcastWithoutProgramParticipation)).rejects.toBeInstanceOf(
+			ContentTypeMismatchError
 		)
-		await expect(helper.parseResponse(podcast)).resolves.toEqual(minimalParsed)
+		await expect(helper.parseResponse(podcastWithoutProgramParticipation)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a podcast, not a book. ASIN: ${asin}`,
+			details: {
+				asin: asin,
+				requestedType: 'book',
+				actualType: 'PodcastParent'
+			}
+		})
 	})
 
 	describe('handle region: ', () => {
@@ -223,6 +233,32 @@ describe('ApiHelper edge cases should', () => {
 		expect(helper.getSeriesSecondary([obj])).toBeUndefined()
 	})
 
+	test('getSeriesPrimary returns undefined when content_delivery_type is Unknown', async () => {
+		const obj = {
+			asin: '123',
+			title: 'Test Series',
+			sequence: '1'
+		}
+		helper.audibleResponse = fallbackShape.parse({
+			...mockResponse.product,
+			content_delivery_type: 'Unknown'
+		})
+		expect(helper.getSeriesPrimary([obj])).toBeUndefined()
+	})
+
+	test('getSeriesSecondary returns undefined when content_delivery_type is Unknown', async () => {
+		const obj = {
+			asin: '123',
+			title: 'Test Series',
+			sequence: '1'
+		}
+		helper.audibleResponse = fallbackShape.parse({
+			...mockResponse.product,
+			content_delivery_type: 'Unknown'
+		})
+		expect(helper.getSeriesSecondary([obj])).toBeUndefined()
+	})
+
 	test('get backup lower res image', async () => {
 		helper.audibleResponse = mockResponse.product
 		helper.audibleResponse!.product_images![1024] = ''
@@ -268,28 +304,77 @@ describe('ApiHelper edge cases should', () => {
 	test('return false on empty input to isGenre', async () => {
 		expect(helper.isGenre(null)).toBeFalsy()
 	})
+
+	test('parse a book without social_media_images', async () => {
+		helper = new ApiHelper('B0GFYFCX3D', region)
+		const data = await helper.parseResponse(B0GFYFCX3D)
+		expect(data.asin).toBe('B0GFYFCX3D')
+		expect(data.title).toBe('Test Book Without Social Media Images')
+		expect(data.authors).toEqual([{ asin: 'B000AP9A6K', name: 'Test Author' }])
+	})
+
+	test('parses book without content_delivery_type successfully', async () => {
+		helper = new ApiHelper('B0GM8R53L2', region)
+		const data = await helper.parseResponse(
+			bookWithoutContentDeliveryType as unknown as AudibleProduct
+		)
+		expect(data.asin).toBe('B0GM8R53L2')
+		expect(data.title).toBe('Test Book Without Content Delivery Type')
+	})
+
+	test('parses book with unknown content_delivery_type successfully', async () => {
+		const unknownTypeResponse = deepCopy(mockResponse)
+		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
+		const mockLogger = { warn: jest.fn() }
+		helper = new ApiHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
+		const data = await helper.parseResponse(unknownTypeResponse)
+		expect(data.asin).toBe(asin)
+		expect(mockLogger.warn).toHaveBeenCalled()
+		expect(mockLogger.warn).toHaveBeenCalledWith(
+			expect.stringContaining('Unknown content_delivery_type')
+		)
+	})
+
+	test('throws region unavailable when baseShape also fails', async () => {
+		// Create a response with empty product (missing required baseShape fields)
+		const emptyProductResponse = { product: {} } as AudibleProduct
+		await expect(helper.parseResponse(emptyProductResponse)).rejects.toThrow(
+			`Item not available in region '${region}' for ASIN: ${asin}`
+		)
+	})
+
+	test('throws NotFoundError with statusCode 404 for unavailable region', async () => {
+		// Create a response with empty product (missing required baseShape fields)
+		const emptyProductResponse = { product: {} } as AudibleProduct
+		await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
+		await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
+			name: 'NotFoundError',
+			statusCode: 404,
+			message: `Item not available in region '${region}' for ASIN: ${asin}`
+		})
+	})
 })
 
 describe('ApiHelper should throw error when', () => {
 	test('no input data', () => {
-		expect(() => helper.getCategories()).toThrowError('No input data')
-		expect(() => helper.getGenres()).toThrowError('No input data')
-		expect(() => helper.getHighResImage()).toThrowError('No input data')
-		expect(() => helper.getReleaseDate()).toThrowError('No input data')
-		expect(() => helper.getSeriesPrimary(['1'] as unknown as AudibleSeries[])).toThrowError(
+		expect(() => helper.getCategories()).toThrow('No input data')
+		expect(() => helper.getGenres()).toThrow('No input data')
+		expect(() => helper.getHighResImage()).toThrow('No input data')
+		expect(() => helper.getReleaseDate()).toThrow('No input data')
+		expect(() => helper.getSeriesPrimary(['1'] as unknown as AudibleSeries[])).toThrow(
 			'No input data'
 		)
-		expect(() => helper.getSeriesSecondary(['1'] as unknown as AudibleSeries[])).toThrowError(
+		expect(() => helper.getSeriesSecondary(['1'] as unknown as AudibleSeries[])).toThrow(
 			'No input data'
 		)
-		expect(() => helper.getTags()).toThrowError('No input data')
-		expect(() => helper.getFinalData()).toThrowError('No input data')
+		expect(() => helper.getTags()).toThrow('No input data')
+		expect(() => helper.getFinalData()).toThrow('No input data')
 	})
 
 	test('release_date is in the future', async () => {
 		helper.audibleResponse = mockResponse.product
 		helper.audibleResponse!.release_date = '2080-01-01'
-		expect(() => helper.getReleaseDate()).toThrowError('Release date is in the future')
+		expect(() => helper.getReleaseDate()).toThrow('Release date is in the future')
 	})
 
 	test('category is invalid', () => {
@@ -297,7 +382,7 @@ describe('ApiHelper should throw error when', () => {
 			id: '1',
 			name: ''
 		} as AudibleCategory
-		expect(() => helper.categoryToApiGenre(obj, 'genre')).toThrowError(
+		expect(() => helper.categoryToApiGenre(obj, 'genre')).toThrow(
 			`An error occurred while parsing ApiHelper. ASIN: ${asin}`
 		)
 	})
@@ -311,20 +396,14 @@ describe('ApiHelper should throw error when', () => {
 		)
 		asin = ''
 		helper = new ApiHelper(asin, region)
-		await expect(helper.fetchBook()).rejects.toThrowError(
+		await expect(helper.fetchBook()).rejects.toThrow(
 			`An error occured while fetching data from Audible API. Response: 403, ASIN: ${asin}`
 		)
 	})
 
 	test('input is undefined', async () => {
-		await expect(helper.parseResponse(undefined)).rejects.toThrowError(
+		await expect(helper.parseResponse(undefined)).rejects.toThrow(
 			`An error occurred while parsing Audible API. ASIN: ${asin}`
-		)
-	})
-
-	test('input has no data', async () => {
-		await expect(helper.parseResponse({ product: {} } as AudibleProduct)).rejects.toThrowError(
-			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
 
@@ -333,7 +412,7 @@ describe('ApiHelper should throw error when', () => {
 		helper = new ApiHelper(asin, region)
 		// Setup variable without title
 		const data = B07BS4RKGH as unknown as AudibleProduct
-		await expect(helper.parseResponse(data)).rejects.toThrowError(
+		await expect(helper.parseResponse(data)).rejects.toThrow(
 			`Required key 'title' does not exist in Audible API response for ASIN ${asin}`
 		)
 	})

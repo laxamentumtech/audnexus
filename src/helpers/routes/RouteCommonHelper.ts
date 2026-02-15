@@ -2,6 +2,7 @@ import { FastifyReply } from 'fastify'
 import { ZodError } from 'zod'
 
 import { ApiQueryString, ApiQueryStringSchema, AsinSchema } from '#config/types'
+import { BadRequestError } from '#helpers/errors/ApiErrors'
 import {
 	ErrorMessageBadQuery,
 	MessageBadAsin,
@@ -85,38 +86,30 @@ class RouteCommonHelper {
 
 	/**
 	 * Throw error if asin is invalid
-	 * Sets reply code to 400
 	 */
 	throwBadAsinError(): void {
-		this.reply.code(400)
-		throw new Error(MessageBadAsin)
+		throw new BadRequestError(MessageBadAsin)
 	}
 
 	/**
 	 * Throw error if name is invalid
-	 * Sets reply code to 400
 	 */
 	throwBadNameError(): void {
-		this.reply.code(400)
-		throw new Error(MessageNoSearchParams)
+		throw new BadRequestError(MessageNoSearchParams)
 	}
 
 	/**
 	 * Throw error if region is invalid
-	 * Sets reply code to 400
 	 */
 	throwBadRegionError(): void {
-		this.reply.code(400)
-		throw new Error(MessageBadRegion)
+		throw new BadRequestError(MessageBadRegion)
 	}
 
 	/**
 	 * Throw error if query is invalid
-	 * Sets reply code to 400
 	 */
 	throwBadQueryError(message: string): void {
-		this.reply.code(400)
-		throw new Error(ErrorMessageBadQuery(message))
+		throw new BadRequestError(ErrorMessageBadQuery(message))
 	}
 }
 

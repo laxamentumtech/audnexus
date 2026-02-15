@@ -1,4 +1,6 @@
 import type { AxiosResponse } from 'axios'
+import type { FastifyBaseLogger } from 'fastify'
+import { mock } from 'jest-mock-extended'
 
 import { ApiBook } from '#config/types'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
@@ -45,5 +47,25 @@ describe('SeedHelper should', () => {
 	test('return false if no author asin', async () => {
 		helper.book.authors = []
 		await expect(helper.seedAll()).resolves.toEqual([])
+	})
+
+	test('return empty array and log error when Promise.all rejects', async () => {
+		const mockLogger = mock<FastifyBaseLogger>()
+		helper = new SeedHelper(mockResponse, mockLogger)
+
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const promiseAllSpy = jest
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			.spyOn(Promise, 'all' as any)
+			.mockRejectedValue(new Error('Promise.all failed'))
+
+		try {
+			const result = await helper.seedAll()
+
+			expect(result).toEqual([])
+			expect(mockLogger.error).toHaveBeenCalledWith('Promise.all failed')
+		} finally {
+			promiseAllSpy.mockRestore()
+		}
 	})
 })

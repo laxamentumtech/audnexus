@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio'
 import { Element } from 'domhandler'
+import type { FastifyBaseLogger } from 'fastify'
 import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
@@ -8,6 +9,11 @@ import { PaprDocument } from '#config/typing/papr'
 import { NoticeGenreNotAvailable } from '#static/messages'
 
 class SharedHelper {
+	logger?: FastifyBaseLogger
+
+	constructor(logger?: FastifyBaseLogger) {
+		this.logger = logger
+	}
 	/**
 	 * Creates URL to use in fetchBook
 	 * @param {string} ASIN The Audible ID to base the URL on
@@ -56,10 +62,10 @@ class SharedHelper {
 							type: type
 						})
 						if (parsed.success) return parsed.data
-						console.log(parsed.error)
+						this.logger?.warn(parsed.error)
 					}
 				} else {
-					console.log(NoticeGenreNotAvailable(asin, index))
+					this.logger?.info(NoticeGenreNotAvailable(asin, index))
 				}
 			})
 			.filter((genre) => genre) as ApiGenre[] // Filter out undefined values

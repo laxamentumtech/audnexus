@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AxiosResponse } from 'axios'
 import * as cheerio from 'cheerio'
+import type { FastifyBaseLogger } from 'fastify'
 
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
@@ -75,10 +76,11 @@ describe('ScrapeHelper should', () => {
 
 	test('log non-404 status code', async () => {
 		jest.restoreAllMocks()
-		jest.spyOn(global.console, 'log')
+		const mockLogger = { info: jest.fn() }
 		jest.spyOn(fetchPlus, 'default').mockImplementationOnce(() => Promise.reject({ status: 500 }))
+		helper = new ScrapeHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		await expect(helper.fetchBook()).resolves.toBeUndefined()
-		expect(console.log).toHaveBeenCalledWith(
+		expect(mockLogger.info).toHaveBeenCalledWith(
 			'An error occured while fetching data from HTML. Response: 500, ASIN: B079LRSMNN'
 		)
 	})

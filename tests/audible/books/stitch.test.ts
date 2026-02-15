@@ -1,6 +1,7 @@
 import { ApiBook, ApiChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
+import { NotFoundError } from '#helpers/errors/ApiErrors'
 import { minimalB0036I54I6 } from '#tests/datasets/audible/books/api'
 import {
 	chapterResponseB08C6YJ1LS,
@@ -34,6 +35,17 @@ let chapterHelper: ChapterHelper
 let response: ApiBook
 let chapters: ApiChapter | undefined
 
+async function safeProcessChapter<T>(operation: () => Promise<T>): Promise<T | undefined> {
+	try {
+		return await operation()
+	} catch (error) {
+		if (error instanceof NotFoundError) {
+			return undefined
+		}
+		throw error
+	}
+}
+
 describe('Audible API and HTML Parsing', () => {
 	describe('When stitching together Scorcerers Stone', () => {
 		beforeAll(async () => {
@@ -41,11 +53,10 @@ describe('Audible API and HTML Parsing', () => {
 			// Setup helpers
 			chapterHelper = new ChapterHelper(asin, 'us')
 			helper = new StitchHelper(asin, 'us')
-			// Run helpers
-			const chapterData = await chapterHelper.process()
+			// Run helpers - chapter helper may throw NotFoundError without valid credentials
+			chapters = await safeProcessChapter(() => chapterHelper.process())
 			const newBook = await helper.process()
 			// Set variables
-			chapters = chapterData
 			response = newBook
 		}, 10000)
 
@@ -64,11 +75,10 @@ describe('Audible API and HTML Parsing', () => {
 			// Setup helpers
 			chapterHelper = new ChapterHelper(asin, 'us')
 			helper = new StitchHelper(asin, 'us')
-			// Run helpers
-			const chapterData = await chapterHelper.process()
+			// Run helpers - chapter helper may throw NotFoundError without valid credentials
+			chapters = await safeProcessChapter(() => chapterHelper.process())
 			const newBook = await helper.process()
 			// Set variables
-			chapters = chapterData
 			response = newBook
 		}, 10000)
 
@@ -82,16 +92,25 @@ describe('Audible API and HTML Parsing', () => {
 	})
 
 	describe('When fetching an ASIN that has no chapters or HTML', () => {
+		let chapterError!: NotFoundError
 		beforeAll(async () => {
 			asin = 'B0036I54I6'
 			// Setup helpers
 			chapterHelper = new ChapterHelper(asin, 'us')
 			helper = new StitchHelper(asin, 'us')
 			// Run helpers
-			const chapterData = await chapterHelper.process()
+			try {
+				await chapterHelper.process()
+				fail('Expected NotFoundError to be thrown')
+			} catch (e) {
+				if (e instanceof NotFoundError) {
+					chapterError = e
+				} else {
+					throw e
+				}
+			}
 			const newBook = await helper.process()
 			// Set variables
-			chapters = chapterData
 			response = newBook
 		}, 10000)
 
@@ -99,8 +118,11 @@ describe('Audible API and HTML Parsing', () => {
 			expect(response).toEqual(minimalB0036I54I6)
 		})
 
-		it('returned the correct chapters', () => {
-			expect(chapters).toBeUndefined()
+		it('throws NotFoundError for chapters with correct properties', () => {
+			expect(chapterError).toBeInstanceOf(NotFoundError)
+			expect(chapterError.statusCode).toBe(404)
+			expect(chapterError.details?.code).toBe('REGION_UNAVAILABLE')
+			expect(chapterError.message).toContain('Item not available in region')
 		})
 	})
 })

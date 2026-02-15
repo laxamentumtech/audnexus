@@ -133,7 +133,8 @@ export const parsedAuthorWithoutGenres: ApiAuthorProfile = {
 	description,
 	image,
 	name,
-	region
+	region,
+	similar
 }
 
 const authorWithoutGenresWithIdInternal: WithId<ApiAuthorProfile> = {

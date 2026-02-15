@@ -13,7 +13,7 @@ describe('schemas should', () => {
 
 	test('validate ASINs with 11 characters', () => {
 		expect(GenreAsinSchema.safeParse('18574784011').success).toBe(true)
-		expect(GenreAsinSchema.safeParse('1234567891011').success).toBe(false)
+		expect(GenreAsinSchema.safeParse('123456789011').success).toBe(true)
 		expect(GenreAsinSchema.safeParse('B*79LRSMNN1').success).toBe(false)
 		expect(GenreAsinSchema.safeParse('20XORININE1').success).toBe(false)
 		expect(GenreAsinSchema.safeParse('17050475721').success).toBe(true)

@@ -1,4 +1,5 @@
 import type { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
 
 import { ApiBook } from '#config/types'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
@@ -7,9 +8,28 @@ import { ErrorMessageRedisDelete, ErrorMessageRedisSet } from '#static/messages'
 export default class RedisHelper {
 	instance: FastifyRedis | null
 	key: string
-	constructor(instance: FastifyRedis | null, key: string, id: string, region: string) {
+	logger?: FastifyBaseLogger
+	constructor(
+		instance: FastifyRedis | null,
+		key: string,
+		id: string,
+		region: string,
+		logger?: FastifyBaseLogger
+	) {
 		this.instance = instance
 		this.key = `${region}-${key}-${id}`
+		const fallbackLogger = {
+			level: 'info',
+			silent: () => undefined,
+			error: (...args: unknown[]) => console.error(...args),
+			info: (...args: unknown[]) => console.info(...args),
+			debug: (...args: unknown[]) => console.debug(...args),
+			warn: (...args: unknown[]) => console.warn(...args),
+			fatal: (...args: unknown[]) => console.error(...args),
+			trace: (...args: unknown[]) => console.trace(...args),
+			child: () => fallbackLogger
+		}
+		this.logger = logger ?? fallbackLogger
 	}
 
 	convertStringToDate(parsed: ApiBook) {
@@ -29,7 +49,7 @@ export default class RedisHelper {
 			return deleted === 1
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageRedisDelete(this.key))
 		}
 	}
@@ -51,7 +71,7 @@ export default class RedisHelper {
 			return JSON.parse(found)
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			return undefined
 		}
 	}
@@ -82,7 +102,7 @@ export default class RedisHelper {
 			await this.instance?.expire(this.key, 432000)
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 		}
 	}
 
@@ -99,7 +119,7 @@ export default class RedisHelper {
 			return set
 		} catch (error) {
 			const message = getErrorMessage(error)
-			console.error(message)
+			this.logger?.error(message)
 			throw new Error(ErrorMessageRedisSet(this.key))
 		}
 	}
