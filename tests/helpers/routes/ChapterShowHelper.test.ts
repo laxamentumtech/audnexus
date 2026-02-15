@@ -9,6 +9,7 @@ jest.mock('@fastify/redis')
 import type { FastifyRedis } from '@fastify/redis'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
+import { PerformanceConfig, setPerformanceConfig } from '#config/performance'
 import { ApiChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
@@ -147,6 +148,8 @@ describe('ChapterShowHelper should throw error when', () => {
 	})
 
 	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
+		// Enable USE_SORTED_KEYS to test sorting error handling
+		setPerformanceConfig({ USE_SORTED_KEYS: true } as PerformanceConfig)
 		jest
 			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
 			.mockReturnValue(null as unknown as ApiChapter)

@@ -114,7 +114,7 @@ export default class RedisHelper {
 	 */
 	async setOne(data: object): Promise<string | undefined> {
 		try {
-			const set = await this.instance?.set(this.key, JSON.stringify(data, null, 2))
+			const set = await this.instance?.set(this.key, JSON.stringify(data))
 			this.setExpiration()
 			return set
 		} catch (error) {
