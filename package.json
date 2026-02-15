@@ -29,7 +29,7 @@
 	"author": "David Dembeck",
 	"license": "GPL-3.0",
 	"dependencies": {
-		"@fastify/cors": "^10.0.0",
+		"@fastify/cors": "^11.2.0",
 		"@fastify/helmet": "^13.0.0",
 		"@fastify/rate-limit": "^10.0.0",
 		"@fastify/redis": "^7.0.0",
