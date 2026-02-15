@@ -37,7 +37,7 @@ services:
       start_period: 10s
 
   mongo:
-    image: mongo:7.0.30
+    image: mongo:7.0.30@sha256:6159d784bc2ed3e6e97648bb28d93d43cf9660401c1230f4f340d14d68421119
     restart: always
     volumes:
       - /mnt/docker/mongo/data:/data/db
@@ -53,7 +53,7 @@ services:
       start_period: 20s
 
   redis:
-    image: redis:8.6-alpine
+    image: redis:8.6-alpine@sha256:fd83658b0e40e2164617d262f13c02ca9ee9e1e6b276fd2fa06617e09bd5c780
     restart: always
     networks:
       - internal
@@ -67,7 +67,7 @@ services:
       start_period: 10s
 
   traefik:
-    image: traefik:v3.6.7
+    image: traefik:v3.6.7@sha256:a9890c898f379c1905ee5b28342f6b408dc863f08db2dab20e46c267d1ff463a
     restart: always
     command:
       - '--providers.docker=true'
