@@ -41,7 +41,7 @@ export default class PaprAudibleBookHelper {
 		} catch (error) {
 			const message = getErrorMessage(error)
 			this.logger?.error(message)
-			throw new Error(ErrorMessageCreate(this.asin, 'book'))
+			throw new Error(ErrorMessageCreate(this.asin, 'book'), { cause: error })
 		}
 	}
 
@@ -62,7 +62,7 @@ export default class PaprAudibleBookHelper {
 		} catch (error) {
 			const message = getErrorMessage(error)
 			this.logger?.error(message)
-			throw new Error(ErrorMessageDelete(this.asin, 'book'))
+			throw new Error(ErrorMessageDelete(this.asin, 'book'), { cause: error })
 		}
 	}
 
@@ -187,7 +187,7 @@ export default class PaprAudibleBookHelper {
 		} catch (error) {
 			const message = getErrorMessage(error)
 			this.logger?.error(message)
-			throw new Error(ErrorMessageUpdate(this.asin, 'book'))
+			throw new Error(ErrorMessageUpdate(this.asin, 'book'), { cause: error })
 		}
 	}
 }

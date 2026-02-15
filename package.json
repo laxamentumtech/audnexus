@@ -84,6 +84,19 @@
 		"ts-node": "^10.9.2",
 		"typescript": "^5.9.3"
 	},
+	"imports": {
+		"#config": "./dist/config/index.js",
+		"#config/*": "./dist/config/*.js",
+		"#helpers/*": "./dist/helpers/*.js",
+		"#helpers/audible/*": "./dist/helpers/audible/*.js",
+		"#helpers/books/*": "./dist/helpers/books/*.js",
+		"#helpers/database/*": "./dist/helpers/database/*.js",
+		"#helpers/errors/*": "./dist/helpers/errors/*.js",
+		"#helpers/routes/*": "./dist/helpers/routes/*.js",
+		"#helpers/utils/*": "./dist/helpers/utils/*.js",
+		"#static/*": "./dist/static/*.js",
+		"#interfaces/*": "./dist/interfaces/*.js"
+	},
 	"_moduleAliases": {
 		"#config": "dist/config",
 		"#helpers": "dist/helpers",

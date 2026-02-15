@@ -210,7 +210,7 @@ export default class GenericShowHelper {
 						throw err
 					}
 					// Otherwise wrap with string conversion
-					throw new Error(String(err))
+					throw new Error(String(err), { cause: err })
 				})) || dataOnError
 
 		// 3. Return the data
@@ -250,7 +250,7 @@ export default class GenericShowHelper {
 					if (err instanceof Error && 'statusCode' in err) {
 						throw err
 					}
-					throw new Error(ErrorMessageUpdate(this.asin, this.type))
+					throw new Error(ErrorMessageUpdate(this.asin, this.type), { cause: err })
 				}
 			}
 
