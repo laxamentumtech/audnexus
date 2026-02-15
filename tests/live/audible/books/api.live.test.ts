@@ -1,5 +1,4 @@
 import type { ApiBook, AudibleProduct } from '#config/types'
-import { baseShape } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import { BadRequestError, ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 
