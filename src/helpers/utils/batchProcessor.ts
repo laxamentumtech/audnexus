@@ -105,7 +105,7 @@ export async function processBatch<T, R>(
 		success: 0,
 		failures: 0,
 		regions: {},
-		maxConcurrencyObserved: 1
+		maxConcurrencyObserved: 0
 	}
 
 	// If parallel scheduler is disabled, process sequentially
@@ -153,9 +153,7 @@ export async function processBatch<T, R>(
 	const observed = counters.getMax()
 	summary.success = atomicCounters.getSuccess()
 	summary.failures = atomicCounters.getFailures()
-	if (observed) {
-		summary.maxConcurrencyObserved = observed
-	}
+	summary.maxConcurrencyObserved = observed
 	return { results: resolved, summary }
 }
 
@@ -182,7 +180,7 @@ export async function processBatchByRegion<T extends { region?: string | null },
 		success: 0,
 		failures: 0,
 		regions: {},
-		maxConcurrencyObserved: 1
+		maxConcurrencyObserved: 0
 	}
 
 	// If parallel scheduler is disabled, process sequentially
@@ -243,9 +241,7 @@ export async function processBatchByRegion<T extends { region?: string | null },
 
 	const resolved = await Promise.all(tasks)
 	const observed = counters.getMax()
-	if (observed) {
-		summary.maxConcurrencyObserved = observed
-	}
+	summary.maxConcurrencyObserved = observed
 	summary.success = atomicCounters.getSuccess()
 	summary.failures = atomicCounters.getFailures()
 	summary.regions = atomicCounters.getRegions()
