@@ -39,6 +39,7 @@
 		"domhandler": "5.0.3",
 		"fastify": "^5.7.4",
 		"html-to-text": "9.0.5",
+		"ip-range-check": "^0.2.0",
 		"jsrsasign": "^11.0.0",
 		"lodash": "^4.17.21",
 		"module-alias": "2.3.4",
