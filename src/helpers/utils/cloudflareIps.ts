@@ -37,6 +37,12 @@ const cache: CloudflareIpsCache = {
 }
 
 /**
+ * In-flight promise for Cloudflare IP fetch
+ * Used to prevent multiple concurrent API calls when cache is empty
+ */
+let fetchPromise: Promise<CloudflareIpsResult> | null = null
+
+/**
  * Fetch Cloudflare IP ranges from the Cloudflare API
  * @returns Promise resolving to CloudflareIpsResult with ipv4 and ipv6 arrays
  * @throws Error if the API request fails
@@ -69,24 +75,36 @@ async function getIps(): Promise<CloudflareIpsResult> {
 		return cache.data
 	}
 
-	// Fetch fresh data
-	try {
-		const freshData = await fetchIpsFromApi()
-		cache.data = freshData
-		cache.lastFetchTime = now
-		return freshData
-	} catch {
-		// If fetch fails, return cached data if available (even if expired)
-		if (cache.data) {
-			return cache.data
-		}
-		// Otherwise return empty arrays
-		return {
-			ipv4: [],
-			ipv6: [],
-			fetchedAt: 0
-		}
+	// If a fetch is already in progress, return that promise
+	if (fetchPromise) {
+		return fetchPromise
 	}
+
+	// Start a new fetch and store the promise
+	fetchPromise = fetchIpsFromApi()
+		.then((freshData) => {
+			cache.data = freshData
+			cache.lastFetchTime = now
+			return freshData
+		})
+		.catch(() => {
+			// If fetch fails, return cached data if available (even if expired)
+			if (cache.data) {
+				return cache.data
+			}
+			// Otherwise return empty arrays
+			return {
+				ipv4: [],
+				ipv6: [],
+				fetchedAt: 0
+			}
+		})
+		.finally(() => {
+			// Clear the in-flight promise so subsequent calls can retry
+			fetchPromise = null
+		})
+
+	return fetchPromise
 }
 
 /**
