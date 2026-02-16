@@ -23,6 +23,7 @@ declare module 'fastify' {
 	}
 }
 import { initialize } from '#config/papr'
+import { registerPerformanceHooks } from '#config/performance/hooks'
 import deleteAuthor from '#config/routes/authors/delete'
 import searchAuthor from '#config/routes/authors/search/show'
 import showAuthor from '#config/routes/authors/show'
@@ -31,6 +32,7 @@ import showChapter from '#config/routes/books/chapters/show'
 import deleteBook from '#config/routes/books/delete'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
+import { registerMetricsRoute } from '#config/routes/metrics'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
 // Heroku or local port
@@ -172,6 +174,9 @@ async function registerRoutes() {
 		.register(deleteAuthor)
 		.register(searchAuthor)
 		.register(health)
+
+	registerPerformanceHooks(server)
+	registerMetricsRoute(server)
 }
 
 /**

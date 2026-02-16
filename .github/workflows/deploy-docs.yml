@@ -39,6 +39,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Sync OpenAPI version with package.json
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          sed -i "s/^  version: .*$/  version: $VERSION/" docs/spec/audnexus.yaml
+          echo "Set OpenAPI version to $VERSION"
+
       - name: Build docs
         run: pnpm run build-docs
 

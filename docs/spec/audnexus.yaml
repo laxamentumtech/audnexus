@@ -9,7 +9,7 @@ info:
   license:
     name: GPL v3
     url: 'https://www.gnu.org/licenses/gpl-3.0.en.html'
-  version: 1.9.0
+  version: 1.11.0
 externalDocs:
   description: Find out more about Audnexus
   url: 'https://github.com/djdembeck/audnexus'
