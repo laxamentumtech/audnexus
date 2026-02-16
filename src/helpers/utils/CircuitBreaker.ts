@@ -55,18 +55,40 @@ export class CircuitBreaker {
 	private readonly resetTimeoutMs: number
 	private readonly successThreshold: number
 
+	private static normalizeOption(value: number | undefined, defaultValue: number): number {
+		if (value === undefined) {
+			return defaultValue
+		}
+
+		if (!Number.isFinite(value)) {
+			return defaultValue
+		}
+
+		const intValue = Math.floor(value)
+		return intValue >= 1 ? intValue : defaultValue
+	}
+
 	constructor(options: CircuitBreakerOptions = {}) {
 		const config = getPerformanceConfig()
 
 		// If circuit breaker is disabled via feature flag, set thresholds to never trip
 		const enabled = config.CIRCUIT_BREAKER_ENABLED
 
-		this.failureThreshold = enabled
-			? (options.failureThreshold ?? DEFAULT_CIRCUIT_BREAKER_OPTIONS.failureThreshold)
-			: Number.MAX_SAFE_INTEGER
-		this.resetTimeoutMs = options.resetTimeoutMs ?? DEFAULT_CIRCUIT_BREAKER_OPTIONS.resetTimeoutMs
-		this.successThreshold =
-			options.successThreshold ?? DEFAULT_CIRCUIT_BREAKER_OPTIONS.successThreshold
+		const normalizedFailureThreshold = CircuitBreaker.normalizeOption(
+			options.failureThreshold,
+			DEFAULT_CIRCUIT_BREAKER_OPTIONS.failureThreshold
+		)
+		const normalizedResetTimeoutMs = CircuitBreaker.normalizeOption(
+			options.resetTimeoutMs,
+			DEFAULT_CIRCUIT_BREAKER_OPTIONS.resetTimeoutMs
+		)
+		const normalizedSuccessThreshold = CircuitBreaker.normalizeOption(
+			options.successThreshold,
+			DEFAULT_CIRCUIT_BREAKER_OPTIONS.successThreshold
+		)
+		this.failureThreshold = enabled ? normalizedFailureThreshold : Number.MAX_SAFE_INTEGER
+		this.resetTimeoutMs = normalizedResetTimeoutMs
+		this.successThreshold = normalizedSuccessThreshold
 	}
 
 	/**
