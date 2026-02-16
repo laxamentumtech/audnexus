@@ -462,4 +462,47 @@ describe('isIpAllowed', () => {
 			expect(result).toBe(true)
 		})
 	})
+
+	describe('invalid CIDR/IP handling', () => {
+		it('returns false for invalid CIDR format', () => {
+			const mockRequest = createMockRequest('10.0.0.1', undefined)
+			const result = isIpAllowed(mockRequest, ['invalid-cidr'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false for malformed CIDR', () => {
+			const mockRequest = createMockRequest('192.168.1.1', undefined)
+			const result = isIpAllowed(mockRequest, ['192.168.1/24'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false for non-IP string', () => {
+			const mockRequest = createMockRequest('172.16.0.1', undefined)
+			const result = isIpAllowed(mockRequest, ['not-a-valid-ip'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false for various invalid CIDR formats', () => {
+			const mockRequest = createMockRequest('10.0.0.1', undefined)
+
+			const invalidInputs = [
+				'invalid-cidr',
+				'192.168.1/24', // malformed CIDR
+				'not-a-valid-ip',
+				'999.999.999.999', // invalid IP
+				'string/cidr' // non-numeric CIDR
+			]
+
+			for (const invalidInput of invalidInputs) {
+				const result = isIpAllowed(mockRequest, [invalidInput])
+				expect(result).toBe(false)
+			}
+		})
+
+		it('returns true for valid IP in allowed list', () => {
+			const mockRequest = createMockRequest('10.0.0.1', undefined)
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
+			expect(result).toBe(true)
+		})
+	})
 })
