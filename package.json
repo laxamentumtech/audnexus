@@ -20,6 +20,8 @@
 		"start": "pnpm run build && pnpm run serve",
 		"test": "jest --coverage --forceExit --verbose --silent --runInBand",
 		"test:live": "jest --config jest.live.config.ts --forceExit --verbose --runInBand",
+		"test:bun": "bun test --timeout 30000 tests/typing tests/static tests/helpers/errors tests/helpers/utils/cleanupDescription.test.ts",
+		"test:bun:watch": "bun test --watch tests/typing tests/static tests/helpers/errors tests/helpers/utils/cleanupDescription.test.ts",
 		"watch-debug": "concurrently -k -p \"[{name}]\" -n \"TypeScript,Node\" -c \"yellow.bold,cyan.bold,green.bold\" \"pnpm run watch-ts\" \"pnpm run serve-debug\"",
 		"watch-node": "nodemon dist/server.js",
 		"watch-test": "pnpm run test -- --watchAll",
