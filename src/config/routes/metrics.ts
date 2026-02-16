@@ -78,12 +78,24 @@ function validateMetricsAuth(request: FastifyRequest): boolean {
  * Returns performance metrics including memory usage and request timings
  */
 export function registerMetricsRoute(fastify: FastifyInstance): void {
+	const config = getPerformanceConfig()
+
+	// Check if metrics are enabled but no auth is configured
+	if (config.METRICS_ENABLED) {
+		const authToken = process.env.METRICS_AUTH_TOKEN
+		const allowedIps = parseEnvArray(process.env.METRICS_ALLOWED_IPS)
+
+		if (!authToken && !allowedIps) {
+			fastify.log.warn(
+				'Metrics endpoint is enabled without authentication (METRICS_AUTH_TOKEN and METRICS_ALLOWED_IPS not set). The /metrics endpoint is publicly accessible.'
+			)
+		}
+	}
+
 	fastify.get(
 		'/metrics',
 		{
 			preHandler: async (request: FastifyRequest, reply: FastifyReply) => {
-				const config = getPerformanceConfig()
-
 				// Return 404 if metrics endpoint is disabled
 				if (!config.METRICS_ENABLED) {
 					return reply.code(404).send({ error: 'Metrics endpoint disabled' })
