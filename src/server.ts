@@ -34,6 +34,7 @@ import deleteBook from '#config/routes/books/delete'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
 import { registerMetricsRoute } from '#config/routes/metrics'
+import { getAllIps as getCloudflareIps } from '#helpers/utils/cloudflareIps'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
 // Heroku or local port
@@ -43,29 +44,40 @@ const logLevel = (process.env.LOG_LEVEL as FastifyBaseLogger['level']) || 'info'
 
 // Parse TRUSTED_PROXIES env var for containerized environments (e.g., Traefik)
 // Supports comma-separated list of IPs and CIDR ranges, defaults to '127.0.0.1' for backward compatibility
-const trustedProxies = process.env.TRUSTED_PROXIES
+const userTrustedProxies = process.env.TRUSTED_PROXIES
 	? process.env.TRUSTED_PROXIES.split(',').map((s) => s.trim())
 	: ['127.0.0.1']
+
+/**
+ * Build the trusted proxies list by merging user-configured IPs with Cloudflare IPs
+ * Removes duplicates and returns a deduplicated array
+ */
+async function buildTrustedProxies(): Promise<string[]> {
+	try {
+		const cloudflareIps = await getCloudflareIps()
+		// Merge user IPs with Cloudflare IPs, removing duplicates
+		return [...new Set([...userTrustedProxies, ...cloudflareIps])]
+	} catch {
+		// If Cloudflare IP fetch fails, fall back to user-configured IPs only
+		return userTrustedProxies
+	}
+}
 
 /**
  * Check if an IP is in the trusted proxies list
  * Supports both exact IP matches and CIDR ranges (e.g., "10.0.0.0/8")
  */
-function isTrustedProxy(ip: string): boolean {
+function isTrustedProxy(ip: string, trustedProxiesList: string[]): boolean {
 	try {
-		return ipRangeCheck(ip, trustedProxies)
+		return ipRangeCheck(ip, trustedProxiesList)
 	} catch {
 		// Treat parsing errors as non-match
 		return false
 	}
 }
 
-const server = fastify({
-	logger: {
-		level: logLevel
-	},
-	trustProxy: trustedProxies
-})
+let trustedProxies: string[] = []
+let server: ReturnType<typeof fastify>
 const updateInterval = Number(process.env.UPDATE_INTERVAL) || 30
 
 // Setup DB context
@@ -105,9 +117,9 @@ async function registerPlugins() {
 	// Rate limiting
 	await server.register(rateLimit, {
 		global: true,
-		keyGenerator: (request) => {
+		keyGenerator: (request: { ip: string; headers: { 'x-forwarded-for'?: string | string[] } }) => {
 			// Only trust X-Forwarded-For if request comes from a trusted proxy
-			if (isTrustedProxy(request.ip)) {
+			if (isTrustedProxy(request.ip, trustedProxies)) {
 				const forwardedFor = request.headers['x-forwarded-for']
 				if (forwardedFor) {
 					const firstIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0]
@@ -124,7 +136,11 @@ async function registerPlugins() {
 	})
 	// Send 429 if rate limit is reached
 	// Check for custom error status codes (404, 400, etc.)
-	server.setErrorHandler(function (error, _request, reply) {
+	server.setErrorHandler(function (
+		error: unknown,
+		_request: unknown,
+		reply: { statusCode: number; status: (code: number) => void; send: (data: unknown) => void }
+	) {
 		const errorCodeMap: Record<string, string> = {
 			ContentTypeMismatchError: 'CONTENT_TYPE_MISMATCH',
 			ValidationError: 'VALIDATION_ERROR',
@@ -215,6 +231,19 @@ async function registerRoutes() {
  * Should be called after registering plugins and routes
  */
 async function startServer() {
+	// Build trusted proxies list (includes Cloudflare IPs)
+	trustedProxies = await buildTrustedProxies()
+
+	// Initialize fastify server with trusted proxies
+	server = fastify({
+		logger: {
+			level: logLevel
+		},
+		trustProxy: trustedProxies
+	})
+
+	server.log.info(`Trusted proxies configured: ${trustedProxies.length} ranges`)
+
 	// Register plugins
 	await registerPlugins().then(() => server.log.info('Plugins registered'))
 
