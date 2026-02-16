@@ -9,7 +9,11 @@ jest.mock('@fastify/redis')
 import type { FastifyRedis } from '@fastify/redis'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
-import { PerformanceConfig, setPerformanceConfig } from '#config/performance'
+import {
+	PerformanceConfig,
+	resetPerformanceConfig,
+	setPerformanceConfig
+} from '#config/performance'
 import { ApiChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
@@ -33,6 +37,18 @@ const createMockContext = (): MockContext => {
 	}
 }
 
+const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
+	USE_PARALLEL_SCHEDULER: false,
+	USE_CONNECTION_POOLING: true,
+	USE_COMPACT_JSON: true,
+	USE_SORTED_KEYS: false,
+	CIRCUIT_BREAKER_ENABLED: true,
+	METRICS_ENABLED: true,
+	MAX_CONCURRENT_REQUESTS: 50,
+	SCHEDULER_CONCURRENCY: 5,
+	...overrides
+})
+
 beforeEach(() => {
 	asin = 'B079LRSMNN'
 	helper = new ChapterShowHelper(asin, { region: 'us', update: undefined }, null)
@@ -49,6 +65,10 @@ beforeEach(() => {
 		.mockResolvedValue({ data: parsedChapters, modified: false })
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
 	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
+})
+
+afterEach(() => {
+	resetPerformanceConfig()
 })
 
 describe('ChapterShowHelper should', () => {
@@ -149,7 +169,7 @@ describe('ChapterShowHelper should throw error when', () => {
 
 	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
 		// Enable USE_SORTED_KEYS to test sorting error handling
-		setPerformanceConfig({ USE_SORTED_KEYS: true } as PerformanceConfig)
+		setPerformanceConfig(createTestConfig({ USE_SORTED_KEYS: true }))
 		jest
 			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
 			.mockReturnValue(null as unknown as ApiChapter)

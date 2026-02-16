@@ -12,6 +12,22 @@ import {
 	resetPerformanceConfig,
 	setPerformanceConfig
 } from '#config/performance'
+
+/**
+ * Factory function for creating test PerformanceConfig instances.
+ * Provides a reusable base configuration with optional overrides.
+ */
+const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
+	USE_PARALLEL_SCHEDULER: false,
+	USE_CONNECTION_POOLING: true,
+	USE_COMPACT_JSON: true,
+	USE_SORTED_KEYS: false,
+	CIRCUIT_BREAKER_ENABLED: true,
+	METRICS_ENABLED: true,
+	MAX_CONCURRENT_REQUESTS: 50,
+	SCHEDULER_CONCURRENCY: 5,
+	...overrides
+})
 import { ApiAuthorProfile } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
@@ -148,7 +164,7 @@ describe('AuthorShowHelper should throw error when', () => {
 
 	test('getDataWithProjection sorted author is not a author type', async () => {
 		// Enable USE_SORTED_KEYS to test sorting error handling
-		setPerformanceConfig({ USE_SORTED_KEYS: true } as PerformanceConfig)
+		setPerformanceConfig(createTestConfig({ USE_SORTED_KEYS: true }))
 		jest
 			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
 			.mockReturnValue(null as unknown as ApiAuthorProfile)
