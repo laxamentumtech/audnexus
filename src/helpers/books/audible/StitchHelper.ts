@@ -129,7 +129,7 @@ class StitchHelper {
 		// Check if we need to scrape for genres
 		if (!this.apiResponse.product.category_ladders.length) {
 			this.logger?.debug(NoticeChaptersFallback(this.asin))
-			// Fetch and parse scraper data sequentially to avoid race condition
+			// Fetch and parse scraper data
 			await this.fetchScraperBook()
 			await this.parseScraperResponse()
 		}
