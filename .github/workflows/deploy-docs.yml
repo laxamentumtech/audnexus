@@ -42,7 +42,7 @@ jobs:
         run: pnpm run build-docs
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@56a609f5c2bc7fa3f32ddaeeeb0f458f8245210a # v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: 'docs'
 
@@ -55,4 +55,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b676aed57afa617c67342b # v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
