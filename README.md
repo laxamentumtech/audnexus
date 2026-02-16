@@ -63,8 +63,21 @@ These instructions will get you a copy of the project up and running on your loc
 
 - Install Mongo, Node and Redis on your system
 - `pnpm install` from project directory to get dependencies
-- Set `ADP_TOKEN` and `PRIVATE_KEY` environment variables as mentioned above if you are using the chapters endpoint.
-- `pnpm run watch-debug` to start the server
+
+**Required environment variables:**
+
+- `MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://localhost:27017/audnexus`)
+
+**Optional environment variables:**
+
+- Set `ADP_TOKEN` and `PRIVATE_KEY` for the chapters endpoint
+- Configure other optional variables as described in the [Deployment](#deployment) section
+
+Then start the server:
+
+```bash
+pnpm run watch-debug
+```
 
 Test an API call with
 
@@ -227,13 +240,45 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
 
 2. **Configure environment variables:**
    - Set up the following environment variables in Coolify:
+
+   **Core Configuration:**
+   - `MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`) [required]
+   - `REDIS_URL`: Redis connection URL (e.g., `redis://redis:6379`) [optional]
+   - `HOST`: Server host address (default: `0.0.0.0`)
+   - `PORT`: Server port (default: `3000`)
+   - `LOG_LEVEL`: Log level - `trace`, `debug`, `info`, `warn`, `error`, `fatal` (default: `info`)
+   - `TRUSTED_PROXIES`: Comma-separated list of trusted proxy IPs/CIDR ranges (optional)
+   - `DEFAULT_REGION`: Default region for batch processing (default: `us`)
+
+   **Audible API Configuration:**
    - `ADP_TOKEN`: Audible ADP_TOKEN value (optional, for chapters endpoint)
-   - `MAX_REQUESTS`: Max requests per minute per source (default: 100)
-   - `MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`)
    - `PRIVATE_KEY`: Audible PRIVATE_KEY value (optional, for chapters endpoint)
-   - `REDIS_URL`: Redis connection URL (e.g., `redis://redis:6379`)
+
+   **Rate Limiting:**
+   - `MAX_REQUESTS`: Max requests per minute per source (default: 100)
+
+   **Update Scheduling:**
    - `UPDATE_INTERVAL`: Update interval in days (default: 30)
    - `UPDATE_THRESHOLD`: Minimum days before checking updates again (default: 7)
+
+   **Performance Tuning:**
+   - `MAX_CONCURRENT_REQUESTS`: HTTP connection pool size for concurrent API calls (default: 50)
+   - `SCHEDULER_CONCURRENCY`: Max concurrent scheduler operations (default: 5)
+   - `SCHEDULER_MAX_PER_REGION`: Hard cap for max per-region concurrency in batch processing (default: 5)
+   - `HTTP_MAX_SOCKETS`: Maximum HTTP sockets (hard limit: 50, default: 50) - values above 50 will be clamped to 50
+   - `HTTP_TIMEOUT_MS`: HTTP request timeout in milliseconds (default: 30000)
+
+   **Feature Flags (Boolean - supports `true`, `True`, `TRUE`, `1`):**
+   - `USE_PARALLEL_SCHEDULER`: Enable parallel UpdateScheduler (default: `false`) - HIGH RISK, requires testing
+   - `USE_CONNECTION_POOLING`: Enable HTTP connection pooling for API calls (default: `true`)
+   - `USE_COMPACT_JSON`: Use compact JSON format in Redis (default: `true`)
+   - `USE_SORTED_KEYS`: Sort object keys in responses (adds O(n log n) overhead, default: `false`)
+   - `CIRCUIT_BREAKER_ENABLED`: Enable circuit breaker pattern for external API calls (default: `true`)
+   - `METRICS_ENABLED`: Enable performance metrics collection and /metrics endpoint (default: `true`)
+
+   **Metrics Endpoint Security:**
+   - `METRICS_AUTH_TOKEN`: Authentication token for /metrics endpoint (optional)
+   - `METRICS_ALLOWED_IPS`: Comma-separated list of allowed IPs/CIDR ranges for /metrics (supports CIDR notation, optional)
 
 3. **Configure build and deployment:**
    - Build command: Coolify will automatically use the Dockerfile
@@ -268,15 +313,54 @@ Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, 
 
 The stack defaults to 15 replicas for the node-server container. Customize this as needed.
 
-Environment variables to add:
+**Core Environment Variables:**
 
-- `ADP_TOKEN`: Aforementioned `ADP_TOKEN` value
-- `MAX_REQUESTS`: Maximum number of requests per 1-minute period from a single source (default 100)
 - `MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
-- `PRIVATE_KEY`: Aforementioned `PRIVATE_KEY` value
 - `REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
-- `UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default 30). Update task is also run at startup.
-- `UPDATE_THRESHOLD`: Minimum number of days after an item is updated, to allow it to check for updates again (either scheduled or param).
+- `HOST`: Server host address (default: `0.0.0.0`)
+- `PORT`: Server port (default: `3000`)
+- `LOG_LEVEL`: Log level - `trace`, `debug`, `info`, `warn`, `error`, `fatal` (default: `info`)
+- `TRUSTED_PROXIES`: Comma-separated list of trusted proxy IPs/CIDR ranges (optional)
+- `DEFAULT_REGION`: Default region for batch processing (default: `us`)
+
+**Audible API Configuration:**
+
+- `ADP_TOKEN`: Audible ADP_TOKEN value (optional, for chapters endpoint)
+- `PRIVATE_KEY`: Audible PRIVATE_KEY value (optional, for chapters endpoint)
+
+**Rate Limiting:**
+
+- `MAX_REQUESTS`: Maximum number of requests per 1-minute period from a single source (default: 100)
+
+**Update Scheduling:**
+
+- `UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default: 30). Update task is also run at startup.
+- `UPDATE_THRESHOLD`: Minimum number of days after an item is updated, to allow it to check for updates again (either scheduled or parameter).
+
+**Performance Tuning:**
+
+- `MAX_CONCURRENT_REQUESTS`: HTTP connection pool size for concurrent API calls (default: 50)
+- `SCHEDULER_CONCURRENCY`: Max concurrent scheduler operations (default: 5)
+- `SCHEDULER_MAX_PER_REGION`: Hard cap for max per-region concurrency in batch processing (default: 5)
+- `HTTP_MAX_SOCKETS`: Maximum HTTP sockets (hard limit: 50, default: 50) - values above 50 will be clamped to 50
+- `HTTP_TIMEOUT_MS`: HTTP request timeout in milliseconds (default: 30000)
+
+**Feature Flags (Boolean - supports `true`, `True`, `TRUE`, `1`):**
+
+- `USE_PARALLEL_SCHEDULER`: Enable parallel UpdateScheduler (default: `false`) - HIGH RISK, requires testing
+- `USE_CONNECTION_POOLING`: Enable HTTP connection pooling for API calls (default: `true`)
+- `USE_COMPACT_JSON`: Use compact JSON format in Redis (default: `true`)
+- `USE_SORTED_KEYS`: Sort object keys in responses (adds O(n log n) overhead, default: `false`)
+- `CIRCUIT_BREAKER_ENABLED`: Enable circuit breaker pattern for external API calls (default: `true`)
+- `METRICS_ENABLED`: Enable performance metrics collection and /metrics endpoint (default: `true`)
+
+**Metrics Endpoint Security:**
+
+- `METRICS_AUTH_TOKEN`: Authentication token for /metrics endpoint (optional)
+- `METRICS_ALLOWED_IPS`: Comma-separated list of allowed IPs/CIDR ranges for /metrics (supports CIDR notation, optional)
+
+**Traefik Configuration:**
+
 - `TRAEFIK_DOMAIN`: FQDN for the API server
 - `TRAEFIK_EMAIL`: Email to register SSL cert with
 

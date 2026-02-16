@@ -59,40 +59,46 @@ class UpdateScheduler {
 	/**
 	 * Process a single author update
 	 */
-	private async processAuthor(author: DocumentWithRegion): Promise<void> {
+	private async processAuthor(author: DocumentWithRegion, addDelay = false): Promise<void> {
 		const helper = new AuthorShowHelper(
 			author.asin,
 			{ region: author.region ?? 'us', update: '1' },
 			this.redis
 		)
 		await helper.handler()
-		await randomWait()
+		if (addDelay) {
+			await randomWait()
+		}
 	}
 
 	/**
 	 * Process a single book update
 	 */
-	private async processBook(book: DocumentWithRegion): Promise<void> {
+	private async processBook(book: DocumentWithRegion, addDelay = false): Promise<void> {
 		const helper = new BookShowHelper(
 			book.asin,
 			{ region: book.region ?? 'us', update: '1' },
 			this.redis
 		)
 		await helper.handler()
-		await randomWait()
+		if (addDelay) {
+			await randomWait()
+		}
 	}
 
 	/**
 	 * Process a single chapter update
 	 */
-	private async processChapter(chapter: DocumentWithRegion): Promise<void> {
+	private async processChapter(chapter: DocumentWithRegion, addDelay = false): Promise<void> {
 		const helper = new ChapterShowHelper(
 			chapter.asin,
 			{ region: chapter.region ?? 'us', update: '1' },
 			this.redis
 		)
 		await helper.handler()
-		await randomWait()
+		if (addDelay) {
+			await randomWait()
+		}
 	}
 
 	/**
@@ -113,7 +119,7 @@ class UpdateScheduler {
 				authors,
 				async (author) => {
 					try {
-						await this.processAuthor(author)
+						await this.processAuthor(author, false)
 					} catch (error) {
 						this.logger.error(error)
 						throw error
@@ -123,10 +129,10 @@ class UpdateScheduler {
 			)
 			this.logBatchSummary('Authors', summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
 		} else {
-			// Sequential processing (original behavior)
+			// Sequential processing (original behavior) - add delay between requests
 			for (const author of authors) {
 				try {
-					await this.processAuthor(author)
+					await this.processAuthor(author, true)
 				} catch (error) {
 					this.logger.error(error)
 				}
@@ -153,7 +159,7 @@ class UpdateScheduler {
 				books,
 				async (book) => {
 					try {
-						await this.processBook(book)
+						await this.processBook(book, false)
 					} catch (error) {
 						this.logger.error(error)
 						throw error
@@ -163,10 +169,10 @@ class UpdateScheduler {
 			)
 			this.logBatchSummary('Books', summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
 		} else {
-			// Sequential processing (original behavior)
+			// Sequential processing (original behavior) - add delay between requests
 			for (const book of books) {
 				try {
-					await this.processBook(book)
+					await this.processBook(book, true)
 				} catch (error) {
 					this.logger.error(error)
 				}
@@ -193,7 +199,7 @@ class UpdateScheduler {
 				chapters,
 				async (chapter) => {
 					try {
-						await this.processChapter(chapter)
+						await this.processChapter(chapter, false)
 					} catch (error) {
 						this.logger.error(error)
 						throw error
@@ -203,10 +209,10 @@ class UpdateScheduler {
 			)
 			this.logBatchSummary('Chapters', summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
 		} else {
-			// Sequential processing (original behavior)
+			// Sequential processing (original behavior) - add delay between requests
 			for (const chapter of chapters) {
 				try {
-					await this.processChapter(chapter)
+					await this.processChapter(chapter, true)
 				} catch (error) {
 					this.logger.error(error)
 				}
