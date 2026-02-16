@@ -4,6 +4,7 @@ import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
 import schedule from '@fastify/schedule'
 import { fastify, FastifyBaseLogger } from 'fastify'
+import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
 
 import 'module-alias/register'
@@ -41,10 +42,23 @@ const port = Number(process.env.PORT) || 3000
 const logLevel = (process.env.LOG_LEVEL as FastifyBaseLogger['level']) || 'info'
 
 // Parse TRUSTED_PROXIES env var for containerized environments (e.g., Traefik)
-// Supports comma-separated list of IPs, defaults to '127.0.0.1' for backward compatibility
+// Supports comma-separated list of IPs and CIDR ranges, defaults to '127.0.0.1' for backward compatibility
 const trustedProxies = process.env.TRUSTED_PROXIES
 	? process.env.TRUSTED_PROXIES.split(',').map((s) => s.trim())
 	: ['127.0.0.1']
+
+/**
+ * Check if an IP is in the trusted proxies list
+ * Supports both exact IP matches and CIDR ranges (e.g., "10.0.0.0/8")
+ */
+function isTrustedProxy(ip: string): boolean {
+	try {
+		return ipRangeCheck(ip, trustedProxies)
+	} catch {
+		// Treat parsing errors as non-match
+		return false
+	}
+}
 
 const server = fastify({
 	logger: {
@@ -93,7 +107,7 @@ async function registerPlugins() {
 		global: true,
 		keyGenerator: (request) => {
 			// Only trust X-Forwarded-For if request comes from a trusted proxy
-			if (trustedProxies.includes(request.ip)) {
+			if (isTrustedProxy(request.ip)) {
 				const forwardedFor = request.headers['x-forwarded-for']
 				if (forwardedFor) {
 					const firstIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0]
