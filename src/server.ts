@@ -41,7 +41,7 @@ const server = fastify({
 	logger: {
 		level: logLevel
 	},
-	trustProxy: true
+	trustProxy: '127.0.0.1'
 })
 const updateInterval = Number(process.env.UPDATE_INTERVAL) || 30
 

@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 
 import { getPerformanceConfig } from '#config/performance'
@@ -57,8 +58,15 @@ function validateMetricsAuth(request: FastifyRequest): boolean {
 	// Check token-based access
 	if (authToken) {
 		const requestToken = request.headers['x-metrics-token']?.toString()
-		if (requestToken === authToken) {
-			return true
+		if (requestToken && authToken) {
+			const bufRequest = Buffer.from(requestToken)
+			const bufAuth = Buffer.from(authToken)
+			if (bufRequest.length !== bufAuth.length) {
+				return false
+			}
+			if (crypto.timingSafeEqual(bufRequest, bufAuth)) {
+				return true
+			}
 		}
 	}
 
