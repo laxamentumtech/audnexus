@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import ipRangeCheck from 'ip-range-check'
 
 import { getPerformanceConfig } from '#config/performance'
 import { getPerformanceMetrics } from '#config/performance/hooks'
@@ -19,6 +20,7 @@ export function parseEnvArray(value: string | undefined): string[] | undefined {
 
 /**
  * Check if request IP is in allowed list
+ * Supports single IPs and CIDR ranges (e.g., "192.168.1.0/24")
  */
 export function isIpAllowed(request: FastifyRequest, allowedIps: string[]): boolean {
 	// Extract first IP from x-forwarded-for header (handles string or array)
@@ -32,7 +34,18 @@ export function isIpAllowed(request: FastifyRequest, allowedIps: string[]): bool
 	}
 
 	const clientIp = request.ip ?? firstForwardedIp?.trim() ?? 'unknown'
-	return allowedIps.includes(clientIp)
+
+	// Handle 'unknown' IP specially (not a valid IP for ip-range-check)
+	if (clientIp === 'unknown') {
+		return allowedIps.includes('unknown')
+	}
+
+	try {
+		return ipRangeCheck(clientIp, allowedIps)
+	} catch {
+		// Treat parsing errors as non-match
+		return false
+	}
 }
 
 /**
