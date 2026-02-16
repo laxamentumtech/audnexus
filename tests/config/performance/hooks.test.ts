@@ -1,7 +1,11 @@
 import Fastify from 'fastify'
 
-import { PerformanceConfig, DEFAULT_PERFORMANCE_CONFIG } from '#config/performance'
-import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
+import {
+	DEFAULT_PERFORMANCE_CONFIG,
+	PerformanceConfig,
+	resetPerformanceConfig,
+	setPerformanceConfig
+} from '#config/performance'
 import {
 	getPerformanceMetrics,
 	registerPerformanceHooks,

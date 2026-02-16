@@ -3,7 +3,7 @@ import {
 	resetPerformanceConfig,
 	setPerformanceConfig
 } from '#config/performance'
-import { processBatch, processBatchByRegion, normalizeRegion } from '#helpers/utils/batchProcessor'
+import { normalizeRegion, processBatch, processBatchByRegion } from '#helpers/utils/batchProcessor'
 
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
 	USE_PARALLEL_SCHEDULER: false,
