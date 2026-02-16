@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.12.0](https://github.com/laxamentumtech/audnexus/compare/v1.11.0...v1.12.0) (2026-02-16)
+
+
+### Features
+
+* **server:** register metrics hooks and routes ([273846f](https://github.com/laxamentumtech/audnexus/commit/273846fd1437d51a65423eb45605ac1c0d00cf02))
+
+
+### Bug Fixes
+
+* **ci:** align action SHAs with existing workflows ([c48588d](https://github.com/laxamentumtech/audnexus/commit/c48588d41a232c34630e90056495584aa8db0040))
+* **ci:** correct pages action SHAs ([9c5c024](https://github.com/laxamentumtech/audnexus/commit/9c5c0247c98fc6d460e0b9e4e1ba325d79685cbc))
+* **ci:** correct pnpm/action-setup SHA hash ([417a693](https://github.com/laxamentumtech/audnexus/commit/417a693e5bd08896b91af0789b5aa45c07a578ea))
+* **scheduler:** remove artificial rate limiting in parallel mode ([d7cc5ae](https://github.com/laxamentumtech/audnexus/commit/d7cc5aeb7a9bb695ea1cf821df49c8240db87b8c))
+
 ## [1.11.0](https://github.com/laxamentumtech/audnexus/compare/v1.10.0...v1.11.0) (2026-02-16)
 
 
