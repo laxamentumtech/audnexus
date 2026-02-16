@@ -5,22 +5,40 @@ import pooledAxios from './connectionPool'
 /**
  * Calculates the delay for retry attempts with exponential backoff.
  * For 429 status, uses exponential backoff starting at 1s, doubling each retry (max 8s).
- * Respects Retry-After header if present.
+ * Respects Retry-After header if present (includes delay-in-seconds and HTTP-date formats).
  * @param {number} retries The current retry count
  * @param {AxiosError} error The axios error response
  * @returns {number} The delay in milliseconds
  */
 function calculateRetryDelay(retries: number, error: AxiosError): number {
-	const retryAfter = error.response?.headers?.['retry-after']
-	if (retryAfter) {
-		// Retry-After can be a delay in seconds or a date
-		const parsed = parseInt(retryAfter, 10)
-		if (!isNaN(parsed)) {
-			return parsed * 1000
+	if (!error.response || !error.response.headers) {
+		// No response or headers, fall back to exponential backoff
+		return Math.min(1000 * Math.pow(2, retries), 8000)
+	}
+
+	const retryAfter = error.response.headers['retry-after']
+	if (!retryAfter) {
+		// No Retry-After header, fall back to exponential backoff
+		return Math.min(1000 * Math.pow(2, retries), 8000)
+	}
+
+	// Retry-After can be a delay in seconds or an HTTP-date
+	const parsedAsNumber = parseInt(retryAfter, 10)
+	if (!isNaN(parsedAsNumber) && parsedAsNumber > 0) {
+		return parsedAsNumber * 1000
+	}
+
+	// Try parsing as HTTP-date (e.g., "Wed, 21 Oct 2015 07:28:00 GMT")
+	const parsedDate = new Date(retryAfter)
+	if (!isNaN(parsedDate.getTime())) {
+		const now = Date.now()
+		const delay = parsedDate.getTime() - now
+		if (delay > 0) {
+			return delay
 		}
 	}
 
-	// Exponential backoff: 1s, 2s, 4s, max 8s
+	// Invalid Retry-After value, fall back to exponential backoff
 	return Math.min(1000 * Math.pow(2, retries), 8000)
 }
 

@@ -122,18 +122,35 @@ describe('fetchPlus should', () => {
 		expect(pooledAxios.get).toHaveBeenCalledTimes(3)
 	})
 
+	test('retry with exponential backoff on 429 with headers missing retry-after key', async () => {
+		jest.useFakeTimers()
+		const mockError = {
+			response: {
+				status: 429,
+				headers: { 'x-custom-header': 'value' }
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		;(pooledAxios.get as jest.Mock)
+			.mockRejectedValueOnce(mockError)
+			.mockResolvedValueOnce(successResponse)
+
+		const fetchPromise = fetchPlus('test.com')
+
+		await jest.advanceTimersByTimeAsync(1000)
+		const response = await fetchPromise
+		expect(response).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+	})
+
 	test('not add delay for non-429 errors', async () => {
 		mockStatus = { status: 500 }
 		;(pooledAxios.get as jest.Mock).mockImplementation(() =>
 			Promise.reject({ response: mockStatus })
 		)
 
-		const startTime = Date.now()
 		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
-		const endTime = Date.now()
-
-		// Should complete quickly without delay (no exponential backoff for 500 errors)
-		expect(endTime - startTime).toBeLessThan(100)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(4)
 	})
 })

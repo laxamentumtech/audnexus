@@ -3,7 +3,7 @@ import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
 import schedule from '@fastify/schedule'
-import { fastify, FastifyBaseLogger } from 'fastify'
+import { fastify, FastifyBaseLogger, FastifyError, FastifyReply, FastifyRequest } from 'fastify'
 import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
 
@@ -57,8 +57,9 @@ async function buildTrustedProxies(): Promise<string[]> {
 		const cloudflareIps = await getCloudflareIps()
 		// Merge user IPs with Cloudflare IPs, removing duplicates
 		return [...new Set([...userTrustedProxies, ...cloudflareIps])]
-	} catch {
+	} catch (error) {
 		// If Cloudflare IP fetch fails, fall back to user-configured IPs only
+		console.warn('Failed to fetch Cloudflare IPs', error)
 		return userTrustedProxies
 	}
 }
@@ -137,9 +138,9 @@ async function registerPlugins() {
 	// Send 429 if rate limit is reached
 	// Check for custom error status codes (404, 400, etc.)
 	server.setErrorHandler(function (
-		error: unknown,
-		_request: unknown,
-		reply: { statusCode: number; status: (code: number) => void; send: (data: unknown) => void }
+		error: FastifyError,
+		request: FastifyRequest,
+		reply: FastifyReply
 	) {
 		const errorCodeMap: Record<string, string> = {
 			ContentTypeMismatchError: 'CONTENT_TYPE_MISMATCH',

@@ -5,7 +5,6 @@ import { AxiosResponse } from 'axios'
 import {
 	clearCache,
 	CLOUDFLARE_IPS_API,
-	CloudflareIps,
 	fetchIpsFromApi,
 	getAllIps,
 	getCachedIps,
@@ -58,7 +57,7 @@ describe('cloudflareIps', () => {
 			expect(result.ipv4).toEqual(mockCloudflareResponse.result.ipv4_cidrs)
 			expect(result.ipv6).toEqual(mockCloudflareResponse.result.ipv6_cidrs)
 			expect(result.fetchedAt).toBeGreaterThan(0)
-			expect(pooledAxios.get).toHaveBeenCalledWith(CLOUDFLARE_IPS_API)
+			expect(pooledAxios.get).toHaveBeenCalledWith(CLOUDFLARE_IPS_API, {})
 		})
 
 		test('should throw error when API returns errors', async () => {
@@ -290,68 +289,6 @@ describe('cloudflareIps', () => {
 			clearCache()
 			expect(isCacheValid()).toBe(false)
 			expect(getCachedIps()).toBeNull()
-		})
-	})
-
-	describe('CloudflareIps class', () => {
-		test('should have static fetchIps method', async () => {
-			const mockResponse = { data: mockCloudflareResponse, status: 200 } as AxiosResponse
-			;(pooledAxios.get as jest.Mock).mockResolvedValueOnce(mockResponse)
-
-			const result = await CloudflareIps.fetchIps()
-
-			expect(result.ipv4).toEqual(mockCloudflareResponse.result.ipv4_cidrs)
-			expect(result.ipv6).toEqual(mockCloudflareResponse.result.ipv6_cidrs)
-		})
-
-		test('should have static getIps method', async () => {
-			const mockResponse = { data: mockCloudflareResponse, status: 200 } as AxiosResponse
-			;(pooledAxios.get as jest.Mock).mockResolvedValueOnce(mockResponse)
-
-			const result = await CloudflareIps.getIps()
-
-			expect(result.ipv4).toEqual(mockCloudflareResponse.result.ipv4_cidrs)
-		})
-
-		test('should have static getAllIps method', async () => {
-			const mockResponse = { data: mockCloudflareResponse, status: 200 } as AxiosResponse
-			;(pooledAxios.get as jest.Mock).mockResolvedValueOnce(mockResponse)
-
-			const result = await CloudflareIps.getAllIps()
-
-			expect(result).toContain('173.245.48.0/20')
-			expect(result).toContain('2400:cb00::/32')
-		})
-
-		test('should have static getCachedIps method', async () => {
-			const mockResponse = { data: mockCloudflareResponse, status: 200 } as AxiosResponse
-			;(pooledAxios.get as jest.Mock).mockResolvedValueOnce(mockResponse)
-
-			await CloudflareIps.getIps()
-
-			const result = CloudflareIps.getCachedIps()
-			expect(result?.ipv4).toEqual(mockCloudflareResponse.result.ipv4_cidrs)
-		})
-
-		test('should have static clearCache method', async () => {
-			const mockResponse = { data: mockCloudflareResponse, status: 200 } as AxiosResponse
-			;(pooledAxios.get as jest.Mock).mockResolvedValueOnce(mockResponse)
-
-			await CloudflareIps.getIps()
-			expect(CloudflareIps.isCacheValid()).toBe(true)
-
-			CloudflareIps.clearCache()
-			expect(CloudflareIps.isCacheValid()).toBe(false)
-		})
-
-		test('should have static isCacheValid method', async () => {
-			expect(CloudflareIps.isCacheValid()).toBe(false)
-
-			const mockResponse = { data: mockCloudflareResponse, status: 200 } as AxiosResponse
-			;(pooledAxios.get as jest.Mock).mockResolvedValueOnce(mockResponse)
-
-			await CloudflareIps.getIps()
-			expect(CloudflareIps.isCacheValid()).toBe(true)
 		})
 	})
 })

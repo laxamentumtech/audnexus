@@ -1,6 +1,6 @@
 import { AxiosResponse } from 'axios'
 
-import pooledAxios from './connectionPool'
+import fetchPlus from './fetchPlus'
 
 const CLOUDFLARE_IPS_API = 'https://api.cloudflare.com/client/v4/ips'
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000 // 24 hours in milliseconds
@@ -48,7 +48,7 @@ let fetchPromise: Promise<CloudflareIpsResult> | null = null
  * @throws Error if the API request fails
  */
 async function fetchIpsFromApi(): Promise<CloudflareIpsResult> {
-	const response: AxiosResponse<CloudflareApiResponse> = await pooledAxios.get(CLOUDFLARE_IPS_API)
+	const response: AxiosResponse<CloudflareApiResponse> = await fetchPlus(CLOUDFLARE_IPS_API)
 
 	if (!response.data.success) {
 		const errorMessages = response.data.errors.map((e) => `${e.code}: ${e.message}`).join(', ')
@@ -123,11 +123,7 @@ async function getAllIps(): Promise<string[]> {
  * @returns CloudflareIpsResult or null if not cached
  */
 function getCachedIps(): CloudflareIpsResult | null {
-	const now = Date.now()
-	if (cache.data && now - cache.lastFetchTime < CACHE_TTL_MS) {
-		return cache.data
-	}
-	return cache.data // Return expired data if available
+	return cache.data
 }
 
 /**
@@ -147,59 +143,6 @@ function isCacheValid(): boolean {
 	if (!cache.data) return false
 	const now = Date.now()
 	return now - cache.lastFetchTime < CACHE_TTL_MS
-}
-
-/**
- * CloudflareIps class for managing Cloudflare IP ranges
- * Provides a class-based interface with static methods for convenience
- */
-export class CloudflareIps {
-	/**
-	 * Fetch Cloudflare IP ranges from the API
-	 * @returns Promise resolving to CloudflareIpsResult
-	 */
-	static async fetchIps(): Promise<CloudflareIpsResult> {
-		return fetchIpsFromApi()
-	}
-
-	/**
-	 * Get Cloudflare IP ranges, using cache if available
-	 * @returns Promise resolving to CloudflareIpsResult
-	 */
-	static async getIps(): Promise<CloudflareIpsResult> {
-		return getIps()
-	}
-
-	/**
-	 * Get all Cloudflare IP ranges as a flat array
-	 * @returns Promise resolving to array of CIDR strings
-	 */
-	static async getAllIps(): Promise<string[]> {
-		return getAllIps()
-	}
-
-	/**
-	 * Get cached IPs without triggering a fetch
-	 * @returns CloudflareIpsResult or null
-	 */
-	static getCachedIps(): CloudflareIpsResult | null {
-		return getCachedIps()
-	}
-
-	/**
-	 * Clear the cache
-	 */
-	static clearCache(): void {
-		clearCache()
-	}
-
-	/**
-	 * Check if cache is valid
-	 * @returns boolean
-	 */
-	static isCacheValid(): boolean {
-		return isCacheValid()
-	}
 }
 
 export {
