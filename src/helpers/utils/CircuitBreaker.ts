@@ -23,6 +23,13 @@ export const DEFAULT_CIRCUIT_BREAKER_OPTIONS: Required<CircuitBreakerOptions> = 
 }
 
 /**
+ * Maximum success count to prevent unbounded growth in CLOSED state.
+ * This cap prevents integer overflow issues while maintaining sufficient
+ * precision for tracking success patterns.
+ */
+export const MAX_SUCCESS_COUNT = 10000
+
+/**
  * Circuit Breaker pattern implementation for external API calls
  *
  * States:
@@ -137,8 +144,8 @@ export class CircuitBreaker {
 				this.successes = 0
 			}
 		} else {
-			// In CLOSED state, just track success
-			this.successes++
+			// In CLOSED state, just track success with a cap to prevent unbounded growth
+			this.successes = Math.min(this.successes + 1, MAX_SUCCESS_COUNT)
 		}
 	}
 

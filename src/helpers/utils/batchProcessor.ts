@@ -131,16 +131,17 @@ export async function processBatch<T, R>(
 	)
 	const limit = pLimit(concurrency)
 	const counters = createConcurrencyCounter()
+	const atomicCounters = createAtomicCounters()
 
 	const promises = items.map((item) =>
 		limit(async () => {
 			const release = counters.track()
 			try {
 				const result = await processor(item)
-				summary.success += 1
+				atomicCounters.incrementSuccess()
 				return result
 			} catch {
-				summary.failures += 1
+				atomicCounters.incrementFailures()
 				return undefined
 			} finally {
 				release()
@@ -150,6 +151,8 @@ export async function processBatch<T, R>(
 
 	const resolved = await Promise.all(promises)
 	const observed = counters.getMax()
+	summary.success = atomicCounters.getSuccess()
+	summary.failures = atomicCounters.getFailures()
 	if (observed) {
 		summary.maxConcurrencyObserved = observed
 	}
