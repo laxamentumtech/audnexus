@@ -16,7 +16,7 @@
 		"preinstall": "npx only-allow pnpm",
 		"release": "standard-version",
 		"serve-debug": "nodemon --inspect dist/server.js",
-		"serve": "node dist/server.js",
+		"serve": "bun run dist/server.js",
 		"start": "pnpm run build && pnpm run serve",
 		"test": "jest --coverage --forceExit --verbose --silent --runInBand",
 		"test:live": "jest --config jest.live.config.ts --forceExit --verbose --runInBand",
