@@ -29,6 +29,29 @@ This log documents all dependency changes (upgrades and rollbacks) following the
 
 Verified: CHANGELOG reviewed, tests passed, build succeeded
 
+## ip-range-check ^0.2.0
+
+**Date:** 2026-02-15
+
+**Reason:** Added for IP matching and validation in metrics endpoint access control.
+
+### Breaking Changes Review
+
+1. **API Changes**: No breaking changes. This is a new dependency addition.
+2. **Peer Dependencies**: No peer dependencies.
+3. **Deprecation Warnings**: None.
+4. **- [x] Reviewed package documentation**
+
+### Verification Steps
+
+- [x] Run unit tests (`pnpm test`)
+- [x] Run CI pipeline (`pnpm lint && pnpm test && pnpm build`)
+- [x] Verify IP range checking functionality in metrics endpoint
+
+### Verification Outcome
+
+Verified: Tests passed, build succeeded, IP range checking functional
+
 ---
 
 _References:_
