@@ -16,6 +16,12 @@ export interface CircuitBreakerStats {
 	lastSuccessTime: number | null
 }
 
+export const DEFAULT_CIRCUIT_BREAKER_OPTIONS: Required<CircuitBreakerOptions> = {
+	failureThreshold: 5,
+	resetTimeoutMs: 60000,
+	successThreshold: 2
+}
+
 /**
  * Circuit Breaker pattern implementation for external API calls
  *
@@ -48,9 +54,12 @@ export class CircuitBreaker {
 		// If circuit breaker is disabled via feature flag, set thresholds to never trip
 		const enabled = config.CIRCUIT_BREAKER_ENABLED
 
-		this.failureThreshold = enabled ? (options.failureThreshold ?? 5) : Number.MAX_SAFE_INTEGER
-		this.resetTimeoutMs = options.resetTimeoutMs ?? 60000 // 1 minute default
-		this.successThreshold = options.successThreshold ?? 2
+		this.failureThreshold = enabled
+			? (options.failureThreshold ?? DEFAULT_CIRCUIT_BREAKER_OPTIONS.failureThreshold)
+			: Number.MAX_SAFE_INTEGER
+		this.resetTimeoutMs = options.resetTimeoutMs ?? DEFAULT_CIRCUIT_BREAKER_OPTIONS.resetTimeoutMs
+		this.successThreshold =
+			options.successThreshold ?? DEFAULT_CIRCUIT_BREAKER_OPTIONS.successThreshold
 	}
 
 	/**
@@ -180,11 +189,7 @@ let audibleCircuitBreaker: CircuitBreaker | null = null
 
 export function getAudibleCircuitBreaker(): CircuitBreaker {
 	if (!audibleCircuitBreaker) {
-		audibleCircuitBreaker = new CircuitBreaker({
-			failureThreshold: 5,
-			resetTimeoutMs: 60000, // 1 minute
-			successThreshold: 2
-		})
+		audibleCircuitBreaker = new CircuitBreaker(DEFAULT_CIRCUIT_BREAKER_OPTIONS)
 	}
 	return audibleCircuitBreaker
 }

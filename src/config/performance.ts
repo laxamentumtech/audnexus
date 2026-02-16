@@ -65,7 +65,7 @@ export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
  * Falls back to sensible defaults when env vars are not set.
  */
 export function createPerformanceConfig(): PerformanceConfig {
-	// Parse numeric values with NaN validation
+	// Parse numeric values with fallbacks
 	const maxConcurrentRequests = process.env.MAX_CONCURRENT_REQUESTS
 		? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
 		: 50
@@ -73,19 +73,19 @@ export function createPerformanceConfig(): PerformanceConfig {
 		? parseInt(process.env.SCHEDULER_CONCURRENCY, 10)
 		: 5
 
-	// Validate numeric values are finite and positive before using
+	// Handle invalid values before passing to Zod
 	const validatedMaxConcurrent =
-		!Number.isNaN(maxConcurrentRequests) &&
-		Number.isFinite(maxConcurrentRequests) &&
-		maxConcurrentRequests > 0
-			? maxConcurrentRequests
-			: 50
+		Number.isNaN(maxConcurrentRequests) ||
+		!Number.isFinite(maxConcurrentRequests) ||
+		maxConcurrentRequests <= 0
+			? 50
+			: maxConcurrentRequests
 	const validatedSchedulerConcurrency =
-		!Number.isNaN(schedulerConcurrency) &&
-		Number.isFinite(schedulerConcurrency) &&
-		schedulerConcurrency > 0
-			? schedulerConcurrency
-			: 5
+		Number.isNaN(schedulerConcurrency) ||
+		!Number.isFinite(schedulerConcurrency) ||
+		schedulerConcurrency <= 0
+			? 5
+			: schedulerConcurrency
 
 	return PerformanceConfigSchema.parse({
 		USE_PARALLEL_SCHEDULER: parseBoolean(process.env.USE_PARALLEL_SCHEDULER) ?? false,
@@ -116,7 +116,7 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	METRICS_ENABLED: true,
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5
-} as const
+}
 
 // ============================================================================
 // Singleton Instance
