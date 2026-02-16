@@ -37,11 +37,18 @@ import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 const host = process.env.HOST || '0.0.0.0'
 const port = Number(process.env.PORT) || 3000
 const logLevel = (process.env.LOG_LEVEL as FastifyBaseLogger['level']) || 'info'
+
+// Parse TRUSTED_PROXIES env var for containerized environments (e.g., Traefik)
+// Supports comma-separated list of IPs, defaults to '127.0.0.1' for backward compatibility
+const trustedProxies = process.env.TRUSTED_PROXIES
+	? process.env.TRUSTED_PROXIES.split(',').map((s) => s.trim())
+	: ['127.0.0.1']
+
 const server = fastify({
 	logger: {
 		level: logLevel
 	},
-	trustProxy: true
+	trustProxy: trustedProxies
 })
 const updateInterval = Number(process.env.UPDATE_INTERVAL) || 30
 

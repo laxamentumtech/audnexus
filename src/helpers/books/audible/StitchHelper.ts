@@ -1,6 +1,7 @@
 import type { CheerioAPI } from 'cheerio'
 import type { FastifyBaseLogger } from 'fastify'
 
+import { getPerformanceConfig } from '#config/performance'
 import { ApiBook, ApiBookSchema, AudibleProduct, HtmlBook } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
@@ -99,10 +100,14 @@ class StitchHelper {
 	 */
 	async includeGenres(): Promise<ApiBook> {
 		if (this.scraperParsed?.genres?.length) {
-			const sortedObject = this.sharedHelper.sortObjectByKeys({
+			const perfConfig = getPerformanceConfig()
+			const mergedObject = {
 				...this.apiParsed,
 				...this.scraperParsed
-			})
+			}
+			const sortedObject = perfConfig.USE_SORTED_KEYS
+				? this.sharedHelper.sortObjectByKeys(mergedObject)
+				: mergedObject
 			const parsed = ApiBookSchema.safeParse(sortedObject)
 			if (parsed.success) return parsed.data
 			throw new Error(ErrorMessageSort(this.asin))
@@ -124,6 +129,7 @@ class StitchHelper {
 		// Check if we need to scrape for genres
 		if (!this.apiResponse.product.category_ladders.length) {
 			this.logger?.debug(NoticeChaptersFallback(this.asin))
+			// Fetch and parse scraper data
 			await this.fetchScraperBook()
 			await this.parseScraperResponse()
 		}

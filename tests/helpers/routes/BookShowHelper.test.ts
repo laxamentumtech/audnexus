@@ -9,6 +9,11 @@ import type { FastifyRedis } from '@fastify/redis'
 import type { AxiosResponse } from 'axios'
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
+import {
+	PerformanceConfig,
+	resetPerformanceConfig,
+	setPerformanceConfig
+} from '#config/performance'
 import { ApiBook } from '#config/types'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
@@ -33,6 +38,20 @@ const createMockContext = (): MockContext => {
 	}
 }
 
+const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
+	USE_PARALLEL_SCHEDULER: false,
+	USE_CONNECTION_POOLING: true,
+	USE_COMPACT_JSON: true,
+	USE_SORTED_KEYS: false,
+	CIRCUIT_BREAKER_ENABLED: true,
+	METRICS_ENABLED: true,
+	MAX_CONCURRENT_REQUESTS: 50,
+	SCHEDULER_CONCURRENCY: 5,
+	SCHEDULER_MAX_PER_REGION: 5,
+	DEFAULT_REGION: 'us',
+	...overrides
+})
+
 beforeEach(() => {
 	asin = 'B079LRSMNN'
 	helper = new BookShowHelper(
@@ -56,6 +75,10 @@ beforeEach(() => {
 		.mockImplementation(() => Promise.resolve({ status: 200 } as AxiosResponse))
 	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedBook)
 	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
+})
+
+afterEach(() => {
+	resetPerformanceConfig()
 })
 
 describe('BookShowHelper should', () => {
@@ -142,6 +165,8 @@ describe('BookShowHelper should throw error when', () => {
 	})
 
 	test('getDataWithProjection sorted book is not a book type', async () => {
+		// Enable USE_SORTED_KEYS to test sorting error handling
+		setPerformanceConfig(createTestConfig({ USE_SORTED_KEYS: true }))
 		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as ApiBook)
 		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiBook`

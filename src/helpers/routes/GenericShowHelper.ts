@@ -4,6 +4,7 @@ import type { FastifyBaseLogger } from 'fastify'
 import type { AuthorDocument } from '#config/models/Author'
 import type { BookDocument } from '#config/models/Book'
 import type { ChapterDocument } from '#config/models/Chapter'
+import { getPerformanceConfig } from '#config/performance'
 import {
 	ApiAuthorProfile,
 	ApiAuthorProfileSchema,
@@ -133,10 +134,13 @@ export default class GenericShowHelper {
 		// Make sure data is not null
 		if (data.data === null) throw this.errorMessageDataType()
 
-		// 2. Sort data
-		const sort = this.sharedHelper.sortObjectByKeys(data.data)
+		// 2. Sort data if feature flag enabled (adds O(n log n) overhead)
+		const perfConfig = getPerformanceConfig()
+		const dataToParse = perfConfig.USE_SORTED_KEYS
+			? this.sharedHelper.sortObjectByKeys(data.data)
+			: data.data
 		// Parse the data to make sure it's the correect type
-		const parsed = this.schema.safeParse(sort)
+		const parsed = this.schema.safeParse(dataToParse)
 		// If the data is not the correct type, throw an error
 		if (!parsed.success) throw this.errorMessageDataType()
 		return parsed.data
