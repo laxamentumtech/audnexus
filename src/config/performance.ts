@@ -51,7 +51,13 @@ export const PerformanceConfigSchema = z.object({
 	MAX_CONCURRENT_REQUESTS: z.number().int().positive().default(50),
 
 	/** Max concurrent scheduler operations */
-	SCHEDULER_CONCURRENCY: z.number().int().positive().default(5)
+	SCHEDULER_CONCURRENCY: z.number().int().positive().default(5),
+
+	/** Hard cap for max per-region concurrency in batch processing */
+	SCHEDULER_MAX_PER_REGION: z.number().int().positive().default(5),
+
+	/** Default region for batch processing when none specified */
+	DEFAULT_REGION: z.string().default('us')
 })
 
 export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
@@ -72,6 +78,9 @@ export function createPerformanceConfig(): PerformanceConfig {
 	const schedulerConcurrency = process.env.SCHEDULER_CONCURRENCY
 		? parseInt(process.env.SCHEDULER_CONCURRENCY, 10)
 		: 5
+	const schedulerMaxPerRegion = process.env.SCHEDULER_MAX_PER_REGION
+		? parseInt(process.env.SCHEDULER_MAX_PER_REGION, 10)
+		: 5
 
 	// Handle invalid values before passing to Zod
 	const validatedMaxConcurrent =
@@ -86,6 +95,12 @@ export function createPerformanceConfig(): PerformanceConfig {
 		schedulerConcurrency <= 0
 			? 5
 			: schedulerConcurrency
+	const validatedSchedulerMaxPerRegion =
+		Number.isNaN(schedulerMaxPerRegion) ||
+		!Number.isFinite(schedulerMaxPerRegion) ||
+		schedulerMaxPerRegion <= 0
+			? 5
+			: schedulerMaxPerRegion
 
 	return PerformanceConfigSchema.parse({
 		USE_PARALLEL_SCHEDULER: parseBoolean(process.env.USE_PARALLEL_SCHEDULER) ?? false,
@@ -95,7 +110,9 @@ export function createPerformanceConfig(): PerformanceConfig {
 		CIRCUIT_BREAKER_ENABLED: parseBoolean(process.env.CIRCUIT_BREAKER_ENABLED) ?? true,
 		METRICS_ENABLED: parseBoolean(process.env.METRICS_ENABLED) ?? true,
 		MAX_CONCURRENT_REQUESTS: validatedMaxConcurrent,
-		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency
+		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency,
+		SCHEDULER_MAX_PER_REGION: validatedSchedulerMaxPerRegion,
+		DEFAULT_REGION: process.env.DEFAULT_REGION?.trim() || 'us'
 	})
 }
 
@@ -115,7 +132,9 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	CIRCUIT_BREAKER_ENABLED: true,
 	METRICS_ENABLED: true,
 	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5
+	SCHEDULER_CONCURRENCY: 5,
+	SCHEDULER_MAX_PER_REGION: 5,
+	DEFAULT_REGION: 'us'
 }
 
 // ============================================================================

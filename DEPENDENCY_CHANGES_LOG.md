@@ -2,32 +2,31 @@
 
 This log documents all dependency changes (upgrades and rollbacks) following the standards defined in [AGENTS.md](AGENTS.md) Section 3.
 
-## p-limit 3.1.0 → 5.0.0
+## p-limit 3.1.0 (retained)
 
 **Date:** 2026-02-15
 
-**Reason:** Upgrade to latest major version for improved concurrency control features and bug fixes.
+**Reason:** Retained v3.1.0 due to CommonJS compatibility. p-limit v5+ is ESM-only and not compatible with this project's CommonJS module system.
 
 ### Breaking Changes Review
 
-1. **API Changes**: No breaking changes detected. p-limit v5 uses a factory pattern: `pLimit(concurrency)` returns a `limit` function. To use it, first create the limiter with `const limit = pLimit(concurrency)`, then run tasks with `await limit(fn, ...args)`. The returned `limit` function accepts the function to run followed by its arguments.
+1. **API Changes**: No changes. Version 3.1.0 retained.
 
-2. **Peer Dependencies**: No new peer dependencies introduced. Compatible with current Node.js version in use.
+2. **Peer Dependencies**: No new peer dependencies.
 
-3. **Deprecation Warnings**: No deprecation warnings detected during upgrade.
+3. **Deprecation Warnings**: None.
 
-4. **- [x] Reviewed package CHANGELOG for breaking changes**
+4. **- [x] Reviewed package requirements for ESM-only constraint**
 
 ### Verification Steps
 
-- [x] Run unit tests (`pnpm test`)
-- [x] Verify jest mock/transformIgnorePatterns compatibility
-- [x] Run CI pipeline (`pnpm lint && pnpm test && pnpm build`)
-- [x] Sanity-run code paths that call p-limit (specifically `src/helpers/utils/batchProcessor.ts`)
+- [x] Verified p-limit v5 requires ESM-only environment
+- [x] Confirmed project uses CommonJS (module-type: commonjs in tsconfig)
+- [x] Retained v3.1.0 which supports both ESM and CommonJS
 
 ### Verification Outcome
 
-Verified: CHANGELOG reviewed, tests passed, build succeeded
+Verified: p-limit v5+ requires ESM, project is CommonJS, v3.1.0 retained for compatibility
 
 ## ip-range-check ^0.2.0
 

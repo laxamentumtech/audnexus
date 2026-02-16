@@ -84,7 +84,9 @@ const makePerformanceConfig = (useParallel: boolean): PerformanceConfig => ({
 	CIRCUIT_BREAKER_ENABLED: true,
 	METRICS_ENABLED: true,
 	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5
+	SCHEDULER_CONCURRENCY: 5,
+	SCHEDULER_MAX_PER_REGION: 5,
+	DEFAULT_REGION: 'us'
 })
 
 beforeEach(() => {

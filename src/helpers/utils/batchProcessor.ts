@@ -33,19 +33,23 @@ function validateConcurrency(value: number | undefined): number {
  * @param concurrencyInput The desired concurrency value
  * @param maxPerRegionInput Optional max per region value
  * @param schedulerConcurrency The maximum allowed scheduler concurrency from config
+ * @param maxPerRegionCap The hard cap for per-region concurrency from config
  * @returns Validated and clamped concurrency and maxPerRegion values
  */
 function validateConcurrencyGuardrails(
 	concurrencyInput: number | undefined,
 	maxPerRegionInput: number | undefined,
-	schedulerConcurrency: number
+	schedulerConcurrency: number,
+	maxPerRegionCap: number
 ): { concurrency: number; maxPerRegion: number } {
 	const concurrency = validateConcurrency(concurrencyInput ?? schedulerConcurrency)
 	if (concurrency > schedulerConcurrency) {
 		throw new Error('Concurrency exceeds SCHEDULER_CONCURRENCY guardrail')
 	}
-	const configuredMaxPerRegion = validateConcurrency(maxPerRegionInput ?? Math.min(concurrency, 5))
-	const maxPerRegion = Math.min(configuredMaxPerRegion, 5)
+	const configuredMaxPerRegion = validateConcurrency(
+		maxPerRegionInput ?? Math.min(concurrency, maxPerRegionCap)
+	)
+	const maxPerRegion = Math.min(configuredMaxPerRegion, maxPerRegionCap)
 	if (maxPerRegion > concurrency) {
 		throw new Error('Per-region concurrency exceeds overall concurrency guardrail')
 	}
@@ -127,7 +131,8 @@ export async function processBatch<T, R>(
 	const { concurrency } = validateConcurrencyGuardrails(
 		options.concurrency,
 		undefined,
-		config.SCHEDULER_CONCURRENCY
+		config.SCHEDULER_CONCURRENCY,
+		config.SCHEDULER_MAX_PER_REGION
 	)
 	const limit = pLimit(concurrency)
 	const counters = createConcurrencyCounter()
@@ -204,7 +209,8 @@ export async function processBatchByRegion<T extends { region?: string | null },
 	const { concurrency, maxPerRegion } = validateConcurrencyGuardrails(
 		options.concurrency,
 		options.maxPerRegion,
-		config.SCHEDULER_CONCURRENCY
+		config.SCHEDULER_CONCURRENCY,
+		config.SCHEDULER_MAX_PER_REGION
 	)
 
 	const regionLimiters = new Map<string, ReturnType<typeof pLimit>>()
@@ -248,8 +254,8 @@ export async function processBatchByRegion<T extends { region?: string | null },
 	return { results: resolved, summary }
 }
 
-function normalizeRegion(region?: string | null): string {
-	if (!region || region.trim() === '') return 'us'
+function normalizeRegion(region?: string | null, defaultRegion?: string): string {
+	if (!region || region.trim() === '') return defaultRegion ?? getPerformanceConfig().DEFAULT_REGION
 	return region
 }
 
