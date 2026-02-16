@@ -6,7 +6,10 @@ import schedule from '@fastify/schedule'
 import { fastify, FastifyBaseLogger } from 'fastify'
 import { MongoClient } from 'mongodb'
 
-import 'module-alias/register'
+// Conditionally import module-alias only for Node.js (not Bun)
+if (typeof Bun === 'undefined') {
+	await import('module-alias/register')
+}
 
 import { Context, createDefaultContext } from '#config/context'
 import {
@@ -218,7 +221,10 @@ async function startServer() {
  */
 async function stopServer() {
 	server.log.info('Closing HTTP server')
-	server.scheduler.stop()
+	// Only stop scheduler if it was initialized
+	if (server.scheduler) {
+		server.scheduler.stop()
+	}
 	try {
 		await server.close()
 		server.log.info('HTTP server closed')
