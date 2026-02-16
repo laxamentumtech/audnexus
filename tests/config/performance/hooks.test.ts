@@ -201,6 +201,28 @@ describe('Performance Hooks', () => {
 
 			await fastify.close()
 		})
+
+		it('should handle MAX_STORED_DURATIONS limit for request durations', async () => {
+			const fastify = Fastify()
+			fastify.get('/test', async () => ({ message: 'ok' }))
+			registerPerformanceHooks(fastify)
+			await fastify.ready()
+
+			// Send 101 requests to trigger MAX_STORED_DURATIONS limit
+			for (let i = 0; i < 101; i++) {
+				await fastify.inject({ method: 'GET', url: '/test' })
+			}
+
+			const metrics = getPerformanceMetrics()
+			expect(metrics.requests['/test']).toBeDefined()
+			// Count should still be accurate even though durations are capped
+			expect(metrics.requests['/test'].count).toBe(101)
+			// Min and avg should still be calculated correctly
+			expect(metrics.requests['/test'].min).toBeGreaterThanOrEqual(0)
+			expect(metrics.requests['/test'].avg).toBeGreaterThanOrEqual(0)
+
+			await fastify.close()
+		})
 	})
 
 	describe('resetMetrics', () => {
