@@ -7,9 +7,8 @@ All notable changes to this project will be documented in this file. See [standa
 ### Dependencies
 
 - Upgrade p-limit from 3.1.0 to 5.0.0
-  - ESM/CJS interop: Package is now pure ESM, but works with existing setup
-  - esModuleInterop already enabled in tsconfig.json
-  - Jest mocks continue to work without changes
+  - Jest configuration updated to add custom mock registration for p-limit
+  - transformIgnorePatterns adjusted to transform p-limit (pure ESM package)
 
 ### Features
 

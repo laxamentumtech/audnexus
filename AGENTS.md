@@ -201,7 +201,7 @@ pnpm lint && pnpm test && pnpm build
 
 ### 3.2 Major Version Handling
 
-Major version updates require special attention. See `DEPENDENCY_UPDATE_LOG.md` for examples:
+Major version updates require special attention. See `DEPENDENCY_CHANGES_LOG.md` for examples:
 
 **Breaking change detection checklist:**
 
@@ -254,7 +254,7 @@ pnpm install
 pnpm lint && pnpm test && pnpm build
 ```
 
-**Document the rollback in DEPENDENCY_UPDATE_LOG.md:**
+**Document the rollback in DEPENDENCY_CHANGES_LOG.md:**
 
 ```markdown
 ## Rollback: [Package Name] [Version] → [Previous Version]
