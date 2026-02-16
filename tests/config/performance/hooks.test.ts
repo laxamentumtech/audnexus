@@ -152,6 +152,55 @@ describe('Performance Hooks', () => {
 
 			await fastify.close()
 		})
+
+		it('should NOT record metrics for 4xx responses', async () => {
+			const fastify = Fastify()
+			fastify.get('/not-found', async (_, reply) => {
+				return reply.status(404).send({ error: 'Not found' })
+			})
+			registerPerformanceHooks(fastify)
+			await fastify.ready()
+
+			await fastify.inject({ method: 'GET', url: '/not-found' })
+
+			const metrics = getPerformanceMetrics()
+			expect(metrics.requests['/not-found']).toBeUndefined()
+
+			await fastify.close()
+		})
+
+		it('should NOT record metrics for 5xx responses', async () => {
+			const fastify = Fastify()
+			fastify.get('/server-error', async () => {
+				throw new Error('Server error')
+			})
+			registerPerformanceHooks(fastify)
+			await fastify.ready()
+
+			const response = await fastify.inject({ method: 'GET', url: '/server-error' })
+			expect(response.statusCode).toBe(500)
+
+			const metrics = getPerformanceMetrics()
+			expect(metrics.requests['/server-error']).toBeUndefined()
+
+			await fastify.close()
+		})
+
+		it('should NOT record metrics for 400 bad request', async () => {
+			const fastify = Fastify()
+			fastify.get('/bad-request', async (_, reply) => {
+				return reply.status(400).send({ error: 'Bad request' })
+			})
+			registerPerformanceHooks(fastify)
+			await fastify.ready()
+
+			await fastify.inject({ method: 'GET', url: '/bad-request' })
+
+			const metrics = getPerformanceMetrics()
+			expect(metrics.requests['/bad-request']).toBeUndefined()
+
+			await fastify.close()
+		})
 	})
 
 	describe('resetMetrics', () => {
