@@ -1,10 +1,8 @@
-# https://github.com/pnpm/action-setup
-
-name: Node.js CI
+name: Bun CI
 
 on:
   schedule:
-    - cron: "0 13 * * 1"
+    - cron: '0 13 * * 1'
   push:
     branches: [main, develop, renovate/*]
   pull_request:
@@ -16,23 +14,15 @@ jobs:
       ADP_TOKEN: ${{ secrets.ADP_TOKEN }}
       PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        node: ["lts/*", "current"]
-    name: Node ${{ matrix.node }} sample
+    name: Bun sample
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
-      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.0.0
+      - uses: oven-sh/setup-bun@67b25f52d2a3e7255c9594b3134e1e4c63a79e1b # v2
         with:
-          version: latest
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
+          bun-version: latest
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
       - name: Run linter
-        run: pnpm lint
+        run: bun lint
       - name: Run tests
-        run: pnpm test
+        run: bun test

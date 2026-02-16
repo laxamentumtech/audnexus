@@ -22,25 +22,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@eae0cfeb286e66ffb5155f1a79b90583a127a68b # v2
+      - uses: oven-sh/setup-bun@67b25f52d2a3e7255c9594b3134e1e4c63a79e1b # v2
         with:
-          version: 8
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: '20'
-          cache: 'pnpm'
+          bun-version: latest
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install
 
       # Run live tests without credentials (API and HTML scraping only)
       - name: Run Live Tests (No Credentials)
         env:
           RUN_LIVE_TESTS: true
-        run: pnpm test:live
+        run: bun test:live
 
       # Optional: Run with chapter API credentials if available and manually triggered
       - name: Run Live Tests with Chapter API
@@ -49,7 +42,7 @@ jobs:
           RUN_LIVE_TESTS: true
           ADP_TOKEN: ${{ secrets.ADP_TOKEN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-        run: pnpm test:live
+        run: bun test:live
 
   # Check for Audible changes and create issue if detected
   check-changes:
