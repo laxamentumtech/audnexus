@@ -54,7 +54,7 @@ function validateConcurrencyGuardrails(
 
 /**
  * Create atomic counters for tracking batch processing statistics
- * Uses closure pattern to maintain thread-safe counters
+ * Uses closure pattern to maintain async-safe counters
  */
 function createAtomicCounters() {
 	let successCount = 0
