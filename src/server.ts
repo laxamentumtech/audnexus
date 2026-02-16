@@ -175,8 +175,12 @@ async function registerRoutes() {
 		.register(searchAuthor)
 		.register(health)
 
-	registerPerformanceHooks(server)
-	registerMetricsRoute(server)
+	try {
+		registerPerformanceHooks(server)
+		registerMetricsRoute(server)
+	} catch (err) {
+		server.log.warn({ err }, 'Failed to register metrics, continuing without metrics')
+	}
 }
 
 /**
