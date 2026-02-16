@@ -12,6 +12,15 @@ import {
 	resetPerformanceConfig,
 	setPerformanceConfig
 } from '#config/performance'
+import { ApiAuthorProfile } from '#config/types'
+import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
+import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
+import {
+	authorWithoutProjection,
+	authorWithoutProjectionUpdatedNow,
+	parsedAuthor
+} from '#tests/datasets/helpers/authors'
 
 /**
  * Factory function for creating test PerformanceConfig instances.
@@ -28,15 +37,6 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	SCHEDULER_CONCURRENCY: 5,
 	...overrides
 })
-import { ApiAuthorProfile } from '#config/types'
-import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
-import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
-import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
-import {
-	authorWithoutProjection,
-	authorWithoutProjectionUpdatedNow,
-	parsedAuthor
-} from '#tests/datasets/helpers/authors'
 
 type MockContext = {
 	client: DeepMockProxy<FastifyRedis>

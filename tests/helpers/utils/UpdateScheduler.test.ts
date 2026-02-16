@@ -14,6 +14,7 @@ import { AsyncTask, LongIntervalJob } from 'toad-scheduler'
 import AuthorModel from '#config/models/Author'
 import BookModel from '#config/models/Book'
 import ChapterModel from '#config/models/Chapter'
+import type { PerformanceConfig } from '#config/performance'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
@@ -75,6 +76,17 @@ const createProcessBatchByRegionMock =
 		}
 	}
 
+const makePerformanceConfig = (useParallel: boolean): PerformanceConfig => ({
+	USE_PARALLEL_SCHEDULER: useParallel,
+	USE_CONNECTION_POOLING: true,
+	USE_COMPACT_JSON: true,
+	USE_SORTED_KEYS: false,
+	CIRCUIT_BREAKER_ENABLED: true,
+	METRICS_ENABLED: true,
+	MAX_CONCURRENT_REQUESTS: 50,
+	SCHEDULER_CONCURRENCY: 5
+})
+
 beforeEach(() => {
 	ctx = createMockContext()
 	mockLogger = mockDeep<FastifyBaseLogger>()
@@ -114,16 +126,7 @@ describe('UpdateScheduler should', () => {
 	test('updateAuthors', async () => {
 		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
 		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockResolvedValue(undefined)
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: false,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateAuthors()).resolves.toEqual(undefined)
 		expect(AuthorModel.find).toHaveBeenCalledWith({}, projection)
 		expect(AuthorShowHelper.prototype.handler).toHaveBeenCalledWith()
@@ -132,16 +135,7 @@ describe('UpdateScheduler should', () => {
 	test('updateBooks', async () => {
 		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
 		jest.spyOn(BookShowHelper.prototype, 'handler').mockResolvedValue(undefined)
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: false,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateBooks()).resolves.toEqual(undefined)
 		expect(BookModel.find).toHaveBeenCalledWith({}, projection)
 		expect(BookShowHelper.prototype.handler).toHaveBeenCalledWith()
@@ -150,16 +144,7 @@ describe('UpdateScheduler should', () => {
 	test('updateChapters', async () => {
 		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
 		jest.spyOn(ChapterShowHelper.prototype, 'handler').mockResolvedValue(undefined)
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: false,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateChapters()).resolves.toEqual(undefined)
 		expect(ChapterModel.find).toHaveBeenCalledWith({}, projection)
 		expect(ChapterShowHelper.prototype.handler).toHaveBeenCalledWith()
@@ -169,16 +154,7 @@ describe('UpdateScheduler should', () => {
 		jest.spyOn(helper, 'updateAuthors').mockResolvedValue(undefined)
 		jest.spyOn(helper, 'updateBooks').mockResolvedValue(undefined)
 		jest.spyOn(helper, 'updateChapters').mockResolvedValue(undefined)
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: false,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateAll()).resolves.toEqual(undefined)
 		expect(helper.updateAuthors).toHaveBeenCalledWith()
 		expect(helper.updateBooks).toHaveBeenCalledWith()
@@ -218,16 +194,7 @@ describe('UpdateScheduler should', () => {
 
 	// Parallel scheduler tests
 	test('updateAuthors with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: true,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(true))
 
 		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
 		;(processBatchByRegion as jest.Mock).mockResolvedValue({
@@ -246,16 +213,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateBooks with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: true,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(true))
 
 		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
 		;(processBatchByRegion as jest.Mock).mockResolvedValue({
@@ -274,16 +232,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateChapters with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: true,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(true))
 
 		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
 		;(processBatchByRegion as jest.Mock).mockResolvedValue({
@@ -302,16 +251,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateAuthors with parallel processing handles errors gracefully', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: true,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(true))
 
 		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
 		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockRejectedValue(new Error('Test error'))
@@ -324,16 +264,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateBooks with parallel processing handles errors gracefully', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: true,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(true))
 
 		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
 		jest.spyOn(BookShowHelper.prototype, 'handler').mockRejectedValue(new Error('Test error'))
@@ -346,16 +277,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateChapters with parallel processing handles errors gracefully', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: true,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(true))
 
 		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
 		jest.spyOn(ChapterShowHelper.prototype, 'handler').mockRejectedValue(new Error('Test error'))
@@ -368,16 +290,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateAuthors uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: false,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(false))
 
 		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
 		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockResolvedValue(undefined)
@@ -389,16 +302,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateBooks uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: false,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(false))
 
 		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
 		jest.spyOn(BookShowHelper.prototype, 'handler').mockResolvedValue(undefined)
@@ -410,16 +314,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateChapters uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: false,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(false))
 
 		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
 		jest.spyOn(ChapterShowHelper.prototype, 'handler').mockResolvedValue(undefined)
@@ -431,16 +326,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateAuthors logs warning when maxConcurrencyObserved exceeds configured concurrency', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: true,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: false,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5
-		})
+		setPerformanceConfig(makePerformanceConfig(true))
 
 		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
 		;(processBatchByRegion as jest.Mock).mockResolvedValue({
