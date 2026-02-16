@@ -175,7 +175,7 @@ The test suite uses Fastify's `light-my-request` package for HTTP injection test
 
 During the Bun transition period:
 
-1. **Use Node.js for testing**: Run `pnpm test` or `node --test` for the test suite
+1. **Use Bun for testing**: Run `pnpm test` or `bun test` for the test suite
 2. **Use Bun for development**: Run `bun src/server.ts` for local development
 3. **CI/CD**: Continue using Node.js for automated testing until Bun compatibility improves
 
