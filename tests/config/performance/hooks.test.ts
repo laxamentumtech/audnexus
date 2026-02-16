@@ -1,6 +1,6 @@
 import Fastify from 'fastify'
 
-import { PerformanceConfig } from '#config/performance'
+import { PerformanceConfig, DEFAULT_PERFORMANCE_CONFIG } from '#config/performance'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import {
 	getPerformanceMetrics,
@@ -13,16 +13,7 @@ import {
  * Provides a reusable base configuration with optional overrides.
  */
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: false,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
-	SCHEDULER_MAX_PER_REGION: 5,
-	DEFAULT_REGION: 'us',
+	...DEFAULT_PERFORMANCE_CONFIG,
 	...overrides
 })
 
@@ -30,6 +21,7 @@ describe('Performance Hooks', () => {
 	beforeEach(() => {
 		resetPerformanceConfig()
 		resetMetrics()
+		setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
 	})
 
 	describe('getPerformanceMetrics', () => {

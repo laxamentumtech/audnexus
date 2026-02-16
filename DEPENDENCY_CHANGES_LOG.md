@@ -1,10 +1,12 @@
 # Dependency Changes Log
 
-This log documents all dependency changes (upgrades and rollbacks) following the standards defined in [AGENTS.md](AGENTS.md) Section 3.
+This log documents all dependency changes (additions, upgrades and rollbacks) following the standards defined in [AGENTS.md](AGENTS.md) Section 3.
 
-## p-limit 3.1.0 (retained)
+## p-limit 3.1.0 (retained from pre-existing)
 
 **Date:** 2026-02-15
+
+**Prior Version:** 3.1.0 (no change)
 
 **Reason:** Retained v3.1.0 due to CommonJS compatibility. p-limit v5+ is ESM-only and not compatible with this project's CommonJS module system.
 
@@ -16,7 +18,7 @@ This log documents all dependency changes (upgrades and rollbacks) following the
 
 3. **Deprecation Warnings**: None.
 
-4. **- [x] Reviewed package requirements for ESM-only constraint**
+4. [x] Reviewed package requirements for ESM-only constraint
 
 ### Verification Steps
 
@@ -39,7 +41,7 @@ Verified: p-limit v5+ requires ESM, project is CommonJS, v3.1.0 retained for com
 1. **API Changes**: No breaking changes. This is a new dependency addition.
 2. **Peer Dependencies**: No peer dependencies.
 3. **Deprecation Warnings**: None.
-4. **- [x] Reviewed package documentation**
+4. [x] Reviewed package documentation
 
 ### Verification Steps
 

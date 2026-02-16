@@ -3,7 +3,7 @@ import {
 	resetPerformanceConfig,
 	setPerformanceConfig
 } from '#config/performance'
-import { processBatch, processBatchByRegion } from '#helpers/utils/batchProcessor'
+import { processBatch, processBatchByRegion, normalizeRegion } from '#helpers/utils/batchProcessor'
 
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
 	USE_PARALLEL_SCHEDULER: false,
@@ -443,6 +443,34 @@ describe('batchProcessor', () => {
 			await expect(processBatchByRegion(items, processor)).rejects.toThrow(
 				'SCHEDULER_CONCURRENCY must be at least 1'
 			)
+		})
+	})
+
+	describe('normalizeRegion', () => {
+		it('should return provided defaultRegion when region is undefined', () => {
+			const result = normalizeRegion(undefined, 'uk')
+			expect(result).toBe('uk')
+		})
+
+		it('should return provided defaultRegion when region is empty string', () => {
+			const result = normalizeRegion('', 'de')
+			expect(result).toBe('de')
+		})
+
+		it('should return config DEFAULT_REGION when no defaultRegion provided and region is undefined', () => {
+			setPerformanceConfig(createTestConfig({ DEFAULT_REGION: 'fr' }))
+			const result = normalizeRegion(undefined)
+			expect(result).toBe('fr')
+		})
+
+		it('should return the region when region is provided', () => {
+			const result = normalizeRegion('us', 'uk')
+			expect(result).toBe('us')
+		})
+
+		it('should return defaultRegion when region is null', () => {
+			const result = normalizeRegion(null, 'ca')
+			expect(result).toBe('ca')
 		})
 	})
 })

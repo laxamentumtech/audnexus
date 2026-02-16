@@ -254,7 +254,7 @@ export async function processBatchByRegion<T extends { region?: string | null },
 	return { results: resolved, summary }
 }
 
-function normalizeRegion(region?: string | null, defaultRegion?: string): string {
+export function normalizeRegion(region?: string | null, defaultRegion?: string): string {
 	if (!region || region.trim() === '') return defaultRegion ?? getPerformanceConfig().DEFAULT_REGION
 	return region
 }

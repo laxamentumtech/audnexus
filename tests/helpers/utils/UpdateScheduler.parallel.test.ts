@@ -3,7 +3,7 @@ jest.mock('#config/models/Author')
 jest.mock('#helpers/routes/AuthorShowHelper')
 import type { FastifyRedis } from '@fastify/redis'
 import type { FastifyBaseLogger } from 'fastify'
-import { mockDeep } from 'jest-mock-extended'
+import { mock } from 'jest-mock-extended'
 
 import AuthorModel from '#config/models/Author'
 import type { PerformanceConfig } from '#config/performance'
@@ -30,7 +30,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 })
 
 const createMockContext = (): MockContext => ({
-	client: mockDeep<FastifyRedis>()
+	client: mock<FastifyRedis>()
 })
 
 describe('UpdateScheduler parallel processing', () => {
@@ -38,7 +38,7 @@ describe('UpdateScheduler parallel processing', () => {
 
 	beforeEach(() => {
 		const ctx = createMockContext()
-		const mockLogger = mockDeep<FastifyBaseLogger>()
+		const mockLogger = mock<FastifyBaseLogger>()
 		helper = new UpdateScheduler(1, ctx.client, mockLogger)
 		resetPerformanceConfig()
 	})
