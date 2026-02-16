@@ -724,7 +724,7 @@ pnpm release           # Create new release (standard-version)
 | `eslint.config.mjs`                          | ESLint rules and configuration             |
 | `package.json`                               | Dependencies and scripts                   |
 | `tsconfig.json`                              | TypeScript configuration                   |
-| `DEPENDENCY_UPDATE_LOG.md`                   | Historical dependency updates              |
+| `DEPENDENCY_CHANGES_LOG.md`                  | Historical dependency updates              |
 | `.github/workflows/node.js.yml`              | CI/CD pipeline                             |
 | `.github/workflows/live-tests.yml`           | Live test workflow                         |
 | `.github/workflows/conventional-commits.yml` | Commit validation                          |
