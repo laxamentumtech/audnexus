@@ -91,6 +91,19 @@ async function registerPlugins() {
 	// Rate limiting
 	await server.register(rateLimit, {
 		global: true,
+		keyGenerator: (request) => {
+			// Only trust X-Forwarded-For if request comes from a trusted proxy
+			if (trustedProxies.includes(request.ip)) {
+				const forwardedFor = request.headers['x-forwarded-for']
+				if (forwardedFor) {
+					const firstIp = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor.split(',')[0]
+					if (firstIp?.trim()) {
+						return firstIp.trim()
+					}
+				}
+			}
+			return request.ip
+		},
 		max: Number(process.env.MAX_REQUESTS) || 100,
 		redis: process.env.REDIS_URL ? server.redis : undefined,
 		timeWindow: '1 minute'
