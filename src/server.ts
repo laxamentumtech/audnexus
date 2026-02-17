@@ -1,3 +1,15 @@
+// Conditionally import module-alias only for Node.js (not Bun)
+// Using try-catch to handle cases where module-alias is not installed
+// MUST be at the very top before any imports that use # aliases
+if (typeof (globalThis as { Bun?: unknown }).Bun === 'undefined') {
+	try {
+		await import('module-alias/register')
+	} catch {
+		// Ignore if module-alias is not available
+		// Bun uses package.json "imports" field instead
+	}
+}
+
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
@@ -18,17 +30,6 @@ import {
 declare module 'fastify' {
 	interface FastifyInstance {
 		mongoClient?: MongoClient
-	}
-}
-
-// Conditionally import module-alias only for Node.js (not Bun)
-// Using try-catch to handle cases where module-alias is not installed
-if (typeof (globalThis as { Bun?: unknown }).Bun === 'undefined') {
-	try {
-		await import('module-alias/register')
-	} catch {
-		// Ignore if module-alias is not available
-		// Bun uses package.json "imports" field instead
 	}
 }
 import { initialize } from '#config/papr'
