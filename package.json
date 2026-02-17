@@ -65,6 +65,7 @@
 		"concurrently": "^9.1.2",
 		"eslint": "^10.0.0",
 		"eslint-config-prettier": "^10.1.2",
+		"eslint-plugin-jest": "^28.11.0",
 		"eslint-plugin-simple-import-sort": "^12.1.1",
 		"globals": "^17.3.0",
 		"jest-mock-extended": "^4.0.0-beta1",
