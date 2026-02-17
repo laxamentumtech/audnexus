@@ -6,18 +6,6 @@ import schedule from '@fastify/schedule'
 import { fastify, FastifyBaseLogger, FastifyError, FastifyReply, FastifyRequest } from 'fastify'
 import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
-
-// Conditionally import module-alias only for Node.js (not Bun)
-// Using try-catch to handle cases where module-alias is not installed
-if (typeof (globalThis as { Bun?: unknown }).Bun === 'undefined') {
-	try {
-		await import('module-alias/register')
-	} catch {
-		// Ignore if module-alias is not available
-		// Bun uses package.json "imports" field instead
-	}
-}
-
 import { Context, createDefaultContext } from '#config/context'
 import {
 	BadRequestError,
@@ -30,6 +18,17 @@ import {
 declare module 'fastify' {
 	interface FastifyInstance {
 		mongoClient?: MongoClient
+	}
+}
+
+// Conditionally import module-alias only for Node.js (not Bun)
+// Using try-catch to handle cases where module-alias is not installed
+if (typeof (globalThis as { Bun?: unknown }).Bun === 'undefined') {
+	try {
+		await import('module-alias/register')
+	} catch {
+		// Ignore if module-alias is not available
+		// Bun uses package.json "imports" field instead
 	}
 }
 import { initialize } from '#config/papr'
@@ -113,7 +112,8 @@ async function registerPlugins() {
 
 	// CORS
 	await server.register(cors, {
-		origin: true
+		origin: true,
+		methods: 'GET,HEAD,PUT,PATCH,POST,DELETE'
 	})
 
 	// Helmet

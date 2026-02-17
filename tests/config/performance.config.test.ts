@@ -295,105 +295,90 @@ describe('PerformanceConfig', () => {
 	describe('Invalid Numeric Fallback', () => {
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with non-numeric string "abc"', () => {
 			process.env.MAX_CONCURRENT_REQUESTS = 'abc'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with non-numeric string "invalid"', () => {
 			process.env.MAX_CONCURRENT_REQUESTS = 'invalid'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with negative string "-1"', () => {
 			process.env.MAX_CONCURRENT_REQUESTS = '-1'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with negative string "-100"', () => {
 			process.env.MAX_CONCURRENT_REQUESTS = '-100'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with zero "0"', () => {
 			process.env.MAX_CONCURRENT_REQUESTS = '0'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with non-numeric string "xyz"', () => {
 			process.env.SCHEDULER_CONCURRENCY = 'xyz'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with non-numeric string "not-a-number"', () => {
 			process.env.SCHEDULER_CONCURRENCY = 'not-a-number'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with negative string "-5"', () => {
 			process.env.SCHEDULER_CONCURRENCY = '-5'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with negative string "-10"', () => {
 			process.env.SCHEDULER_CONCURRENCY = '-10'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with zero "0"', () => {
 			process.env.SCHEDULER_CONCURRENCY = '0'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with non-numeric string "abc"', () => {
 			process.env.SCHEDULER_MAX_PER_REGION = 'abc'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with non-numeric string "invalid"', () => {
 			process.env.SCHEDULER_MAX_PER_REGION = 'invalid'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with negative string "-1"', () => {
 			process.env.SCHEDULER_MAX_PER_REGION = '-1'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with negative string "-10"', () => {
 			process.env.SCHEDULER_MAX_PER_REGION = '-10'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with zero "0"', () => {
 			process.env.SCHEDULER_MAX_PER_REGION = '0'
-			resetPerformanceConfig()
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
