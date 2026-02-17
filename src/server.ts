@@ -8,8 +8,14 @@ import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
 
 // Conditionally import module-alias only for Node.js (not Bun)
+// Using try-catch to handle cases where module-alias is not installed
 if (typeof (globalThis as { Bun?: unknown }).Bun === 'undefined') {
-	await import('module-alias/register')
+	try {
+		await import('module-alias/register')
+	} catch {
+		// Ignore if module-alias is not available
+		// Bun uses package.json "imports" field instead
+	}
 }
 
 import { Context, createDefaultContext } from '#config/context'

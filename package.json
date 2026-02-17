@@ -82,6 +82,8 @@
 		"#helpers/routes/*": "./dist/helpers/routes/*.js",
 		"#helpers/utils/*": "./dist/helpers/utils/*.js",
 		"#static/*": "./dist/static/*.js",
-		"#interfaces/*": "./dist/interfaces/*.js"
+		"#interfaces/*": "./dist/interfaces/*.js",
+		"#tests": "./tests",
+		"#tests/*": "./tests/*"
 	}
 }
