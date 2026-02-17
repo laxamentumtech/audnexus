@@ -52,7 +52,7 @@
 	},
 	"devDependencies": {
 		"@babel/preset-env": "^7.26.9",
-		"@eslint/compat": "^1.2.7",
+		"@eslint/compat": "^2.0.0",
 		"@eslint/eslintrc": "^3.3.0",
 		"@eslint/js": "^9.22.0",
 		"@jest/types": "^30.0.0",
