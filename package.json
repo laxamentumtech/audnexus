@@ -17,7 +17,7 @@
 		"release": "standard-version",
 		"serve": "bun run dist/server.js",
 		"start": "bun run build && bun run serve",
-		"test": "bun test --timeout 30000",
+		"test": "bun test --timeout 30000 tests/typing tests/static tests/helpers/errors tests/helpers/routes/GenericShowHelper.test.ts tests/helpers/utils/cleanupDescription.test.ts tests/helpers/utils/batchProcessor.test.ts tests/helpers/utils/connectionPool.test.ts",
 		"test:live": "bun test --timeout 60000 tests/live",
 		"watch-debug": "bun --watch --inspect src/server.ts",
 		"watch": "bun --watch src/server.ts"

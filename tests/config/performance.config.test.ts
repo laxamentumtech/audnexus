@@ -364,42 +364,37 @@ describe('PerformanceConfig', () => {
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with non-numeric string "abc"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = 'abc'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			resetPerformanceConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with non-numeric string "invalid"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = 'invalid'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			resetPerformanceConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with negative string "-1"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = '-1'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			resetPerformanceConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with negative string "-10"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = '-10'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			resetPerformanceConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with zero "0"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = '0'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			resetPerformanceConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 	})

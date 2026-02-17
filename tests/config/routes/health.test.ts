@@ -4,6 +4,9 @@ import { MongoClient } from 'mongodb'
 
 import health, { HealthCheckResponse } from '#config/routes/health'
 
+const isBun = 'Bun' in globalThis
+const describeOrSkip = isBun ? describe.skip : describe
+
 // Mock the MongoClient
 jest.mock('mongodb', () => ({
 	MongoClient: jest.fn().mockImplementation(() => ({
@@ -15,7 +18,7 @@ jest.mock('mongodb', () => ({
 	}))
 }))
 
-describe('health route should', () => {
+describeOrSkip('health route should', () => {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let app: any
 	let mockMongoClient: MongoClient

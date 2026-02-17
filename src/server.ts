@@ -8,7 +8,7 @@ import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
 
 // Conditionally import module-alias only for Node.js (not Bun)
-if (typeof Bun === 'undefined') {
+if (typeof (globalThis as { Bun?: unknown }).Bun === 'undefined') {
 	await import('module-alias/register')
 }
 
