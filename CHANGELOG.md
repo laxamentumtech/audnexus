@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.13.0](https://github.com/laxamentumtech/audnexus/compare/v1.12.0...v1.13.0) (2026-02-17)
+
+
+### Features
+
+* add Cloudflare IP auto-discovery for rate limiting ([6b633a3](https://github.com/laxamentumtech/audnexus/commit/6b633a37dd2823cdba9fe9753541380b935b6df7))
+
+
+### Bug Fixes
+
+* **cloudflare:** prevent race condition in concurrent IP fetches ([08312af](https://github.com/laxamentumtech/audnexus/commit/08312af15566de03698101c3eec9167b0b5c9431))
+* disable metrics by default, filter error responses, and secure rate limiting ([bb79540](https://github.com/laxamentumtech/audnexus/commit/bb79540f16f865e5ce81f3fcd78f8da6d0c8cd9f))
+* implement rate limiting improvements ([7468147](https://github.com/laxamentumtech/audnexus/commit/7468147b415e3af0406bfc5ca9839e8e87cbfdf0))
+
 ## [1.12.0](https://github.com/laxamentumtech/audnexus/compare/v1.11.0...v1.12.0) (2026-02-16)
 
 
