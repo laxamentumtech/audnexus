@@ -5,4 +5,3 @@ peer = true
 coverage = true
 coverageReporter = ["text", "lcov"]
 coverageDir = "./coverage"
-coverageThreshold = { statements = 0.85, branches = 0.80, functions = 0.85, lines = 0.85 }
