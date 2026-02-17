@@ -67,6 +67,7 @@
 		"eslint-config-prettier": "^10.1.2",
 		"eslint-plugin-simple-import-sort": "^12.1.1",
 		"globals": "^17.3.0",
+		"jest-mock-extended": "^4.0.0-beta1",
 		"prettier": "^3.5.3",
 		"standard-version": "^9.5.0",
 		"typescript": "^5.9.3"
