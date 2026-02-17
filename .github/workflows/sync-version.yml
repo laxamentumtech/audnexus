@@ -1,0 +1,53 @@
+# This workflow automatically syncs version bumps from main to develop branch
+# after a release is tagged. This prevents manual "merge main → develop" commits.
+#
+# NOTE: This workflow requires the develop branch to allow pushes from GitHub Actions.
+# Configure in Settings > Branches > Branch protection rules > develop
+# - Either disable "Require a pull request before merging" for develop
+# - Or add "github-actions[bot]" to "Allow specific actors to bypass"
+
+name: Sync Main to Develop
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  sync-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync main to develop
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          # Fetch latest develop and main
+          git fetch origin develop
+          git fetch origin main
+
+          # Checkout develop
+          git checkout develop
+
+          # Attempt fast-forward merge first
+          if git merge --ff-only origin/main; then
+            echo "Fast-forward merge successful"
+          else
+            echo "Fast-forward not possible, attempting merge commit..."
+            git merge origin/main --no-edit || {
+              echo "Merge failed. Manual intervention required."
+              echo "Develop branch may have diverged from main."
+              exit 1
+            }
+          fi
+
+          # Push to develop
+          git push origin develop
+          echo "Successfully synced main to develop"
