@@ -45,13 +45,19 @@ export const PerformanceConfigSchema = z.object({
 	CIRCUIT_BREAKER_ENABLED: z.boolean().default(true),
 
 	/** Enable performance metrics collection and /metrics endpoint */
-	METRICS_ENABLED: z.boolean().default(true),
+	METRICS_ENABLED: z.boolean().default(false),
 
 	/** HTTP connection pool size - max concurrent connections */
 	MAX_CONCURRENT_REQUESTS: z.number().int().positive().default(50),
 
 	/** Max concurrent scheduler operations */
-	SCHEDULER_CONCURRENCY: z.number().int().positive().default(5)
+	SCHEDULER_CONCURRENCY: z.number().int().positive().default(5),
+
+	/** Hard cap for max per-region concurrency in batch processing */
+	SCHEDULER_MAX_PER_REGION: z.number().int().positive().default(5),
+
+	/** Default region for batch processing when none specified */
+	DEFAULT_REGION: z.string().default('us')
 })
 
 export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
@@ -65,27 +71,36 @@ export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
  * Falls back to sensible defaults when env vars are not set.
  */
 export function createPerformanceConfig(): PerformanceConfig {
-	// Parse numeric values with NaN validation
+	// Parse numeric values with fallbacks
 	const maxConcurrentRequests = process.env.MAX_CONCURRENT_REQUESTS
 		? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
 		: 50
 	const schedulerConcurrency = process.env.SCHEDULER_CONCURRENCY
 		? parseInt(process.env.SCHEDULER_CONCURRENCY, 10)
 		: 5
+	const schedulerMaxPerRegion = process.env.SCHEDULER_MAX_PER_REGION
+		? parseInt(process.env.SCHEDULER_MAX_PER_REGION, 10)
+		: 5
 
-	// Validate numeric values are finite and positive before using
+	// Handle invalid values before passing to Zod
 	const validatedMaxConcurrent =
-		!Number.isNaN(maxConcurrentRequests) &&
-		Number.isFinite(maxConcurrentRequests) &&
-		maxConcurrentRequests > 0
-			? maxConcurrentRequests
-			: 50
+		Number.isNaN(maxConcurrentRequests) ||
+		!Number.isFinite(maxConcurrentRequests) ||
+		maxConcurrentRequests <= 0
+			? 50
+			: maxConcurrentRequests
 	const validatedSchedulerConcurrency =
-		!Number.isNaN(schedulerConcurrency) &&
-		Number.isFinite(schedulerConcurrency) &&
-		schedulerConcurrency > 0
-			? schedulerConcurrency
-			: 5
+		Number.isNaN(schedulerConcurrency) ||
+		!Number.isFinite(schedulerConcurrency) ||
+		schedulerConcurrency <= 0
+			? 5
+			: schedulerConcurrency
+	const validatedSchedulerMaxPerRegion =
+		Number.isNaN(schedulerMaxPerRegion) ||
+		!Number.isFinite(schedulerMaxPerRegion) ||
+		schedulerMaxPerRegion <= 0
+			? 5
+			: schedulerMaxPerRegion
 
 	return PerformanceConfigSchema.parse({
 		USE_PARALLEL_SCHEDULER: parseBoolean(process.env.USE_PARALLEL_SCHEDULER) ?? false,
@@ -93,9 +108,11 @@ export function createPerformanceConfig(): PerformanceConfig {
 		USE_COMPACT_JSON: parseBoolean(process.env.USE_COMPACT_JSON) ?? true,
 		USE_SORTED_KEYS: parseBoolean(process.env.USE_SORTED_KEYS) ?? false,
 		CIRCUIT_BREAKER_ENABLED: parseBoolean(process.env.CIRCUIT_BREAKER_ENABLED) ?? true,
-		METRICS_ENABLED: parseBoolean(process.env.METRICS_ENABLED) ?? true,
+		METRICS_ENABLED: parseBoolean(process.env.METRICS_ENABLED) ?? false,
 		MAX_CONCURRENT_REQUESTS: validatedMaxConcurrent,
-		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency
+		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency,
+		SCHEDULER_MAX_PER_REGION: validatedSchedulerMaxPerRegion,
+		DEFAULT_REGION: process.env.DEFAULT_REGION?.trim() || 'us'
 	})
 }
 
@@ -113,10 +130,12 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	USE_COMPACT_JSON: true,
 	USE_SORTED_KEYS: false,
 	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
+	METRICS_ENABLED: false,
 	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5
-} as const
+	SCHEDULER_CONCURRENCY: 5,
+	SCHEDULER_MAX_PER_REGION: 5,
+	DEFAULT_REGION: 'us'
+}
 
 // ============================================================================
 // Singleton Instance

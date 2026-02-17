@@ -27,6 +27,66 @@ function validateConcurrency(value: number | undefined): number {
 }
 
 /**
+ * Validate concurrency guardrails for batch processing
+ * Ensures concurrency values are within configured limits
+ *
+ * @param concurrencyInput The desired concurrency value
+ * @param maxPerRegionInput Optional max per region value
+ * @param schedulerConcurrency The maximum allowed scheduler concurrency from config
+ * @param maxPerRegionCap The hard cap for per-region concurrency from config
+ * @returns Validated and clamped concurrency and maxPerRegion values
+ */
+function validateConcurrencyGuardrails(
+	concurrencyInput: number | undefined,
+	maxPerRegionInput: number | undefined,
+	schedulerConcurrency: number,
+	maxPerRegionCap: number
+): { concurrency: number; maxPerRegion: number } {
+	const concurrency = validateConcurrency(concurrencyInput ?? schedulerConcurrency)
+	if (concurrency > schedulerConcurrency) {
+		throw new Error('Concurrency exceeds SCHEDULER_CONCURRENCY guardrail')
+	}
+	const configuredMaxPerRegion = validateConcurrency(
+		maxPerRegionInput ?? Math.min(concurrency, maxPerRegionCap)
+	)
+	const maxPerRegion = Math.min(configuredMaxPerRegion, maxPerRegionCap)
+	if (maxPerRegion > concurrency) {
+		throw new Error('Per-region concurrency exceeds overall concurrency guardrail')
+	}
+	return { concurrency, maxPerRegion }
+}
+
+/**
+ * Create atomic counters for tracking batch processing statistics
+ * Uses closure pattern to maintain async-safe counters
+ */
+function createAtomicCounters() {
+	let successCount = 0
+	let failureCount = 0
+	const regionCounts: Record<string, number> = {}
+	return {
+		incrementSuccess(): void {
+			successCount += 1
+		},
+		incrementFailures(): void {
+			failureCount += 1
+		},
+		incrementRegion(region: string): void {
+			regionCounts[region] = (regionCounts[region] ?? 0) + 1
+		},
+		getSuccess(): number {
+			return successCount
+		},
+		getFailures(): number {
+			return failureCount
+		},
+		getRegions(): Record<string, number> {
+			return { ...regionCounts }
+		}
+	}
+}
+
+/**
  * Process items in batches with controlled concurrency
  * Uses p-limit for rate limiting and concurrency control
  *
@@ -49,7 +109,7 @@ export async function processBatch<T, R>(
 		success: 0,
 		failures: 0,
 		regions: {},
-		maxConcurrencyObserved: 1
+		maxConcurrencyObserved: 0
 	}
 
 	// If parallel scheduler is disabled, process sequentially
@@ -68,22 +128,25 @@ export async function processBatch<T, R>(
 		return { results, summary }
 	}
 
-	const concurrency = validateConcurrency(options.concurrency ?? config.SCHEDULER_CONCURRENCY)
-	if (concurrency > config.SCHEDULER_CONCURRENCY) {
-		throw new Error('Concurrency exceeds SCHEDULER_CONCURRENCY guardrail')
-	}
+	const { concurrency } = validateConcurrencyGuardrails(
+		options.concurrency,
+		undefined,
+		config.SCHEDULER_CONCURRENCY,
+		config.SCHEDULER_MAX_PER_REGION
+	)
 	const limit = pLimit(concurrency)
 	const counters = createConcurrencyCounter()
+	const atomicCounters = createAtomicCounters()
 
 	const promises = items.map((item) =>
 		limit(async () => {
 			const release = counters.track()
 			try {
 				const result = await processor(item)
-				summary.success += 1
+				atomicCounters.incrementSuccess()
 				return result
 			} catch {
-				summary.failures += 1
+				atomicCounters.incrementFailures()
 				return undefined
 			} finally {
 				release()
@@ -93,9 +156,9 @@ export async function processBatch<T, R>(
 
 	const resolved = await Promise.all(promises)
 	const observed = counters.getMax()
-	if (observed) {
-		summary.maxConcurrencyObserved = observed
-	}
+	summary.success = atomicCounters.getSuccess()
+	summary.failures = atomicCounters.getFailures()
+	summary.maxConcurrencyObserved = observed
 	return { results: resolved, summary }
 }
 
@@ -122,7 +185,7 @@ export async function processBatchByRegion<T extends { region?: string | null },
 		success: 0,
 		failures: 0,
 		regions: {},
-		maxConcurrencyObserved: 1
+		maxConcurrencyObserved: 0
 	}
 
 	// If parallel scheduler is disabled, process sequentially
@@ -143,25 +206,21 @@ export async function processBatchByRegion<T extends { region?: string | null },
 		return { results, summary }
 	}
 
-	const concurrency = validateConcurrency(options.concurrency ?? config.SCHEDULER_CONCURRENCY)
-	if (concurrency > config.SCHEDULER_CONCURRENCY) {
-		throw new Error('Concurrency exceeds SCHEDULER_CONCURRENCY guardrail')
-	}
-	const configuredMaxPerRegion = validateConcurrency(
-		options.maxPerRegion ?? Math.min(concurrency, 5)
+	const { concurrency, maxPerRegion } = validateConcurrencyGuardrails(
+		options.concurrency,
+		options.maxPerRegion,
+		config.SCHEDULER_CONCURRENCY,
+		config.SCHEDULER_MAX_PER_REGION
 	)
-	const maxPerRegion = Math.min(configuredMaxPerRegion, 5)
-	if (maxPerRegion > concurrency) {
-		throw new Error('Per-region concurrency exceeds overall concurrency guardrail')
-	}
 
 	const regionLimiters = new Map<string, ReturnType<typeof pLimit>>()
 	const counters = createConcurrencyCounter()
+	const atomicCounters = createAtomicCounters()
 
 	const overallLimit = pLimit(concurrency)
 	const tasks = items.map((item) => {
 		const region = normalizeRegion(item.region)
-		summary.regions[region] = (summary.regions[region] ?? 0) + 1
+		atomicCounters.incrementRegion(region)
 		let limiter = regionLimiters.get(region)
 		if (!limiter) {
 			limiter = pLimit(maxPerRegion)
@@ -174,10 +233,10 @@ export async function processBatchByRegion<T extends { region?: string | null },
 				const release = counters.track()
 				try {
 					const result = await processor(item)
-					summary.success += 1
+					atomicCounters.incrementSuccess()
 					return result
 				} catch {
-					summary.failures += 1
+					atomicCounters.incrementFailures()
 					return undefined
 				} finally {
 					release()
@@ -188,14 +247,15 @@ export async function processBatchByRegion<T extends { region?: string | null },
 
 	const resolved = await Promise.all(tasks)
 	const observed = counters.getMax()
-	if (observed) {
-		summary.maxConcurrencyObserved = observed
-	}
+	summary.maxConcurrencyObserved = observed
+	summary.success = atomicCounters.getSuccess()
+	summary.failures = atomicCounters.getFailures()
+	summary.regions = atomicCounters.getRegions()
 	return { results: resolved, summary }
 }
 
-function normalizeRegion(region?: string | null): string {
-	if (!region || region.trim() === '') return 'us'
+export function normalizeRegion(region?: string | null, defaultRegion?: string): string {
+	if (!region || region.trim() === '') return defaultRegion ?? getPerformanceConfig().DEFAULT_REGION
 	return region
 }
 

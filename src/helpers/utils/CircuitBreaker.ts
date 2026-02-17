@@ -16,6 +16,19 @@ export interface CircuitBreakerStats {
 	lastSuccessTime: number | null
 }
 
+export const DEFAULT_CIRCUIT_BREAKER_OPTIONS: Required<CircuitBreakerOptions> = {
+	failureThreshold: 5,
+	resetTimeoutMs: 60000,
+	successThreshold: 2
+}
+
+/**
+ * Maximum success count to prevent unbounded growth in CLOSED state.
+ * This cap prevents integer overflow issues while maintaining sufficient
+ * precision for tracking success patterns.
+ */
+export const MAX_SUCCESS_COUNT = 10000
+
 /**
  * Circuit Breaker pattern implementation for external API calls
  *
@@ -42,15 +55,40 @@ export class CircuitBreaker {
 	private readonly resetTimeoutMs: number
 	private readonly successThreshold: number
 
+	private static normalizeOption(value: number | undefined, defaultValue: number): number {
+		if (value === undefined) {
+			return defaultValue
+		}
+
+		if (!Number.isFinite(value)) {
+			return defaultValue
+		}
+
+		const intValue = Math.floor(value)
+		return intValue >= 1 ? intValue : defaultValue
+	}
+
 	constructor(options: CircuitBreakerOptions = {}) {
 		const config = getPerformanceConfig()
 
 		// If circuit breaker is disabled via feature flag, set thresholds to never trip
 		const enabled = config.CIRCUIT_BREAKER_ENABLED
 
-		this.failureThreshold = enabled ? (options.failureThreshold ?? 5) : Number.MAX_SAFE_INTEGER
-		this.resetTimeoutMs = options.resetTimeoutMs ?? 60000 // 1 minute default
-		this.successThreshold = options.successThreshold ?? 2
+		const normalizedFailureThreshold = CircuitBreaker.normalizeOption(
+			options.failureThreshold,
+			DEFAULT_CIRCUIT_BREAKER_OPTIONS.failureThreshold
+		)
+		const normalizedResetTimeoutMs = CircuitBreaker.normalizeOption(
+			options.resetTimeoutMs,
+			DEFAULT_CIRCUIT_BREAKER_OPTIONS.resetTimeoutMs
+		)
+		const normalizedSuccessThreshold = CircuitBreaker.normalizeOption(
+			options.successThreshold,
+			DEFAULT_CIRCUIT_BREAKER_OPTIONS.successThreshold
+		)
+		this.failureThreshold = enabled ? normalizedFailureThreshold : Number.MAX_SAFE_INTEGER
+		this.resetTimeoutMs = normalizedResetTimeoutMs
+		this.successThreshold = normalizedSuccessThreshold
 	}
 
 	/**
@@ -128,8 +166,8 @@ export class CircuitBreaker {
 				this.successes = 0
 			}
 		} else {
-			// In CLOSED state, just track success
-			this.successes++
+			// In CLOSED state, just track success with a cap to prevent unbounded growth
+			this.successes = Math.min(this.successes + 1, MAX_SUCCESS_COUNT)
 		}
 	}
 
@@ -180,11 +218,7 @@ let audibleCircuitBreaker: CircuitBreaker | null = null
 
 export function getAudibleCircuitBreaker(): CircuitBreaker {
 	if (!audibleCircuitBreaker) {
-		audibleCircuitBreaker = new CircuitBreaker({
-			failureThreshold: 5,
-			resetTimeoutMs: 60000, // 1 minute
-			successThreshold: 2
-		})
+		audibleCircuitBreaker = new CircuitBreaker(DEFAULT_CIRCUIT_BREAKER_OPTIONS)
 	}
 	return audibleCircuitBreaker
 }

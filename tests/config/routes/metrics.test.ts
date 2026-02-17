@@ -1,7 +1,12 @@
 import { FastifyRequest } from 'fastify'
 import Fastify from 'fastify'
+import { mock } from 'jest-mock-extended'
 
-import { PerformanceConfig, setPerformanceConfig } from '#config/performance'
+import {
+	DEFAULT_PERFORMANCE_CONFIG,
+	PerformanceConfig,
+	setPerformanceConfig
+} from '#config/performance'
 import { isIpAllowed, parseEnvArray, registerMetricsRoute } from '#config/routes/metrics'
 
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
@@ -13,13 +18,35 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	METRICS_ENABLED: true,
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5,
+	SCHEDULER_MAX_PER_REGION: 5,
+	DEFAULT_REGION: 'us',
 	...overrides
 })
 
 describe('Metrics Route - Authentication', () => {
+	let originalAuthToken: string | undefined
+	let originalAllowedIps: string | undefined
+
+	beforeEach(() => {
+		originalAuthToken = process.env.METRICS_AUTH_TOKEN
+		originalAllowedIps = process.env.METRICS_ALLOWED_IPS
+	})
+
+	afterAll(() => {
+		setPerformanceConfig(DEFAULT_PERFORMANCE_CONFIG)
+	})
+
 	afterEach(() => {
-		delete process.env.METRICS_AUTH_TOKEN
-		delete process.env.METRICS_ALLOWED_IPS
+		if (originalAuthToken === undefined) {
+			delete process.env.METRICS_AUTH_TOKEN
+		} else {
+			process.env.METRICS_AUTH_TOKEN = originalAuthToken
+		}
+		if (originalAllowedIps === undefined) {
+			delete process.env.METRICS_ALLOWED_IPS
+		} else {
+			process.env.METRICS_ALLOWED_IPS = originalAllowedIps
+		}
 	})
 
 	describe('parseEnvArray behavior (via route)', () => {
@@ -321,10 +348,11 @@ describe('isIpAllowed', () => {
 		ip: string | undefined,
 		forwardedFor: string | string[] | undefined
 	): FastifyRequest => {
-		return {
-			ip,
-			headers: forwardedFor !== undefined ? { 'x-forwarded-for': forwardedFor } : {}
-		} as FastifyRequest
+		const mockReq = mock<FastifyRequest>()
+		;(mockReq as unknown as { ip: string | undefined }).ip = ip
+		;(mockReq as unknown as { headers: Record<string, string | string[]> }).headers =
+			forwardedFor !== undefined ? { 'x-forwarded-for': forwardedFor } : {}
+		return mockReq
 	}
 
 	describe('x-forwarded-for as array', () => {
@@ -459,6 +487,49 @@ describe('isIpAllowed', () => {
 			const mockRequest = createMockRequest(undefined, undefined)
 
 			const result = isIpAllowed(mockRequest, ['unknown'])
+			expect(result).toBe(true)
+		})
+	})
+
+	describe('invalid CIDR/IP handling', () => {
+		it('returns false for invalid CIDR format', () => {
+			const mockRequest = createMockRequest('10.0.0.1', undefined)
+			const result = isIpAllowed(mockRequest, ['invalid-cidr'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false for malformed CIDR', () => {
+			const mockRequest = createMockRequest('192.168.1.1', undefined)
+			const result = isIpAllowed(mockRequest, ['192.168.1/24'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false for non-IP string', () => {
+			const mockRequest = createMockRequest('172.16.0.1', undefined)
+			const result = isIpAllowed(mockRequest, ['not-a-valid-ip'])
+			expect(result).toBe(false)
+		})
+
+		it('returns false for various invalid CIDR formats', () => {
+			const mockRequest = createMockRequest('10.0.0.1', undefined)
+
+			const invalidInputs = [
+				'invalid-cidr',
+				'192.168.1/24', // malformed CIDR
+				'not-a-valid-ip',
+				'999.999.999.999', // invalid IP
+				'string/cidr' // non-numeric CIDR
+			]
+
+			for (const invalidInput of invalidInputs) {
+				const result = isIpAllowed(mockRequest, [invalidInput])
+				expect(result).toBe(false)
+			}
+		})
+
+		it('returns true for valid IP in allowed list', () => {
+			const mockRequest = createMockRequest('10.0.0.1', undefined)
+			const result = isIpAllowed(mockRequest, ['10.0.0.1'])
 			expect(result).toBe(true)
 		})
 	})

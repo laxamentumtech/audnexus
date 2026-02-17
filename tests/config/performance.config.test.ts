@@ -152,6 +152,18 @@ describe('PerformanceConfig', () => {
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
+
+		it('should use default 5 for SCHEDULER_MAX_PER_REGION when not set', () => {
+			delete process.env.SCHEDULER_MAX_PER_REGION
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
+		})
+
+		it('should use default "us" for DEFAULT_REGION when not set', () => {
+			delete process.env.DEFAULT_REGION
+			const config = createPerformanceConfig()
+			expect(config.DEFAULT_REGION).toBe('us')
+		})
 	})
 
 	describe('Environment Variable Overrides', () => {
@@ -197,6 +209,18 @@ describe('PerformanceConfig', () => {
 			expect(config.SCHEDULER_CONCURRENCY).toBe(10)
 		})
 
+		it('should override SCHEDULER_MAX_PER_REGION from environment', () => {
+			process.env.SCHEDULER_MAX_PER_REGION = '10'
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(10)
+		})
+
+		it('should override DEFAULT_REGION from environment', () => {
+			process.env.DEFAULT_REGION = 'uk'
+			const config = createPerformanceConfig()
+			expect(config.DEFAULT_REGION).toBe('uk')
+		})
+
 		it('should handle all environment variables at once', () => {
 			process.env.USE_PARALLEL_SCHEDULER = 'true'
 			process.env.USE_CONNECTION_POOLING = 'false'
@@ -205,6 +229,8 @@ describe('PerformanceConfig', () => {
 			process.env.CIRCUIT_BREAKER_ENABLED = 'false'
 			process.env.MAX_CONCURRENT_REQUESTS = '75'
 			process.env.SCHEDULER_CONCURRENCY = '8'
+			process.env.SCHEDULER_MAX_PER_REGION = '12'
+			process.env.DEFAULT_REGION = 'uk'
 
 			const config = createPerformanceConfig()
 
@@ -215,6 +241,8 @@ describe('PerformanceConfig', () => {
 			expect(config.CIRCUIT_BREAKER_ENABLED).toBe(false)
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(75)
 			expect(config.SCHEDULER_CONCURRENCY).toBe(8)
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(12)
+			expect(config.DEFAULT_REGION).toBe('uk')
 		})
 	})
 
@@ -235,6 +263,32 @@ describe('PerformanceConfig', () => {
 			process.env.MAX_CONCURRENT_REQUESTS = '500'
 			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(500)
+		})
+	})
+
+	describe('String Parsing', () => {
+		it('should trim whitespace from DEFAULT_REGION', () => {
+			process.env.DEFAULT_REGION = '  uk  '
+			const config = createPerformanceConfig()
+			expect(config.DEFAULT_REGION).toBe('uk')
+		})
+
+		it('should trim whitespace from DEFAULT_REGION with multiple spaces', () => {
+			process.env.DEFAULT_REGION = '    uk    '
+			const config = createPerformanceConfig()
+			expect(config.DEFAULT_REGION).toBe('uk')
+		})
+
+		it('should handle DEFAULT_REGION without whitespace', () => {
+			process.env.DEFAULT_REGION = 'uk'
+			const config = createPerformanceConfig()
+			expect(config.DEFAULT_REGION).toBe('uk')
+		})
+
+		it('should handle DEFAULT_REGION with tab whitespace', () => {
+			process.env.DEFAULT_REGION = '\tuk\t'
+			const config = createPerformanceConfig()
+			expect(config.DEFAULT_REGION).toBe('uk')
 		})
 	})
 
@@ -308,6 +362,46 @@ describe('PerformanceConfig', () => {
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
+
+		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with non-numeric string "abc"', () => {
+			jest.resetModules()
+			process.env.SCHEDULER_MAX_PER_REGION = 'abc'
+			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
+			const config = createConfig()
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
+		})
+
+		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with non-numeric string "invalid"', () => {
+			jest.resetModules()
+			process.env.SCHEDULER_MAX_PER_REGION = 'invalid'
+			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
+			const config = createConfig()
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
+		})
+
+		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with negative string "-1"', () => {
+			jest.resetModules()
+			process.env.SCHEDULER_MAX_PER_REGION = '-1'
+			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
+			const config = createConfig()
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
+		})
+
+		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with negative string "-10"', () => {
+			jest.resetModules()
+			process.env.SCHEDULER_MAX_PER_REGION = '-10'
+			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
+			const config = createConfig()
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
+		})
+
+		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with zero "0"', () => {
+			jest.resetModules()
+			process.env.SCHEDULER_MAX_PER_REGION = '0'
+			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
+			const config = createConfig()
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
+		})
 	})
 
 	describe('Singleton Pattern', () => {
@@ -337,7 +431,9 @@ describe('PerformanceConfig', () => {
 				CIRCUIT_BREAKER_ENABLED: false,
 				METRICS_ENABLED: false,
 				MAX_CONCURRENT_REQUESTS: 100,
-				SCHEDULER_CONCURRENCY: 10
+				SCHEDULER_CONCURRENCY: 10,
+				SCHEDULER_MAX_PER_REGION: 10,
+				DEFAULT_REGION: 'uk'
 			}
 
 			setPerformanceConfig(customConfig)
@@ -350,6 +446,8 @@ describe('PerformanceConfig', () => {
 			expect(config.CIRCUIT_BREAKER_ENABLED).toBe(false)
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(100)
 			expect(config.SCHEDULER_CONCURRENCY).toBe(10)
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(10)
+			expect(config.DEFAULT_REGION).toBe('uk')
 		})
 
 		it('should allow overriding singleton with environment after reset', () => {
@@ -361,7 +459,9 @@ describe('PerformanceConfig', () => {
 				CIRCUIT_BREAKER_ENABLED: true,
 				METRICS_ENABLED: true,
 				MAX_CONCURRENT_REQUESTS: 50,
-				SCHEDULER_CONCURRENCY: 5
+				SCHEDULER_CONCURRENCY: 5,
+				SCHEDULER_MAX_PER_REGION: 5,
+				DEFAULT_REGION: 'us'
 			}
 
 			setPerformanceConfig(customConfig)
@@ -386,6 +486,8 @@ describe('PerformanceConfig', () => {
 			expect(DEFAULT_PERFORMANCE_CONFIG.CIRCUIT_BREAKER_ENABLED).toBe(true)
 			expect(DEFAULT_PERFORMANCE_CONFIG.MAX_CONCURRENT_REQUESTS).toBe(50)
 			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_CONCURRENCY).toBe(5)
+			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_MAX_PER_REGION).toBe(5)
+			expect(DEFAULT_PERFORMANCE_CONFIG.DEFAULT_REGION).toBe('us')
 		})
 
 		it('should have all required properties', () => {
@@ -397,7 +499,9 @@ describe('PerformanceConfig', () => {
 				'CIRCUIT_BREAKER_ENABLED',
 				'METRICS_ENABLED',
 				'MAX_CONCURRENT_REQUESTS',
-				'SCHEDULER_CONCURRENCY'
+				'SCHEDULER_CONCURRENCY',
+				'SCHEDULER_MAX_PER_REGION',
+				'DEFAULT_REGION'
 			]
 
 			for (const key of requiredKeys) {
@@ -418,6 +522,8 @@ describe('PerformanceConfig', () => {
 			expect(typeof config.METRICS_ENABLED).toBe('boolean')
 			expect(typeof config.MAX_CONCURRENT_REQUESTS).toBe('number')
 			expect(typeof config.SCHEDULER_CONCURRENCY).toBe('number')
+			expect(typeof config.SCHEDULER_MAX_PER_REGION).toBe('number')
+			expect(typeof config.DEFAULT_REGION).toBe('string')
 		})
 
 		it('should return PerformanceConfig type from factory', () => {
@@ -436,6 +542,8 @@ describe('PerformanceConfig', () => {
 			delete process.env.CIRCUIT_BREAKER_ENABLED
 			delete process.env.MAX_CONCURRENT_REQUESTS
 			delete process.env.SCHEDULER_CONCURRENCY
+			delete process.env.SCHEDULER_MAX_PER_REGION
+			delete process.env.DEFAULT_REGION
 
 			const config = createPerformanceConfig()
 
@@ -446,6 +554,8 @@ describe('PerformanceConfig', () => {
 			expect(config.CIRCUIT_BREAKER_ENABLED).toBe(true)
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
+			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
+			expect(config.DEFAULT_REGION).toBe('us')
 		})
 
 		it('should handle case variations consistently', () => {

@@ -1,7 +1,11 @@
 import Fastify from 'fastify'
 
-import { PerformanceConfig } from '#config/performance'
-import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
+import {
+	DEFAULT_PERFORMANCE_CONFIG,
+	PerformanceConfig,
+	resetPerformanceConfig,
+	setPerformanceConfig
+} from '#config/performance'
 import {
 	getPerformanceMetrics,
 	registerPerformanceHooks,
@@ -13,14 +17,7 @@ import {
  * Provides a reusable base configuration with optional overrides.
  */
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: false,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
+	...DEFAULT_PERFORMANCE_CONFIG,
 	...overrides
 })
 
@@ -28,6 +25,7 @@ describe('Performance Hooks', () => {
 	beforeEach(() => {
 		resetPerformanceConfig()
 		resetMetrics()
+		setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
 	})
 
 	describe('getPerformanceMetrics', () => {
@@ -151,6 +149,77 @@ describe('Performance Hooks', () => {
 			expect(requestMetrics.max).toBeGreaterThanOrEqual(requestMetrics.min)
 			expect(requestMetrics.avg).toBeGreaterThanOrEqual(requestMetrics.min)
 			expect(requestMetrics.avg).toBeLessThanOrEqual(requestMetrics.max)
+
+			await fastify.close()
+		})
+
+		it('should NOT record metrics for 4xx responses', async () => {
+			const fastify = Fastify()
+			fastify.get('/not-found', async (_, reply) => {
+				return reply.status(404).send({ error: 'Not found' })
+			})
+			registerPerformanceHooks(fastify)
+			await fastify.ready()
+
+			await fastify.inject({ method: 'GET', url: '/not-found' })
+
+			const metrics = getPerformanceMetrics()
+			expect(metrics.requests['/not-found']).toBeUndefined()
+
+			await fastify.close()
+		})
+
+		it('should NOT record metrics for 5xx responses', async () => {
+			const fastify = Fastify()
+			fastify.get('/server-error', async () => {
+				throw new Error('Server error')
+			})
+			registerPerformanceHooks(fastify)
+			await fastify.ready()
+
+			const response = await fastify.inject({ method: 'GET', url: '/server-error' })
+			expect(response.statusCode).toBe(500)
+
+			const metrics = getPerformanceMetrics()
+			expect(metrics.requests['/server-error']).toBeUndefined()
+
+			await fastify.close()
+		})
+
+		it('should NOT record metrics for 400 bad request', async () => {
+			const fastify = Fastify()
+			fastify.get('/bad-request', async (_, reply) => {
+				return reply.status(400).send({ error: 'Bad request' })
+			})
+			registerPerformanceHooks(fastify)
+			await fastify.ready()
+
+			await fastify.inject({ method: 'GET', url: '/bad-request' })
+
+			const metrics = getPerformanceMetrics()
+			expect(metrics.requests['/bad-request']).toBeUndefined()
+
+			await fastify.close()
+		})
+
+		it('should handle MAX_STORED_DURATIONS limit for request durations', async () => {
+			const fastify = Fastify()
+			fastify.get('/test', async () => ({ message: 'ok' }))
+			registerPerformanceHooks(fastify)
+			await fastify.ready()
+
+			// Send 101 requests to trigger MAX_STORED_DURATIONS limit
+			for (let i = 0; i < 101; i++) {
+				await fastify.inject({ method: 'GET', url: '/test' })
+			}
+
+			const metrics = getPerformanceMetrics()
+			expect(metrics.requests['/test']).toBeDefined()
+			// Count should still be accurate even though durations are capped
+			expect(metrics.requests['/test'].count).toBe(101)
+			// Min and avg should still be calculated correctly
+			expect(metrics.requests['/test'].min).toBeGreaterThanOrEqual(0)
+			expect(metrics.requests['/test'].avg).toBeGreaterThanOrEqual(0)
 
 			await fastify.close()
 		})

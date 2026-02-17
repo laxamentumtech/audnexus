@@ -9,7 +9,7 @@ info:
   license:
     name: GPL v3
     url: 'https://www.gnu.org/licenses/gpl-3.0.en.html'
-  version: 1.8.0
+  version: 1.11.0
 externalDocs:
   description: Find out more about Audnexus
   url: 'https://github.com/djdembeck/audnexus'
@@ -27,6 +27,8 @@ tags:
     description: Search functions
   - name: Health
     description: Health check functions
+  - name: Metrics
+    description: Performance metrics
 paths:
   '/health':
     get:
@@ -98,6 +100,107 @@ paths:
                   server: true
                   database: false
                   redis: false
+  '/metrics':
+    get:
+      summary: Performance metrics
+      description: |
+        Returns performance metrics including memory usage, uptime, and request statistics.
+        This endpoint requires authentication via either `x-metrics-token` header or IP-based access control.
+      operationId: getMetrics
+      tags:
+        - Metrics
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  memory:
+                    type: object
+                    properties:
+                      used:
+                        type: number
+                        description: Heap memory used in MB
+                      total:
+                        type: number
+                        description: Total heap size in MB
+                      external:
+                        type: number
+                        description: External memory in MB
+                      rss:
+                        type: number
+                        description: Resident set size in MB
+                  uptime:
+                    type: number
+                    description: Server uptime in seconds
+                  requests:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        count:
+                          type: number
+                          description: Number of requests to this endpoint
+                        duration:
+                          type: number
+                          description: Total duration in milliseconds
+                        min:
+                          type: number
+                          description: Minimum request duration in milliseconds
+                        max:
+                          type: number
+                          description: Maximum request duration in milliseconds
+                        avg:
+                          type: number
+                          description: Average request duration in milliseconds
+                example:
+                  memory:
+                    used: 45.23
+                    total: 128.0
+                    external: 12.5
+                    rss: 95.8
+                  uptime: 86400
+                  requests:
+                    '/books/{ASIN}':
+                      count: 1500
+                      duration: 45000
+                      min: 10
+                      max: 500
+                      avg: 30
+                    '/health':
+                      count: 500
+                      duration: 2500
+                      min: 2
+                      max: 20
+                      avg: 5
+        '403':
+          description: Forbidden - authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+              example:
+                error: Forbidden
+        '404':
+          description: Metrics endpoint disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+              example:
+                error: Metrics endpoint disabled
+      security:
+        - ApiKeyAuth: []
+        - ipAuth: []
+    parameters: []
   '/books/{ASIN}':
     get:
       summary: Find book by ID
@@ -916,6 +1019,22 @@ paths:
         name: region
         description: Region code
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-metrics-token
+      description: |
+        Authentication token for metrics endpoint. Set via `METRICS_AUTH_TOKEN` environment variable.
+        Note: This is optional if `METRICS_ALLOWED_IPS` is configured for IP-based access.
+    ipAuth:
+      type: apiKey
+      in: header
+      name: x-forwarded-for
+      description: |
+        IP-based access control. Client IP is extracted from `x-forwarded-for` header or direct connection.
+        Set via `METRICS_ALLOWED_IPS` environment variable (comma-separated list, supports CIDR notation).
+        Note: This is optional if `METRICS_AUTH_TOKEN` is configured for token-based access.
   schemas:
     Author:
       type: object

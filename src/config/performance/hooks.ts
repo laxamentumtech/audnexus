@@ -97,6 +97,7 @@ export function registerPerformanceHooks(fastify: FastifyInstance): void {
 
 	fastify.addHook('onResponse', async (request, reply) => {
 		if (!request.performanceStartTime) return
+		if (reply.statusCode >= 400) return
 
 		const endTime = process.hrtime.bigint()
 		const durationMs = Number(endTime - request.performanceStartTime) / MS_PER_NS
