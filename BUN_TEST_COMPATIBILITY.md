@@ -82,23 +82,23 @@ These tests make real API calls and require the `RUN_LIVE_TESTS` environment var
 
 ```bash
 # Run bun-compatible tests
-pnpm test:bun
+bun run test
 
 # Run bun-compatible tests in watch mode
-pnpm test:bun:watch
+bun run watch
 ```
 
-### Jest Tests (Full Test Suite)
+### Legacy Jest Tests (Full Test Suite - requires Node.js)
 
 ```bash
 # Run all tests with Jest
-pnpm test
+npm run test
 
 # Run live integration tests
-pnpm test:live
+npm run test:live
 
 # Run tests in watch mode
-pnpm watch-test
+npm run watch-test
 ```
 
 ## Migration Notes

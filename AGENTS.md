@@ -430,7 +430,7 @@ The repository uses `webiny/action-conventional-commits` to validate commit mess
 **Environment variable required:**
 
 ```bash
-RUN_LIVE_TESTS=true pnpm test:live
+RUN_LIVE_TESTS=true bun run test:live
 ```
 
 **Live tests are located in:** `tests/live/`
@@ -447,7 +447,7 @@ RUN_LIVE_TESTS=true pnpm test:live
 **Command:**
 
 ```bash
-pnpm test:live
+bun run test:live
 ```
 
 **Jest configuration (jest.live.config.ts):**

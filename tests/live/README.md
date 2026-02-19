@@ -17,13 +17,13 @@ Live tests are disabled by default to prevent accidental execution during develo
 ### Enable and run live tests:
 
 ```bash
-RUN_LIVE_TESTS=true pnpm test:live
+RUN_LIVE_TESTS=true bun run test:live
 ```
 
 ### Run with credentials for chapter tests:
 
 ```bash
-RUN_LIVE_TESTS=true ADP_TOKEN=your_token PRIVATE_KEY=your_key pnpm test:live
+RUN_LIVE_TESTS=true ADP_TOKEN=your_token PRIVATE_KEY=your_key bun run test:live
 ```
 
 ## Test Files
@@ -135,21 +135,20 @@ jobs:
   live-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '20'
+          bun-version: 1.3.9
 
       - name: Install dependencies
-        run: pnpm install
+        run: bun install
 
       # Run live tests without credentials (API and HTML scraping only)
       - name: Run Live Tests
         env:
           RUN_LIVE_TESTS: true
-        run: pnpm test:live
+        run: bun run test:live
 
       # Optional: Run with chapter API credentials (stored as secrets)
       - name: Run Live Tests with Chapter API
@@ -158,16 +157,17 @@ jobs:
           RUN_LIVE_TESTS: true
           ADP_TOKEN: ${{ secrets.ADP_TOKEN }}
           PRIVATE_KEY: ${{ secrets.PRIVATE_KEY }}
-        run: pnpm test:live
+        run: bun run test:live
 ```
 
 #### GitLab CI Example
 
 ```yaml
 live_tests:
+  image: oven/bun:1.3.9
   script:
-    - pnpm install
-    - RUN_LIVE_TESTS=true pnpm test:live
+    - bun install
+    - RUN_LIVE_TESTS=true bun run test:live
   only:
     - schedules
   variables:
