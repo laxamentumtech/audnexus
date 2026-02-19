@@ -145,9 +145,9 @@ Updating, improving and correcting the documentation
 
 -->
 
-## Bun Compatibility
+## Bun Runtime
 
-As of the `modernization/bun-esm` branch, audnexus supports running with [Bun](https://bun.sh/) as an alternative runtime to Node.js.
+Audnexus runs on [Bun](https://bun.sh/), a fast JavaScript runtime.
 
 ### Running with Bun
 
@@ -161,36 +161,29 @@ bun src/server.ts
 bun run serve
 ```
 
-### Known Limitations
+### Testing
 
-#### Fastify/light-my-request Test Compatibility
+Tests are run with Bun's built-in test runner:
 
-The test suite uses Fastify's `light-my-request` package for HTTP injection testing. This package has known compatibility issues with Bun's runtime:
-
-- **Issue**: Tests using `fastify.inject()` may fail or produce incorrect results when run with Bun
-- **Root Cause**: `light-my-request` relies on Node.js-specific internal APIs that differ in Bun
-- **Impact**: Unit and integration tests cannot be reliably run with Bun
-
-#### Recommended Testing Approach
-
-During the Bun transition period:
-
-1. **Use Bun for testing**: Run `pnpm test` or `bun test` for the test suite
-2. **Use Bun for development**: Run `bun src/server.ts` for local development
-3. **CI/CD**: Continue using Node.js for automated testing until Bun compatibility improves
-
-#### Module Aliases
-
-Bun uses the standard `package.json` `"imports"` field for module aliasing, which is already configured. The `module-alias` package is conditionally loaded only when running under Node.js:
-
-```typescript
-// server.ts
-if (typeof Bun === 'undefined') {
-	await import('module-alias/register')
-}
+```bash
+bun run test
 ```
 
-This allows the same codebase to work with both runtimes.
+Some legacy tests use Jest-specific APIs and are being converted. New tests should use Bun's native mocking capabilities:
+
+```typescript
+import { mock } from 'bun:test'
+
+const mockFetch = mock(() => Promise.resolve({ data: 'test' }))
+```
+
+### Module Aliases
+
+Bun uses the standard `package.json` `"imports"` field for module aliasing, which is already configured. Import using the `#` prefix:
+
+```typescript
+import { ApiHelper } from '#helpers/audible/ApiHelper'
+```
 
 ## Styleguides
 

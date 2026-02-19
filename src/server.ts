@@ -1,19 +1,3 @@
-// Conditionally import module-alias only for Node.js (not Bun)
-// Using try-catch to handle cases where module-alias is not installed
-// MUST be at the very top before any imports that use # aliases
-if (typeof (globalThis as { Bun?: unknown }).Bun === 'undefined') {
-	try {
-		await import('module-alias/register')
-	} catch (err) {
-		// Only ignore if module is not found - rethrow other errors
-		const error = err as { code?: string }
-		if (error.code !== 'ERR_MODULE_NOT_FOUND') {
-			throw err
-		}
-		// Bun uses package.json "imports" field instead
-	}
-}
-
 import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
