@@ -74,16 +74,16 @@
 		"typescript": "^5.9.3"
 	},
 	"imports": {
-		"#config/*": "./dist/config/*.js",
-		"#helpers/*": "./dist/helpers/*.js",
-		"#helpers/audible/*": "./dist/helpers/audible/*.js",
-		"#helpers/books/*": "./dist/helpers/books/*.js",
-		"#helpers/database/*": "./dist/helpers/database/*.js",
-		"#helpers/errors/*": "./dist/helpers/errors/*.js",
-		"#helpers/routes/*": "./dist/helpers/routes/*.js",
-		"#helpers/utils/*": "./dist/helpers/utils/*.js",
-		"#static/*": "./dist/static/*.js",
-		"#interfaces/*": "./dist/interfaces/*.js",
+		"#config/*": "./src/config/*.ts",
+		"#helpers/*": "./src/helpers/*.ts",
+		"#helpers/audible/*": "./src/helpers/audible/*.ts",
+		"#helpers/books/*": "./src/helpers/books/*.ts",
+		"#helpers/database/*": "./src/helpers/database/*.ts",
+		"#helpers/errors/*": "./src/helpers/errors/*.ts",
+		"#helpers/routes/*": "./src/helpers/routes/*.ts",
+		"#helpers/utils/*": "./src/helpers/utils/*.ts",
+		"#static/*": "./src/static/*.ts",
+		"#interfaces/*": "./src/interfaces/*.ts",
 		"#tests/*": "./tests/*"
 	}
 }
