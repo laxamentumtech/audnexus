@@ -24,7 +24,7 @@ The following tests require Jest and cannot run with Bun due to dependencies on 
 
 ### Fastify/light-my-request Dependent
 
-These tests use Fastify's `inject()` method which is not compatible with Bun:
+These tests use Fastify's `inject()` method which is incompatible with Bun:
 
 - `tests/config/routes/metrics.test.ts`
 - `tests/config/performance/hooks.test.ts`
