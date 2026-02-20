@@ -450,11 +450,12 @@ RUN_LIVE_TESTS=true bun run test:live
 bun run test:live
 ```
 
-**Jest configuration (jest.live.config.ts):**
+**Bun Configuration (bunfig.toml):**
 
-- Includes all live test files
-- Runs against real API endpoints
-- Requires `RUN_LIVE_TESTS=true` environment variable
+- Live tests are run with Bun's native test runner
+- Configuration is defined in `bunfig.toml` (test timeout, coverage settings)
+- Requires `RUN_LIVE_TESTS=true` environment variable to enable live tests
+- Run locally with: `RUN_LIVE_TESTS=true bun run test:live`
 
 ### 6.3 Warning vs Failure Interpretation
 

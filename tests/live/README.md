@@ -179,7 +179,7 @@ live_tests:
 Live tests automatically detect CI environments and adjust behavior:
 
 - **No interactive prompts** - Tests run headless
-- **Force exit** - Jest `--forceExit` flag prevents hanging
+- **Automatic exit** - Bun test runner exits cleanly when tests complete
 - **Verbose output** - Full test names and results are shown
 - **Warning aggregation** - All `[AUDIBLE * CHANGE]` warnings are logged for easy review
 
@@ -201,5 +201,5 @@ Live tests automatically detect CI environments and adjust behavior:
 
 - **Never commit credentials** - Always use environment variables
 - **Live tests are disabled by default** - Require explicit opt-in via `RUN_LIVE_TESTS=true`
-- **Separate Jest config** - `jest.live.config.ts` isolates live test settings
+- **Bun test runner** - Uses Bun's native test runner configured in `bunfig.toml`
 - **CI-safe by design** - Won't run accidentally in CI environments

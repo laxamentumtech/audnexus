@@ -88,18 +88,20 @@ bun run test
 bun run watch
 ```
 
-### Legacy Jest Tests (Full Test Suite - requires Node.js)
+### Bun Test Scripts
 
 ```bash
-# Run all tests with Jest
-npm run test
+# Run bun-compatible unit tests
+bun run test
 
-# Run live integration tests
-npm run test:live
+# Run live integration tests (requires RUN_LIVE_TESTS=true)
+bun run test:live
 
-# Run tests in watch mode
-npm run watch-test
+# Run server in watch mode for development
+bun run watch
 ```
+
+**Note:** The project has migrated from Jest to Bun's native test runner. The `watch-test` script has been removed; use `bun run watch` for watch mode during development.
 
 ## Migration Notes
 
