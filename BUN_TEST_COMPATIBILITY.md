@@ -85,7 +85,7 @@ These tests make real API calls and require the `RUN_LIVE_TESTS` environment var
 bun run test
 
 # Run bun-compatible tests in watch mode
-bun run watch
+bun run test --watch
 ```
 
 ### Bun Test Scripts
@@ -94,6 +94,9 @@ bun run watch
 # Run bun-compatible unit tests
 bun run test
 
+# Run bun-compatible unit tests in watch mode
+bun run test --watch
+
 # Run live integration tests (requires RUN_LIVE_TESTS=true)
 bun run test:live
 
@@ -101,7 +104,7 @@ bun run test:live
 bun run watch
 ```
 
-**Note:** The project has migrated from Jest to Bun's native test runner. The `watch-test` script has been removed; use `bun run watch` for watch mode during development.
+**Note:** The project has migrated from Jest to Bun's native test runner. The `watch-test` script has been removed; use `bun run test --watch` for test watch mode, or `bun run watch` to start the server in watch mode during development.
 
 ## Migration Notes
 
