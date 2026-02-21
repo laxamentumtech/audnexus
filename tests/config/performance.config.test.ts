@@ -294,122 +294,92 @@ describe('PerformanceConfig', () => {
 
 	describe('Invalid Numeric Fallback', () => {
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with non-numeric string "abc"', () => {
-			jest.resetModules()
 			process.env.MAX_CONCURRENT_REQUESTS = 'abc'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with non-numeric string "invalid"', () => {
-			jest.resetModules()
 			process.env.MAX_CONCURRENT_REQUESTS = 'invalid'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with negative string "-1"', () => {
-			jest.resetModules()
 			process.env.MAX_CONCURRENT_REQUESTS = '-1'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with negative string "-100"', () => {
-			jest.resetModules()
 			process.env.MAX_CONCURRENT_REQUESTS = '-100'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 50 for MAX_CONCURRENT_REQUESTS with zero "0"', () => {
-			jest.resetModules()
 			process.env.MAX_CONCURRENT_REQUESTS = '0'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with non-numeric string "xyz"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_CONCURRENCY = 'xyz'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with non-numeric string "not-a-number"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_CONCURRENCY = 'not-a-number'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with negative string "-5"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_CONCURRENCY = '-5'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with negative string "-10"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_CONCURRENCY = '-10'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_CONCURRENCY with zero "0"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_CONCURRENCY = '0'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with non-numeric string "abc"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = 'abc'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with non-numeric string "invalid"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = 'invalid'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with negative string "-1"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = '-1'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with negative string "-10"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = '-10'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
 		it('should fallback to 5 for SCHEDULER_MAX_PER_REGION with zero "0"', () => {
-			jest.resetModules()
 			process.env.SCHEDULER_MAX_PER_REGION = '0'
-			const { createPerformanceConfig: createConfig } = jest.requireActual('#config/performance')
-			const config = createConfig()
+			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 	})

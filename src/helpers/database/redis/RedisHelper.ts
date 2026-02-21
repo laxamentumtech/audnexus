@@ -50,7 +50,7 @@ export default class RedisHelper {
 		} catch (error) {
 			const message = getErrorMessage(error)
 			this.logger?.error(message)
-			throw new Error(ErrorMessageRedisDelete(this.key))
+			throw new Error(ErrorMessageRedisDelete(this.key), { cause: error })
 		}
 	}
 
@@ -120,7 +120,7 @@ export default class RedisHelper {
 		} catch (error) {
 			const message = getErrorMessage(error)
 			this.logger?.error(message)
-			throw new Error(ErrorMessageRedisSet(this.key))
+			throw new Error(ErrorMessageRedisSet(this.key), { cause: error })
 		}
 	}
 }

@@ -4,26 +4,33 @@ All notable changes to this project will be documented in this file. See [standa
 
 ## [1.11.0](https://github.com/laxamentumtech/audnexus/compare/v1.10.0...v1.11.0) (2026-02-16)
 
+### Dependencies
+
+- Upgrade p-limit from 5.0.0 to 7.3.0
+  - **BREAKING CHANGE**: Requires Node.js 20+ or Bun runtime
+  - **Semantic Change**: `activeCount` now increments immediately when a task starts running (previously incremented when the task was picked up from the queue)
+  - No code changes required - codebase does not use `activeCount()` or `pendingCount()` properties
+- Upgrade @fastify/cors from v10 to v11.2.0
+  - **BREAKING CHANGE**: Default allowed methods narrowed to only standard HTTP methods
+  - **Migration**: Explicitly set `methods: 'GET,HEAD,PUT,PATCH,POST,DELETE'` in server.ts CORS configuration to maintain existing behavior
 
 ### Features
 
-* **config:** add metrics auth warning and TRUSTED_PROXIES support ([c2b12fd](https://github.com/laxamentumtech/audnexus/commit/c2b12fdb16162c20861993542285c0bc9cb7e3a4))
-* **config:** add SCHEDULER_MAX_PER_REGION and DEFAULT_REGION for configurable batch processing ([8af62be](https://github.com/laxamentumtech/audnexus/commit/8af62be57fc3f8ce14be0c617d281dc81b1a6baf))
-* **metrics:** add CIDR support for IP allowlisting ([24d615a](https://github.com/laxamentumtech/audnexus/commit/24d615aa9c41877898a44d0f658a7c1bd0cf8bb1))
-
+- **config:** add metrics auth warning and TRUSTED_PROXIES support ([c2b12fd](https://github.com/laxamentumtech/audnexus/commit/c2b12fdb16162c20861993542285c0bc9cb7e3a4))
+- **config:** add SCHEDULER_MAX_PER_REGION and DEFAULT_REGION for configurable batch processing ([8af62be](https://github.com/laxamentumtech/audnexus/commit/8af62be57fc3f8ce14be0c617d281dc81b1a6baf))
+- **metrics:** add CIDR support for IP allowlisting ([24d615a](https://github.com/laxamentumtech/audnexus/commit/24d615aa9c41877898a44d0f658a7c1bd0cf8bb1))
 
 ### Bug Fixes
 
-* **batch-processor:** correct maxConcurrencyObserved initialization ([a7a568a](https://github.com/laxamentumtech/audnexus/commit/a7a568ac016ce7f7918658c97c02233cead357b1))
-* **ci:** add curl timeout and response body capture to Coolify deploy ([3ba1ec7](https://github.com/laxamentumtech/audnexus/commit/3ba1ec70d464fb26c0b0fb76365c05cc61d5b2e9))
-* **circuit-breaker:** validate and normalize options ([56b3aaf](https://github.com/laxamentumtech/audnexus/commit/56b3aaf99ceeb8925814939160a43f87ed41cbea))
-* **security:** use timingSafeEqual for token comparison and restrict trustProxy ([60bd113](https://github.com/laxamentumtech/audnexus/commit/60bd113e556afcd7c063b110c8d7ec76e1a1fff4))
-* **utils:** resolve race condition in batchProcessor and cap CircuitBreaker counter ([6019c8e](https://github.com/laxamentumtech/audnexus/commit/6019c8efe49123b652c692038ecf5adcea088157))
-
+- **batch-processor:** correct maxConcurrencyObserved initialization ([a7a568a](https://github.com/laxamentumtech/audnexus/commit/a7a568ac016ce7f7918658c97c02233cead357b1))
+- **ci:** add curl timeout and response body capture to Coolify deploy ([3ba1ec7](https://github.com/laxamentumtech/audnexus/commit/3ba1ec70d464fb26c0b0fb76365c05cc61d5b2e9))
+- **circuit-breaker:** validate and normalize options ([56b3aaf](https://github.com/laxamentumtech/audnexus/commit/56b3aaf99ceeb8925814939160a43f87ed41cbea))
+- **security:** use timingSafeEqual for token comparison and restrict trustProxy ([60bd113](https://github.com/laxamentumtech/audnexus/commit/60bd113e556afcd7c063b110c8d7ec76e1a1fff4))
+- **utils:** resolve race condition in batchProcessor and cap CircuitBreaker counter ([6019c8e](https://github.com/laxamentumtech/audnexus/commit/6019c8efe49123b652c692038ecf5adcea088157))
 
 ### Performance Improvements
 
-* node performance optimization ([#844](https://github.com/laxamentumtech/audnexus/issues/844)) ([ca9749c](https://github.com/laxamentumtech/audnexus/commit/ca9749cf9a3c84e3f1a979a283de73780a3cb638))
+- node performance optimization ([#844](https://github.com/laxamentumtech/audnexus/issues/844)) ([ca9749c](https://github.com/laxamentumtech/audnexus/commit/ca9749cf9a3c84e3f1a979a283de73780a3cb638))
 
 ## [1.10.0](https://github.com/laxamentumtech/audnexus/compare/v1.9.1...v1.10.0) (2026-02-15)
 

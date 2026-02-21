@@ -7,8 +7,6 @@ import { fastify, FastifyBaseLogger, FastifyError, FastifyReply, FastifyRequest 
 import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
 
-import 'module-alias/register'
-
 import { Context, createDefaultContext } from '#config/context'
 import {
 	BadRequestError,
@@ -104,7 +102,8 @@ async function registerPlugins() {
 
 	// CORS
 	await server.register(cors, {
-		origin: true
+		origin: true,
+		methods: 'GET,HEAD,PUT,PATCH,POST,DELETE'
 	})
 
 	// Helmet
@@ -291,7 +290,10 @@ async function startServer() {
  */
 async function stopServer() {
 	server.log.info('Closing HTTP server')
-	server.scheduler.stop()
+	// Only stop scheduler if it was initialized
+	if (server.scheduler) {
+		server.scheduler.stop()
+	}
 	try {
 		await server.close()
 		server.log.info('HTTP server closed')

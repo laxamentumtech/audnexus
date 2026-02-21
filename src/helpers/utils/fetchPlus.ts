@@ -1,6 +1,6 @@
 import { AxiosError, AxiosResponse } from 'axios'
 
-import pooledAxios from './connectionPool'
+import pooledAxios from '#helpers/utils/connectionPool'
 
 /**
  * Calculates the delay for retry attempts with exponential backoff.

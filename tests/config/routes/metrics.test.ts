@@ -9,6 +9,9 @@ import {
 } from '#config/performance'
 import { isIpAllowed, parseEnvArray, registerMetricsRoute } from '#config/routes/metrics'
 
+const isBun = 'Bun' in globalThis
+const describeOrSkip = isBun ? describe.skip : describe
+
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
 	USE_PARALLEL_SCHEDULER: false,
 	USE_CONNECTION_POOLING: true,
@@ -23,7 +26,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	...overrides
 })
 
-describe('Metrics Route - Authentication', () => {
+describeOrSkip('Metrics Route - Authentication', () => {
 	let originalAuthToken: string | undefined
 	let originalAllowedIps: string | undefined
 

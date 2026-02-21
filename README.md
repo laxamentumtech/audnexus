@@ -53,16 +53,17 @@ These instructions will get you a copy of the project up and running on your loc
 - There are 3 ways to deploy this project:
   - [Coolify](https://coolify.io) - Self-hosted PaaS platform with automatic deployments from Git
   - [Docker Swarm](https://docs.docker.com/engine/swarm/swarm-tutorial/) - Docker Compose stack with Traefik reverse proxy
-  - Directly, via `pnpm run` or `pm2`
+  - Directly, via `bun run`
     - Mongo 4 or greater
-    - Node/NPM 16 or greater
+    - [Bun](https://bun.sh/) 1.3.9 or greater
     - Redis
   - Registered Audible device keys, `ADP_TOKEN` and `PRIVATE_KEY`, for chapters. You will need Python and `audible` for this. [More on that here](https://audible.readthedocs.io/en/latest/auth/register.html)
 
 ### Installing locally
 
-- Install Mongo, Node and Redis on your system
-- `pnpm install` from project directory to get dependencies
+- Install Mongo and Redis on your system
+- Install [Bun](https://bun.sh/)
+- `bun install` from project directory to get dependencies
 
 **Required environment variables:**
 
@@ -76,7 +77,7 @@ These instructions will get you a copy of the project up and running on your loc
 Then start the server:
 
 ```bash
-pnpm run watch-debug
+bun run watch-debug
 ```
 
 Test an API call with
@@ -87,11 +88,11 @@ http://localhost:3000/books/${ASIN}
 
 ## 🔧 Running the tests <a name = "tests"></a>
 
-Tests for this project use the Jest framework. Tests can be done locally in a dev environment:
+Tests for this project use Bun's built-in test runner. Tests can be done locally in a dev environment:
 
-- `pnpm test`
+- `bun run test`
 
-After the tests have run, you may also browse the test coverage. This is generated in `coverage/lcov-report/index.html` under the project directory.
+After the tests have run, you may also browse the test coverage. This is generated in `coverage/` directory under the project directory.
 
 ## ⚠️ Error Handling <a name = "error_handling"></a>
 
@@ -221,8 +222,8 @@ Pre-rendered HTML documentation is also included in docs/index.html.
 
 HTML can be re-generated from the spec, using:
 
-```
-pnpm run build-docs
+```bash
+bun run build-docs
 ```
 
 ## 🚀 Deployment <a name = "deployment"></a>
@@ -398,8 +399,8 @@ https://${TRAEFIK_DOMAIN}/books/${ASIN}
 
 - [Fastify](https://www.fastify.io/) - Server Framework
 - [MongoDB](https://www.mongodb.com/) - Database
-- [NodeJs](https://nodejs.org/en/) - Server Environment
-- [Papr](https://github.com/plexinc/papr) - Databse connection
+- [Bun](https://bun.sh/) - Server Runtime
+- [Papr](https://github.com/plexinc/papr) - Database connection
 - [Redis](https://redis.io/) - Cached responses
 
 ## ✍️ Authors <a name = "authors"></a>

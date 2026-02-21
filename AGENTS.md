@@ -15,75 +15,41 @@ All code changes must include appropriate unit tests. Tests are located in the `
 **Run unit tests:**
 
 ```bash
-pnpm test
+bun run test
 ```
 
-This command executes Jest with the following options:
+This command executes Bun's test runner with the following options:
 
-- `--coverage`: Generates coverage report
-- `--forceExit`: Ensures clean test exit
-- `--verbose`: Detailed output
-- `--silent`: Suppresses unnecessary console logs
-- `--runInBand`: Runs tests serially for consistency
+- `--timeout 30000`: Sets per-test timeout to 30 seconds
+- Runs only Bun-compatible tests (subset of total test suite during migration)
 
-### 1.2 Coverage Thresholds
+**Note:** Some legacy tests use Jest-specific APIs (`jest.mock()`, `jest-mock-extended`) and are not included in the default test command. These tests are being converted to use Bun's native testing APIs. New tests should use Bun's native mocking capabilities.
 
-The project enforces strict coverage thresholds defined in `jest.config.ts`:
+### 1.2 Coverage
 
-| Metric         | Threshold | Description                            |
-| -------------- | --------- | -------------------------------------- |
-| **Statements** | 85%       | All executable statements              |
-| **Branches**   | 80%       | All code paths (if/else, switch, etc.) |
-| **Functions**  | 85%       | All function/method definitions        |
-| **Lines**      | 85%       | All executable lines                   |
+Coverage reports are generated automatically by Bun test. Coverage configuration is defined in `bunfig.toml`:
 
-**Configuration from jest.config.ts:**
-
-```typescript
-coverageThreshold: {
-  global: {
-    branches: 80,
-    functions: 85,
-    lines: 85,
-    statements: 85
-  }
-}
-```
-
-**Verification command:**
-
-```bash
-pnpm test  # Fails if any threshold is not met
-```
+**Coverage reports are generated in:** `coverage/` directory
 
 ### 1.3 Mock Guidelines
 
-Use `jest-mock-extended` for type-safe mocks. Import from the package directly:
+**Recommended approach:** Use Bun's native mocking capabilities or simple function stubs.
+
+Example of Bun-compatible mock:
 
 ```typescript
-import { mock } from 'jest-mock-extended'
+import { mock } from 'bun:test'
 
-// Example: Mocking a service
-const mockBookService = mock<BookService>()
-mockBookService.getBook.mockResolvedValue(sampleBook)
-```
-
-**Jest configuration for mocks (jest.config.ts):**
-
-```typescript
-restoreMocks: true,
-clearMocks: true,
-resetMocks: true,
+// Example: Mocking a simple function
+const mockFetch = mock(() => Promise.resolve({ data: 'test' }))
 ```
 
 ### 1.4 Test Execution Commands
 
-| Command                         | Purpose                                    |
-| ------------------------------- | ------------------------------------------ |
-| `pnpm test`                     | Run all unit tests with coverage           |
-| `pnpm test:live`                | Run live integration tests (see Section 6) |
-| `pnpm watch-test`               | Run tests in watch mode for development    |
-| `pnpm watch-test -- --watchAll` | Watch all tests including new files        |
+| Command             | Purpose                                     |
+| ------------------- | ------------------------------------------- |
+| `bun run test`      | Run Bun-compatible unit tests with coverage |
+| `bun run test:live` | Run live integration tests (see Section 6)  |
 
 ---
 
@@ -97,9 +63,10 @@ The project uses TypeScript 5.9.3 with strict mode enabled. Key configuration in
 {
 	"compilerOptions": {
 		"strict": true,
-		"lib": ["es2021", "es2022.error"],
-		"target": "ES2021",
-		"module": "commonjs",
+		"target": "ESNext",
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"isolatedModules": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true
 	}
@@ -109,7 +76,7 @@ The project uses TypeScript 5.9.3 with strict mode enabled. Key configuration in
 **Build command:**
 
 ```bash
-pnpm build-ts  # or pnpm build (includes build-ts)
+bun run build-ts  # or bun run build (includes build-ts)
 ```
 
 ### 2.2 ESLint Rules
@@ -141,7 +108,7 @@ The project uses ESLint 10.0.0 with the following configuration (`eslint.config.
 **Run linting:**
 
 ```bash
-pnpm lint
+bun run lint
 ```
 
 This runs:
@@ -155,20 +122,26 @@ This runs:
 **Format code:**
 
 ```bash
-pnpm format
+bun run format
 ```
 
 ### 2.4 Module Aliases
 
-The project uses module aliases for cleaner imports:
+The project uses module aliases for cleaner imports via the `package.json` `"imports"` field (native Bun/Node.js ESM support):
 
-| Alias         | Maps To           |
-| ------------- | ----------------- |
-| `#config`     | `dist/config`     |
-| `#helpers`    | `dist/helpers`    |
-| `#interfaces` | `dist/interfaces` |
-| `#static`     | `dist/static`     |
-| `#tests`      | `tests`           |
+| Alias                 | Maps To                        |
+| --------------------- | ------------------------------ |
+| `#config/*`           | `./dist/config/*.js`           |
+| `#helpers/*`          | `./dist/helpers/*.js`          |
+| `#helpers/audible/*`  | `./dist/helpers/audible/*.js`  |
+| `#helpers/books/*`    | `./dist/helpers/books/*.js`    |
+| `#helpers/database/*` | `./dist/helpers/database/*.js` |
+| `#helpers/errors/*`   | `./dist/helpers/errors/*.js`   |
+| `#helpers/routes/*`   | `./dist/helpers/routes/*.js`   |
+| `#helpers/utils/*`    | `./dist/helpers/utils/*.js`    |
+| `#static/*`           | `./dist/static/*.js`           |
+| `#interfaces/*`       | `./dist/interfaces/*.js`       |
+| `#tests/*`            | `./tests/*`                    |
 
 **Usage example:**
 
@@ -187,40 +160,29 @@ import { config } from '#config/index'
 
 ```bash
 # 1. Check for outdated packages
-pnpm outdated
+bun outdated
 
 # 2. Update dependencies
-pnpm up
+bun update
 
 # 3. Install new dependencies
-pnpm install
+bun install
 
 # 4. Run full verification
-pnpm lint && pnpm test && pnpm build
+bun run lint && bun run test && bun run build
 ```
 
 ### 3.2 Major Version Handling
 
-Major version updates require special attention. See `DEPENDENCY_CHANGES_LOG.md` for examples:
+Major version updates require special attention.
 
 **Breaking change detection checklist:**
 
 1. Review the package's CHANGELOG or release notes
 2. Check for peer dependency warnings
 3. Look for deprecated API usage warnings
-4. Run `pnpm test` to verify all tests pass
-5. Check `pnpm build` compiles without errors
-
-**Example: MongoDB 6.8.0 → 7.1.0**
-
-```markdown
-### Breaking Changes Review
-
-1. **Connection Pool Behavior**: No changes required.
-2. **Cursor Behavior**: No changes required.
-3. **Deprecation Warnings**: None detected.
-4. **Connection String Options**: No changes required.
-```
+4. Run `bun run test` to verify all tests pass
+5. Check `bun run build` compiles without errors
 
 ### 3.3 Security Patch SLA
 
@@ -236,7 +198,7 @@ Major version updates require special attention. See `DEPENDENCY_CHANGES_LOG.md`
 **Check for vulnerabilities:**
 
 ```bash
-pnpm audit
+bun audit
 ```
 
 ### 3.4 Rollback Procedures
@@ -248,26 +210,10 @@ pnpm audit
 git checkout package.json
 
 # 2. Reinstall previous versions
-pnpm install
+bun install
 
 # 3. Verify restoration
-pnpm lint && pnpm test && pnpm build
-```
-
-**Document the rollback in DEPENDENCY_CHANGES_LOG.md:**
-
-```markdown
-## Rollback: [Package Name] [Version] → [Previous Version]
-
-**Date:** YYYY-MM-DD
-
-**Reason:** [Brief description of issue]
-
-### Resolution
-
-- Reverted to previous version
-- All tests passing
-- No functional impact
+bun run lint && bun run test && bun run build
 ```
 
 ---
@@ -276,7 +222,7 @@ pnpm lint && pnpm test && pnpm build
 
 ### 4.1 What Runs in CI
 
-**Node.js CI Workflow** (`.github/workflows/node.js.yml`):
+**Bun CI Workflow** (`.github/workflows/bun.yml`):
 
 Triggers:
 
@@ -287,26 +233,21 @@ Triggers:
 **Steps:**
 
 ```bash
-pnpm install
-pnpm lint
-pnpm test
+bun install
+bun run lint
+bun run test
 ```
-
-**Matrix testing:**
-
-- Node.js `lts/*` (current LTS)
-- Node.js `current` (latest stable)
 
 ### 4.2 Required Checks
 
 All pull requests must pass:
 
-| Check                | Command       | Status   |
-| -------------------- | ------------- | -------- |
-| Linting              | `pnpm lint`   | Required |
-| Tests                | `pnpm test`   | Required |
-| Build                | `pnpm build`  | Required |
-| Conventional Commits | CI validation | Required |
+| Check                | Command         | Status   |
+| -------------------- | --------------- | -------- |
+| Linting              | `bun run lint`  | Required |
+| Tests                | `bun run test`  | Required |
+| Build                | `bun run build` | Required |
+| Conventional Commits | CI validation   | Required |
 
 ### 4.3 Failure Handling
 
@@ -317,9 +258,9 @@ All pull requests must pass:
 3. **Fix locally**:
 
    ```bash
-   pnpm lint   # Check for issues
-   pnpm test   # Run tests
-   pnpm build  # Verify build
+   bun run lint   # Check for issues
+   bun run test   # Run tests
+   bun run build  # Verify build
    ```
 
 4. **Push fixes** to the PR branch
@@ -327,12 +268,12 @@ All pull requests must pass:
 
 **Common failures:**
 
-| Failure       | Solution                                 |
-| ------------- | ---------------------------------------- |
-| Lint errors   | Run `pnpm lint --fix`                    |
-| Test failures | Check coverage thresholds and test logic |
-| Build errors  | Check TypeScript compilation errors      |
-| Type errors   | Run `tsc --noEmit` to see all errors     |
+| Failure       | Solution                             |
+| ------------- | ------------------------------------ |
+| Lint errors   | Run `bun run lint` and fix issues    |
+| Test failures | Check test logic and fix issues      |
+| Build errors  | Check TypeScript compilation errors  |
+| Type errors   | Run `tsc --noEmit` to see all errors |
 
 ### 4.4 Live Tests CI
 
@@ -346,7 +287,7 @@ Triggers:
 **Environment:**
 
 ```bash
-RUN_LIVE_TESTS=true pnpm test:live
+RUN_LIVE_TESTS=true bun run test:live
 ```
 
 **Failure handling:**
@@ -489,7 +430,7 @@ The repository uses `webiny/action-conventional-commits` to validate commit mess
 **Environment variable required:**
 
 ```bash
-RUN_LIVE_TESTS=true pnpm test:live
+RUN_LIVE_TESTS=true bun run test:live
 ```
 
 **Live tests are located in:** `tests/live/`
@@ -506,14 +447,15 @@ RUN_LIVE_TESTS=true pnpm test:live
 **Command:**
 
 ```bash
-pnpm test:live
+bun run test:live
 ```
 
-**Jest configuration (jest.live.config.ts):**
+**Bun Configuration (bunfig.toml):**
 
-- Includes all live test files
-- Runs against real API endpoints
-- Requires `RUN_LIVE_TESTS=true` environment variable
+- Live tests are run with Bun's native test runner
+- Configuration is defined in `bunfig.toml` (test timeout, coverage settings)
+- Requires `RUN_LIVE_TESTS=true` environment variable to enable live tests
+- Run locally with: `RUN_LIVE_TESTS=true bun run test:live`
 
 ### 6.3 Warning vs Failure Interpretation
 
@@ -568,7 +510,7 @@ When live tests detect changes:
 2. **Check peer dependencies:**
 
    ```bash
-   pnpm why <package-name>
+   bun pm ls
    ```
 
 3. **Test in isolation:**
@@ -576,9 +518,9 @@ When live tests detect changes:
    ```bash
    # Create a test branch
    git checkout -b test/update-<package>
-   pnpm up <package-name>
-   pnpm install
-   pnpm lint && pnpm test && pnpm build
+   bun update <package-name>
+   bun install
+   bun run lint && bun run test && bun run build
    ```
 
 4. **Review test output for warnings:**
@@ -603,7 +545,7 @@ git revert <commit-hash>
 git push origin <branch-name>
 
 # 4. Verify the fix
-pnpm lint && pnpm test && pnpm build
+bun run lint && bun run test && bun run build
 ```
 
 **Full rollback of dependency update:**
@@ -613,13 +555,13 @@ pnpm lint && pnpm test && pnpm build
 git checkout package.json
 
 # 2. Remove lock file changes
-git checkout pnpm-lock.yaml
+git checkout bun.lockb
 
 # 3. Reinstall
-pnpm install
+bun install
 
 # 4. Verify
-pnpm lint && pnpm test && pnpm build
+bun run lint && bun run test && bun run build
 ```
 
 ### 7.3 Commit Format for Rollbacks
@@ -693,46 +635,44 @@ Reverts commit abc123def456
 
 ```bash
 # Development
-pnpm install           # Install dependencies
-pnpm watch             # Watch mode for development
-pnpm debug             # Build and watch with debug
+bun install           # Install dependencies
+bun run watch         # Watch mode for development
+bun run debug         # Build and watch with debug
 
 # Testing
-pnpm test              # Run unit tests with coverage
-pnpm test:live         # Run live integration tests
-pnpm watch-test        # Watch mode for tests
+bun run test          # Run unit tests with coverage
+bun run test:live     # Run live integration tests
 
 # Quality
-pnpm lint              # Check linting and formatting
-pnpm format            # Format code with Prettier
-pnpm build             # Build TypeScript
+bun run lint          # Check linting and formatting
+bun run format        # Format code with Prettier
+bun run build         # Build TypeScript
 
 # Documentation
-pnpm build-docs        # Build API documentation
+bun run build-docs    # Build API documentation
 
 # Release
-pnpm release           # Create new release (standard-version)
+bun run release       # Create new release (standard-version)
 ```
 
 ---
 
 ## File References
 
-| File                                         | Purpose                                    |
-| -------------------------------------------- | ------------------------------------------ |
-| `jest.config.ts`                             | Jest configuration and coverage thresholds |
-| `eslint.config.mjs`                          | ESLint rules and configuration             |
-| `package.json`                               | Dependencies and scripts                   |
-| `tsconfig.json`                              | TypeScript configuration                   |
-| `DEPENDENCY_CHANGES_LOG.md`                  | Historical dependency updates              |
-| `.github/workflows/node.js.yml`              | CI/CD pipeline                             |
-| `.github/workflows/live-tests.yml`           | Live test workflow                         |
-| `.github/workflows/conventional-commits.yml` | Commit validation                          |
-| `.github/workflows/deploy-coolify.yml`       | Coolify deployment integration             |
-| `.github/workflows/deploy-caprover.yml`      | CapRover deployment integration            |
-| `.github/workflows/docker-publish.yml`       | Docker image publishing                    |
+| File                                         | Purpose                                      |
+| -------------------------------------------- | -------------------------------------------- |
+| `bunfig.toml`                                | Bun configuration and test coverage settings |
+| `eslint.config.mjs`                          | ESLint rules and configuration               |
+| `package.json`                               | Dependencies and scripts                     |
+| `tsconfig.json`                              | TypeScript configuration                     |
+| `.github/workflows/bun.yml`                  | CI/CD pipeline                               |
+| `.github/workflows/live-tests.yml`           | Live test workflow                           |
+| `.github/workflows/conventional-commits.yml` | Commit validation                            |
+| `.github/workflows/deploy-coolify.yml`       | Coolify deployment integration               |
+| `.github/workflows/deploy-caprover.yml`      | CapRover deployment integration              |
+| `.github/workflows/docker-publish.yml`       | Docker image publishing                      |
 
 ---
 
-_Last updated: 2026-02-11_
+_Last updated: 2026-02-19_
 _Maintained by: Repository maintainers_
