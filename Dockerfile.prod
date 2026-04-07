@@ -19,7 +19,7 @@ WORKDIR /app
 COPY package.json bun.lockb ./
 
 # Install production dependencies only
-RUN bun install --frozen-lockfile --production
+RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # Stage 3: Production runtime
 FROM node:lts-alpine AS prod
