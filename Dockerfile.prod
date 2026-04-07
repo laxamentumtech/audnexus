@@ -1,19 +1,14 @@
 # Stage 1: Build
-FROM node:lts-alpine AS build
+FROM oven/bun:alpine AS build
 
 WORKDIR /app
-
-# Install pnpm
-RUN apk add --no-cache curl \
-    && curl -sL https://unpkg.com/@pnpm/self-installer | node
 
 # Copy project files
 COPY . .
 
 # Install dependencies and build
-RUN pnpm install --frozen-lockfile \
-    && pnpm run build \
-    && pnpm install -P --ignore-scripts --frozen-lockfile
+RUN bun install --frozen-lockfile --ignore-scripts \
+    && bun run build
 
 # Stage 2: Production
 FROM node:lts-alpine AS prod
