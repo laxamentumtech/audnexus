@@ -1,16 +1,27 @@
-# Stage 1: Build
-FROM oven/bun:alpine AS build
+# Stage 1: Build (requires devDependencies)
+FROM oven/bun:1-alpine@sha256:d5033b198b338c67e514f404e777ee818e18d1b031b0c4ac0eb1112032ae7bf7 AS build
 
 WORKDIR /app
 
 # Copy project files
 COPY . .
 
-# Install dependencies and build
+# Install all dependencies (including devDependencies for build)
 RUN bun install --frozen-lockfile \
     && bun run build
 
-# Stage 2: Production
+# Stage 2: Production dependencies only
+FROM oven/bun:1-alpine@sha256:d5033b198b338c67e514f404e777ee818e18d1b031b0c4ac0eb1112032ae7bf7 AS deps
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json bun.lockb ./
+
+# Install production dependencies only
+RUN bun install --frozen-lockfile --production
+
+# Stage 3: Production runtime
 FROM node:lts-alpine AS prod
 
 # Install curl for healthcheck
@@ -25,8 +36,8 @@ WORKDIR /app
 # Copy package files for production install
 COPY --from=build /app/package.json ./package.json
 
-# Copy production node_modules from build stage
-COPY --from=build /app/node_modules ./node_modules
+# Copy production node_modules from deps stage
+COPY --from=deps /app/node_modules ./node_modules
 
 # Copy built files from build stage
 COPY --from=build /app/dist ./dist
