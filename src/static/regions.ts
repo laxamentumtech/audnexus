@@ -22,6 +22,12 @@ export const regions: Regions = {
 		},
 		tld: 'com.au'
 	},
+	br: {
+		strings: {
+			chapterName: 'Capítulo'
+		},
+		tld: 'com.br'
+	},
 	ca: {
 		strings: {
 			chapterName

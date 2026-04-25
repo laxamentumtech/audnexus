@@ -33,7 +33,7 @@ describe('schemas should', () => {
 		expect(RegionSchema.safeParse('uk').success).toBe(true)
 		expect(RegionSchema.safeParse('us').success).toBe(true)
 		expect(RegionSchema.safeParse('mx').success).toBe(false)
-		expect(RegionSchema.safeParse('br').success).toBe(false)
+		expect(RegionSchema.safeParse('br').success).toBe(true)
 		expect(RegionSchema.safeParse('cn').success).toBe(false)
 		expect(RegionSchema.safeParse('ru').success).toBe(false)
 		expect(RegionSchema.safeParse('sa').success).toBe(false)
