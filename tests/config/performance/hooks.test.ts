@@ -58,20 +58,24 @@ describe('Performance Hooks', () => {
 	describe('registerPerformanceHooks', () => {
 		it('should execute onResponse hook (metrics tracked)', async () => {
 			const fastify = Fastify()
-			fastify.get('/test', async () => ({ message: 'ok' }))
-			registerPerformanceHooks(fastify)
-			await fastify.ready()
+			try {
+				fastify.get('/test', async () => ({ message: 'ok' }))
+				registerPerformanceHooks(fastify)
+				await fastify.ready()
 
-			await fastify.inject({
-				method: 'GET',
-				url: '/test'
-			})
+				await fastify.inject({
+					method: 'GET',
+					url: '/test'
+				})
 
-			// inject() captures headers before onResponse sets X-Response-Time,
-			// so verify the hook ran via the metrics store instead
-			const metrics = getPerformanceMetrics()
-			expect(metrics.requests['/test']).toBeDefined()
-			expect(metrics.requests['/test'].count).toBe(1)
+				// inject() captures headers before onResponse sets X-Response-Time,
+				// so verify the hook ran via the metrics store instead
+				const metrics = getPerformanceMetrics()
+				expect(metrics.requests['/test']).toBeDefined()
+				expect(metrics.requests['/test'].count).toBe(1)
+			} finally {
+				await fastify.close()
+			}
 		})
 
 		it('should track request metrics', async () => {

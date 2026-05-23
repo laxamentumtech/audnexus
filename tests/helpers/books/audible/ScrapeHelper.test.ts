@@ -62,7 +62,7 @@ describe('ScrapeHelper should', () => {
 	test('log no error message on 404 response', async () => {
 		mock.restore()
 		const mockLogger = { info: mock() }
-		spyOn(fetchPlus, 'default').mockImplementationOnce(() => Promise.reject({ status: 404 }))
+		spyOn(fetchPlus, 'default').mockImplementationOnce(() => { const e: Error & { status: number } = Object.assign(new Error(), { status: 404 }); return Promise.reject(e) })
 		helper = new ScrapeHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		await expect(helper.fetchBook()).resolves.toBeUndefined()
 		expect(mockLogger.info).not.toHaveBeenCalled()
@@ -72,7 +72,7 @@ describe('ScrapeHelper should', () => {
 		asin = asin.slice(0, -1)
 		helper = new ScrapeHelper(asin, region)
 		mock.restore()
-		spyOn(fetchPlus, 'default').mockImplementationOnce(() => Promise.reject({ status: 404 }))
+		spyOn(fetchPlus, 'default').mockImplementationOnce(() => { const e: Error & { status: number } = Object.assign(new Error(), { status: 404 }); return Promise.reject(e) })
 		await expect(helper.fetchBook()).resolves.toBeUndefined()
 	})
 
@@ -95,7 +95,7 @@ describe('ScrapeHelper should', () => {
 	test('log non-404 status code', async () => {
 		mock.restore()
 		const mockLogger = { info: mock() }
-		spyOn(fetchPlus, 'default').mockImplementationOnce(() => Promise.reject({ status: 500 }))
+		spyOn(fetchPlus, 'default').mockImplementationOnce(() => { const e: Error & { status: number } = Object.assign(new Error(), { status: 500 }); return Promise.reject(e) })
 		helper = new ScrapeHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		await expect(helper.fetchBook()).resolves.toBeUndefined()
 		expect(mockLogger.info).toHaveBeenCalledWith(
