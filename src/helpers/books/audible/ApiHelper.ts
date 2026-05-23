@@ -36,6 +36,9 @@ import {
 } from '#static/messages'
 import { regions } from '#static/regions'
 
+/** Known product_state values that indicate a delisted/unavailable product. */
+const DELISTED_STATES: readonly string[] = ['NOT_AVAILABLE_FOR_PURCHASE']
+
 class ApiHelper {
 	asin: string
 	categories: AudibleCategory[][] | undefined
@@ -444,7 +447,7 @@ class ApiHelper {
 			}
 			// baseShape also failed - fetch product_state for a specific error
 			const productState = await this.fetchProductState()
-			if (productState && productState !== 'AVAILABLE') {
+			if (productState && DELISTED_STATES.includes(productState)) {
 				throw new NotFoundError(ErrorMessageProductDelisted(this.asin, productState, this.region), {
 					asin: this.asin,
 					code: 'PRODUCT_DELISTED',
