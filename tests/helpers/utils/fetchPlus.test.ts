@@ -42,9 +42,13 @@ describe('fetchPlus should', () => {
 
 	test('return error with default retries', async () => {
 		mockStatus = { status: 500 }
-		mockGet.mockImplementation(() =>
-			Promise.reject({ response: mockStatus })
-		)
+		mockGet.mockImplementation(() => {
+			const error: Error & { response: typeof mockStatus } = Object.assign(
+				new Error('Request failed'),
+				{ response: mockStatus }
+			)
+			return Promise.reject(error)
+		})
 
 		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(4)
@@ -60,9 +64,13 @@ describe('fetchPlus should', () => {
 
 	test('retry the correct number of times before hard failing', async () => {
 		mockStatus = { status: 500 }
-		mockGet.mockImplementation(() =>
-			Promise.reject({ response: mockStatus })
-		)
+		mockGet.mockImplementation(() => {
+			const error: Error & { response: typeof mockStatus } = Object.assign(
+				new Error('Request failed'),
+				{ response: mockStatus }
+			)
+			return Promise.reject(error)
+		})
 
 		await expect(fetchPlus('test.com', {}, 2)).rejects.toEqual(mockStatus)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
@@ -150,9 +158,13 @@ describe('fetchPlus should', () => {
 
 	test('not add delay for non-429 errors', async () => {
 		mockStatus = { status: 500 }
-		mockGet.mockImplementation(() =>
-			Promise.reject({ response: mockStatus })
-		)
+		mockGet.mockImplementation(() => {
+			const error: Error & { response: typeof mockStatus } = Object.assign(
+				new Error('Request failed'),
+				{ response: mockStatus }
+			)
+			return Promise.reject(error)
+		})
 
 		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(4)

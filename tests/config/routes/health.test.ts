@@ -106,7 +106,7 @@ describe('health route should', () => {
 			expect(data.checks.server).toBe(true)
 			expect(data.checks.database).toBe(true)
 			expect(data.checks.redis).toBe(true)
-			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
 		})
 
 		await routeHandler(mockRequest, mockReply)
@@ -133,7 +133,7 @@ describe('health route should', () => {
 			expect(data.checks.server).toBe(true)
 			expect(data.checks.database).toBe(false)
 			expect(data.checks.redis).toBe(true)
-			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
 		})
 
 		await routeHandler(mockRequest, mockReply)
@@ -160,7 +160,7 @@ describe('health route should', () => {
 			expect(data.checks.server).toBe(true)
 			expect(data.checks.database).toBe(true)
 			expect(data.checks.redis).toBe(false)
-			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
 		})
 
 		await routeHandler(mockRequest, mockReply)
@@ -186,7 +186,7 @@ describe('health route should', () => {
 			expect(data.checks.server).toBe(true)
 			expect(data.checks.database).toBe(false)
 			expect(data.checks.redis).toBe(false)
-			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
 		})
 
 		await routeHandler(mockRequest, mockReply)
@@ -210,7 +210,7 @@ describe('health route should', () => {
 			expect(data.checks.server).toBe(true)
 			expect(data.checks.database).toBe(true)
 			expect(data.checks.redis).toBeNull()
-			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
 		})
 
 		await routeHandler(mockRequest, mockReply)
@@ -273,7 +273,7 @@ describe('health route should', () => {
 		const timestamp = new Date(capturedData!.timestamp)
 		expect(timestamp).toBeInstanceOf(Date)
 		expect(isNaN(timestamp.getTime())).toBe(false)
-		expect(capturedData!.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+		expect(capturedData!.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
 	})
 })
 
