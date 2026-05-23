@@ -203,12 +203,17 @@ export default class GenericShowHelper {
 				.then((data) => data)
 				.catch((err) => {
 					// If the product is no longer available on Audible (delisted or
-					// region-unavailable) but we have existing data, preserve it
+					// region-unavailable) but we have existing data, preserve it.
+					// Only swallow NotFoundErrors with specific codes; rethrow others.
 					if (err instanceof NotFoundError) {
-						this.logger?.warn(
-							`Update failed for ${this.type} ${this.asin}: ${err.message}. Returning existing data.`
-						)
-						return this.getDataWithProjection()
+						const code = err.details?.code
+						if (code === 'REGION_UNAVAILABLE' || code === 'PRODUCT_DELISTED') {
+							this.logger?.warn(
+								`Update failed for ${this.type} ${this.asin}: ${err.message}. Returning existing data.`
+							)
+							return this.getDataWithProjection()
+						}
+						throw err
 					}
 					// Preserve other custom errors with statusCode (ContentTypeMismatchError, BadRequestError)
 					if (err instanceof Error && 'statusCode' in err) {

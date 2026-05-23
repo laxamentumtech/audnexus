@@ -289,6 +289,9 @@ async function startServer() {
  * Shuts down the server and closes the DB connection
  */
 async function stopServer() {
+	if (!server) {
+		process.exit(0)
+	}
 	server.log.info('Closing HTTP server')
 	// Only stop scheduler if it was initialized
 	if (server.scheduler) {

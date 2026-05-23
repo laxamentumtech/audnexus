@@ -10,12 +10,17 @@ COPY . .
 
 RUN bun install --frozen-lockfile --ignore-scripts && bun run build-ts
 
+# Production deps only
+FROM base AS prod-deps
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production
+
 # prod
 FROM base AS prod
 
 # copy built app to /app
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules ./node_modules
+COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/package.json .
 
 USER bun

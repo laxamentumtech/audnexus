@@ -236,6 +236,7 @@ Triggers:
 bun install
 bun run lint
 bun run test
+bun run build
 ```
 
 ### 4.2 Required Checks
@@ -555,7 +556,7 @@ bun run lint && bun run test && bun run build
 git checkout package.json
 
 # 2. Remove lock file changes
-git checkout bun.lockb
+git checkout bun.lock
 
 # 3. Reinstall
 bun install

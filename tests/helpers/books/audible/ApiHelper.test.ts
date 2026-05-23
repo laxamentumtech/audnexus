@@ -374,19 +374,22 @@ describe('ApiHelper edge cases should', () => {
 		const fetchProductStateSpy = spyOn(ApiHelper.prototype, 'fetchProductState').mockResolvedValue(
 			'NOT_AVAILABLE_FOR_PURCHASE'
 		)
-		const emptyProductResponse = { product: {} } as AudibleProduct
-		await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
-		await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
-			name: 'NotFoundError',
-			statusCode: 404,
-			message: `Item is 'NOT_AVAILABLE_FOR_PURCHASE' in region '${region}' for ASIN: ${asin}`,
-			details: {
-				asin,
-				code: 'PRODUCT_DELISTED',
-				productState: 'NOT_AVAILABLE_FOR_PURCHASE'
-			}
-		})
-		fetchProductStateSpy.mockRestore()
+		try {
+			const emptyProductResponse = { product: {} } as AudibleProduct
+			await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
+			await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
+				name: 'NotFoundError',
+				statusCode: 404,
+				message: `Item is 'NOT_AVAILABLE_FOR_PURCHASE' in region '${region}' for ASIN: ${asin}`,
+				details: {
+					asin,
+					code: 'PRODUCT_DELISTED',
+					productState: 'NOT_AVAILABLE_FOR_PURCHASE'
+				}
+			})
+		} finally {
+			fetchProductStateSpy.mockRestore()
+		}
 	})
 
 	test.each([['AVAILABLE'], [undefined], ['SOME_OTHER_STATE']] as const)(
@@ -396,18 +399,21 @@ describe('ApiHelper edge cases should', () => {
 				ApiHelper.prototype,
 				'fetchProductState'
 			).mockResolvedValue(state)
-			const emptyProductResponse = { product: {} } as AudibleProduct
-			await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
-			await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
-				name: 'NotFoundError',
-				statusCode: 404,
-				message: `Item not available in region '${region}' for ASIN: ${asin}`,
-				details: {
-					asin,
-					code: 'REGION_UNAVAILABLE'
-				}
-			})
-			fetchProductStateSpy.mockRestore()
+			try {
+				const emptyProductResponse = { product: {} } as AudibleProduct
+				await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
+				await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
+					name: 'NotFoundError',
+					statusCode: 404,
+					message: `Item not available in region '${region}' for ASIN: ${asin}`,
+					details: {
+						asin,
+						code: 'REGION_UNAVAILABLE'
+					}
+				})
+			} finally {
+				fetchProductStateSpy.mockRestore()
+			}
 		}
 	)
 	test('throws NotFoundError with statusCode 404 for unavailable region', async () => {
