@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.14.0](https://github.com/laxamentumtech/audnexus/compare/v1.13.0...v1.14.0) (2026-05-23)
+
+
+### Features
+
+* **ci:** harden CI workflow and refine error handling ([1dff995](https://github.com/laxamentumtech/audnexus/commit/1dff9950d66135e4a3b3331848392bb81558b440))
+* distinguish delisted products from region-unavailable errors ([#863](https://github.com/laxamentumtech/audnexus/issues/863)) ([3a0a417](https://github.com/laxamentumtech/audnexus/commit/3a0a4176125a9ddb47b42f96147aceb92a3e37ae))
+
+
+### Bug Fixes
+
+* **ci:** update setup-bun SHA to valid v2 tag commit ([31eea04](https://github.com/laxamentumtech/audnexus/commit/31eea041692d22b8f70ab6a72f1271ef3a30582e))
+
 ## [1.13.0](https://github.com/laxamentumtech/audnexus/compare/v1.12.0...v1.13.0) (2026-02-17)
 
 
