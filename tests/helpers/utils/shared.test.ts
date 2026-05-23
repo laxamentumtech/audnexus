@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
+import { afterEach, beforeAll, describe, expect, mock, spyOn, test } from 'bun:test'
 import * as cheerio from 'cheerio'
 import type { FastifyBaseLogger } from 'fastify'
 import type { z } from 'zod'
@@ -25,7 +25,8 @@ beforeAll(() => {
 
 describe('SharedHelper should', () => {
 	afterEach(() => {
-		jest.restoreAllMocks()
+		mock.restore()
+
 	})
 
 	test('build a URL', () => {
@@ -110,10 +111,12 @@ describe('SharedHelper should', () => {
 	})
 
 	test('collectGenres logs warning when ApiGenreSchema.safeParse fails', () => {
-		const mockWarn = jest.fn()
+		const mockWarn = mock()
+
 		const mockLogger = {
 			warn: mockWarn,
-			info: jest.fn()
+			info: mock()
+
 		}
 		const helperWithLogger = new SharedHelper(mockLogger as unknown as FastifyBaseLogger)
 		const asin = 'B012DQ3BCM'
@@ -130,7 +133,8 @@ describe('SharedHelper should', () => {
 			name: string
 			type: string
 		}>
-		jest.spyOn(ApiGenreSchema, 'safeParse').mockReturnValue({
+		spyOn(ApiGenreSchema, 'safeParse').mockReturnValue({
+
 			success: false,
 			error: mockError
 		})
@@ -142,9 +146,10 @@ describe('SharedHelper should', () => {
 	})
 
 	test('collectGenres logs info when genre has no href', () => {
-		const mockInfo = jest.fn()
+		const mockInfo = mock()
+
 		const mockLogger = {
-			warn: jest.fn(),
+			warn: mock(),
 			info: mockInfo
 		}
 		const helperWithLogger = new SharedHelper(mockLogger as unknown as FastifyBaseLogger)

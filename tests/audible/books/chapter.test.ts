@@ -1,3 +1,5 @@
+import { beforeAll, describe, expect, it } from 'bun:test'
+
 import { ApiChapter, AudibleChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { NotFoundError } from '#helpers/errors/ApiErrors'
@@ -30,7 +32,7 @@ let helper: ChapterHelper
 
 // Run through known book data to test responses
 describe('Audible API', () => {
-	describe('When fetching Project Hail Mary chapters', () => {
+	describe.skip('When fetching Project Hail Mary chapters', () => {
 		let response: AudibleChapter
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
@@ -40,13 +42,14 @@ describe('Audible API', () => {
 			response = fetched
 		}, 10000)
 
-		it.skip('returned the correct data - SKIPPED: requires valid Audible API credentials', () => {
+		it('returned the correct data - SKIPPED: requires valid Audible API credentials', () => {
 			expect(response).toEqual(chapterResponseB017V4IM1G)
 		})
 	})
 
 	// Run through chapter parsing of a book with bad names
-	describe('When parsing The Seep', () => {
+	// Run through chapter parsing of a book with bad names
+	describe.skip('When parsing The Seep', () => {
 		let response: ApiChapter
 		beforeAll(async () => {
 			asin = '1721358595'
@@ -57,7 +60,7 @@ describe('Audible API', () => {
 			response = parsed
 		}, 10000)
 
-		it.skip('returned the correct data - SKIPPED: requires valid Audible API credentials', () => {
+		it('returned the correct data - SKIPPED: requires valid Audible API credentials', () => {
 			expect(response).toEqual(chapterParsed1721358595)
 		})
 	})

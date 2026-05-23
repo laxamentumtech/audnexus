@@ -1,5 +1,4 @@
 import typescriptEslint from '@typescript-eslint/eslint-plugin'
-import jest from 'eslint-plugin-jest'
 import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import globals from 'globals'
 import tsParser from '@typescript-eslint/parser'
@@ -27,14 +26,12 @@ export default [
 	{
 		plugins: {
 			'@typescript-eslint': typescriptEslint,
-			jest,
 			'simple-import-sort': simpleImportSort
 		},
 
 		languageOptions: {
 			globals: {
-				...globals.node,
-				...jest.environments.globals.globals
+				...globals.node
 			},
 
 			parser: tsParser,

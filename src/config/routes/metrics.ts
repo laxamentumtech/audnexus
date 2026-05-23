@@ -111,12 +111,16 @@ export function registerMetricsRoute(fastify: FastifyInstance): void {
 			preHandler: async (request: FastifyRequest, reply: FastifyReply) => {
 				// Return 404 if metrics endpoint is disabled
 				if (!config.METRICS_ENABLED) {
-					return reply.code(404).send({ error: 'Metrics endpoint disabled' })
+					reply.code(404).send({ error: 'Metrics endpoint disabled' })
+					reply.hijack()
+					return
 				}
 
 				// Validate auth if configured
 				if (!validateMetricsAuth(request)) {
-					return reply.code(403).send({ error: 'Forbidden' })
+					reply.code(403).send({ error: 'Forbidden' })
+					reply.hijack()
+					return
 				}
 			}
 		},

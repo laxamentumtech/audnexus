@@ -1,4 +1,6 @@
-import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
+ 
+import type { AxiosResponse } from 'axios'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
 import { ApiAuthorProfile } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
@@ -10,7 +12,9 @@ import {
 	mockHtmlB0034NFIOI
 } from '#tests/datasets/audible/authors/scrape'
 
-jest.mock('#helpers/utils/fetchPlus')
+mock.module('#helpers/utils/fetchPlus', () => {
+	return { default: mock() }
+})
 
 let asin: string
 let helper: ScrapeHelper
@@ -26,16 +30,16 @@ const createMockResponse = (data: string, status: number): AxiosResponse => ({
 
 describe('Audible Author HTML', () => {
 	beforeEach(() => {
-		jest.clearAllMocks()
+		mock.clearAllMocks()
 	})
 
 	describe('When scraping Andy Weir from Audible', () => {
 		beforeAll(async () => {
 			asin = 'B00G0WYW92'
 			helper = new ScrapeHelper(asin, 'us')
-			jest
-				.spyOn(fetchPlus, 'default')
-				.mockImplementation(() => Promise.resolve(createMockResponse(mockHtmlB00G0WYW92, 200)))
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.resolve(createMockResponse(mockHtmlB00G0WYW92, 200))
+			)
 			response = await helper.process()
 		}, 10000)
 
@@ -72,9 +76,9 @@ describe('Audible Author HTML', () => {
 		beforeAll(async () => {
 			asin = 'B0034NFIOI'
 			helper = new ScrapeHelper(asin, 'us')
-			jest
-				.spyOn(fetchPlus, 'default')
-				.mockImplementation(() => Promise.resolve(createMockResponse(mockHtmlB0034NFIOI, 200)))
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.resolve(createMockResponse(mockHtmlB0034NFIOI, 200))
+			)
 			response = await helper.process()
 		}, 10000)
 
@@ -111,7 +115,7 @@ describe('Audible Author HTML', () => {
 		it('threw an error', async () => {
 			asin = '103940202X'
 			helper = new ScrapeHelper(asin, 'us')
-			jest.spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 404 }))
+			spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 404 }))
 			await expect(helper.fetchAuthor()).rejects.toThrow(
 				`An error occured while fetching data from Audible HTML. Response: 404, ASIN: ${asin}`
 			)
@@ -122,20 +126,22 @@ describe('Audible Author HTML', () => {
 		it('threw an error', async () => {
 			asin = 'B079LRSMNN'
 			helper = new ScrapeHelper(asin, 'us')
-			jest
-				.spyOn(fetchPlus, 'default')
-				.mockImplementation(() =>
-					Promise.resolve(
-						createMockResponse(
-							'<html><body><h1 class="bc-heading bc-color-base bc-size-extra-large bc-text-secondary bc-text-bold">Showing titles\n in All Categories</h1></body></html>',
-							200
-						)
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.resolve(
+					createMockResponse(
+						'<html><body><h1 class="bc-heading bc-color-base bc-size-extra-large bc-text-secondary bc-text-bold">Showing titles\n in All Categories</h1></body></html>',
+						200
 					)
 				)
+			)
 			const response = await helper.fetchAuthor()
 			await expect(helper.parseResponse(response)).rejects.toThrow(
 				`Item not available in region 'us' for ASIN: ${asin}`
 			)
 		})
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

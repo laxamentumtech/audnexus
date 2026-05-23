@@ -1,6 +1,7 @@
 import { AxiosError, AxiosResponse } from 'axios'
 
 import pooledAxios from '#helpers/utils/connectionPool'
+import sleep from '#helpers/utils/sleep'
 
 /**
  * Calculates the delay for retry attempts with exponential backoff.
@@ -40,15 +41,6 @@ function calculateRetryDelay(retries: number, error: AxiosError): number {
 
 	// Invalid Retry-After value, fall back to exponential backoff
 	return Math.min(1000 * Math.pow(2, retries), 8000)
-}
-
-/**
- * Sleep for a given number of milliseconds
- * @param {number} ms The number of milliseconds to sleep
- * @returns {Promise<void>} A promise that resolves after the delay
- */
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 /**

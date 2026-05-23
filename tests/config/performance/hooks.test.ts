@@ -1,3 +1,4 @@
+import { beforeEach, describe, expect, it } from 'bun:test'
 import Fastify from 'fastify'
 
 import {
@@ -12,10 +13,6 @@ import {
 	resetMetrics
 } from '#config/performance/hooks'
 
-/**
- * Factory function for creating test PerformanceConfig instances.
- * Provides a reusable base configuration with optional overrides.
- */
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
 	...DEFAULT_PERFORMANCE_CONFIG,
 	...overrides
@@ -215,9 +212,7 @@ describe('Performance Hooks', () => {
 
 			const metrics = getPerformanceMetrics()
 			expect(metrics.requests['/test']).toBeDefined()
-			// Count should still be accurate even though durations are capped
 			expect(metrics.requests['/test'].count).toBe(101)
-			// Min and avg should still be calculated correctly
 			expect(metrics.requests['/test'].min).toBeGreaterThanOrEqual(0)
 			expect(metrics.requests['/test'].avg).toBeGreaterThanOrEqual(0)
 

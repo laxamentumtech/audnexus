@@ -1,6 +1,6 @@
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { FastifyRequest } from 'fastify'
 import Fastify from 'fastify'
-import { mock } from 'jest-mock-extended'
 
 import {
 	DEFAULT_PERFORMANCE_CONFIG,
@@ -8,9 +8,6 @@ import {
 	setPerformanceConfig
 } from '#config/performance'
 import { isIpAllowed, parseEnvArray, registerMetricsRoute } from '#config/routes/metrics'
-
-const isBun = 'Bun' in globalThis
-const describeOrSkip = isBun ? describe.skip : describe
 
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
 	USE_PARALLEL_SCHEDULER: false,
@@ -26,7 +23,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	...overrides
 })
 
-describeOrSkip('Metrics Route - Authentication', () => {
+describe('Metrics Route - Authentication', () => {
 	let originalAuthToken: string | undefined
 	let originalAllowedIps: string | undefined
 
@@ -126,7 +123,6 @@ describeOrSkip('Metrics Route - Authentication', () => {
 		})
 
 		it('parseEnvArray returns undefined for whitespace-only commas', () => {
-			// Test the missing-entries branch: when all entries are whitespace/empty after split
 			const result = parseEnvArray(' , ,  ')
 			expect(result).toBeUndefined()
 		})
@@ -142,7 +138,6 @@ describeOrSkip('Metrics Route - Authentication', () => {
 		})
 
 		it('returns 200 when METRICS_ALLOWED_IPS is whitespace-only (triggers fallback)', async () => {
-			// When parseEnvArray returns undefined due to empty result, auth fallback should allow access
 			process.env.METRICS_ALLOWED_IPS = ' , ,  '
 			delete process.env.METRICS_AUTH_TOKEN
 			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
@@ -156,13 +151,11 @@ describeOrSkip('Metrics Route - Authentication', () => {
 				url: '/metrics'
 			})
 
-			// Should return 200 because parseEnvArray returns undefined and no auth token is set
 			expect(response.statusCode).toBe(200)
 			await fastify.close()
 		})
 
 		it('returns 403 when METRICS_ALLOWED_IPS is whitespace-only but METRICS_AUTH_TOKEN is set', async () => {
-			// When parseEnvArray returns undefined but auth token is set, should check token
 			process.env.METRICS_ALLOWED_IPS = ' , ,  '
 			process.env.METRICS_AUTH_TOKEN = 'test-token'
 			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
@@ -177,7 +170,6 @@ describeOrSkip('Metrics Route - Authentication', () => {
 				headers: { 'x-metrics-token': 'wrong-token' }
 			})
 
-			// Should return 403 because token doesn't match
 			expect(response.statusCode).toBe(403)
 			await fastify.close()
 		})
@@ -351,10 +343,10 @@ describe('isIpAllowed', () => {
 		ip: string | undefined,
 		forwardedFor: string | string[] | undefined
 	): FastifyRequest => {
-		const mockReq = mock<FastifyRequest>()
-		;(mockReq as unknown as { ip: string | undefined }).ip = ip
-		;(mockReq as unknown as { headers: Record<string, string | string[]> }).headers =
-			forwardedFor !== undefined ? { 'x-forwarded-for': forwardedFor } : {}
+		const mockReq = {
+			ip,
+			headers: forwardedFor !== undefined ? { 'x-forwarded-for': forwardedFor } : {}
+		} as unknown as FastifyRequest
 		return mockReq
 	}
 
@@ -518,10 +510,10 @@ describe('isIpAllowed', () => {
 
 			const invalidInputs = [
 				'invalid-cidr',
-				'192.168.1/24', // malformed CIDR
+				'192.168.1/24',
 				'not-a-valid-ip',
-				'999.999.999.999', // invalid IP
-				'string/cidr' // non-numeric CIDR
+				'999.999.999.999',
+				'string/cidr'
 			]
 
 			for (const invalidInput of invalidInputs) {

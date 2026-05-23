@@ -1,69 +1,67 @@
-import type { FastifyInstance } from 'fastify'
-import { mockDeep } from 'jest-mock-extended'
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { MongoClient } from 'mongodb'
 
 import health, { HealthCheckResponse } from '#config/routes/health'
 
-const isBun = 'Bun' in globalThis
-const describeOrSkip = isBun ? describe.skip : describe
+const mockMongoConnect = mock()
+const mockMongoDb = mock()
+const mockMongoCommand = mock()
+const mockMongoClose = mock()
 
-// Mock the MongoClient
-jest.mock('mongodb', () => ({
-	MongoClient: jest.fn().mockImplementation(() => ({
-		connect: jest.fn().mockResolvedValue(undefined),
-		db: jest.fn().mockReturnValue({
-			command: jest.fn()
-		}),
-		close: jest.fn().mockResolvedValue(undefined)
-	}))
+mock.module('mongodb', () => ({
+	MongoClient: class MockMongoClient {
+		connect = mockMongoConnect
+		db = mockMongoDb
+		close = mockMongoClose
+	}
 }))
 
-describeOrSkip('health route should', () => {
+describe('health route should', () => {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let app: any
 	let mockMongoClient: MongoClient
 	let originalMongoUri: string | undefined
 
-	// Shared mock request factory
 	const createMockRequest = () => ({
 		log: {
-			error: jest.fn(),
-			info: jest.fn(),
-			debug: jest.fn(),
-			warn: jest.fn()
+			error: mock(),
+			info: mock(),
+			debug: mock(),
+			warn: mock()
 		}
 	})
 
 	beforeEach(() => {
-		// Save original MONGODB_URI to prevent environment variable leaks
 		originalMongoUri = process.env.MONGODB_URI
 
-		// Create a deep mock of FastifyInstance
-		app = mockDeep<FastifyInstance>()
+		app = {
+			get: mock(),
+			mongoClient: null,
+			redis: null,
+			reply: null
+		}
 
-		// Create mock MongoClient
+		mockMongoConnect.mockResolvedValue(undefined)
+		mockMongoCommand.mockResolvedValue({ ok: 1 })
+		mockMongoClose.mockResolvedValue(undefined)
+
 		mockMongoClient = {
-			connect: jest.fn().mockResolvedValue(undefined),
-			db: jest.fn().mockReturnValue({
-				command: jest.fn()
-			}),
-			close: jest.fn().mockResolvedValue(undefined)
+			connect: mockMongoConnect,
+			db: mockMongoDb,
+			close: mockMongoClose
 		} as unknown as MongoClient
 
-		// Attach mongoClient to app
 		app.mongoClient = mockMongoClient
 
-		// Mock reply.send and reply.status
 		const mockReply = {
-			status: jest.fn().mockReturnThis(),
-			send: jest.fn().mockReturnThis()
+			status: mock(() => mockReply),
+			send: mock(() => mockReply)
 		}
 		app.reply = mockReply
 	})
 
 	afterEach(() => {
-		jest.clearAllMocks()
-		// Restore original MONGODB_URI to prevent environment variable leaks
+		mock.clearAllMocks()
 		if (originalMongoUri === undefined) {
 			delete process.env.MONGODB_URI
 		} else {
@@ -72,26 +70,25 @@ describeOrSkip('health route should', () => {
 	})
 
 	test('return 200 and healthy status when all services are up', async () => {
-		// Mock MongoDB ping success
-		;(mockMongoClient.db().command as jest.Mock).mockResolvedValue({ ok: 1 })
+		mockMongoDb.mockReturnValue({
+			command: mockMongoCommand
+		})
+		mockMongoCommand.mockResolvedValue({ ok: 1 })
 
-		// Mock Redis ping success
 		app.redis = {
-			ping: jest.fn().mockResolvedValue('PONG')
+			ping: mock().mockResolvedValue('PONG')
 		}
 
-		// Register health route
 		await health(app)
 
-		// Get the route handler
-		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const routeHandler = (app.get as any).mock.calls[0][1]
 
-		// Create mock request and reply
 		const mockRequest = createMockRequest()
 		const mockReply = {
-			status: jest.fn().mockReturnThis(),
-			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
-				// Verify the response structure
+			status: mock(() => mockReply),
+			send: mock().mockImplementation((data: HealthCheckResponse) => {
 				expect(data.status).toBe('healthy')
 				expect(data.checks.server).toBe(true)
 				expect(data.checks.database).toBe(true)
@@ -101,36 +98,30 @@ describeOrSkip('health route should', () => {
 			})
 		}
 
-		// Call the route handler
 		await routeHandler(mockRequest, mockReply)
 
-		// Verify reply.status was called with 200
 		expect(mockReply.status).toHaveBeenCalledWith(200)
 	})
 
 	test('return 503 and unhealthy status when MongoDB is down', async () => {
-		// Mock MongoDB ping failure
-		;(mockMongoClient.db().command as jest.Mock).mockRejectedValue(
-			new Error('MongoDB connection failed')
-		)
+		mockMongoDb.mockReturnValue({
+			command: mockMongoCommand
+		})
+		mockMongoCommand.mockRejectedValue(new Error('MongoDB connection failed'))
 
-		// Mock Redis ping success
 		app.redis = {
-			ping: jest.fn().mockResolvedValue('PONG')
+			ping: mock().mockResolvedValue('PONG')
 		}
 
-		// Register health route
 		await health(app)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const routeHandler = (app.get as any).mock.calls[0][1]
 
-		// Get the route handler
-		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
-		// Create mock request and reply
 		const mockRequest = createMockRequest()
 		const mockReply = {
-			status: jest.fn().mockReturnThis(),
-			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
-				// Verify the response structure
+			status: mock(() => mockReply),
+			send: mock().mockImplementation((data: HealthCheckResponse) => {
 				expect(data.status).toBe('unhealthy')
 				expect(data.checks.server).toBe(true)
 				expect(data.checks.database).toBe(false)
@@ -140,34 +131,30 @@ describeOrSkip('health route should', () => {
 			})
 		}
 
-		// Call the route handler
 		await routeHandler(mockRequest, mockReply)
 
-		// Verify reply.status was called with 503
 		expect(mockReply.status).toHaveBeenCalledWith(503)
 	})
 
 	test('return 503 and unhealthy status when Redis is down', async () => {
-		// Mock MongoDB ping success
-		;(mockMongoClient.db().command as jest.Mock).mockResolvedValue({ ok: 1 })
+		mockMongoDb.mockReturnValue({
+			command: mockMongoCommand
+		})
+		mockMongoCommand.mockResolvedValue({ ok: 1 })
 
-		// Mock Redis ping failure
 		app.redis = {
-			ping: jest.fn().mockRejectedValue(new Error('Redis connection failed'))
+			ping: mock().mockRejectedValue(new Error('Redis connection failed'))
 		}
 
-		// Register health route
 		await health(app)
 
-		// Get the route handler
-		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const routeHandler = (app.get as any).mock.calls[0][1]
 
-		// Create mock request and reply
 		const mockRequest = createMockRequest()
 		const mockReply = {
-			status: jest.fn().mockReturnThis(),
-			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
-				// Verify the response structure
+			status: mock(() => mockReply),
+			send: mock().mockImplementation((data: HealthCheckResponse) => {
 				expect(data.status).toBe('unhealthy')
 				expect(data.checks.server).toBe(true)
 				expect(data.checks.database).toBe(true)
@@ -177,36 +164,29 @@ describeOrSkip('health route should', () => {
 			})
 		}
 
-		// Call the route handler
 		await routeHandler(mockRequest, mockReply)
 
-		// Verify reply.status was called with 503
 		expect(mockReply.status).toHaveBeenCalledWith(503)
 	})
 
 	test('return 503 and unhealthy status when both MongoDB and Redis are down', async () => {
-		// Mock MongoDB ping failure
-		;(mockMongoClient.db().command as jest.Mock).mockRejectedValue(
-			new Error('MongoDB connection failed')
-		)
+		mockMongoDb.mockReturnValue({
+			command: mockMongoCommand
+		})
+		mockMongoCommand.mockRejectedValue(new Error('MongoDB connection failed'))
 
-		// Mock Redis ping failure
 		app.redis = {
-			ping: jest.fn().mockRejectedValue(new Error('Redis connection failed'))
+			ping: mock().mockRejectedValue(new Error('Redis connection failed'))
 		}
 
-		// Register health route
 		await health(app)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const routeHandler = (app.get as any).mock.calls[0][1]
 
-		// Get the route handler
-		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
-
-		// Create mock request and reply
 		const mockRequest = createMockRequest()
 		const mockReply = {
-			status: jest.fn().mockReturnThis(),
-			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
-				// Verify the response structure
+			status: mock(() => mockReply),
+			send: mock().mockImplementation((data: HealthCheckResponse) => {
 				expect(data.status).toBe('unhealthy')
 				expect(data.checks.server).toBe(true)
 				expect(data.checks.database).toBe(false)
@@ -216,32 +196,27 @@ describeOrSkip('health route should', () => {
 			})
 		}
 
-		// Call the route handler
 		await routeHandler(mockRequest, mockReply)
 
-		// Verify reply.status was called with 503
 		expect(mockReply.status).toHaveBeenCalledWith(503)
 	})
 
 	test('return 200 and redis as null when Redis is not registered', async () => {
-		// Mock MongoDB ping success
-		;(mockMongoClient.db().command as jest.Mock).mockResolvedValue({ ok: 1 })
+		mockMongoDb.mockReturnValue({
+			command: mockMongoCommand
+		})
+		mockMongoCommand.mockResolvedValue({ ok: 1 })
 
-		// Redis not registered
 		app.redis = undefined
-
-		// Register health route
 		await health(app)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const routeHandler = (app.get as any).mock.calls[0][1]
 
-		// Get the route handler
-		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
 
-		// Create mock request and reply
 		const mockRequest = createMockRequest()
 		const mockReply = {
-			status: jest.fn().mockReturnThis(),
-			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
-				// Verify the response structure
+			status: mock(() => mockReply),
+			send: mock().mockImplementation((data: HealthCheckResponse) => {
 				expect(data.status).toBe('healthy')
 				expect(data.checks.server).toBe(true)
 				expect(data.checks.database).toBe(true)
@@ -251,41 +226,36 @@ describeOrSkip('health route should', () => {
 			})
 		}
 
-		// Call the route handler
 		await routeHandler(mockRequest, mockReply)
 
-		// Verify reply.status was called with 200
 		expect(mockReply.status).toHaveBeenCalledWith(200)
 	})
 
 	test('verify response structure has all required fields', async () => {
-		// Mock all services healthy
-		;(mockMongoClient.db().command as jest.Mock).mockResolvedValue({ ok: 1 })
+		mockMongoDb.mockReturnValue({
+			command: mockMongoCommand
+		})
+		mockMongoCommand.mockResolvedValue({ ok: 1 })
 		app.redis = {
-			ping: jest.fn().mockResolvedValue('PONG')
+			ping: mock().mockResolvedValue('PONG')
 		}
 
-		// Register health route
 		await health(app)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const routeHandler = (app.get as any).mock.calls[0][1]
 
-		// Get the route handler
-		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
-
-		// Create mock request and reply
 		const mockRequest = createMockRequest()
 		let capturedData: HealthCheckResponse | null = null
 		const mockReply = {
-			status: jest.fn().mockReturnThis(),
-			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
+			status: mock(() => mockReply),
+			send: mock().mockImplementation((data: HealthCheckResponse) => {
 				capturedData = data
 				return mockReply
 			})
 		}
 
-		// Call the route handler
 		await routeHandler(mockRequest, mockReply)
 
-		// Verify all required fields exist
 		expect(capturedData).toHaveProperty('status')
 		expect(capturedData).toHaveProperty('timestamp')
 		expect(capturedData).toHaveProperty('checks')
@@ -293,7 +263,6 @@ describeOrSkip('health route should', () => {
 		expect(capturedData!.checks).toHaveProperty('database')
 		expect(capturedData!.checks).toHaveProperty('redis')
 
-		// Verify types
 		expect(typeof capturedData!.status).toBe('string')
 		expect(typeof capturedData!.timestamp).toBe('string')
 		expect(typeof capturedData!.checks.server).toBe('boolean')
@@ -304,36 +273,37 @@ describeOrSkip('health route should', () => {
 	})
 
 	test('verify timestamp is valid ISO format', async () => {
-		// Mock all services healthy
-		;(mockMongoClient.db().command as jest.Mock).mockResolvedValue({ ok: 1 })
+		mockMongoDb.mockReturnValue({
+			command: mockMongoCommand
+		})
+		mockMongoCommand.mockResolvedValue({ ok: 1 })
 		app.redis = {
-			ping: jest.fn().mockResolvedValue('PONG')
+			ping: mock().mockResolvedValue('PONG')
 		}
 
-		// Register health route
 		await health(app)
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const routeHandler = (app.get as any).mock.calls[0][1]
 
-		// Get the route handler
-		const routeHandler = (app.get as jest.Mock).mock.calls[0][1]
-
-		// Create mock request and reply
 		const mockRequest = createMockRequest()
 		let capturedData: HealthCheckResponse | null = null
 		const mockReply = {
-			status: jest.fn().mockReturnThis(),
-			send: jest.fn().mockImplementation((data: HealthCheckResponse) => {
+			status: mock(() => mockReply),
+			send: mock().mockImplementation((data: HealthCheckResponse) => {
 				capturedData = data
 				return mockReply
 			})
 		}
 
-		// Call the route handler
 		await routeHandler(mockRequest, mockReply)
 
-		// Verify timestamp is valid ISO 8601 format
 		const timestamp = new Date(capturedData!.timestamp)
 		expect(timestamp).toBeInstanceOf(Date)
 		expect(isNaN(timestamp.getTime())).toBe(false)
 		expect(capturedData!.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

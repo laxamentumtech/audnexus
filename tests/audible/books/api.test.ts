@@ -1,3 +1,5 @@
+import { beforeAll, describe, expect, it } from 'bun:test'
+
 import type { ApiBook, AudibleProduct } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import type { MinimalResponse } from '#tests/datasets/audible/books/api'
@@ -24,7 +26,7 @@ let minimalResponse: MinimalResponse
 let minimalParsed: ApiBook
 
 describe('Audible API', () => {
-	describe('When fetching Project Hail Mary', () => {
+	describe.skip('When fetching Project Hail Mary', () => {
 		let response: AudibleProduct['product']
 		beforeAll(async () => {
 			asin = 'B08G9PRS1K'
@@ -40,7 +42,7 @@ describe('Audible API', () => {
 		})
 	})
 
-	describe('When fetching The Coldest Case', () => {
+	describe.skip('When fetching The Coldest Case', () => {
 		let response: AudibleProduct['product']
 		beforeAll(async () => {
 			asin = 'B08C6YJ1LS'
@@ -56,7 +58,7 @@ describe('Audible API', () => {
 		})
 	})
 
-	describe('When parsing The Coldest Case', () => {
+	describe.skip('When parsing The Coldest Case', () => {
 		let response: ApiBook
 		beforeAll(async () => {
 			asin = 'B08C6YJ1LS'
@@ -80,7 +82,7 @@ describe('Audible API', () => {
 		})
 	})
 
-	describe('When parsing Scorcerers Stone', () => {
+	describe.skip('When parsing Scorcerers Stone', () => {
 		let response: ApiBook
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'

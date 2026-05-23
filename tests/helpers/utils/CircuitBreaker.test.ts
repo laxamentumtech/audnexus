@@ -1,3 +1,5 @@
+import { beforeEach, describe, expect, it, mock } from 'bun:test'
+
 import {
 	PerformanceConfig,
 	resetPerformanceConfig,
@@ -32,7 +34,8 @@ describe('CircuitBreaker', () => {
 	describe('basic operation', () => {
 		it('should execute function successfully when CLOSED', async () => {
 			const breaker = new CircuitBreaker()
-			const fn = jest.fn().mockResolvedValue('success')
+			const fn = mock(() => Promise.resolve('success'))
+
 
 			const result = await breaker.execute(fn)
 
@@ -51,7 +54,8 @@ describe('CircuitBreaker', () => {
 
 		it('should track successes', async () => {
 			const breaker = new CircuitBreaker()
-			const fn = jest.fn().mockResolvedValue('success')
+			const fn = mock(() => Promise.resolve('success'))
+
 
 			await breaker.execute(fn)
 			await breaker.execute(fn)
@@ -62,7 +66,8 @@ describe('CircuitBreaker', () => {
 
 		it('should track failures', async () => {
 			const breaker = new CircuitBreaker()
-			const fn = jest.fn().mockRejectedValue(new Error('failed'))
+			const fn = mock(() => Promise.reject(new Error('failed')))
+
 
 			await expect(breaker.execute(fn)).rejects.toThrow('failed')
 
@@ -74,7 +79,8 @@ describe('CircuitBreaker', () => {
 	describe('state transitions', () => {
 		it('should transition to OPEN after failure threshold', async () => {
 			const breaker = new CircuitBreaker({ failureThreshold: 3 })
-			const fn = jest.fn().mockRejectedValue(new Error('failed'))
+			const fn = mock(() => Promise.reject(new Error('failed')))
+
 
 			// Fail 3 times
 			await expect(breaker.execute(fn)).rejects.toThrow()
@@ -90,8 +96,10 @@ describe('CircuitBreaker', () => {
 				failureThreshold: 1,
 				resetTimeoutMs: 60000
 			})
-			const failingFn = jest.fn().mockRejectedValue(new Error('failed'))
-			const successFn = jest.fn().mockResolvedValue('success')
+			const failingFn = mock(() => Promise.reject(new Error('failed')))
+
+			const successFn = mock(() => Promise.resolve('success'))
+
 
 			// Open the circuit
 			await expect(breaker.execute(failingFn)).rejects.toThrow()
@@ -106,7 +114,8 @@ describe('CircuitBreaker', () => {
 				failureThreshold: 1,
 				resetTimeoutMs: 10
 			})
-			const fn = jest.fn().mockRejectedValue(new Error('failed'))
+			const fn = mock(() => Promise.reject(new Error('failed')))
+
 
 			// Open the circuit
 			await expect(breaker.execute(fn)).rejects.toThrow()
@@ -125,8 +134,10 @@ describe('CircuitBreaker', () => {
 				resetTimeoutMs: 10,
 				successThreshold: 2
 			})
-			const failingFn = jest.fn().mockRejectedValue(new Error('failed'))
-			const successFn = jest.fn().mockResolvedValue('success')
+			const failingFn = mock(() => Promise.reject(new Error('failed')))
+
+			const successFn = mock(() => Promise.resolve('success'))
+
 
 			// Open the circuit
 			await expect(breaker.execute(failingFn)).rejects.toThrow()
@@ -148,7 +159,8 @@ describe('CircuitBreaker', () => {
 				resetTimeoutMs: 10,
 				successThreshold: 2
 			})
-			const failingFn = jest.fn().mockRejectedValue(new Error('failed'))
+			const failingFn = mock(() => Promise.reject(new Error('failed')))
+
 
 			// Open the circuit
 			await expect(breaker.execute(failingFn)).rejects.toThrow()
@@ -170,7 +182,8 @@ describe('CircuitBreaker', () => {
 
 		it('should return false when OPEN', async () => {
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
-			const fn = jest.fn().mockRejectedValue(new Error('failed'))
+			const fn = mock(() => Promise.reject(new Error('failed')))
+
 
 			await expect(breaker.execute(fn)).rejects.toThrow()
 
@@ -182,7 +195,8 @@ describe('CircuitBreaker', () => {
 				failureThreshold: 1,
 				resetTimeoutMs: 10
 			})
-			const fn = jest.fn().mockRejectedValue(new Error('failed'))
+			const fn = mock(() => Promise.reject(new Error('failed')))
+
 
 			await expect(breaker.execute(fn)).rejects.toThrow()
 			await new Promise((resolve) => setTimeout(resolve, 20))
@@ -194,7 +208,8 @@ describe('CircuitBreaker', () => {
 	describe('reset', () => {
 		it('should reset to CLOSED state', async () => {
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
-			const fn = jest.fn().mockRejectedValue(new Error('failed'))
+			const fn = mock(() => Promise.reject(new Error('failed')))
+
 
 			await expect(breaker.execute(fn)).rejects.toThrow()
 			expect(breaker.getStats().state).toBe('OPEN')
@@ -216,7 +231,8 @@ describe('CircuitBreaker', () => {
 			)
 
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
-			const fn = jest.fn().mockRejectedValue(new Error('failed'))
+			const fn = mock(() => Promise.reject(new Error('failed')))
+
 
 			// Fail many times
 			for (let i = 0; i < 10; i++) {
@@ -235,7 +251,8 @@ describe('CircuitBreaker', () => {
 			)
 
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
-			const fn = jest.fn().mockRejectedValue(new Error('failed'))
+			const fn = mock(() => Promise.reject(new Error('failed')))
+
 
 			await expect(breaker.execute(fn)).rejects.toThrow()
 
@@ -264,7 +281,8 @@ describe('CircuitBreaker', () => {
 		it('should track last failure time', async () => {
 			const before = Date.now()
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
-			const fn = jest.fn().mockRejectedValue(new Error('failed'))
+			const fn = mock(() => Promise.reject(new Error('failed')))
+
 
 			await expect(breaker.execute(fn)).rejects.toThrow()
 
@@ -276,7 +294,7 @@ describe('CircuitBreaker', () => {
 		it('should track last success time', async () => {
 			const before = Date.now()
 			const breaker = new CircuitBreaker()
-			const fn = jest.fn().mockResolvedValue('success')
+			const fn = mock(() => Promise.resolve('success'))
 
 			await breaker.execute(fn)
 

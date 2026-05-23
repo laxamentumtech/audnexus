@@ -1,14 +1,53 @@
-jest.mock('@fastify/redis')
-jest.mock('#config/models/Author')
-jest.mock('#config/models/Book')
-jest.mock('#config/models/Chapter')
-jest.mock('#helpers/routes/AuthorShowHelper')
-jest.mock('#helpers/routes/BookShowHelper')
-jest.mock('#helpers/routes/ChapterShowHelper')
-jest.mock('#helpers/utils/batchProcessor')
-import type { FastifyRedis } from '@fastify/redis'
-import type { FastifyBaseLogger } from 'fastify'
-import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+
+import { createMockLogger } from '#tests/setup/mockLogger'
+
+const mockAuthorFind = mock()
+const mockBookFind = mock()
+const mockChapterFind = mock()
+
+mock.module('#config/models/Author', () => ({
+	default: { find: mockAuthorFind }
+}))
+
+mock.module('#config/models/Book', () => ({
+	default: { find: mockBookFind }
+}))
+
+mock.module('#config/models/Chapter', () => ({
+	default: { find: mockChapterFind }
+}))
+
+const mockAuthorHandler = mock()
+const mockBookHandler = mock()
+const mockChapterHandler = mock()
+
+mock.module('#helpers/routes/AuthorShowHelper', () => ({
+	default: class AuthorShowHelper {
+		handler = mockAuthorHandler
+	}
+}))
+
+mock.module('#helpers/routes/BookShowHelper', () => ({
+	default: class BookShowHelper {
+		handler = mockBookHandler
+	}
+}))
+
+mock.module('#helpers/routes/ChapterShowHelper', () => ({
+	default: class ChapterShowHelper {
+		handler = mockChapterHandler
+	}
+}))
+
+const mockProcessBatchByRegion = mock()
+const mockProcessBatch = mock()
+
+mock.module('#helpers/utils/batchProcessor', () => ({
+	processBatchByRegion: mockProcessBatchByRegion,
+	processBatch: mockProcessBatch
+}))
+
 import { AsyncTask, LongIntervalJob } from 'toad-scheduler'
 
 import AuthorModel from '#config/models/Author'
@@ -16,9 +55,6 @@ import BookModel from '#config/models/Book'
 import ChapterModel from '#config/models/Chapter'
 import type { PerformanceConfig } from '#config/performance'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
-import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
-import BookShowHelper from '#helpers/routes/BookShowHelper'
-import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 import { authorWithoutProjection } from '#tests/datasets/helpers/authors'
@@ -26,12 +62,14 @@ import { bookWithoutProjection } from '#tests/datasets/helpers/books'
 import { chaptersWithoutProjection } from '#tests/datasets/helpers/chapters'
 
 type MockContext = {
-	client: DeepMockProxy<FastifyRedis>
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	client: any
 }
 
 let ctx: MockContext
 let helper: UpdateScheduler
-let mockLogger: DeepMockProxy<FastifyBaseLogger>
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let mockLogger: any
 const projection = {
 	projection: { asin: 1, region: 1 },
 	sort: { updatedAt: -1 },
@@ -40,9 +78,16 @@ const projection = {
 
 const createMockContext = (): MockContext => {
 	return {
-		client: mockDeep<FastifyRedis>()
+		client: {
+			get: mock(),
+			set: mock(),
+			del: mock(),
+			ping: mock(),
+			expire: mock()
+		}
 	}
 }
+
 
 const createBatchSummary = (regions?: Record<string, number>) => ({
 	total: 1,
@@ -61,7 +106,7 @@ const createProcessBatchByRegionMock =
 				const result = await worker(item)
 				results.push(result)
 			} catch {
-				// Error is handled in worker, continue
+				// intentionally empty - testing error handling
 			}
 		}
 		return {
@@ -91,13 +136,22 @@ const makePerformanceConfig = (useParallel: boolean): PerformanceConfig => ({
 
 beforeEach(() => {
 	ctx = createMockContext()
-	mockLogger = mockDeep<FastifyBaseLogger>()
+	mockLogger = createMockLogger()
 	helper = new UpdateScheduler(1, ctx.client, mockLogger)
 	resetPerformanceConfig()
+	mockAuthorFind.mockClear()
+	mockBookFind.mockClear()
+	mockChapterFind.mockClear()
+	mockAuthorHandler.mockClear()
+	mockBookHandler.mockClear()
+	mockChapterHandler.mockClear()
+	mockProcessBatchByRegion.mockClear()
+	mockProcessBatch.mockClear()
 })
 
 afterEach(() => {
 	resetPerformanceConfig()
+	mock.restore()
 })
 
 describe('UpdateScheduler should', () => {
@@ -108,63 +162,63 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('getAllAuthorAsins', async () => {
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
+		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
 		await expect(helper.getAllAuthorAsins()).resolves.toEqual([authorWithoutProjection])
 		expect(AuthorModel.find).toHaveBeenCalledWith({}, projection)
 	})
 
 	test('getAllBookAsins', async () => {
-		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
+		mockBookFind.mockResolvedValue([bookWithoutProjection])
 		await expect(helper.getAllBookAsins()).resolves.toEqual([bookWithoutProjection])
 		expect(BookModel.find).toHaveBeenCalledWith({}, projection)
 	})
 
 	test('getAllChapterAsins', async () => {
-		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
+		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
 		await expect(helper.getAllChapterAsins()).resolves.toEqual([chaptersWithoutProjection])
 		expect(ChapterModel.find).toHaveBeenCalledWith({}, projection)
 	})
 
 	test('updateAuthors', async () => {
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
-		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockResolvedValue(undefined)
+		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockAuthorHandler.mockResolvedValue(undefined)
 		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateAuthors()).resolves.toEqual(undefined)
 		expect(AuthorModel.find).toHaveBeenCalledWith({}, projection)
-		expect(AuthorShowHelper.prototype.handler).toHaveBeenCalledWith()
+		expect(mockAuthorHandler).toHaveBeenCalledWith()
 	})
 
 	test('updateBooks', async () => {
-		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
-		jest.spyOn(BookShowHelper.prototype, 'handler').mockResolvedValue(undefined)
+		mockBookFind.mockResolvedValue([bookWithoutProjection])
+		mockBookHandler.mockResolvedValue(undefined)
 		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateBooks()).resolves.toEqual(undefined)
 		expect(BookModel.find).toHaveBeenCalledWith({}, projection)
-		expect(BookShowHelper.prototype.handler).toHaveBeenCalledWith()
+		expect(mockBookHandler).toHaveBeenCalledWith()
 	})
 
 	test('updateChapters', async () => {
-		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
-		jest.spyOn(ChapterShowHelper.prototype, 'handler').mockResolvedValue(undefined)
+		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
+		mockChapterHandler.mockResolvedValue(undefined)
 		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateChapters()).resolves.toEqual(undefined)
 		expect(ChapterModel.find).toHaveBeenCalledWith({}, projection)
-		expect(ChapterShowHelper.prototype.handler).toHaveBeenCalledWith()
+		expect(mockChapterHandler).toHaveBeenCalledWith()
 	})
 
 	test('updateAll', async () => {
-		jest.spyOn(helper, 'updateAuthors').mockResolvedValue(undefined)
-		jest.spyOn(helper, 'updateBooks').mockResolvedValue(undefined)
-		jest.spyOn(helper, 'updateChapters').mockResolvedValue(undefined)
+		const updateAuthorsSpy = spyOn(helper, 'updateAuthors').mockResolvedValue(undefined)
+		const updateBooksSpy = spyOn(helper, 'updateBooks').mockResolvedValue(undefined)
+		const updateChaptersSpy = spyOn(helper, 'updateChapters').mockResolvedValue(undefined)
 		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateAll()).resolves.toEqual(undefined)
-		expect(helper.updateAuthors).toHaveBeenCalledWith()
-		expect(helper.updateBooks).toHaveBeenCalledWith()
-		expect(helper.updateChapters).toHaveBeenCalledWith()
+		expect(updateAuthorsSpy).toHaveBeenCalledWith()
+		expect(updateBooksSpy).toHaveBeenCalledWith()
+		expect(updateChaptersSpy).toHaveBeenCalledWith()
 	})
 
 	test('updateAllTask', async () => {
-		jest.spyOn(helper, 'updateAll').mockResolvedValue(undefined)
+		const updateAllSpy = spyOn(helper, 'updateAll').mockResolvedValue(undefined)
 		expect(JSON.stringify(helper.updateAllTask())).toEqual(
 			JSON.stringify(
 				new AsyncTask(
@@ -178,12 +232,13 @@ describe('UpdateScheduler should', () => {
 				)
 			)
 		)
+		updateAllSpy.mockRestore()
 	})
 
 	test('updateAllJob', async () => {
-		jest
-			.spyOn(helper, 'updateAllTask')
-			.mockReturnValue(new AsyncTask('id_1', async () => undefined))
+		const updateAllTaskSpy = spyOn(helper, 'updateAllTask').mockReturnValue(
+			new AsyncTask('id_1', async () => undefined)
+		)
 		expect(JSON.stringify(helper.updateAllJob())).toEqual(
 			JSON.stringify(
 				new LongIntervalJob({ days: 1, runImmediately: true }, helper.updateAllTask(), {
@@ -192,14 +247,14 @@ describe('UpdateScheduler should', () => {
 				})
 			)
 		)
+		updateAllTaskSpy.mockRestore()
 	})
 
-	// Parallel scheduler tests
 	test('updateAuthors with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
-		;(processBatchByRegion as jest.Mock).mockResolvedValue({
+		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockProcessBatchByRegion.mockResolvedValue({
 			results: [undefined],
 			summary: createBatchSummary()
 		})
@@ -217,8 +272,8 @@ describe('UpdateScheduler should', () => {
 	test('updateBooks with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
-		;(processBatchByRegion as jest.Mock).mockResolvedValue({
+		mockBookFind.mockResolvedValue([bookWithoutProjection])
+		mockProcessBatchByRegion.mockResolvedValue({
 			results: [undefined],
 			summary: createBatchSummary()
 		})
@@ -236,8 +291,8 @@ describe('UpdateScheduler should', () => {
 	test('updateChapters with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
-		;(processBatchByRegion as jest.Mock).mockResolvedValue({
+		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
+		mockProcessBatchByRegion.mockResolvedValue({
 			results: [undefined],
 			summary: createBatchSummary()
 		})
@@ -255,47 +310,47 @@ describe('UpdateScheduler should', () => {
 	test('updateAuthors with parallel processing handles errors gracefully', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
-		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockRejectedValue(new Error('Test error'))
-		;(processBatchByRegion as jest.Mock).mockImplementation(createProcessBatchByRegionMock())
+		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockAuthorHandler.mockRejectedValue(new Error('Test error'))
+		mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
 
 		await helper.updateAuthors()
 
 		expect(processBatchByRegion).toHaveBeenCalled()
-		expect(AuthorShowHelper.prototype.handler).toHaveBeenCalled()
+		expect(mockAuthorHandler).toHaveBeenCalled()
 	})
 
 	test('updateBooks with parallel processing handles errors gracefully', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
-		jest.spyOn(BookShowHelper.prototype, 'handler').mockRejectedValue(new Error('Test error'))
-		;(processBatchByRegion as jest.Mock).mockImplementation(createProcessBatchByRegionMock())
+		mockBookFind.mockResolvedValue([bookWithoutProjection])
+		mockBookHandler.mockRejectedValue(new Error('Test error'))
+		mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
 
 		await helper.updateBooks()
 
 		expect(processBatchByRegion).toHaveBeenCalled()
-		expect(BookShowHelper.prototype.handler).toHaveBeenCalled()
+		expect(mockBookHandler).toHaveBeenCalled()
 	})
 
 	test('updateChapters with parallel processing handles errors gracefully', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
-		jest.spyOn(ChapterShowHelper.prototype, 'handler').mockRejectedValue(new Error('Test error'))
-		;(processBatchByRegion as jest.Mock).mockImplementation(createProcessBatchByRegionMock())
+		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
+		mockChapterHandler.mockRejectedValue(new Error('Test error'))
+		mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
 
 		await helper.updateChapters()
 
 		expect(processBatchByRegion).toHaveBeenCalled()
-		expect(ChapterShowHelper.prototype.handler).toHaveBeenCalled()
+		expect(mockChapterHandler).toHaveBeenCalled()
 	})
 
 	test('updateAuthors uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
 		setPerformanceConfig(makePerformanceConfig(false))
 
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
-		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockResolvedValue(undefined)
+		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockAuthorHandler.mockResolvedValue(undefined)
 
 		await helper.updateAuthors()
 
@@ -306,8 +361,8 @@ describe('UpdateScheduler should', () => {
 	test('updateBooks uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
 		setPerformanceConfig(makePerformanceConfig(false))
 
-		jest.spyOn(BookModel, 'find').mockResolvedValue([bookWithoutProjection])
-		jest.spyOn(BookShowHelper.prototype, 'handler').mockResolvedValue(undefined)
+		mockBookFind.mockResolvedValue([bookWithoutProjection])
+		mockBookHandler.mockResolvedValue(undefined)
 
 		await helper.updateBooks()
 
@@ -318,8 +373,8 @@ describe('UpdateScheduler should', () => {
 	test('updateChapters uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
 		setPerformanceConfig(makePerformanceConfig(false))
 
-		jest.spyOn(ChapterModel, 'find').mockResolvedValue([chaptersWithoutProjection])
-		jest.spyOn(ChapterShowHelper.prototype, 'handler').mockResolvedValue(undefined)
+		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
+		mockChapterHandler.mockResolvedValue(undefined)
 
 		await helper.updateChapters()
 
@@ -330,8 +385,8 @@ describe('UpdateScheduler should', () => {
 	test('updateAuthors logs warning when maxConcurrencyObserved exceeds configured concurrency', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue([authorWithoutProjection])
-		;(processBatchByRegion as jest.Mock).mockResolvedValue({
+		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockProcessBatchByRegion.mockResolvedValue({
 			results: [undefined],
 			summary: {
 				total: 1,
@@ -350,4 +405,8 @@ describe('UpdateScheduler should', () => {
 			'Authors batch exceeded configured concurrency (10/5)'
 		)
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })
