@@ -89,7 +89,7 @@ describe('Audible HTML', () => {
 		beforeAll(async () => {
 			asin = 'B00B5HZGUG'
 			helper = new ScrapeHelper(asin, 'us')
-			spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 404 }))
+			spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject(Object.assign(new Error('Not Found'), { status: 404 })))
 			const fetched = await helper.fetchBook()
 			response = fetched
 		}, 10000)

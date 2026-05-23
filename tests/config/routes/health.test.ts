@@ -84,8 +84,7 @@ describe('health route should', () => {
 
 	// Helper to extract route handler
 	const getRouteHandler = () => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		return (app.get as any).mock.calls[0][1]
+		return app.get.mock.calls[0][1]
 	}
 
 	test('return 200 and healthy status when all services are up', async () => {

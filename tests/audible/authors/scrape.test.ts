@@ -115,7 +115,7 @@ describe('Audible Author HTML', () => {
 		it('threw an error', async () => {
 			asin = '103940202X'
 			helper = new ScrapeHelper(asin, 'us')
-			spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 404 }))
+			spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject(Object.assign(new Error('Not Found'), { status: 404 })))
 			await expect(helper.fetchAuthor()).rejects.toThrow(
 				`An error occured while fetching data from Audible HTML. Response: 404, ASIN: ${asin}`
 			)

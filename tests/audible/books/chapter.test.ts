@@ -48,7 +48,6 @@ describe('Audible API', () => {
 	})
 
 	// Run through chapter parsing of a book with bad names
-	// Run through chapter parsing of a book with bad names
 	describe.skip('When parsing The Seep', () => {
 		let response: ApiChapter
 		beforeAll(async () => {

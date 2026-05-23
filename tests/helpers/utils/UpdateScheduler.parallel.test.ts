@@ -84,7 +84,7 @@ describe('UpdateScheduler parallel processing', () => {
 			region: 'us'
 		}))
 
-		mockAuthorFind.mockResolvedValue(authors as never)
+		mockAuthorFind.mockResolvedValue(authors)
 
 		let concurrentCount = 0
 		let maxConcurrent = 0
@@ -120,7 +120,7 @@ describe('UpdateScheduler parallel processing', () => {
 			{ asin: 'B3', region: 'uk' }
 		]
 
-		mockAuthorFind.mockResolvedValue(authors as never)
+		mockAuthorFind.mockResolvedValue(authors)
 
 		let concurrentCount = 0
 		let maxConcurrent = 0
@@ -153,7 +153,7 @@ describe('UpdateScheduler parallel processing', () => {
 			{ asin: 'A3', region: 'us' }
 		]
 
-		mockAuthorFind.mockResolvedValue(authors as never)
+		mockAuthorFind.mockResolvedValue(authors)
 		mockAuthorHandler
 			.mockRejectedValueOnce(new Error('fail'))
 			.mockResolvedValueOnce(undefined)
