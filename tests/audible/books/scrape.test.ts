@@ -1,5 +1,5 @@
 import type { AxiosResponse, InternalAxiosRequestConfig } from 'axios'
-import { afterAll, beforeAll, describe, expect, it, mock, spyOn, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it, mock, spyOn } from 'bun:test'
 import * as cheerio from 'cheerio'
 
 mock.module('#helpers/utils/fetchPlus', () => {
@@ -13,9 +13,12 @@ import {
 	mockHtmlB08C6YJ1LS,
 	mockHtmlB08G9PRS1K,
 	mockHtmlB017V4IM1G,
+	mockHtmlNoGenres,
+	mockHtmlSingleGenre,
 	parsedB08C6YJ1LS,
 	parsedB08G9PRS1K,
-	parsedB017V4IM1G
+	parsedB017V4IM1G,
+	parsedSingleGenre
 } from '#tests/datasets/audible/books/scrape'
 
 let asin: string
@@ -35,8 +38,9 @@ describe('Audible HTML', () => {
 		beforeAll(async () => {
 			asin = 'B08G9PRS1K'
 			helper = new ScrapeHelper(asin, 'us')
-			spyOn(fetchPlus, 'default')
-				.mockImplementation(() => Promise.resolve(createMockResponse(mockHtmlB08G9PRS1K, 200)))
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.resolve(createMockResponse(mockHtmlB08G9PRS1K, 200))
+			)
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
@@ -53,8 +57,9 @@ describe('Audible HTML', () => {
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
 			helper = new ScrapeHelper(asin, 'us')
-			spyOn(fetchPlus, 'default')
-				.mockImplementation(() => Promise.resolve(createMockResponse(mockHtmlB017V4IM1G, 200)))
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.resolve(createMockResponse(mockHtmlB017V4IM1G, 200))
+			)
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
@@ -71,8 +76,9 @@ describe('Audible HTML', () => {
 		beforeAll(async () => {
 			asin = 'B08C6YJ1LS'
 			helper = new ScrapeHelper(asin, 'us')
-			spyOn(fetchPlus, 'default')
-				.mockImplementation(() => Promise.resolve(createMockResponse(mockHtmlB08C6YJ1LS, 200)))
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.resolve(createMockResponse(mockHtmlB08C6YJ1LS, 200))
+			)
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			if (!parsed) throw new Error('Parsed is undefined')
@@ -89,7 +95,9 @@ describe('Audible HTML', () => {
 		beforeAll(async () => {
 			asin = 'B00B5HZGUG'
 			helper = new ScrapeHelper(asin, 'us')
-			spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject(Object.assign(new Error('Not Found'), { status: 404 })))
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.reject(Object.assign(new Error('Not Found'), { status: 404 }))
+			)
 			const fetched = await helper.fetchBook()
 			response = fetched
 		}, 10000)
@@ -104,10 +112,9 @@ describe('Audible HTML', () => {
 		beforeAll(async () => {
 			asin = 'B0036I54I6'
 			helper = new ScrapeHelper(asin, 'us')
-			spyOn(fetchPlus, 'default')
-				.mockImplementation(() =>
-					Promise.resolve(createMockResponse('<html><body></body></html>', 200))
-				)
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.resolve(createMockResponse('<html><body></body></html>', 200))
+			)
 			const fetched = await helper.fetchBook()
 			const parsed = await helper.parseResponse(fetched)
 			response = parsed
@@ -118,9 +125,42 @@ describe('Audible HTML', () => {
 		})
 	})
 
-	test.todo('When fetching a book with no genres')
+	describe('When fetching a book with no genres', () => {
+		let response: HtmlBook | undefined
+		beforeAll(async () => {
+			asin = 'BNOGENRE01'
+			helper = new ScrapeHelper(asin, 'us')
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.resolve(createMockResponse(mockHtmlNoGenres, 200))
+			)
+			const fetched = await helper.fetchBook()
+			const parsed = await helper.parseResponse(fetched)
+			response = parsed
+		})
 
-	test.todo('WHen fetching a book with only 1 genre')
+		it('returned undefined since no genres found', () => {
+			expect(response).toBeUndefined()
+		})
+	})
+
+	describe('When fetching a book with only 1 genre', () => {
+		let response: HtmlBook
+		beforeAll(async () => {
+			asin = 'BSINGLEGENR'
+			helper = new ScrapeHelper(asin, 'us')
+			spyOn(fetchPlus, 'default').mockImplementation(() =>
+				Promise.resolve(createMockResponse(mockHtmlSingleGenre, 200))
+			)
+			const fetched = await helper.fetchBook()
+			const parsed = await helper.parseResponse(fetched)
+			if (!parsed) throw new Error('Parsed is undefined')
+			response = parsed
+		})
+
+		it('returned the correct data', () => {
+			expect(response).toEqual(parsedSingleGenre)
+		})
+	})
 })
 
 afterAll(() => {

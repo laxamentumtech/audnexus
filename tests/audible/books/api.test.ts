@@ -1,16 +1,8 @@
 import { beforeAll, describe, expect, it } from 'bun:test'
 
-import type { ApiBook, AudibleProduct } from '#config/types'
+import type { ApiBook } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
-import type { MinimalResponse } from '#tests/datasets/audible/books/api'
-import {
-	B08C6YJ1LS,
-	B017V4IM1G,
-	minimalB08C6YJ1LS,
-	minimalB08G9PRS1K,
-	setupMinimalParsed,
-	setupMinimalResponse
-} from '#tests/datasets/audible/books/api'
+import { B08C6YJ1LS, B017V4IM1G, setupMinimalParsed } from '#tests/datasets/audible/books/api'
 import {
 	B08C6YJ1LScopyright,
 	B08C6YJ1LSdescription,
@@ -22,52 +14,17 @@ import {
 
 let asin: string
 let helper: ApiHelper
-let minimalResponse: MinimalResponse
 let minimalParsed: ApiBook
 
 describe('Audible API', () => {
-	describe.skip('When fetching Project Hail Mary', () => {
-		let response: AudibleProduct['product']
-		beforeAll(async () => {
-			asin = 'B08G9PRS1K'
-			helper = new ApiHelper(asin, 'us')
-			const fetched = await helper.fetchBook()
-			response = fetched.product
-			// Make an object with the same keys as the response
-			minimalResponse = setupMinimalResponse(response)
-		}, 10000)
-
-		it('returned the correct data', () => {
-			expect(minimalResponse).toEqual(minimalB08G9PRS1K)
-		})
-	})
-
-	describe.skip('When fetching The Coldest Case', () => {
-		let response: AudibleProduct['product']
-		beforeAll(async () => {
-			asin = 'B08C6YJ1LS'
-			helper = new ApiHelper(asin, 'us')
-			const fetched = await helper.fetchBook()
-			response = fetched.product
-			// Make an object with the same keys as the response
-			minimalResponse = setupMinimalResponse(response)
-		}, 10000)
-
-		it('returned the correct data', () => {
-			expect(minimalResponse).toEqual(minimalB08C6YJ1LS)
-		})
-	})
-
-	describe.skip('When parsing The Coldest Case', () => {
+	describe('When parsing The Coldest Case', () => {
 		let response: ApiBook
 		beforeAll(async () => {
 			asin = 'B08C6YJ1LS'
 			helper = new ApiHelper(asin, 'us')
-			const fetched = await helper.fetchBook()
-			const parsed = await helper.parseResponse(fetched)
+			const parsed = await helper.parseResponse(B08C6YJ1LS)
 			if (!parsed.genres) throw new Error('Parsed is undefined')
 			response = parsed
-			// Make an object with the same keys as the response
 			minimalParsed = setupMinimalParsed(
 				B08C6YJ1LS.product,
 				B08C6YJ1LScopyright,
@@ -75,23 +32,21 @@ describe('Audible API', () => {
 				B08C6YJ1LSimage,
 				parsed.genres
 			)
-		}, 10000)
+		})
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(minimalParsed)
 		})
 	})
 
-	describe.skip('When parsing Scorcerers Stone', () => {
+	describe('When parsing Scorcerers Stone', () => {
 		let response: ApiBook
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
 			helper = new ApiHelper(asin, 'us')
-			const fetched = await helper.fetchBook()
-			const parsed = await helper.parseResponse(fetched)
+			const parsed = await helper.parseResponse(B017V4IM1G)
 			if (!parsed.genres) throw new Error('Parsed is undefined')
 			response = parsed
-			// Make an object with the same keys as the response
 			minimalParsed = setupMinimalParsed(
 				B017V4IM1G.product,
 				B017V4IM1Gcopyright,
@@ -99,7 +54,7 @@ describe('Audible API', () => {
 				B017V4IM1Gimage,
 				parsed.genres
 			)
-		}, 10000)
+		})
 
 		it('returned the correct data', () => {
 			expect(response).toEqual(minimalParsed)

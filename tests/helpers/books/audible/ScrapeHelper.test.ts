@@ -16,9 +16,15 @@ mock.module('#helpers/utils/fetchPlus', () => {
 mock.module('#helpers/utils/shared', () => {
 	return {
 		default: class SharedHelper {
-			buildUrl() { return '' }
-			collectGenres() { return [] }
-			getGenresFromHtml() { return [] }
+			buildUrl() {
+				return ''
+			}
+			collectGenres() {
+				return []
+			}
+			getGenresFromHtml() {
+				return []
+			}
 		}
 	}
 })
@@ -53,7 +59,14 @@ describe('ScrapeHelper should', () => {
 		expect(book!.html()).toEqual(cheerio.load(htmlResponse).html())
 	})
 
-	test.todo('log error message if no book found')
+	test('log no error message on 404 response', async () => {
+		mock.restore()
+		const mockLogger = { info: mock() }
+		spyOn(fetchPlus, 'default').mockImplementationOnce(() => Promise.reject({ status: 404 }))
+		helper = new ScrapeHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
+		await expect(helper.fetchBook()).resolves.toBeUndefined()
+		expect(mockLogger.info).not.toHaveBeenCalled()
+	})
 
 	test('return error if no book', async () => {
 		asin = asin.slice(0, -1)

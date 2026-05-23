@@ -1,4 +1,3 @@
- 
 import type { AxiosResponse } from 'axios'
 import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import type { FastifyBaseLogger } from 'fastify'
@@ -33,8 +32,12 @@ mock.module('#helpers/utils/fetchPlus', () => {
 mock.module('#helpers/utils/shared', () => {
 	return {
 		default: class SharedHelper {
-			getParamString() { return '' }
-			buildUrl() { return '' }
+			getParamString() {
+				return ''
+			}
+			buildUrl() {
+				return ''
+			}
 		}
 	}
 })
@@ -67,7 +70,13 @@ describe('ApiHelper should', () => {
 		expect(helper.requestUrl).toBe(url)
 	})
 
-	test.todo('check required keys')
+	test('check required keys on parse', async () => {
+		const invalidResponse = deepCopy(mockResponse)
+		delete (invalidResponse.product as Record<string, unknown>).asin
+		await expect(helper.parseResponse(invalidResponse)).rejects.toThrow(
+			/Required key 'asin' does not exist/
+		)
+	})
 
 	test('get copyright year', async () => {
 		helper.audibleResponse = mockResponse.product
@@ -145,7 +154,21 @@ describe('ApiHelper should', () => {
 		})
 	})
 
-	test.todo('get series without position')
+	test('get series without position', async () => {
+		expect(mockResponse.product.content_delivery_type).toBe('MultiPartBook')
+		helper.audibleResponse = mockResponse.product
+		const seriesWithoutPosition = {
+			asin: 'B079YXK1GL',
+			title: "Galaxy's Edge Series",
+			url: '/pd/Galaxys-Edge-Series-Audiobook/B079YXK1GL'
+		}
+		const result = helper.getSeries(seriesWithoutPosition)
+		expect(result).toEqual({
+			asin: 'B079YXK1GL',
+			name: "Galaxy's Edge Series"
+		})
+		expect(result).not.toHaveProperty('position')
+	})
 
 	test('fetch book data', async () => {
 		const data = await helper.fetchBook()
@@ -330,7 +353,7 @@ describe('ApiHelper edge cases should', () => {
 	test('parses book with unknown content_delivery_type successfully', async () => {
 		const unknownTypeResponse = deepCopy(mockResponse)
 		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
-const mockLogger = createMockLogger()
+		const mockLogger = createMockLogger()
 		helper = new ApiHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		const data = await helper.parseResponse(unknownTypeResponse)
 		expect(data.asin).toBe(asin)
@@ -366,27 +389,27 @@ const mockLogger = createMockLogger()
 		fetchProductStateSpy.mockRestore()
 	})
 
-	test.each([
-		['AVAILABLE'],
-		[undefined],
-		['SOME_OTHER_STATE']
-	] as const)('throws REGION_UNAVAILABLE when fetchProductState returns %s', async (state) => {
-		const fetchProductStateSpy = spyOn(ApiHelper.prototype, 'fetchProductState').mockResolvedValue(
-			state
-		)
-		const emptyProductResponse = { product: {} } as AudibleProduct
-		await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
-		await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
-			name: 'NotFoundError',
-			statusCode: 404,
-			message: `Item not available in region '${region}' for ASIN: ${asin}`,
-			details: {
-				asin,
-				code: 'REGION_UNAVAILABLE'
-			}
-		})
-		fetchProductStateSpy.mockRestore()
-	})
+	test.each([['AVAILABLE'], [undefined], ['SOME_OTHER_STATE']] as const)(
+		'throws REGION_UNAVAILABLE when fetchProductState returns %s',
+		async (state) => {
+			const fetchProductStateSpy = spyOn(
+				ApiHelper.prototype,
+				'fetchProductState'
+			).mockResolvedValue(state)
+			const emptyProductResponse = { product: {} } as AudibleProduct
+			await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
+			await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
+				name: 'NotFoundError',
+				statusCode: 404,
+				message: `Item not available in region '${region}' for ASIN: ${asin}`,
+				details: {
+					asin,
+					code: 'REGION_UNAVAILABLE'
+				}
+			})
+			fetchProductStateSpy.mockRestore()
+		}
+	)
 	test('throws NotFoundError with statusCode 404 for unavailable region', async () => {
 		const emptyProductResponse = { product: {} } as AudibleProduct
 		await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
