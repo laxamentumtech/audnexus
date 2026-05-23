@@ -2,15 +2,20 @@ import pooledAxios, { closePool, getPoolConfig } from '#helpers/utils/connection
 
 describe('Connection Pool', () => {
 	const originalEnv = process.env
+	let importCounter = 0
 
 	beforeEach(() => {
-		jest.resetModules()
 		process.env = { ...originalEnv }
 	})
 
 	afterAll(() => {
 		process.env = originalEnv
 	})
+
+	async function importFreshConnectionPoolModule() {
+		importCounter++
+		return import(`#helpers/utils/connectionPool?${importCounter}`)
+	}
 
 	describe('pooledAxios instance', () => {
 		it('should be an axios instance', () => {
@@ -44,8 +49,7 @@ describe('Connection Pool', () => {
 
 		it('should respect HTTP_MAX_SOCKETS environment variable', async () => {
 			process.env.HTTP_MAX_SOCKETS = '30'
-			jest.resetModules()
-			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const { getPoolConfig: getConfigWithEnv } = await importFreshConnectionPoolModule()
 			const config = getConfigWithEnv()
 
 			expect(config.maxSockets).toBe(30)
@@ -53,8 +57,7 @@ describe('Connection Pool', () => {
 
 		it('should respect HTTP_TIMEOUT_MS environment variable', async () => {
 			process.env.HTTP_TIMEOUT_MS = '60000'
-			jest.resetModules()
-			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const { getPoolConfig: getConfigWithEnv } = await importFreshConnectionPoolModule()
 			const config = getConfigWithEnv()
 
 			expect(config.timeout).toBe(60000)
@@ -62,8 +65,7 @@ describe('Connection Pool', () => {
 
 		it('should enforce guardrail of max 50 sockets', async () => {
 			process.env.HTTP_MAX_SOCKETS = '100'
-			jest.resetModules()
-			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const { getPoolConfig: getConfigWithEnv } = await importFreshConnectionPoolModule()
 			const config = getConfigWithEnv()
 
 			expect(config.maxSockets).toBe(50)
@@ -71,8 +73,7 @@ describe('Connection Pool', () => {
 
 		it('should fallback to default when HTTP_MAX_SOCKETS is non-numeric', async () => {
 			process.env.HTTP_MAX_SOCKETS = 'abc'
-			jest.resetModules()
-			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const { getPoolConfig: getConfigWithEnv } = await importFreshConnectionPoolModule()
 			const config = getConfigWithEnv()
 
 			expect(config.maxSockets).toBe(50)
@@ -80,8 +81,7 @@ describe('Connection Pool', () => {
 
 		it('should fallback to default when HTTP_MAX_SOCKETS is negative', async () => {
 			process.env.HTTP_MAX_SOCKETS = '-1'
-			jest.resetModules()
-			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const { getPoolConfig: getConfigWithEnv } = await importFreshConnectionPoolModule()
 			const config = getConfigWithEnv()
 
 			expect(config.maxSockets).toBe(50)
@@ -89,8 +89,7 @@ describe('Connection Pool', () => {
 
 		it('should fallback to default when HTTP_MAX_SOCKETS is zero', async () => {
 			process.env.HTTP_MAX_SOCKETS = '0'
-			jest.resetModules()
-			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const { getPoolConfig: getConfigWithEnv } = await importFreshConnectionPoolModule()
 			const config = getConfigWithEnv()
 
 			expect(config.maxSockets).toBe(50)
@@ -98,8 +97,7 @@ describe('Connection Pool', () => {
 
 		it('should fallback to default when HTTP_TIMEOUT_MS is non-numeric', async () => {
 			process.env.HTTP_TIMEOUT_MS = 'xyz'
-			jest.resetModules()
-			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const { getPoolConfig: getConfigWithEnv } = await importFreshConnectionPoolModule()
 			const config = getConfigWithEnv()
 
 			expect(config.timeout).toBe(30000)
@@ -107,8 +105,7 @@ describe('Connection Pool', () => {
 
 		it('should fallback to default when HTTP_TIMEOUT_MS is negative', async () => {
 			process.env.HTTP_TIMEOUT_MS = '-100'
-			jest.resetModules()
-			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const { getPoolConfig: getConfigWithEnv } = await importFreshConnectionPoolModule()
 			const config = getConfigWithEnv()
 
 			expect(config.timeout).toBe(30000)
@@ -116,8 +113,7 @@ describe('Connection Pool', () => {
 
 		it('should fallback to default when HTTP_TIMEOUT_MS is zero', async () => {
 			process.env.HTTP_TIMEOUT_MS = '0'
-			jest.resetModules()
-			const { getPoolConfig: getConfigWithEnv } = await import('#helpers/utils/connectionPool')
+			const { getPoolConfig: getConfigWithEnv } = await importFreshConnectionPoolModule()
 			const config = getConfigWithEnv()
 
 			expect(config.timeout).toBe(30000)
@@ -137,7 +133,6 @@ describe('fetchPlus with connection pooling', () => {
 	const originalEnv = process.env
 
 	beforeEach(() => {
-		jest.resetModules()
 		process.env = { ...originalEnv }
 	})
 

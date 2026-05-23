@@ -1,3 +1,4 @@
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import * as cheerio from 'cheerio'
 
 import { setPerformanceConfig } from '#config/performance'
@@ -16,7 +17,20 @@ import {
 	parsedBookWithGenres
 } from '#tests/datasets/helpers/books'
 
-jest.mock('#helpers/utils/fetchPlus')
+mock.module('#helpers/utils/fetchPlus', () => {
+	return { default: mock() }
+})
+
+mock.module('#helpers/utils/shared', () => {
+	return {
+		default: class SharedHelper {
+			buildUrl() { return '' }
+			getParamString() { return '' }
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			sortObjectByKeys(obj: any) { return obj }
+		}
+	}
+})
 
 let asin: string
 let helper: StitchHelper
@@ -30,11 +44,11 @@ beforeEach(() => {
 	region = 'us'
 	mockApiResponse = deepCopy(apiResponse)
 	mockHTMLResponse = cheerio.load(htmlResponse)
-	jest
-		.spyOn(SharedHelper.prototype, 'buildUrl')
-		.mockReturnValue('https://api.audible.com/1.0/catalog/products/B079LRSMNN')
-	jest.spyOn(SharedHelper.prototype, 'getParamString').mockReturnValue('test_params')
-	jest.spyOn(fetchPlus, 'default').mockImplementation(() => {
+	spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(
+		'https://api.audible.com/1.0/catalog/products/B079LRSMNN'
+	)
+	spyOn(SharedHelper.prototype, 'getParamString').mockReturnValue('test_params')
+	spyOn(fetchPlus, 'default').mockImplementation(() => {
 		return Promise.reject(new Error('Unexpected fetch call'))
 	})
 })
@@ -42,19 +56,18 @@ beforeEach(() => {
 describe('StitchHelper should', () => {
 	beforeEach(() => {
 		helper = new StitchHelper(asin, region)
-		// Set up spys
-		jest
-			.spyOn(helper.apiHelper, 'fetchBook')
-			.mockImplementation(() => Promise.resolve(mockApiResponse))
-		jest
-			.spyOn(helper.apiHelper, 'parseResponse')
-			.mockImplementation(() => Promise.resolve(parsedBook))
-		jest
-			.spyOn(helper.scrapeHelper, 'fetchBook')
-			.mockImplementation(() => Promise.resolve(mockHTMLResponse))
-		jest
-			.spyOn(helper.scrapeHelper, 'parseResponse')
-			.mockImplementation(() => Promise.resolve(genresObject))
+		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() =>
+			Promise.resolve(mockApiResponse)
+		)
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsedBook)
+		)
+		spyOn(helper.scrapeHelper, 'fetchBook').mockImplementation(() =>
+			Promise.resolve(mockHTMLResponse)
+		)
+		spyOn(helper.scrapeHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(genresObject)
+		)
 	})
 
 	test('setup constructor correctly', () => {
@@ -91,42 +104,40 @@ describe('StitchHelper should', () => {
 describe('SitchHelper should handle fallback', () => {
 	beforeEach(() => {
 		helper = new StitchHelper(asin, region)
-		// Set up spys
-		jest
-			.spyOn(helper.apiHelper, 'parseResponse')
-			.mockImplementation(() => Promise.resolve(parsedBook))
-		jest
-			.spyOn(helper.scrapeHelper, 'parseResponse')
-			.mockImplementation(() => Promise.resolve(genresObject))
-		jest
-			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
-			.mockImplementation(() => parsedBookWithGenres)
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsedBook)
+		)
+		spyOn(helper.scrapeHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(genresObject)
+		)
+		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockImplementation(() =>
+			parsedBookWithGenres
+		)
 	})
 
 	test('and includeGenres properly', async () => {
 		const obj = { data: mockApiResponse }
 		obj.data.product.category_ladders = []
-		jest.spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(obj.data))
+		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(obj.data))
 		await helper.process()
 		expect(helper.scraperParsed).toEqual(genresObject)
 	})
 
 	test('and include no genres', async () => {
 		const obj = { data: mockApiResponse }
-		// Mock no genres from api
 		obj.data.product.category_ladders = []
-		// Mock no genres from scrape
 		const parsed = deepCopy(parsedBook)
 		delete parsed.genres
-		// Set spys
-		jest.spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(obj.data))
-		jest
-			.spyOn(helper.scrapeHelper, 'fetchBook')
-			.mockImplementation(() => Promise.resolve(undefined))
-		jest
-			.spyOn(helper.scrapeHelper, 'parseResponse')
-			.mockImplementation(() => Promise.resolve(undefined))
-		jest.spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() => Promise.resolve(parsed))
+		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(obj.data))
+		spyOn(helper.scrapeHelper, 'fetchBook').mockImplementation(() =>
+			Promise.resolve(undefined)
+		)
+		spyOn(helper.scrapeHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(undefined)
+		)
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
 
 		const processed = await helper.process()
 		expect(processed).toEqual(parsed)
@@ -137,20 +148,18 @@ describe('SitchHelper should handle fallback', () => {
 describe('StitchHelper should throw error when', () => {
 	beforeEach(() => {
 		helper = new StitchHelper(asin, region)
-		jest.spyOn(helper.scrapeHelper, 'fetchBook').mockResolvedValue(undefined)
-		jest.spyOn(helper.scrapeHelper, 'parseResponse').mockResolvedValue(undefined)
+		spyOn(helper.scrapeHelper, 'fetchBook').mockResolvedValue(undefined)
+		spyOn(helper.scrapeHelper, 'parseResponse').mockResolvedValue(undefined)
 	})
 
 	afterEach(() => {
-		jest.restoreAllMocks()
+		mock.restore()
 	})
 
 	test('fetching api book data fails completely', async () => {
-		jest
-			.spyOn(helper.apiHelper, 'fetchBook')
-			.mockImplementation(() =>
-				Promise.reject(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible API')))
-			)
+		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() =>
+			Promise.reject(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible API')))
+		)
 		await expect(helper.fetchApiBook()).rejects.toThrow(
 			`An error occured while fetching data from Audible API. Response: 400, ASIN: ${asin}`
 		)
@@ -161,20 +170,18 @@ describe('StitchHelper should throw error when', () => {
 	})
 
 	test('fetching scraper book data throws an error', async () => {
-		jest
-			.spyOn(helper.scrapeHelper, 'fetchBook')
-			.mockImplementation(() =>
-				Promise.reject(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible HTML')))
-			)
+		spyOn(helper.scrapeHelper, 'fetchBook').mockImplementation(() =>
+			Promise.reject(new Error(ErrorMessageHTTPFetch(asin, 400, 'Audible HTML')))
+		)
 		await expect(helper.fetchScraperBook()).rejects.toThrow(
 			`An error occured while fetching data from Audible HTML. Response: 400, ASIN: ${asin}`
 		)
 	})
 
 	test('parsing api book data fails', async () => {
-		jest
-			.spyOn(helper.apiHelper, 'parseResponse')
-			.mockImplementation(() => Promise.reject(new Error(ErrorMessageParse(asin, 'Audible API'))))
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.reject(new Error(ErrorMessageParse(asin, 'Audible API')))
+		)
 		await expect(helper.parseApiResponse()).rejects.toThrow(
 			`An error occurred while parsing Audible API. ASIN: ${asin}`
 		)
@@ -185,29 +192,28 @@ describe('StitchHelper should throw error when', () => {
 	})
 
 	test('parsing scraper book throws an error', async () => {
-		jest
-			.spyOn(helper.scrapeHelper, 'parseResponse')
-			.mockImplementation(() => Promise.reject(new Error(ErrorMessageParse(asin, 'Audible HTML'))))
+		spyOn(helper.scrapeHelper, 'parseResponse').mockImplementation(() =>
+			Promise.reject(new Error(ErrorMessageParse(asin, 'Audible HTML')))
+		)
 		await expect(helper.parseScraperResponse()).rejects.toThrow(
 			`An error occurred while parsing Audible HTML. ASIN: ${asin}`
 		)
 	})
 
 	test('processing book fails', async () => {
-		jest.spyOn(helper, 'fetchApiBook').mockImplementation()
+		spyOn(helper, 'fetchApiBook').mockImplementation()
 		helper.apiResponse = {
 			product: { asin: 'B07JZQZQZQ' }
 		} as unknown as AudibleProduct
-		jest
-			.spyOn(helper.apiHelper, 'parseResponse')
-			.mockImplementation(() => Promise.reject(new Error(ErrorMessageParse(asin, 'Audible API'))))
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.reject(new Error(ErrorMessageParse(asin, 'Audible API')))
+		)
 		await expect(helper.process()).rejects.toThrow(
 			`An error occurred while parsing Audible API. ASIN: ${asin}`
 		)
 	})
 
 	test('includeGenres returns a non-book type', async () => {
-		// Enable USE_SORTED_KEYS to test sorting error handling
 		setPerformanceConfig({
 			USE_PARALLEL_SCHEDULER: false,
 			USE_CONNECTION_POOLING: true,
@@ -221,9 +227,9 @@ describe('StitchHelper should throw error when', () => {
 			DEFAULT_REGION: 'us'
 		})
 		helper.apiParsed = parsedBook
-		jest
-			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
-			.mockImplementation(() => genresObject as unknown as ApiBook)
+		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockImplementation(() =>
+			genresObject as unknown as ApiBook
+		)
 		helper.scraperParsed = genresObject
 		await expect(helper.includeGenres()).rejects.toThrow(
 			`An error occurred while sorting book json: ${asin}`
@@ -232,28 +238,28 @@ describe('StitchHelper should throw error when', () => {
 
 	test('fetchApiBook rethrows NotFoundError without wrapping', async () => {
 		const notFoundError = new NotFoundError('Not found')
-		jest.spyOn(helper.apiHelper, 'fetchBook').mockRejectedValue(notFoundError)
+		spyOn(helper.apiHelper, 'fetchBook').mockRejectedValue(notFoundError)
 		await expect(helper.fetchApiBook()).rejects.toBe(notFoundError)
 		expect(notFoundError.statusCode).toBe(404)
 	})
 
 	test('fetchApiBook rethrows BadRequestError without wrapping', async () => {
 		const badRequestError = new BadRequestError('Bad request')
-		jest.spyOn(helper.apiHelper, 'fetchBook').mockRejectedValue(badRequestError)
+		spyOn(helper.apiHelper, 'fetchBook').mockRejectedValue(badRequestError)
 		await expect(helper.fetchApiBook()).rejects.toBe(badRequestError)
 		expect(badRequestError.statusCode).toBe(400)
 	})
 
 	test('fetchScraperBook rethrows NotFoundError without wrapping', async () => {
 		const notFoundError = new NotFoundError('Not found')
-		jest.spyOn(helper.scrapeHelper, 'fetchBook').mockRejectedValue(notFoundError)
+		spyOn(helper.scrapeHelper, 'fetchBook').mockRejectedValue(notFoundError)
 		await expect(helper.fetchScraperBook()).rejects.toBe(notFoundError)
 		expect(notFoundError.statusCode).toBe(404)
 	})
 
 	test('fetchScraperBook rethrows BadRequestError without wrapping', async () => {
 		const badRequestError = new BadRequestError('Bad request')
-		jest.spyOn(helper.scrapeHelper, 'fetchBook').mockRejectedValue(badRequestError)
+		spyOn(helper.scrapeHelper, 'fetchBook').mockRejectedValue(badRequestError)
 		await expect(helper.fetchScraperBook()).rejects.toBe(badRequestError)
 		expect(badRequestError.statusCode).toBe(400)
 	})
@@ -261,7 +267,7 @@ describe('StitchHelper should throw error when', () => {
 	test('parseApiResponse rethrows NotFoundError without wrapping', async () => {
 		helper.apiResponse = mockApiResponse
 		const notFoundError = new NotFoundError('Not found')
-		jest.spyOn(helper.apiHelper, 'parseResponse').mockRejectedValue(notFoundError)
+		spyOn(helper.apiHelper, 'parseResponse').mockRejectedValue(notFoundError)
 		await expect(helper.parseApiResponse()).rejects.toBe(notFoundError)
 		expect(notFoundError.statusCode).toBe(404)
 	})
@@ -269,7 +275,7 @@ describe('StitchHelper should throw error when', () => {
 	test('parseApiResponse rethrows BadRequestError without wrapping', async () => {
 		helper.apiResponse = mockApiResponse
 		const badRequestError = new BadRequestError('Bad request')
-		jest.spyOn(helper.apiHelper, 'parseResponse').mockRejectedValue(badRequestError)
+		spyOn(helper.apiHelper, 'parseResponse').mockRejectedValue(badRequestError)
 		await expect(helper.parseApiResponse()).rejects.toBe(badRequestError)
 		expect(badRequestError.statusCode).toBe(400)
 	})
@@ -277,7 +283,7 @@ describe('StitchHelper should throw error when', () => {
 	test('parseScraperResponse rethrows NotFoundError without wrapping', async () => {
 		helper.scraperResponse = mockHTMLResponse
 		const notFoundError = new NotFoundError('Not found')
-		jest.spyOn(helper.scrapeHelper, 'parseResponse').mockRejectedValue(notFoundError)
+		spyOn(helper.scrapeHelper, 'parseResponse').mockRejectedValue(notFoundError)
 		await expect(helper.parseScraperResponse()).rejects.toBe(notFoundError)
 		expect(notFoundError.statusCode).toBe(404)
 	})
@@ -285,8 +291,12 @@ describe('StitchHelper should throw error when', () => {
 	test('parseScraperResponse rethrows BadRequestError without wrapping', async () => {
 		helper.scraperResponse = mockHTMLResponse
 		const badRequestError = new BadRequestError('Bad request')
-		jest.spyOn(helper.scrapeHelper, 'parseResponse').mockRejectedValue(badRequestError)
+		spyOn(helper.scrapeHelper, 'parseResponse').mockRejectedValue(badRequestError)
 		await expect(helper.parseScraperResponse()).rejects.toBe(badRequestError)
 		expect(badRequestError.statusCode).toBe(400)
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

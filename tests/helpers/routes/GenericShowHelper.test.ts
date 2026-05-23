@@ -1,9 +1,30 @@
-jest.mock('#helpers/database/redis/RedisHelper')
-jest.mock('#helpers/database/papr/audible/PaprAudibleBookHelper')
+import { afterAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+
+mock.module('#helpers/database/redis/RedisHelper', () => {
+	return {
+		default: class RedisHelper {
+			findOne = () => Promise.resolve(null)
+			setOne = () => Promise.resolve()
+			findOrCreate = () => Promise.resolve(null)
+		}
+	}
+})
+
+mock.module('#helpers/database/papr/audible/PaprAudibleBookHelper', () => {
+	return {
+		default: class PaprAudibleBookHelper {
+			findOne = () => Promise.resolve({ data: null, modified: false })
+			findOneWithProjection = () => Promise.resolve({ data: null })
+			setData = () => {}
+			createOrUpdate = () => Promise.resolve({ data: null })
+		}
+	}
+})
 
 import { BadRequestError, NotFoundError } from '#helpers/errors/ApiErrors'
 import GenericShowHelper from '#helpers/routes/GenericShowHelper'
 import { bookWithoutProjection } from '#tests/datasets/helpers/books'
+import { createMockLogger } from '#tests/setup/mockLogger'
 
 describe('GenericShowHelper handler error propagation', () => {
 	let helper: GenericShowHelper
@@ -19,19 +40,14 @@ describe('GenericShowHelper handler error propagation', () => {
 	})
 
 	test('should propagate NotFoundError with statusCode when updateActions throws', async () => {
-		// Mock getDataFromPapr to return data so it enters the update path
-		jest.spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
 
-		// Create a NotFoundError with statusCode
 		const notFoundError = new NotFoundError('Book not found')
+		spyOn(helper, 'updateActions').mockRejectedValue(notFoundError)
 
-		// Mock updateActions to throw the NotFoundError
-		jest.spyOn(helper, 'updateActions').mockRejectedValue(notFoundError)
-
-		// Call handler once and verify it throws the NotFoundError with statusCode preserved
 		try {
 			await helper.handler()
-			fail('Expected handler to throw')
+			throw new Error('Expected handler to throw')
 		} catch (err: unknown) {
 			const error = err as NotFoundError
 			expect(error).toBeInstanceOf(NotFoundError)
@@ -42,19 +58,14 @@ describe('GenericShowHelper handler error propagation', () => {
 	})
 
 	test('should propagate BadRequestError with statusCode when updateActions throws', async () => {
-		// Mock getDataFromPapr to return data so it enters the update path
-		jest.spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
 
-		// Create a BadRequestError with statusCode
 		const badRequestError = new BadRequestError('Invalid request')
+		spyOn(helper, 'updateActions').mockRejectedValue(badRequestError)
 
-		// Mock updateActions to throw the BadRequestError
-		jest.spyOn(helper, 'updateActions').mockRejectedValue(badRequestError)
-
-		// Call handler once and verify it throws the BadRequestError with statusCode preserved
 		try {
 			await helper.handler()
-			fail('Expected handler to throw')
+			throw new Error('Expected handler to throw')
 		} catch (err: unknown) {
 			const error = err as BadRequestError
 			expect(error).toBeInstanceOf(BadRequestError)
@@ -65,10 +76,8 @@ describe('GenericShowHelper handler error propagation', () => {
 	})
 
 	test('should NOT wrap errors with statusCode in generic ErrorMessageUpdate', async () => {
-		// Mock getDataFromPapr to return data so it enters the update path
-		jest.spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
 
-		// Create a custom error with statusCode
 		class CustomError extends Error {
 			statusCode: number
 			constructor(message: string, statusCode: number) {
@@ -78,14 +87,11 @@ describe('GenericShowHelper handler error propagation', () => {
 			}
 		}
 		const customError = new CustomError('Custom error message', 418)
+		spyOn(helper, 'updateActions').mockRejectedValue(customError)
 
-		// Mock updateActions to throw the custom error
-		jest.spyOn(helper, 'updateActions').mockRejectedValue(customError)
-
-		// Call handler and expect it to throw the SAME custom error, not wrapped
 		try {
 			await helper.handler()
-			fail('Expected handler to throw')
+			throw new Error('Expected handler to throw')
 		} catch (err: unknown) {
 			const error = err as Error
 			expect(error).toBeInstanceOf(CustomError)
@@ -97,19 +103,14 @@ describe('GenericShowHelper handler error propagation', () => {
 	})
 
 	test('should wrap generic errors without statusCode in ErrorMessageUpdate', async () => {
-		// Mock getDataFromPapr to return data so it enters the update path
-		jest.spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
 
-		// Create a generic error without statusCode
 		const genericError = new Error('Database connection failed')
+		spyOn(helper, 'updateActions').mockRejectedValue(genericError)
 
-		// Mock updateActions to throw the generic error
-		jest.spyOn(helper, 'updateActions').mockRejectedValue(genericError)
-
-		// Call handler and expect it to wrap the error in ErrorMessageUpdate
 		try {
 			await helper.handler()
-			fail('Expected handler to throw')
+			throw new Error('Expected handler to throw')
 		} catch (err: unknown) {
 			const error = err as Error
 			expect(error).toBeInstanceOf(Error)
@@ -118,4 +119,190 @@ describe('GenericShowHelper handler error propagation', () => {
 			expect(error.message).not.toContain('Database connection failed')
 		}
 	})
+})
+
+describe('GenericShowHelper updateActions NotFoundError code handling', () => {
+	let helper: GenericShowHelper
+	const asin = 'B079LRSMNN'
+	let mockLogger: ReturnType<typeof createMockLogger>
+
+	beforeEach(() => {
+		mockLogger = createMockLogger()
+		helper = new GenericShowHelper(
+			asin,
+			{ region: 'us', seedAuthors: undefined, update: '1' },
+			null,
+			'book',
+			mockLogger
+		)
+	})
+
+	test('should swallow NotFoundError with REGION_UNAVAILABLE and return projected data', async () => {
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+
+		const regionError = new NotFoundError('Region unavailable', {
+			code: 'REGION_UNAVAILABLE'
+		})
+		spyOn(helper, 'createOrUpdateData').mockRejectedValue(regionError)
+
+		const projectedData = { asin, title: 'Test Book' } as never
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(projectedData)
+
+		const result = await helper.updateActions()
+		expect(result).toBe(projectedData)
+
+		expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+		const warnMessage = (mockLogger.warn as ReturnType<typeof mock>).mock.calls[0][0] as string
+		expect(warnMessage).toContain('book')
+		expect(warnMessage).toContain(asin)
+	})
+
+	test('should swallow NotFoundError with PRODUCT_DELISTED and return projected data', async () => {
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+
+		const delistedError = new NotFoundError('Product delisted', {
+			code: 'PRODUCT_DELISTED'
+		})
+		spyOn(helper, 'createOrUpdateData').mockRejectedValue(delistedError)
+
+		const projectedData = { asin, title: 'Test Book' } as never
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(projectedData)
+
+		const result = await helper.updateActions()
+		expect(result).toBe(projectedData)
+
+		expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+		const warnMessage = (mockLogger.warn as ReturnType<typeof mock>).mock.calls[0][0] as string
+		expect(warnMessage).toContain('book')
+		expect(warnMessage).toContain(asin)
+	})
+
+	test('should rethrow NotFoundError with unrecognized code', async () => {
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+
+		const otherError = new NotFoundError('Not found for other reason', {
+			code: 'SOME_OTHER_CODE'
+		})
+		spyOn(helper, 'createOrUpdateData').mockRejectedValue(otherError)
+
+		try {
+			await helper.updateActions()
+			throw new Error('Expected updateActions to throw')
+		} catch (err: unknown) {
+			const error = err as NotFoundError
+			expect(error).toBeInstanceOf(NotFoundError)
+			expect(error.message).toBe('Not found for other reason')
+			expect(error).toHaveProperty('statusCode', 404)
+		}
+
+		expect(mockLogger.warn).toHaveBeenCalledTimes(0)
+	})
+})
+
+describe('GenericShowHelper updateActions non-Error rejection handling', () => {
+	let helper: GenericShowHelper
+	const asin = 'B079LRSMNN'
+
+	beforeEach(() => {
+		helper = new GenericShowHelper(
+			asin,
+			{ region: 'us', seedAuthors: undefined, update: '1' },
+			null,
+			'book'
+		)
+	})
+
+	test('should wrap string rejection in Error with cause', async () => {
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+
+		const stringError = 'Something went wrong'
+		spyOn(helper, 'createOrUpdateData').mockRejectedValue(stringError)
+
+		try {
+			await helper.updateActions()
+			throw new Error('Expected updateActions to throw')
+		} catch (err: unknown) {
+			const error = err as Error
+			expect(error).toBeInstanceOf(Error)
+			expect(error.message).toBe('Something went wrong')
+			expect(error.cause).toBe(stringError)
+		}
+	})
+
+	test('should wrap null rejection in Error with cause', async () => {
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+
+		spyOn(helper, 'createOrUpdateData').mockRejectedValue(null)
+
+		try {
+			await helper.updateActions()
+			throw new Error('Expected updateActions to throw')
+		} catch (err: unknown) {
+			const error = err as Error
+			expect(error).toBeInstanceOf(Error)
+			expect(error.message).toBe('null')
+			expect(error.cause).toBe(null)
+		}
+	})
+
+	test('should wrap plain object rejection in Error with cause', async () => {
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+
+		const objectError = { code: 'E123', message: 'Custom error' }
+		spyOn(helper, 'createOrUpdateData').mockRejectedValue(objectError)
+
+		try {
+			await helper.updateActions()
+			throw new Error('Expected updateActions to throw')
+		} catch (err: unknown) {
+			const error = err as Error
+			expect(error).toBeInstanceOf(Error)
+			expect(error.message).toBe('[object Object]')
+			expect(error.cause).toBe(objectError)
+		}
+	})
+
+	test('should wrap number rejection in Error with cause', async () => {
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+
+		spyOn(helper, 'createOrUpdateData').mockRejectedValue(42)
+
+		try {
+			await helper.updateActions()
+			throw new Error('Expected updateActions to throw')
+		} catch (err: unknown) {
+			const error = err as Error
+			expect(error).toBeInstanceOf(Error)
+			expect(error.message).toBe('42')
+			expect(error.cause).toBe(42)
+		}
+	})
+
+	test('should wrap undefined rejection in Error with cause', async () => {
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+
+		spyOn(helper, 'createOrUpdateData').mockRejectedValue(undefined)
+
+		try {
+			await helper.updateActions()
+			throw new Error('Expected updateActions to throw')
+		} catch (err: unknown) {
+			const error = err as Error
+			expect(error).toBeInstanceOf(Error)
+			expect(error.message).toBe('undefined')
+			expect(error.cause).toBe(undefined)
+		}
+	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

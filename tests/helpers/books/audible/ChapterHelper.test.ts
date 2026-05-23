@@ -1,4 +1,5 @@
 import type { AxiosResponse } from 'axios'
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import type { FastifyBaseLogger } from 'fastify'
 
 import type { AudibleChapter } from '#config/types'
@@ -8,11 +9,20 @@ import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
 import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
+import { createMockLogger } from '#tests/setup/mockLogger'
 
-jest.mock('#helpers/utils/fetchPlus')
-jest.mock('#helpers/utils/shared')
+mock.module('#helpers/utils/fetchPlus', () => {
+	return { default: mock() }
+})
 
-// Save original environment variables to restore after each test
+mock.module('#helpers/utils/shared', () => {
+	return {
+		default: class SharedHelper {
+			buildUrl() { return '' }
+		}
+	}
+})
+
 const ORIG_ENV = process.env
 
 let asin: string
@@ -23,14 +33,12 @@ let url: string
 const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(() => {
-	// Variables
 	asin = 'B079LRSMNN'
 	region = 'us'
 	url = `https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info&quality=High`
 	mockResponse = deepCopy(apiChapters)
-	// Set up environment variables for ChapterHelper constructor
 	process.env.ADP_TOKEN = 'mock_adp_token'
-	// FAKE/MOCK RSA private key for testing only - NOT a real credential
+// FAKE/MOCK RSA private key for testing only - NOT a real credential
 	process.env.PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQDWGw8THIbueiDYRczKw15iLGhwkOJ5mvO3b12lZJYNyAqmVKqo
 I3So1xJZveKLFkdjK9tIJ9Y2jfsNSpPR0oZTTaGGVs6JejN6sPP8dq+RsNheL+No
@@ -46,17 +54,14 @@ Y38DyPqP7xT9oQPYwVDuvCE3nmV8owlbI+h7ZuwJ6sEAawTQheG7iYWuadLwJUlB
 t2Nq1+6jFFLll0gYzQUCQQDdosNVYv5LB4hPYbV4yQK90WIQmiFL3GBm0afQVcxy
 wJhvGwWnOXbc/RAmdfeZH4H2XJCEZ/yzCG9d0XOpnyAZ
 -----END RSA PRIVATE KEY-----`
-	// Set up spys
-	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
-	jest
-		.spyOn(fetchPlus, 'default')
-		.mockImplementation(() => Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse))
-	// Set up helpers
+	spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
+	spyOn(fetchPlus, 'default').mockImplementation(() =>
+		Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse)
+	)
 	helper = new ChapterHelper(asin, region)
 })
 
 afterEach(() => {
-	// Restore environment variables to prevent cross-test leakage
 	restoreEnv()
 })
 
@@ -79,13 +84,9 @@ describe('ChapterHelper should', () => {
 	})
 
 	test('cleanup chapter titles', () => {
-		// Regular title isn't changed
 		expect(helper.chapterTitleCleanup('Chapter 1')).toBe('Chapter 1')
-		// Title with trailing period is changed
 		expect(helper.chapterTitleCleanup('Chapter 1.')).toBe('Chapter 1')
-		// Title with just a number is changed
 		expect(helper.chapterTitleCleanup('123')).toBe('Chapter 123')
-		// Title with an underscore is changed
 		expect(helper.chapterTitleCleanup('Chapter_1')).toBe('Chapter 1')
 	})
 
@@ -99,11 +100,11 @@ describe('ChapterHelper should', () => {
 
 	test('return undefined if no chapters', async () => {
 		asin = asin.slice(0, -1)
-		jest
-			.spyOn(fetchPlus, 'default')
-			.mockImplementation(() => Promise.resolve({ data: undefined, status: 404 } as AxiosResponse))
+		spyOn(fetchPlus, 'default').mockImplementation(() =>
+			Promise.resolve({ data: undefined, status: 404 } as AxiosResponse)
+		)
 		url = `https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info`
-		jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
+		spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
 		helper = new ChapterHelper(asin, region)
 
 		await expect(helper.fetchChapter()).resolves.toBeUndefined()
@@ -156,16 +157,13 @@ describe('ChapterHelper should throw error when', () => {
 	const OLD_ENV = process.env
 
 	test('missing environment vars', () => {
-		// Set environment variables
 		process.env = { ...OLD_ENV }
 		process.env.ADP_TOKEN = undefined
 		process.env.PRIVATE_KEY = undefined
-		// setup function to fail if environment variables are missing
 		const bad_helper = function () {
 			new ChapterHelper(asin, region)
 		}
 		expect(bad_helper).toThrow('Missing environment variable(s): ADP_TOKEN or PRIVATE_KEY')
-		// Restore environment
 		process.env = OLD_ENV
 	})
 
@@ -187,31 +185,10 @@ describe('ChapterHelper should throw error when', () => {
 			`Required key 'chapters' does not exist for chapter in Audible API response for ASIN ${asin}`
 		)
 	})
-	// test('chapter has required keys and missing values', () => {
-	// 	helper.inputJson = {
-	// 		brandIntroDurationMs: '',
-	// 		brandOutroDurationMs: 5062,
-	// 		chapters: [
-	// 			{
-	// 				length_ms: 945561,
-	// 				start_offset_ms: 22664,
-	// 				start_offset_sec: 23,
-	// 				title: '1'
-	// 			}
-	// 		],
-	// 		is_accurate: true,
-	// 		runtime_length_ms: 62548009,
-	// 		runtime_length_sec: 62548
-	// 	} as unknown as AudibleChapter['content_metadata']['chapter_info']
-	// 	expect(helper.hasRequiredKeys()).toEqual({
-	// 		isValid: false,
-	// 		message:
-	// 			"Required key 'brandIntroDurationMs' does not have a valid value in Audible API response for ASIN B079LRSMNN"
-	// 	})
-	// })
+
 	test('error fetching Chapter data', async () => {
-		const mockLogger = { error: jest.fn() }
-		jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
+const mockLogger = createMockLogger()
+		spyOn(fetchPlus, 'default').mockImplementation(() =>
 			Promise.reject({
 				status: 403
 			})
@@ -243,4 +220,8 @@ describe('ChapterHelper should throw error when', () => {
 			})
 		}
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

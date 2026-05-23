@@ -1,8 +1,6 @@
-import {
-	isAuthorDocument,
-	isBookDocument,
-	isChapterDocument
-} from '#config/typing/checkers'
+import { describe, expect, test } from 'bun:test'
+
+import { isAuthorDocument, isBookDocument, isChapterDocument } from '#config/typing/checkers'
 import { authorWithId, parsedAuthor } from '#tests/datasets/helpers/authors'
 import { bookWithId, parsedBook } from '#tests/datasets/helpers/books'
 import { chaptersWithId, parsedChapters } from '#tests/datasets/helpers/chapters'

@@ -1,15 +1,25 @@
-jest.mock('@fastify/redis')
-jest.mock('#config/models/Author')
-jest.mock('#helpers/routes/AuthorShowHelper')
 import type { FastifyRedis } from '@fastify/redis'
-import type { FastifyBaseLogger } from 'fastify'
-import { mock } from 'jest-mock-extended'
+import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import AuthorModel from '#config/models/Author'
 import type { PerformanceConfig } from '#config/performance'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
-import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
+import { createMockLogger } from '#tests/setup/mockLogger'
+
+const mockAuthorFind = mock()
+const mockAuthorHandler = mock()
+
+mock.module('#config/models/Author', () => ({
+	default: { find: mockAuthorFind }
+}))
+
+mock.module('#helpers/routes/AuthorShowHelper', () => ({
+	default: class AuthorShowHelper {
+		handler = mockAuthorHandler
+	}
+}))
+
+mock.module('@fastify/redis', () => ({}))
 
 type MockContext = {
 	client: FastifyRedis
@@ -30,22 +40,35 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 })
 
 const createMockContext = (): MockContext => ({
-	client: mock<FastifyRedis>()
+	client: {
+		get: mock(),
+		set: mock(),
+		del: mock(),
+		ping: mock(),
+		expire: mock()
+	}
 })
+
 
 describe('UpdateScheduler parallel processing', () => {
 	let helper: UpdateScheduler
 
 	beforeEach(() => {
 		const ctx = createMockContext()
-		const mockLogger = mock<FastifyBaseLogger>()
+		const mockLogger = createMockLogger()
 		helper = new UpdateScheduler(1, ctx.client, mockLogger)
 		resetPerformanceConfig()
+		mockAuthorFind.mockReset()
+		mockAuthorHandler.mockReset()
 	})
 
 	afterEach(() => {
 		resetPerformanceConfig()
-		jest.restoreAllMocks()
+		mock.restore()
+	})
+
+	afterAll(() => {
+		mock.restore()
 	})
 
 	it('caps per-region concurrency at 5', async () => {
@@ -61,11 +84,11 @@ describe('UpdateScheduler parallel processing', () => {
 			region: 'us'
 		}))
 
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue(authors as never)
+		mockAuthorFind.mockResolvedValue(authors)
 
 		let concurrentCount = 0
 		let maxConcurrent = 0
-		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockImplementation(async () => {
+		mockAuthorHandler.mockImplementation(async () => {
 			concurrentCount++
 			maxConcurrent = Math.max(maxConcurrent, concurrentCount)
 			await new Promise((resolve) => setTimeout(resolve, 10))
@@ -73,7 +96,7 @@ describe('UpdateScheduler parallel processing', () => {
 			return undefined
 		})
 
-		const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0)
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
 		await expect(helper.updateAuthors()).resolves.toBeUndefined()
 		randomSpy.mockRestore()
 
@@ -97,11 +120,11 @@ describe('UpdateScheduler parallel processing', () => {
 			{ asin: 'B3', region: 'uk' }
 		]
 
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue(authors as never)
+		mockAuthorFind.mockResolvedValue(authors)
 
 		let concurrentCount = 0
 		let maxConcurrent = 0
-		jest.spyOn(AuthorShowHelper.prototype, 'handler').mockImplementation(async () => {
+		mockAuthorHandler.mockImplementation(async () => {
 			concurrentCount++
 			maxConcurrent = Math.max(maxConcurrent, concurrentCount)
 			await new Promise((resolve) => setTimeout(resolve, 10))
@@ -109,7 +132,7 @@ describe('UpdateScheduler parallel processing', () => {
 			return undefined
 		})
 
-		const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0)
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
 		await expect(helper.updateAuthors()).resolves.toBeUndefined()
 		randomSpy.mockRestore()
 
@@ -130,17 +153,16 @@ describe('UpdateScheduler parallel processing', () => {
 			{ asin: 'A3', region: 'us' }
 		]
 
-		jest.spyOn(AuthorModel, 'find').mockResolvedValue(authors as never)
-		const handlerSpy = jest.spyOn(AuthorShowHelper.prototype, 'handler')
-		handlerSpy
+		mockAuthorFind.mockResolvedValue(authors)
+		mockAuthorHandler
 			.mockRejectedValueOnce(new Error('fail'))
 			.mockResolvedValueOnce(undefined)
 			.mockResolvedValueOnce(undefined)
 
-		const randomSpy = jest.spyOn(Math, 'random').mockReturnValue(0)
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
 		await expect(helper.updateAuthors()).resolves.toBeUndefined()
 		randomSpy.mockRestore()
 
-		expect(handlerSpy).toHaveBeenCalledTimes(3)
+		expect(mockAuthorHandler).toHaveBeenCalledTimes(3)
 	})
 })

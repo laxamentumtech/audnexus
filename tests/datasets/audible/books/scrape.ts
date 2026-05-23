@@ -94,3 +94,36 @@ export const mockHtmlB08C6YJ1LS = `
 </body>
 </html>
 `
+
+// Mock HTML for a book with NO genres
+export const mockHtmlNoGenres = `
+<html>
+<body>
+	<div class="product-details">
+		<h1>Book with No Genres</h1>
+	</div>
+</body>
+</html>
+`
+// Mock HTML for a book with only 1 genre
+export const mockHtmlSingleGenre = `
+<html>
+<body>
+	<ul>
+		<li class="categoriesLabel">
+			<a href="/tag/Science-Fiction-Fantasy-Audiobooks/18580606011">Science Fiction & Fantasy</a>
+		</li>
+	</ul>
+</body>
+</html>
+`
+
+export const parsedSingleGenre: HtmlBook = {
+	genres: [
+		{
+			asin: '18580606011',
+			name: 'Science Fiction & Fantasy',
+			type: 'genre'
+		}
+	]
+}

@@ -43,7 +43,7 @@ class StitchHelper {
 			if (error instanceof Error && 'statusCode' in error) {
 				throw error
 			}
-			throw new Error(getErrorMessage(error))
+			throw new Error(getErrorMessage(error), { cause: error })
 		}
 	}
 
@@ -59,7 +59,7 @@ class StitchHelper {
 			if (error instanceof Error && 'statusCode' in error) {
 				throw error
 			}
-			throw new Error(getErrorMessage(error))
+			throw new Error(getErrorMessage(error), { cause: error })
 		}
 	}
 
@@ -75,7 +75,7 @@ class StitchHelper {
 			if (error instanceof Error && 'statusCode' in error) {
 				throw error
 			}
-			throw new Error(getErrorMessage(error))
+			throw new Error(getErrorMessage(error), { cause: error })
 		}
 	}
 
@@ -91,7 +91,7 @@ class StitchHelper {
 			if (error instanceof Error && 'statusCode' in error) {
 				throw error
 			}
-			throw new Error(getErrorMessage(error))
+			throw new Error(getErrorMessage(error), { cause: error })
 		}
 	}
 

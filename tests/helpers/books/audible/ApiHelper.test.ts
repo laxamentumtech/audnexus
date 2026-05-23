@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AxiosResponse } from 'axios'
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import type { FastifyBaseLogger } from 'fastify'
 
 import {
@@ -23,9 +23,24 @@ import {
 	podcastWithoutProgramParticipation
 } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
+import { createMockLogger } from '#tests/setup/mockLogger'
 
-jest.mock('#helpers/utils/fetchPlus')
-jest.mock('#helpers/utils/shared')
+mock.module('#helpers/utils/fetchPlus', () => {
+	return { default: mock() }
+})
+
+mock.module('#helpers/utils/shared', () => {
+	return {
+		default: class SharedHelper {
+			getParamString() {
+				return ''
+			}
+			buildUrl() {
+				return ''
+			}
+		}
+	}
+})
 
 let asin: string
 let helper: ApiHelper
@@ -35,20 +50,17 @@ let url: string
 const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(async () => {
-	// Variables
 	asin = 'B079LRSMNN'
 	region = 'us'
 	const params =
 		'category_ladders,contributors,product_desc,product_extended_attrs,product_attrs,media,rating,series&image_sizes=500,1024'
 	url = `https://api.audible.com/1.0/catalog/products/${asin}/?response_groups=` + params
 	mockResponse = AudibleProductSchema.parse(deepCopy(apiResponse))
-	// Set up spys
-	jest.spyOn(SharedHelper.prototype, 'getParamString').mockReturnValue(params)
-	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
-	jest
-		.spyOn(fetchPlus, 'default')
-		.mockImplementation(() => Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse))
-	// Set up helpers
+	spyOn(SharedHelper.prototype, 'getParamString').mockReturnValue(params)
+	spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
+	spyOn(fetchPlus, 'default').mockImplementation(() =>
+		Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse)
+	)
 	helper = new ApiHelper(asin, region)
 })
 
@@ -58,7 +70,13 @@ describe('ApiHelper should', () => {
 		expect(helper.requestUrl).toBe(url)
 	})
 
-	test.todo('check required keys')
+	test('check required keys on parse', async () => {
+		const invalidResponse = deepCopy(mockResponse)
+		delete (invalidResponse.product as Record<string, unknown>).asin
+		await expect(helper.parseResponse(invalidResponse)).rejects.toThrow(
+			/Required key 'asin' does not exist/
+		)
+	})
 
 	test('get copyright year', async () => {
 		helper.audibleResponse = mockResponse.product
@@ -76,10 +94,8 @@ describe('ApiHelper should', () => {
 	})
 
 	test('get series', async () => {
-		// Make lint happy
 		if (mockResponse.product.content_delivery_type !== 'MultiPartBook') return undefined
 		helper.audibleResponse = mockResponse.product
-		// Should return undefined if no series title
 		expect(helper.getSeries({ asin: '123', title: '', sequence: '1', url: '' })).toBeUndefined()
 		expect(helper.getSeries(mockResponse.product.series![0])).toEqual({
 			asin: 'B079YXK1GL',
@@ -89,10 +105,8 @@ describe('ApiHelper should', () => {
 	})
 
 	test('get series primary', async () => {
-		// Make lint happy
 		if (mockResponse.product.content_delivery_type !== 'MultiPartBook') return undefined
 		helper.audibleResponse = mockResponse.product
-		// Should return undefined if no series name
 		expect(
 			helper.getSeriesPrimary([{ asin: '123', title: '', sequence: '1', url: '' }])
 		).toBeUndefined()
@@ -113,10 +127,8 @@ describe('ApiHelper should', () => {
 	})
 
 	test('get series secondary', async () => {
-		// Make lint happy
 		if (mockResponse.product.content_delivery_type !== 'MultiPartBook') return undefined
 		helper.audibleResponse = mockResponse.product
-		// Should return undefined if no series name
 		expect(
 			helper.getSeriesSecondary([{ asin: '123', title: '', sequence: '1', url: '' }])
 		).toBeUndefined()
@@ -142,7 +154,21 @@ describe('ApiHelper should', () => {
 		})
 	})
 
-	test.todo('get series without position')
+	test('get series without position', async () => {
+		expect(mockResponse.product.content_delivery_type).toBe('MultiPartBook')
+		helper.audibleResponse = mockResponse.product
+		const seriesWithoutPosition = {
+			asin: 'B079YXK1GL',
+			title: "Galaxy's Edge Series",
+			url: '/pd/Galaxys-Edge-Series-Audiobook/B079YXK1GL'
+		}
+		const result = helper.getSeries(seriesWithoutPosition)
+		expect(result).toEqual({
+			asin: 'B079YXK1GL',
+			name: "Galaxy's Edge Series"
+		})
+		expect(result).not.toHaveProperty('position')
+	})
 
 	test('fetch book data', async () => {
 		const data = await helper.fetchBook()
@@ -196,9 +222,12 @@ describe('ApiHelper should', () => {
 })
 
 describe('ApiHelper edge cases should', () => {
+	afterEach(() => {
+		mock.restore()
+	})
+
 	test('parse a book with no narrators', async () => {
 		const data = await helper.fetchBook()
-		// Directly set inputjson
 		helper.audibleResponse = data.product
 		helper.audibleResponse!.narrators = undefined
 
@@ -285,7 +314,6 @@ describe('ApiHelper edge cases should', () => {
 	})
 
 	test('parse a book with 2 series', async () => {
-		// Make lint happy
 		if (B017V4IM1G.product.content_delivery_type !== 'MultiPartBook') return undefined
 		helper = new ApiHelper('B017V4IM1G', region)
 		const data = await helper.parseResponse(B017V4IM1G)
@@ -325,7 +353,7 @@ describe('ApiHelper edge cases should', () => {
 	test('parses book with unknown content_delivery_type successfully', async () => {
 		const unknownTypeResponse = deepCopy(mockResponse)
 		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
-		const mockLogger = { warn: jest.fn() }
+		const mockLogger = createMockLogger()
 		helper = new ApiHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		const data = await helper.parseResponse(unknownTypeResponse)
 		expect(data.asin).toBe(asin)
@@ -336,15 +364,59 @@ describe('ApiHelper edge cases should', () => {
 	})
 
 	test('throws region unavailable when baseShape also fails', async () => {
-		// Create a response with empty product (missing required baseShape fields)
 		const emptyProductResponse = { product: {} } as AudibleProduct
 		await expect(helper.parseResponse(emptyProductResponse)).rejects.toThrow(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
 
+	test('throws PRODUCT_DELISTED when fetchProductState returns NOT_AVAILABLE_FOR_PURCHASE', async () => {
+		const fetchProductStateSpy = spyOn(ApiHelper.prototype, 'fetchProductState').mockResolvedValue(
+			'NOT_AVAILABLE_FOR_PURCHASE'
+		)
+		try {
+			const emptyProductResponse = { product: {} } as AudibleProduct
+			await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
+			await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
+				name: 'NotFoundError',
+				statusCode: 404,
+				message: `Item is 'NOT_AVAILABLE_FOR_PURCHASE' in region '${region}' for ASIN: ${asin}`,
+				details: {
+					asin,
+					code: 'PRODUCT_DELISTED',
+					productState: 'NOT_AVAILABLE_FOR_PURCHASE'
+				}
+			})
+		} finally {
+			fetchProductStateSpy.mockRestore()
+		}
+	})
+
+	test.each([['AVAILABLE'], [undefined], ['SOME_OTHER_STATE']] as const)(
+		'throws REGION_UNAVAILABLE when fetchProductState returns %s',
+		async (state) => {
+			const fetchProductStateSpy = spyOn(
+				ApiHelper.prototype,
+				'fetchProductState'
+			).mockResolvedValue(state)
+			try {
+				const emptyProductResponse = { product: {} } as AudibleProduct
+				await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
+				await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
+					name: 'NotFoundError',
+					statusCode: 404,
+					message: `Item not available in region '${region}' for ASIN: ${asin}`,
+					details: {
+						asin,
+						code: 'REGION_UNAVAILABLE'
+					}
+				})
+			} finally {
+				fetchProductStateSpy.mockRestore()
+			}
+		}
+	)
 	test('throws NotFoundError with statusCode 404 for unavailable region', async () => {
-		// Create a response with empty product (missing required baseShape fields)
 		const emptyProductResponse = { product: {} } as AudibleProduct
 		await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
 		await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
@@ -388,8 +460,7 @@ describe('ApiHelper should throw error when', () => {
 	})
 
 	test('error fetching book data', async () => {
-		// Mock Fetch to fail once
-		jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
+		spyOn(fetchPlus, 'default').mockImplementation(() =>
 			Promise.reject({
 				status: 403
 			})
@@ -410,10 +481,13 @@ describe('ApiHelper should throw error when', () => {
 	test('book has no title', async () => {
 		asin = 'B07BS4RKGH'
 		helper = new ApiHelper(asin, region)
-		// Setup variable without title
 		const data = B07BS4RKGH as unknown as AudibleProduct
 		await expect(helper.parseResponse(data)).rejects.toThrow(
 			`Required key 'title' does not exist in Audible API response for ASIN ${asin}`
 		)
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

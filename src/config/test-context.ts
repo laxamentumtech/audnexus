@@ -1,13 +1,15 @@
-import type { DeepMockProxy } from 'jest-mock-extended'
-import { mockDeep } from 'jest-mock-extended'
+import { mock } from 'bun:test'
 import type { MongoClient } from 'mongodb'
 
 export type MockContext = {
-	client: DeepMockProxy<MongoClient>
+	client: Pick<MongoClient, 'db' | 'connect'>
 }
 
 export const createMockContext = (): MockContext => {
 	return {
-		client: mockDeep<MongoClient>()
+		client: {
+			db: mock(),
+			connect: mock()
+		}
 	}
 }

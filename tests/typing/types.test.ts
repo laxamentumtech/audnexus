@@ -1,3 +1,5 @@
+import { describe, expect, test } from 'bun:test'
+
 import { AsinSchema, GenreAsinSchema, NameSchema, RegionSchema, TitleSchema } from '#config/types'
 
 describe('schemas should', () => {

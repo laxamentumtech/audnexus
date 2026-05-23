@@ -1,3 +1,5 @@
+import { afterAll, beforeEach, describe, expect, it, mock } from 'bun:test'
+
 import {
 	PerformanceConfig,
 	resetPerformanceConfig,
@@ -23,7 +25,6 @@ describe('batchProcessor', () => {
 	const originalEnv = process.env
 
 	beforeEach(() => {
-		jest.resetModules()
 		process.env = { ...originalEnv }
 		resetPerformanceConfig()
 	})
@@ -42,7 +43,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [1, 2, 3]
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
+
 
 			const { summary } = await processBatch(items, processor)
 
@@ -63,7 +65,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [1, 2, 3]
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
+
 
 			const { summary } = await processBatch(items, processor)
 
@@ -80,7 +83,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [1, 2, 3]
-			const processor = jest.fn().mockImplementation((item) => Promise.resolve(item * 2))
+			const processor = mock((item) => Promise.resolve(item * 2))
+
 
 			const { results } = await processBatch(items, processor)
 
@@ -96,7 +100,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [1, 2, 3]
-			const processor = jest.fn().mockImplementation((item) => {
+			const processor = mock((item) => {
+
 				if (item === 2) {
 					return Promise.reject(new Error('Failed'))
 				}
@@ -117,7 +122,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [1, 2, 3]
-			const processor = jest.fn().mockImplementation((item) => {
+			const processor = mock((item) => {
+
 				if (item === 2) {
 					return Promise.reject(new Error('Failed'))
 				}
@@ -141,7 +147,8 @@ describe('batchProcessor', () => {
 			let concurrentCount = 0
 			let maxConcurrent = 0
 
-			const processor = jest.fn().mockImplementation(async () => {
+			const processor = mock(async () => {
+
 				concurrentCount++
 				maxConcurrent = Math.max(maxConcurrent, concurrentCount)
 				await new Promise((resolve) => setTimeout(resolve, 10))
@@ -164,7 +171,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [1, 2]
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
+
 
 			await expect(processBatch(items, processor, { concurrency: 3 })).rejects.toThrow(
 				'Concurrency exceeds SCHEDULER_CONCURRENCY guardrail'
@@ -180,7 +188,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [1]
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
+
 
 			await expect(processBatch(items, processor)).rejects.toThrow(
 				'SCHEDULER_CONCURRENCY must be at least 1'
@@ -201,7 +210,8 @@ describe('batchProcessor', () => {
 				{ id: 1, region: 'us' },
 				{ id: 2, region: 'uk' }
 			]
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
+
 
 			await processBatchByRegion(items, processor)
 
@@ -224,7 +234,8 @@ describe('batchProcessor', () => {
 				{ id: 5, region: 'uk' }
 			]
 
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
+
 
 			const { summary } = await processBatchByRegion(items, processor)
 
@@ -241,7 +252,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [{ id: 1, region: null }, { id: 2, region: undefined }, { id: 3 }]
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
+
 
 			const { summary } = await processBatchByRegion(items, processor)
 
@@ -264,7 +276,8 @@ describe('batchProcessor', () => {
 
 			let concurrentCount = 0
 			let maxConcurrent = 0
-			const processor = jest.fn().mockImplementation(async () => {
+			const processor = mock(async () => {
+
 				concurrentCount++
 				maxConcurrent = Math.max(maxConcurrent, concurrentCount)
 				await new Promise((resolve) => setTimeout(resolve, 10))
@@ -293,7 +306,8 @@ describe('batchProcessor', () => {
 
 			let concurrentCount = 0
 			let maxConcurrent = 0
-			const processor = jest.fn().mockImplementation(async () => {
+			const processor = mock(async () => {
+
 				concurrentCount++
 				maxConcurrent = Math.max(maxConcurrent, concurrentCount)
 				await new Promise((resolve) => setTimeout(resolve, 10))
@@ -321,7 +335,8 @@ describe('batchProcessor', () => {
 				{ id: 3, region: 'us' }
 			]
 
-			const processor = jest.fn().mockImplementation((item) => {
+			const processor = mock((item) => {
+
 				if (item.id === 2) {
 					return Promise.reject(new Error('Failed'))
 				}
@@ -351,7 +366,8 @@ describe('batchProcessor', () => {
 				{ id: 3, region: 'us' }
 			]
 
-			const processor = jest.fn().mockImplementation((item) => {
+			const processor = mock((item) => {
+
 				if (item.id === 2) {
 					return Promise.reject(new Error('Failed'))
 				}
@@ -379,7 +395,8 @@ describe('batchProcessor', () => {
 			let maxConcurrent = 0
 			let concurrentCount = 0
 
-			const processor = jest.fn().mockImplementation(async () => {
+			const processor = mock(async () => {
+
 				concurrentCount++
 				maxConcurrent = Math.max(maxConcurrent, concurrentCount)
 				await new Promise((resolve) => setTimeout(resolve, 10))
@@ -406,7 +423,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [{ id: 1, region: 'us' }]
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
+
 
 			await expect(processBatchByRegion(items, processor, { concurrency: 4 })).rejects.toThrow(
 				'Concurrency exceeds SCHEDULER_CONCURRENCY guardrail'
@@ -422,7 +440,8 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [{ id: 1, region: 'us' }]
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
+
 
 			await expect(processBatchByRegion(items, processor, { maxPerRegion: 3 })).rejects.toThrow(
 				'Per-region concurrency exceeds overall concurrency guardrail'
@@ -438,7 +457,7 @@ describe('batchProcessor', () => {
 			)
 
 			const items = [{ id: 1, region: 'us' }]
-			const processor = jest.fn().mockResolvedValue('result')
+			const processor = mock(() => Promise.resolve('result'))
 
 			await expect(processBatchByRegion(items, processor)).rejects.toThrow(
 				'SCHEDULER_CONCURRENCY must be at least 1'

@@ -1,25 +1,27 @@
+ 
 import type { AxiosResponse } from 'axios'
+import { afterAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import type { FastifyBaseLogger } from 'fastify'
-import { mock } from 'jest-mock-extended'
 
 import { ApiBook } from '#config/types'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import { parsedBook } from '#tests/datasets/helpers/books'
+import { createMockLogger } from '#tests/setup/mockLogger'
 
-jest.mock('#helpers/utils/fetchPlus')
+mock.module('#helpers/utils/fetchPlus', () => {
+	return { default: mock() }
+})
 
 let helper: SeedHelper
 let mockResponse: ApiBook
 const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(() => {
-	// Variables
 	mockResponse = deepCopy(parsedBook)
-	jest
-		.spyOn(fetchPlus, 'default')
-		.mockImplementation(() => Promise.resolve({ status: 200 } as AxiosResponse))
-	// Set up helpers
+	spyOn(fetchPlus, 'default').mockImplementation(() =>
+		Promise.resolve({ status: 200 } as AxiosResponse)
+	)
 	helper = new SeedHelper(mockResponse)
 })
 
@@ -40,7 +42,7 @@ describe('SeedHelper should', () => {
 	})
 
 	test('log error if http error', async () => {
-		jest.spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 400 }))
+		spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 400 }))
 		await expect(helper.seedAll()).resolves.toEqual([false, false])
 	})
 
@@ -50,14 +52,13 @@ describe('SeedHelper should', () => {
 	})
 
 	test('return empty array and log error when Promise.all rejects', async () => {
-		const mockLogger = mock<FastifyBaseLogger>()
+		const mockLogger = createMockLogger() as unknown as FastifyBaseLogger
 		helper = new SeedHelper(mockResponse, mockLogger)
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const promiseAllSpy = jest
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			.spyOn(Promise, 'all' as any)
-			.mockRejectedValue(new Error('Promise.all failed'))
+		const promiseAllSpy = spyOn(Promise, 'all' as any).mockRejectedValue(
+			new Error('Promise.all failed')
+		)
 
 		try {
 			const result = await helper.seedAll()
@@ -68,4 +69,8 @@ describe('SeedHelper should', () => {
 			promiseAllSpy.mockRestore()
 		}
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

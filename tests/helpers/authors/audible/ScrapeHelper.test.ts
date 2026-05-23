@@ -1,4 +1,5 @@
 import type { AxiosResponse } from 'axios'
+import { afterAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import * as cheerio from 'cheerio'
 
 import { baseAsin10Regex } from '#config/types'
@@ -15,8 +16,25 @@ import {
 	similarUnsorted
 } from '#tests/datasets/helpers/authors'
 
-jest.mock('#helpers/utils/fetchPlus')
-jest.mock('#helpers/utils/shared')
+mock.module('#helpers/utils/fetchPlus', () => {
+	return { default: mock() }
+})
+
+mock.module('#helpers/utils/shared', () => {
+	return {
+		default: class SharedHelper {
+			buildUrl() { return '' }
+			getAsinFromUrl(url: string) { return url.match(baseAsin10Regex)?.[0] }
+			collectGenres() { return [] }
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			sortObjectByKeys(obj: any) { return obj }
+			isEqualData() { return false }
+			isRecentlyUpdated() { return false }
+			getParamString() { return '' }
+			getGenreAsinFromUrl() { return undefined }
+		}
+	}
+})
 
 let asin: string
 let helper: ScrapeHelper
@@ -27,28 +45,23 @@ let url: string
 const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
 
 beforeEach(() => {
-	// Variables
 	asin = 'B012DQ3BCM'
 	mockResponse = deepCopy(htmlResponseMinified)
 	cheerioHtml = cheerio.load(mockResponse)
 	region = 'us'
 	url = `https://www.audible.com/author/${asin}/`
-	// Set up spys
-	jest.spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
-	jest.spyOn(SharedHelper.prototype, 'getAsinFromUrl').mockImplementation((url: string) => {
+	spyOn(SharedHelper.prototype, 'buildUrl').mockReturnValue(url)
+	spyOn(SharedHelper.prototype, 'getAsinFromUrl').mockImplementation((url: string) => {
 		return url.match(baseAsin10Regex)?.[0]
 	})
-	// Set up helpers
 	helper = new ScrapeHelper(asin, region)
 })
 
 describe('ScrapeHelper should', () => {
 	beforeEach(() => {
-		jest
-			.spyOn(fetchPlus, 'default')
-			.mockImplementation(() =>
-				Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse)
-			)
+		spyOn(fetchPlus, 'default').mockImplementation(() =>
+			Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse)
+		)
 	})
 	test('setup constructor correctly', () => {
 		expect(helper.asin).toBe(asin)
@@ -98,12 +111,12 @@ describe('ScrapeHelper should', () => {
 
 	test('throw NotFoundError when dom throws for getName', () => {
 		const mockDom = {
-			first: jest.fn().mockReturnThis(),
-			text: jest.fn().mockImplementation(() => {
+			first: mock().mockReturnThis(),
+			text: mock().mockImplementation(() => {
 				throw new Error('DOM error')
 			})
 		}
-		const mockCheerio = jest.fn().mockReturnValue(mockDom) as unknown as cheerio.CheerioAPI
+		const mockCheerio = mock().mockReturnValue(mockDom) as unknown as cheerio.CheerioAPI
 		expect.assertions(2)
 		try {
 			helper.getName(mockCheerio)
@@ -125,7 +138,7 @@ describe('ScrapeHelper should', () => {
 	})
 
 	test('return sorted similar when no similar authors', () => {
-		jest.spyOn(helper, 'getSimilarAuthors').mockReturnValue([])
+		spyOn(helper, 'getSimilarAuthors').mockReturnValue([])
 		const similar = helper.getSimilarAuthors(cheerioHtml)
 		const sorted = helper.sortSimilarAuthors(similar)
 		expect(sorted).toEqual([])
@@ -137,7 +150,7 @@ describe('ScrapeHelper should', () => {
 	})
 
 	test('return a name when author has no bio, genres or image', async () => {
-		jest.spyOn(SharedHelper.prototype, 'collectGenres').mockReturnValue([])
+		spyOn(SharedHelper.prototype, 'collectGenres').mockReturnValue([])
 		const html = cheerio.load(htmlResponseNameOnly)
 		await expect(helper.parseResponse(html)).resolves.toEqual({
 			asin: 'B012DQ3BCM',
@@ -163,8 +176,8 @@ describe('ScrapeHelper should throw error when', () => {
 	test('no author', async () => {
 		asin = asin.slice(0, -1)
 		helper = new ScrapeHelper(asin, region)
-		jest.restoreAllMocks()
-		jest.spyOn(fetchPlus, 'default').mockImplementation(() =>
+		mock.restore()
+		spyOn(fetchPlus, 'default').mockImplementation(() =>
 			Promise.reject({
 				status: 404
 			})
@@ -175,14 +188,14 @@ describe('ScrapeHelper should throw error when', () => {
 	})
 
 	test('parse response fails validation', async () => {
-		jest.spyOn(helper, 'getName').mockReturnValue('')
+		spyOn(helper, 'getName').mockReturnValue('')
 		await expect(helper.parseResponse(cheerio.load(mockResponse))).rejects.toThrow(
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
 
 	test('parse response throws ContentTypeMismatchError when book page detected', async () => {
-		jest.spyOn(helper, 'getName').mockReturnValue('')
+		spyOn(helper, 'getName').mockReturnValue('')
 		expect.assertions(3)
 		const bookPageHtml = mockResponse.replace(
 			'<body>',
@@ -212,4 +225,8 @@ describe('ScrapeHelper should throw error when', () => {
 			`Item not available in region '${region}' for ASIN: ${asin}`
 		)
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })
