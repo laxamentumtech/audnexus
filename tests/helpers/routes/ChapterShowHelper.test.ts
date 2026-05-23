@@ -1,13 +1,63 @@
-jest.mock('#config/models/Chapter')
-jest.mock('#helpers/database/papr/audible/PaprAudibleChapterHelper')
-jest.mock('#helpers/database/redis/RedisHelper')
-jest.mock('#helpers/utils/shared')
-jest.mock('#config/typing/checkers')
-jest.mock('#helpers/books/audible/ChapterHelper')
-jest.mock('@fastify/redis')
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+
+const mockChapterFindOne = mock()
+const mockChapterFind = mock()
+const mockPaprFindOne = mock()
+const mockPaprFindOneWithProjection = mock()
+const mockPaprCreateOrUpdate = mock()
+const mockRedisFindOne = mock()
+const mockRedisFindOrCreate = mock()
+const mockRedisSetOne = mock()
+const mockRedisSetExpiration = mock()
+const mockRedisDeleteOne = mock()
+const mockSharedIsObject = mock()
+const mockSharedSortObjectByKeys = mock()
+const mockCheckersIsApiChapter = mock()
+const mockChapterHelperProcess = mock()
+
+mock.module('#config/models/Chapter', () => ({
+	default: class ChapterModel {
+		static findOne = mockChapterFindOne
+		static find = mockChapterFind
+	}
+}))
+mock.module('#helpers/database/papr/audible/PaprAudibleChapterHelper', () => ({
+	default: class PaprAudibleChapterHelper {
+		findOne = mockPaprFindOne
+		findOneWithProjection = mockPaprFindOneWithProjection
+		createOrUpdate = mockPaprCreateOrUpdate
+		setData = mock()
+	}
+}))
+
+mock.module('#helpers/database/redis/RedisHelper', () => ({
+	default: class RedisHelper {
+		findOne = mockRedisFindOne
+		findOrCreate = mockRedisFindOrCreate
+		setOne = mockRedisSetOne
+		setExpiration = mockRedisSetExpiration
+		deleteOne = mockRedisDeleteOne
+	}
+}))
+
+mock.module('#helpers/utils/shared', () => ({
+	isObject: mockSharedIsObject,
+	sortObjectByKeys: mockSharedSortObjectByKeys
+}))
+
+mock.module('#config/typing/checkers', () => ({
+	isApiChapter: mockCheckersIsApiChapter
+}))
+
+mock.module('#helpers/books/audible/ChapterHelper', () => ({
+	default: class ChapterHelper {
+		process = mockChapterHelperProcess
+	}
+}))
+
+mock.module('@fastify/redis', () => ({}))
 
 import type { FastifyRedis } from '@fastify/redis'
-import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import {
 	PerformanceConfig,
@@ -15,7 +65,6 @@ import {
 	setPerformanceConfig
 } from '#config/performance'
 import { ApiChapter } from '#config/types'
-import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import {
 	chaptersWithoutProjection,
@@ -24,7 +73,8 @@ import {
 } from '#tests/datasets/helpers/chapters'
 
 type MockContext = {
-	client: DeepMockProxy<FastifyRedis>
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	client: any
 }
 
 let asin: string
@@ -33,7 +83,13 @@ let helper: ChapterShowHelper
 
 const createMockContext = (): MockContext => {
 	return {
-		client: mockDeep<FastifyRedis>()
+		client: {
+			get: mock(),
+			set: mock(),
+			del: mock(),
+			ping: mock(),
+			expire: mock()
+		} as unknown as FastifyRedis
 	}
 }
 
@@ -52,21 +108,16 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 })
 
 beforeEach(() => {
+	mock.clearAllMocks()
 	asin = 'B079LRSMNN'
 	helper = new ChapterShowHelper(asin, { region: 'us', update: undefined }, null)
-	jest
-		.spyOn(helper.paprHelper, 'createOrUpdate')
-		.mockResolvedValue({ data: parsedChapters, modified: true })
-	jest
-		.spyOn(helper.paprHelper, 'findOne')
-		.mockResolvedValue({ data: chaptersWithoutProjection, modified: false })
-	jest.spyOn(ChapterHelper.prototype, 'process').mockResolvedValue(parsedChapters)
-	jest.spyOn(helper.redisHelper, 'findOrCreate').mockResolvedValue(parsedChapters)
-	jest
-		.spyOn(helper.paprHelper, 'findOneWithProjection')
-		.mockResolvedValue({ data: parsedChapters, modified: false })
-	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
-	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
+	mockPaprCreateOrUpdate.mockResolvedValue({ data: parsedChapters, modified: true })
+	mockPaprFindOne.mockResolvedValue({ data: chaptersWithoutProjection, modified: false })
+	mockChapterHelperProcess.mockResolvedValue(parsedChapters)
+	mockRedisFindOrCreate.mockResolvedValue(parsedChapters)
+	mockPaprFindOneWithProjection.mockResolvedValue({ data: parsedChapters, modified: false })
+	spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
+	spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 })
 
 afterEach(() => {
@@ -87,12 +138,12 @@ describe('ChapterShowHelper should', () => {
 	})
 
 	test('create or update chapter and return undefined if no chapters', async () => {
-		jest.spyOn(ChapterHelper.prototype, 'process').mockResolvedValue(undefined)
+		mockChapterHelperProcess.mockResolvedValue(undefined)
 		await expect(helper.createOrUpdateData()).resolves.toBeUndefined()
 	})
 
 	test('returns original chapter if it was updated recently when trying to update', async () => {
-		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
+		spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalData = chaptersWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedChapters)
 	})
@@ -107,44 +158,37 @@ describe('ChapterShowHelper should', () => {
 	})
 
 	test('run all update actions and return undefined if no chapters', async () => {
-		jest.spyOn(ChapterHelper.prototype, 'process').mockResolvedValue(undefined)
+		mockChapterHelperProcess.mockResolvedValue(undefined)
 		helper.originalData = chaptersWithoutProjection
 		await expect(helper.updateActions()).resolves.toBeUndefined()
 	})
 
 	test('run handler for a new chapter', async () => {
-		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
+		mockPaprFindOne.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.handler()).resolves.toStrictEqual(parsedChapters)
 	})
 
 	test('run handler and update an existing chapter', async () => {
 		helper = new ChapterShowHelper(asin, { region: 'us', update: '1' }, null)
-		// Need to re-do mock since helper reset
-		jest
-			.spyOn(helper.paprHelper, 'createOrUpdate')
-			.mockResolvedValue({ data: parsedChapters, modified: true })
-		jest
-			.spyOn(helper.paprHelper, 'findOne')
-			.mockResolvedValue({ data: chaptersWithoutProjection, modified: false })
-		jest
-			.spyOn(helper.paprHelper, 'findOneWithProjection')
-			.mockResolvedValue({ data: parsedChapters, modified: false })
-		jest.spyOn(ChapterHelper.prototype, 'process').mockResolvedValue(parsedChapters)
-		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
-		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
+		mockPaprCreateOrUpdate.mockResolvedValue({ data: parsedChapters, modified: true })
+		mockPaprFindOne.mockResolvedValue({ data: chaptersWithoutProjection, modified: false })
+		mockPaprFindOneWithProjection.mockResolvedValue({ data: parsedChapters, modified: false })
+		mockChapterHelperProcess.mockResolvedValue(parsedChapters)
+		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedChapters)
+		spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedChapters)
 	})
 
 	test('run handler for an existing chapter in redis', async () => {
 		ctx = createMockContext()
 		helper = new ChapterShowHelper(asin, { region: 'us', update: '0' }, ctx.client)
-		jest.spyOn(helper.redisHelper, 'findOne').mockResolvedValue(parsedChapters)
+		mockRedisFindOne.mockResolvedValue(parsedChapters)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedChapters)
 		expect(helper.redisHelper.findOne).toHaveBeenCalledTimes(1)
 	})
 
 	test('run handler for an existing chapter', async () => {
-		jest.spyOn(helper.redisHelper, 'findOrCreate').mockResolvedValue(undefined)
+		mockRedisFindOrCreate.mockResolvedValue(undefined)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedChapters)
 	})
 
@@ -153,37 +197,31 @@ describe('ChapterShowHelper should', () => {
 	})
 
 	test('run handler for no chapters', async () => {
-		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
-		jest.spyOn(ChapterHelper.prototype, 'process').mockResolvedValue(undefined)
+		mockRedisFindOne.mockResolvedValue(null)
+		mockPaprFindOne.mockResolvedValue({ data: null, modified: false })
+		mockChapterHelperProcess.mockResolvedValue(undefined)
 		await expect(helper.handler()).resolves.toBeUndefined()
 	})
 })
 
 describe('ChapterShowHelper should throw error when', () => {
 	test('getChaptersWithProjection is not a chapter type', async () => {
-		jest
-			.spyOn(helper.paprHelper, 'findOneWithProjection')
-			.mockResolvedValue({ data: null, modified: false })
+		mockPaprFindOneWithProjection.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiChapter`
 		)
 	})
 
 	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
-		// Enable USE_SORTED_KEYS to test sorting error handling
 		setPerformanceConfig(createTestConfig({ USE_SORTED_KEYS: true }))
-		jest
-			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
-			.mockReturnValue(null as unknown as ApiChapter)
+		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as ApiChapter)
 		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiChapter`
 		)
 	})
 
 	test('createOrUpdateData is not a chapter type', async () => {
-		jest
-			.spyOn(helper.paprHelper, 'createOrUpdate')
-			.mockResolvedValue({ data: null, modified: false })
+		mockPaprCreateOrUpdate.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.createOrUpdateData()).rejects.toThrow(
 			`Data type for ${asin} is not ApiChapter`
 		)
@@ -197,8 +235,12 @@ describe('ChapterShowHelper should throw error when', () => {
 	})
 
 	test('updateActions fails to update', async () => {
-		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('Error'))
+		mockPaprCreateOrUpdate.mockRejectedValue(new Error('Error'))
 		helper.originalData = chaptersWithoutProjection
 		await expect(helper.updateActions()).rejects.toThrow('Error')
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

@@ -105,26 +105,20 @@ export function registerMetricsRoute(fastify: FastifyInstance): void {
 		}
 	}
 
-	fastify.get(
-		'/metrics',
-		{
-			preHandler: async (request: FastifyRequest, reply: FastifyReply) => {
-				// Return 404 if metrics endpoint is disabled
-				if (!config.METRICS_ENABLED) {
-					return reply.code(404).send({ error: 'Metrics endpoint disabled' })
-				}
-
-				// Validate auth if configured
-				if (!validateMetricsAuth(request)) {
-					return reply.code(403).send({ error: 'Forbidden' })
-				}
-			}
-		},
-		async () => {
-			const metrics = getPerformanceMetrics()
-			return metrics
+	fastify.get('/metrics', async (request: FastifyRequest, reply: FastifyReply) => {
+		// Return 404 if metrics endpoint is disabled
+		if (!config.METRICS_ENABLED) {
+			return reply.code(404).send({ error: 'Metrics endpoint disabled' })
 		}
-	)
+
+		// Validate auth if configured
+		if (!validateMetricsAuth(request)) {
+			return reply.code(403).send({ error: 'Forbidden' })
+		}
+
+		const metrics = getPerformanceMetrics()
+		return metrics
+	})
 }
 
 export default { registerMetricsRoute }

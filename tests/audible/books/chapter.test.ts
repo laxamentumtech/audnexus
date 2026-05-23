@@ -1,9 +1,11 @@
-import { ApiChapter, AudibleChapter } from '#config/types'
+import { beforeAll, describe, expect, it } from 'bun:test'
+
+import { ApiChapter } from '#config/types'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { NotFoundError } from '#helpers/errors/ApiErrors'
 import {
-	chapterParsed1721358595,
-	chapterResponseB017V4IM1G
+	chapterResponseB017V4IM1G,
+	setupParsedChapter
 } from '#tests/datasets/audible/books/chapter'
 
 // Set up environment variables for ChapterHelper
@@ -30,35 +32,18 @@ let helper: ChapterHelper
 
 // Run through known book data to test responses
 describe('Audible API', () => {
-	describe('When fetching Project Hail Mary chapters', () => {
-		let response: AudibleChapter
+	describe('When parsing chapter data', () => {
+		let response: ApiChapter
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
 			helper = new ChapterHelper(asin, 'us')
-			const fetched = await helper.fetchChapter()
-			if (!fetched) throw new Error('Parsed is undefined')
-			response = fetched
-		}, 10000)
-
-		it.skip('returned the correct data - SKIPPED: requires valid Audible API credentials', () => {
-			expect(response).toEqual(chapterResponseB017V4IM1G)
-		})
-	})
-
-	// Run through chapter parsing of a book with bad names
-	describe('When parsing The Seep', () => {
-		let response: ApiChapter
-		beforeAll(async () => {
-			asin = '1721358595'
-			helper = new ChapterHelper(asin, 'us')
-			const fetched = await helper.fetchChapter()
-			const parsed = await helper.parseResponse(fetched)
+			const parsed = await helper.parseResponse(chapterResponseB017V4IM1G)
 			if (!parsed) throw new Error('Parsed is undefined')
 			response = parsed
-		}, 10000)
+		})
 
-		it.skip('returned the correct data - SKIPPED: requires valid Audible API credentials', () => {
-			expect(response).toEqual(chapterParsed1721358595)
+		it('returned the correct data', () => {
+			expect(response).toEqual(setupParsedChapter(chapterResponseB017V4IM1G, asin))
 		})
 	})
 

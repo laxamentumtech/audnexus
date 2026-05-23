@@ -1,11 +1,54 @@
-jest.mock('#config/models/Author')
-jest.mock('#helpers/database/papr/audible/PaprAudibleAuthorHelper')
-jest.mock('#helpers/authors/audible/ScrapeHelper')
-jest.mock('#helpers/database/redis/RedisHelper')
-jest.mock('@fastify/redis')
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+
+const mockAuthorFindOne = mock()
+const mockAuthorFind = mock()
+const mockPaprFindOne = mock()
+const mockPaprFindOneWithProjection = mock()
+const mockPaprCreateOrUpdate = mock()
+const mockPaprFindByName = mock()
+const mockScrapeProcess = mock()
+const mockRedisFindOne = mock()
+const mockRedisFindOrCreate = mock()
+const mockRedisSetOne = mock()
+const mockRedisSetExpiration = mock()
+const mockRedisDeleteOne = mock()
+
+mock.module('#config/models/Author', () => ({
+	default: class AuthorModel {
+		static findOne = mockAuthorFindOne
+		static find = mockAuthorFind
+	}
+}))
+
+mock.module('#helpers/database/papr/audible/PaprAudibleAuthorHelper', () => ({
+	default: class PaprAudibleAuthorHelper {
+		findOne = mockPaprFindOne
+		findOneWithProjection = mockPaprFindOneWithProjection
+		createOrUpdate = mockPaprCreateOrUpdate
+		findByName = mockPaprFindByName
+		setData = mock()
+	}
+}))
+
+mock.module('#helpers/authors/audible/ScrapeHelper', () => ({
+	default: class ScrapeHelper {
+		process = mockScrapeProcess
+	}
+}))
+
+mock.module('#helpers/database/redis/RedisHelper', () => ({
+	default: class RedisHelper {
+		findOne = mockRedisFindOne
+		findOrCreate = mockRedisFindOrCreate
+		setOne = mockRedisSetOne
+		setExpiration = mockRedisSetExpiration
+		deleteOne = mockRedisDeleteOne
+	}
+}))
+
+mock.module('@fastify/redis', () => ({}))
 
 import type { FastifyRedis } from '@fastify/redis'
-import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import {
 	PerformanceConfig,
@@ -13,8 +56,6 @@ import {
 	setPerformanceConfig
 } from '#config/performance'
 import { ApiAuthorProfile } from '#config/types'
-import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
-import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import {
 	authorWithoutProjection,
@@ -22,10 +63,6 @@ import {
 	parsedAuthor
 } from '#tests/datasets/helpers/authors'
 
-/**
- * Factory function for creating test PerformanceConfig instances.
- * Provides a reusable base configuration with optional overrides.
- */
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
 	USE_PARALLEL_SCHEDULER: false,
 	USE_CONNECTION_POOLING: true,
@@ -41,7 +78,8 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 })
 
 type MockContext = {
-	client: DeepMockProxy<FastifyRedis>
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	client: any
 }
 
 let asin: string
@@ -50,26 +88,27 @@ let helper: AuthorShowHelper
 
 const createMockContext = (): MockContext => {
 	return {
-		client: mockDeep<FastifyRedis>()
+		client: {
+			get: mock(),
+			set: mock(),
+			del: mock(),
+			ping: mock(),
+			expire: mock()
+		} as unknown as FastifyRedis
 	}
 }
 
 beforeEach(() => {
+	mock.clearAllMocks()
 	asin = 'B079LRSMNN'
 	helper = new AuthorShowHelper(asin, { region: 'us', update: undefined }, null)
-	jest
-		.spyOn(helper.paprHelper, 'createOrUpdate')
-		.mockResolvedValue({ data: parsedAuthor, modified: true })
-	jest
-		.spyOn(helper.paprHelper, 'findOne')
-		.mockResolvedValue({ data: authorWithoutProjection, modified: false })
-	jest.spyOn(ScrapeHelper.prototype, 'process').mockResolvedValue(parsedAuthor)
-	jest.spyOn(helper.redisHelper, 'findOrCreate').mockResolvedValue(parsedAuthor)
-	jest
-		.spyOn(helper.paprHelper, 'findOneWithProjection')
-		.mockResolvedValue({ data: parsedAuthor, modified: false })
-	jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
-	jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
+	mockPaprCreateOrUpdate.mockResolvedValue({ data: parsedAuthor, modified: true })
+	mockPaprFindOne.mockResolvedValue({ data: authorWithoutProjection, modified: false })
+	mockScrapeProcess.mockResolvedValue(parsedAuthor)
+	mockRedisFindOrCreate.mockResolvedValue(parsedAuthor)
+	mockPaprFindOneWithProjection.mockResolvedValue({ data: parsedAuthor, modified: false })
+	spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
+	spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 })
 
 afterEach(() => {
@@ -85,7 +124,7 @@ describe('AuthorShowHelper should', () => {
 		const authors = [{ asin: 'B079LRSMNN', name: 'John Doe' }]
 		const obj = { data: authors, modified: false }
 		helper = new AuthorShowHelper('', { name: 'John Doe', region: 'us', update: undefined }, null)
-		jest.spyOn(PaprAudibleAuthorHelper.prototype, 'findByName').mockResolvedValue(obj)
+		mockPaprFindByName.mockResolvedValue(obj)
 		await expect(helper.getAuthorsByName()).resolves.toStrictEqual(authors)
 	})
 
@@ -98,7 +137,7 @@ describe('AuthorShowHelper should', () => {
 	})
 
 	test('returns original author if it was updated recently when trying to update', async () => {
-		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
+		spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalData = authorWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedAuthor)
 	})
@@ -113,39 +152,31 @@ describe('AuthorShowHelper should', () => {
 	})
 
 	test('run handler for a new author', async () => {
-		jest.spyOn(helper.paprHelper, 'findOne').mockResolvedValue({ data: null, modified: false })
+		mockPaprFindOne.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
 	})
 
 	test('run handler and update an existing author', async () => {
 		helper = new AuthorShowHelper(asin, { region: 'us', update: '1' }, null)
-		// Need to re-do mock since helper reset
-		jest
-			.spyOn(helper.paprHelper, 'createOrUpdate')
-			.mockResolvedValue({ data: parsedAuthor, modified: true })
-		jest
-			.spyOn(helper.paprHelper, 'findOne')
-			.mockResolvedValue({ data: authorWithoutProjection, modified: false })
-		jest
-			.spyOn(helper.paprHelper, 'findOneWithProjection')
-			.mockResolvedValue({ data: parsedAuthor, modified: false })
-		jest.spyOn(ScrapeHelper.prototype, 'process').mockResolvedValue(parsedAuthor)
-		jest.spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
-		jest.spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
+		mockPaprCreateOrUpdate.mockResolvedValue({ data: parsedAuthor, modified: true })
+		mockPaprFindOne.mockResolvedValue({ data: authorWithoutProjection, modified: false })
+		mockPaprFindOneWithProjection.mockResolvedValue({ data: parsedAuthor, modified: false })
+		mockScrapeProcess.mockResolvedValue(parsedAuthor)
+		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(parsedAuthor)
+		spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(false)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
 	})
 
 	test('run handler for an existing author in redis', async () => {
 		ctx = createMockContext()
 		helper = new AuthorShowHelper(asin, { region: 'us', update: '0' }, ctx.client)
-		// Need to re-do mock since helper reset
-		jest.spyOn(helper.redisHelper, 'findOne').mockResolvedValue(parsedAuthor)
+		mockRedisFindOne.mockResolvedValue(parsedAuthor)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
 		expect(helper.redisHelper.findOne).toHaveBeenCalledTimes(1)
 	})
 
 	test('run handler for an existing author', async () => {
-		jest.spyOn(helper.redisHelper, 'findOrCreate').mockResolvedValue(undefined)
+		mockRedisFindOrCreate.mockResolvedValue(undefined)
 		await expect(helper.handler()).resolves.toStrictEqual(parsedAuthor)
 	})
 
@@ -156,29 +187,22 @@ describe('AuthorShowHelper should', () => {
 
 describe('AuthorShowHelper should throw error when', () => {
 	test('getDataWithProjection is not a author type', async () => {
-		jest
-			.spyOn(helper.paprHelper, 'findOneWithProjection')
-			.mockResolvedValue({ data: null, modified: false })
+		mockPaprFindOneWithProjection.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiAuthorProfile`
 		)
 	})
 
 	test('getDataWithProjection sorted author is not a author type', async () => {
-		// Enable USE_SORTED_KEYS to test sorting error handling
 		setPerformanceConfig(createTestConfig({ USE_SORTED_KEYS: true }))
-		jest
-			.spyOn(helper.sharedHelper, 'sortObjectByKeys')
-			.mockReturnValue(null as unknown as ApiAuthorProfile)
+		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as ApiAuthorProfile)
 		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiAuthorProfile`
 		)
 	})
 
 	test('createOrUpdateAuthor is not a author type', async () => {
-		jest
-			.spyOn(helper.paprHelper, 'createOrUpdate')
-			.mockResolvedValue({ data: null, modified: false })
+		mockPaprCreateOrUpdate.mockResolvedValue({ data: null, modified: false })
 		await expect(helper.createOrUpdateData()).rejects.toThrow(
 			`Data type for ${asin} is not ApiAuthorProfile`
 		)
@@ -193,7 +217,11 @@ describe('AuthorShowHelper should throw error when', () => {
 
 	test('updateActions fails to update', async () => {
 		helper.originalData = authorWithoutProjection
-		jest.spyOn(helper.paprHelper, 'createOrUpdate').mockRejectedValue(new Error('error'))
+		mockPaprCreateOrUpdate.mockRejectedValue(new Error('error'))
 		await expect(helper.updateActions()).rejects.toThrow('error')
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

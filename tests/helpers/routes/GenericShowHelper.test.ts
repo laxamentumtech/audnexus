@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 
 mock.module('#helpers/database/redis/RedisHelper', () => {
 	return {
@@ -264,4 +264,8 @@ describe('GenericShowHelper updateActions non-Error rejection handling', () => {
 			expect(error.cause).toBe(undefined)
 		}
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })

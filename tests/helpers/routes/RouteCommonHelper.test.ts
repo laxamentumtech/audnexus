@@ -1,14 +1,13 @@
-jest.mock('#helpers/utils/shared')
-jest.mock('fastify')
+import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import type { FastifyReply } from 'fastify'
-import { DeepMockProxy, mockDeep } from 'jest-mock-extended'
 
 import { ApiQueryString, ApiQueryStringSchema } from '#config/types'
 import { BadRequestError } from '#helpers/errors/ApiErrors'
 import RouteCommonHelper from '#helpers/routes/RouteCommonHelper'
 
 type MockContext = {
-	client: DeepMockProxy<FastifyReply>
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	client: any
 }
 
 let asin: string
@@ -18,7 +17,10 @@ let query: ApiQueryString
 
 const createMockContext = (): MockContext => {
 	return {
-		client: mockDeep<FastifyReply>()
+		client: {
+			status: mock().mockReturnThis(),
+			send: mock().mockReturnThis()
+		} as unknown as FastifyReply
 	}
 }
 
