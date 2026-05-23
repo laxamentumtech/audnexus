@@ -391,11 +391,16 @@ class ApiHelper {
 			'response_groups=customer_rights'
 		)
 		return fetch(url)
-			.then(async (response) => {
+			.then((response) => {
 				const json = response.data as { product?: { product_state?: string } }
 				return json?.product?.product_state
 			})
-			.catch(() => undefined)
+			.catch((error) => {
+				this.logger?.error(
+					`[AUDIBLE API] Failed to fetch product_state for ASIN ${this.asin}: ${error instanceof Error ? error.message : error}`
+				)
+				return undefined
+			})
 	}
 
 	/**
