@@ -21,6 +21,7 @@ import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleA
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
 import PaprAudibleChapterHelper from '#helpers/database/papr/audible/PaprAudibleChapterHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
+import { NotFoundError } from '#helpers/errors/ApiErrors'
 import SharedHelper from '#helpers/utils/shared'
 import {
 	ErrorMessageDataType,
@@ -201,7 +202,15 @@ export default class GenericShowHelper {
 			(await this.createOrUpdateData()
 				.then((data) => data)
 				.catch((err) => {
-					// Preserve custom errors with statusCode (NotFoundError, BadRequestError)
+					// If the product is no longer available on Audible (delisted or
+					// region-unavailable) but we have existing data, preserve it
+					if (err instanceof NotFoundError) {
+						this.logger?.warn(
+							`Update failed for ${this.type} ${this.asin}: ${err.message}. Returning existing data.`
+						)
+						return this.getDataWithProjection()
+					}
+					// Preserve other custom errors with statusCode (ContentTypeMismatchError, BadRequestError)
 					if (err instanceof Error && 'statusCode' in err) {
 						throw err
 					}

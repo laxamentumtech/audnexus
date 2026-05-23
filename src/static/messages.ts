@@ -22,6 +22,8 @@ export const ErrorMessageParse = (asin: string, source: string) =>
 // Item not available in region
 export const ErrorMessageRegion = (asin: string, region: string) =>
 	`Item not available in region '${region}' for ASIN: ${asin}`
+export const ErrorMessageProductDelisted = (asin: string, productState: string, region: string) =>
+	`Item is '${productState}' in region '${region}' for ASIN: ${asin}`
 // Content type mismatch
 export const ErrorMessageContentTypeMismatch = (
 	asin: string,
