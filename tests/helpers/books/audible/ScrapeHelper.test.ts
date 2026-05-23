@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 import type { AxiosResponse } from 'axios'
-import { beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import * as cheerio from 'cheerio'
 import type { FastifyBaseLogger } from 'fastify'
 
@@ -89,4 +89,7 @@ describe('ScrapeHelper should', () => {
 			'An error occured while fetching data from HTML. Response: 500, ASIN: B079LRSMNN'
 		)
 	})
+})
+afterAll(() => {
+	mock.restore()
 })

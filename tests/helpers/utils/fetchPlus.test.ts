@@ -6,8 +6,14 @@ mock.module('#helpers/utils/connectionPool', () => {
 	return { default: { get: mockGet } }
 })
 
+const sleepDelays: number[] = []
 mock.module('#helpers/utils/sleep', () => {
-	return { default: () => Promise.resolve() }
+	return {
+		default: (ms: number) => {
+			sleepDelays.push(ms)
+			return Promise.resolve()
+		}
+	}
 })
 
 import type { AxiosResponse } from 'axios'
@@ -19,6 +25,7 @@ let mockStatus: { status: number; headers?: Record<string, string> }
 
 describe('fetchPlus should', () => {
 	beforeEach(() => {
+		sleepDelays.length = 0
 		mockGet.mockClear()
 	})
 
@@ -77,6 +84,7 @@ describe('fetchPlus should', () => {
 		const response = await fetchPlus('test.com')
 		expect(response).toEqual(successResponse)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays).toEqual([1000])
 	})
 
 	test('retry with Retry-After header on 429', async () => {
@@ -96,6 +104,7 @@ describe('fetchPlus should', () => {
 
 		expect(response).toEqual(successResponse)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays).toEqual([2000])
 	})
 
 	test('retry with increasing exponential backoff on multiple 429s', async () => {
@@ -116,6 +125,7 @@ describe('fetchPlus should', () => {
 
 		expect(response).toEqual(successResponse)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(3)
+		expect(sleepDelays).toEqual([1000, 2000])
 	})
 
 	test('retry with exponential backoff on 429 with headers missing retry-after key', async () => {
@@ -135,6 +145,7 @@ describe('fetchPlus should', () => {
 
 		expect(response).toEqual(successResponse)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays).toEqual([1000])
 	})
 
 	test('not add delay for non-429 errors', async () => {
@@ -145,6 +156,7 @@ describe('fetchPlus should', () => {
 
 		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(4)
+		expect(sleepDelays).toEqual([])
 	})
 })
 

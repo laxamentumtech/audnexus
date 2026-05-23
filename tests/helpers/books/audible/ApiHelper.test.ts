@@ -24,6 +24,7 @@ import {
 	podcastWithoutProgramParticipation
 } from '#tests/datasets/audible/books/api'
 import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
+import { createMockLogger } from '#tests/setup/mockLogger'
 
 mock.module('#helpers/utils/fetchPlus', () => {
 	return { default: mock() }
@@ -329,7 +330,7 @@ describe('ApiHelper edge cases should', () => {
 	test('parses book with unknown content_delivery_type successfully', async () => {
 		const unknownTypeResponse = deepCopy(mockResponse)
 		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
-		const mockLogger = { warn: mock() }
+const mockLogger = createMockLogger()
 		helper = new ApiHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
 		const data = await helper.parseResponse(unknownTypeResponse)
 		expect(data.asin).toBe(asin)

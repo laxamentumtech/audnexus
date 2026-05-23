@@ -7,6 +7,7 @@ import { ApiBook } from '#config/types'
 import SeedHelper from '#helpers/authors/audible/SeedHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import { parsedBook } from '#tests/datasets/helpers/books'
+import { createMockLogger } from '#tests/setup/mockLogger'
 
 mock.module('#helpers/utils/fetchPlus', () => {
 	return { default: mock() }
@@ -51,22 +52,7 @@ describe('SeedHelper should', () => {
 	})
 
 	test('return empty array and log error when Promise.all rejects', async () => {
-		const mockLogger = {
-			error: mock(),
-			info: mock(),
-			warn: mock(),
-			debug: mock(),
-			fatal: mock(),
-			trace: mock(),
-			child: mock().mockReturnValue({
-				error: mock(),
-				info: mock(),
-				warn: mock(),
-				debug: mock(),
-				fatal: mock(),
-				trace: mock()
-			} as FastifyBaseLogger)
-		} as unknown as FastifyBaseLogger
+		const mockLogger = createMockLogger() as unknown as FastifyBaseLogger
 		helper = new SeedHelper(mockResponse, mockLogger)
 
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any

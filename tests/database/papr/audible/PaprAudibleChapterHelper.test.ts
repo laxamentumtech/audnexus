@@ -40,6 +40,12 @@ let helper: PaprAudibleChapterHelper
 let options: ApiQueryString
 
 beforeEach(() => {
+	mockUpdateOne.mockReset()
+	mockFindOne.mockReset()
+	mockInsertOne.mockReset()
+	mockDeleteOne.mockReset()
+	mockFind.mockReset()
+	mockIsEqualData.mockReset()
 	asin = parsedChapters.asin
 	options = {
 		region: 'us',

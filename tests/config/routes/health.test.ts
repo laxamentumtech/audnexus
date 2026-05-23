@@ -43,6 +43,7 @@ describe('health route should', () => {
 
 		mockMongoConnect.mockResolvedValue(undefined)
 		mockMongoCommand.mockResolvedValue({ ok: 1 })
+		mockMongoDb.mockReturnValue({ command: mockMongoCommand })
 		mockMongoClose.mockResolvedValue(undefined)
 
 		mockMongoClient = {
@@ -69,10 +70,26 @@ describe('health route should', () => {
 		}
 	})
 
+	// Helper function to create mock reply with optional assertions
+	const createMockReply = (assertions?: (data: HealthCheckResponse) => void) => {
+		const reply = {
+			status: mock(() => reply),
+			send: mock().mockImplementation((data: HealthCheckResponse) => {
+				if (assertions) assertions(data)
+				return reply
+			})
+		}
+		return reply
+	}
+
+	// Helper to extract route handler
+	const getRouteHandler = () => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		return (app.get as any).mock.calls[0][1]
+	}
+
 	test('return 200 and healthy status when all services are up', async () => {
-		mockMongoDb.mockReturnValue({
-			command: mockMongoCommand
-		})
+
 		mockMongoCommand.mockResolvedValue({ ok: 1 })
 
 		app.redis = {
@@ -81,22 +98,17 @@ describe('health route should', () => {
 
 		await health(app)
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const routeHandler = (app.get as any).mock.calls[0][1]
+		const routeHandler = getRouteHandler()
+
 
 		const mockRequest = createMockRequest()
-		const mockReply = {
-			status: mock(() => mockReply),
-			send: mock().mockImplementation((data: HealthCheckResponse) => {
-				expect(data.status).toBe('healthy')
-				expect(data.checks.server).toBe(true)
-				expect(data.checks.database).toBe(true)
-				expect(data.checks.redis).toBe(true)
-				expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
-				return mockReply
-			})
-		}
+		const mockReply = createMockReply((data) => {
+			expect(data.status).toBe('healthy')
+			expect(data.checks.server).toBe(true)
+			expect(data.checks.database).toBe(true)
+			expect(data.checks.redis).toBe(true)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+		})
 
 		await routeHandler(mockRequest, mockReply)
 
@@ -104,9 +116,7 @@ describe('health route should', () => {
 	})
 
 	test('return 503 and unhealthy status when MongoDB is down', async () => {
-		mockMongoDb.mockReturnValue({
-			command: mockMongoCommand
-		})
+
 		mockMongoCommand.mockRejectedValue(new Error('MongoDB connection failed'))
 
 		app.redis = {
@@ -114,22 +124,18 @@ describe('health route should', () => {
 		}
 
 		await health(app)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const routeHandler = (app.get as any).mock.calls[0][1]
+		const routeHandler = getRouteHandler()
+
 
 
 		const mockRequest = createMockRequest()
-		const mockReply = {
-			status: mock(() => mockReply),
-			send: mock().mockImplementation((data: HealthCheckResponse) => {
-				expect(data.status).toBe('unhealthy')
-				expect(data.checks.server).toBe(true)
-				expect(data.checks.database).toBe(false)
-				expect(data.checks.redis).toBe(true)
-				expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
-				return mockReply
-			})
-		}
+		const mockReply = createMockReply((data) => {
+			expect(data.status).toBe('unhealthy')
+			expect(data.checks.server).toBe(true)
+			expect(data.checks.database).toBe(false)
+			expect(data.checks.redis).toBe(true)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+		})
 
 		await routeHandler(mockRequest, mockReply)
 
@@ -137,9 +143,7 @@ describe('health route should', () => {
 	})
 
 	test('return 503 and unhealthy status when Redis is down', async () => {
-		mockMongoDb.mockReturnValue({
-			command: mockMongoCommand
-		})
+
 		mockMongoCommand.mockResolvedValue({ ok: 1 })
 
 		app.redis = {
@@ -148,21 +152,17 @@ describe('health route should', () => {
 
 		await health(app)
 
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const routeHandler = (app.get as any).mock.calls[0][1]
+		const routeHandler = getRouteHandler()
+
 
 		const mockRequest = createMockRequest()
-		const mockReply = {
-			status: mock(() => mockReply),
-			send: mock().mockImplementation((data: HealthCheckResponse) => {
-				expect(data.status).toBe('unhealthy')
-				expect(data.checks.server).toBe(true)
-				expect(data.checks.database).toBe(true)
-				expect(data.checks.redis).toBe(false)
-				expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
-				return mockReply
-			})
-		}
+		const mockReply = createMockReply((data) => {
+			expect(data.status).toBe('unhealthy')
+			expect(data.checks.server).toBe(true)
+			expect(data.checks.database).toBe(true)
+			expect(data.checks.redis).toBe(false)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+		})
 
 		await routeHandler(mockRequest, mockReply)
 
@@ -170,9 +170,7 @@ describe('health route should', () => {
 	})
 
 	test('return 503 and unhealthy status when both MongoDB and Redis are down', async () => {
-		mockMongoDb.mockReturnValue({
-			command: mockMongoCommand
-		})
+
 		mockMongoCommand.mockRejectedValue(new Error('MongoDB connection failed'))
 
 		app.redis = {
@@ -180,21 +178,17 @@ describe('health route should', () => {
 		}
 
 		await health(app)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const routeHandler = (app.get as any).mock.calls[0][1]
+		const routeHandler = getRouteHandler()
+
 
 		const mockRequest = createMockRequest()
-		const mockReply = {
-			status: mock(() => mockReply),
-			send: mock().mockImplementation((data: HealthCheckResponse) => {
-				expect(data.status).toBe('unhealthy')
-				expect(data.checks.server).toBe(true)
-				expect(data.checks.database).toBe(false)
-				expect(data.checks.redis).toBe(false)
-				expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
-				return mockReply
-			})
-		}
+		const mockReply = createMockReply((data) => {
+			expect(data.status).toBe('unhealthy')
+			expect(data.checks.server).toBe(true)
+			expect(data.checks.database).toBe(false)
+			expect(data.checks.redis).toBe(false)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+		})
 
 		await routeHandler(mockRequest, mockReply)
 
@@ -202,29 +196,23 @@ describe('health route should', () => {
 	})
 
 	test('return 200 and redis as null when Redis is not registered', async () => {
-		mockMongoDb.mockReturnValue({
-			command: mockMongoCommand
-		})
+
 		mockMongoCommand.mockResolvedValue({ ok: 1 })
 
 		app.redis = undefined
 		await health(app)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const routeHandler = (app.get as any).mock.calls[0][1]
+		const routeHandler = getRouteHandler()
+
 
 
 		const mockRequest = createMockRequest()
-		const mockReply = {
-			status: mock(() => mockReply),
-			send: mock().mockImplementation((data: HealthCheckResponse) => {
-				expect(data.status).toBe('healthy')
-				expect(data.checks.server).toBe(true)
-				expect(data.checks.database).toBe(true)
-				expect(data.checks.redis).toBeNull()
-				expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
-				return mockReply
-			})
-		}
+		const mockReply = createMockReply((data) => {
+			expect(data.status).toBe('healthy')
+			expect(data.checks.server).toBe(true)
+			expect(data.checks.database).toBe(true)
+			expect(data.checks.redis).toBeNull()
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$/)
+		})
 
 		await routeHandler(mockRequest, mockReply)
 
@@ -232,27 +220,20 @@ describe('health route should', () => {
 	})
 
 	test('verify response structure has all required fields', async () => {
-		mockMongoDb.mockReturnValue({
-			command: mockMongoCommand
-		})
+
 		mockMongoCommand.mockResolvedValue({ ok: 1 })
 		app.redis = {
 			ping: mock().mockResolvedValue('PONG')
 		}
 
 		await health(app)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const routeHandler = (app.get as any).mock.calls[0][1]
+		const routeHandler = getRouteHandler()
 
 		const mockRequest = createMockRequest()
 		let capturedData: HealthCheckResponse | null = null
-		const mockReply = {
-			status: mock(() => mockReply),
-			send: mock().mockImplementation((data: HealthCheckResponse) => {
-				capturedData = data
-				return mockReply
-			})
-		}
+		const mockReply = createMockReply((data) => {
+			capturedData = data
+		})
 
 		await routeHandler(mockRequest, mockReply)
 
@@ -273,27 +254,20 @@ describe('health route should', () => {
 	})
 
 	test('verify timestamp is valid ISO format', async () => {
-		mockMongoDb.mockReturnValue({
-			command: mockMongoCommand
-		})
+
 		mockMongoCommand.mockResolvedValue({ ok: 1 })
 		app.redis = {
 			ping: mock().mockResolvedValue('PONG')
 		}
 
 		await health(app)
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const routeHandler = (app.get as any).mock.calls[0][1]
+		const routeHandler = getRouteHandler()
 
 		const mockRequest = createMockRequest()
 		let capturedData: HealthCheckResponse | null = null
-		const mockReply = {
-			status: mock(() => mockReply),
-			send: mock().mockImplementation((data: HealthCheckResponse) => {
-				capturedData = data
-				return mockReply
-			})
-		}
+		const mockReply = createMockReply((data) => {
+			capturedData = data
+		})
 
 		await routeHandler(mockRequest, mockReply)
 

@@ -9,6 +9,7 @@ import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { regions } from '#static/regions'
 import { apiChapters, parsedChapters } from '#tests/datasets/helpers/chapters'
+import { createMockLogger } from '#tests/setup/mockLogger'
 
 mock.module('#helpers/utils/fetchPlus', () => {
 	return { default: mock() }
@@ -37,6 +38,7 @@ beforeEach(() => {
 	url = `https://api.audible.com/1.0/content/${asin}/metadata?response_groups=chapter_info&quality=High`
 	mockResponse = deepCopy(apiChapters)
 	process.env.ADP_TOKEN = 'mock_adp_token'
+// FAKE/MOCK RSA private key for testing only - NOT a real credential
 	process.env.PRIVATE_KEY = `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQDWGw8THIbueiDYRczKw15iLGhwkOJ5mvO3b12lZJYNyAqmVKqo
 I3So1xJZveKLFkdjK9tIJ9Y2jfsNSpPR0oZTTaGGVs6JejN6sPP8dq+RsNheL+No
@@ -185,7 +187,7 @@ describe('ChapterHelper should throw error when', () => {
 	})
 
 	test('error fetching Chapter data', async () => {
-		const mockLogger = { error: mock() }
+const mockLogger = createMockLogger()
 		spyOn(fetchPlus, 'default').mockImplementation(() =>
 			Promise.reject({
 				status: 403

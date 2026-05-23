@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, mock, setSystemTime, test } from 'bun:test'
 
 const mockGet = mock()
 
@@ -50,6 +50,7 @@ describe('cloudflareIps', () => {
 	afterEach(() => {
 		clearCache()
 		mock.restore()
+		setSystemTime()
 	})
 
 	describe('fetchIpsFromApi', () => {
@@ -145,7 +146,6 @@ describe('cloudflareIps', () => {
 			const result1 = await getIps()
 			expect(result1.ipv4).toEqual(mockCloudflareResponse.result.ipv4_cidrs)
 
-			const { setSystemTime } = await import('bun:test')
 			setSystemTime(new Date(Date.now() + 25 * 60 * 60 * 1000))
 
 			const result2 = await getIps()
@@ -162,7 +162,6 @@ describe('cloudflareIps', () => {
 			const result1 = await getIps()
 			expect(result1.ipv4).toEqual(mockCloudflareResponse.result.ipv4_cidrs)
 
-			const { setSystemTime } = await import('bun:test')
 			setSystemTime(new Date(Date.now() + 25 * 60 * 60 * 1000))
 
 			const result2 = await getIps()
@@ -217,7 +216,6 @@ describe('cloudflareIps', () => {
 
 			await getIps()
 
-			const { setSystemTime } = await import('bun:test')
 			setSystemTime(new Date(Date.now() + 25 * 60 * 60 * 1000))
 
 			const result = getCachedIps()
@@ -244,7 +242,6 @@ describe('cloudflareIps', () => {
 
 			await getIps()
 
-			const { setSystemTime } = await import('bun:test')
 			setSystemTime(new Date(Date.now() + 25 * 60 * 60 * 1000))
 
 			expect(isCacheValid()).toBe(false)
