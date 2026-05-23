@@ -29,6 +29,7 @@ import {
 	ErrorMessageHTTPFetch,
 	ErrorMessageNoData,
 	ErrorMessageParse,
+	ErrorMessageProductDelisted,
 	ErrorMessageRegion,
 	ErrorMessageReleaseDate,
 	ErrorMessageRequiredKey
@@ -372,6 +373,30 @@ class ApiHelper {
 				throw new Error(ErrorMessageHTTPFetch(this.asin, error.status, 'Audible API'))
 			})
 	}
+	/**
+	 * Fetches the product_state from the customer_rights response group.
+	 * Only called when the initial parse fails to determine the reason.
+	 * @returns {Promise<string | undefined>} product_state value, e.g. 'AVAILABLE', 'NOT_AVAILABLE_FOR_PURCHASE'
+	 */
+	async fetchProductState(): Promise<string | undefined> {
+		const helper = new SharedHelper()
+		const baseDomain = 'https://api.audible'
+		const regionTLD = regions[this.region].tld
+		const baseUrl = '1.0/catalog/products'
+		const url = helper.buildUrl(
+			this.asin,
+			baseDomain,
+			regionTLD,
+			baseUrl,
+			'response_groups=customer_rights'
+		)
+		return fetch(url)
+			.then(async (response) => {
+				const json = response.data as { product?: { product_state?: string } }
+				return json?.product?.product_state
+			})
+			.catch(() => undefined)
+	}
 
 	/**
 	 * Parses fetched Audible API data
@@ -412,7 +437,15 @@ class ApiHelper {
 				})
 				return this.getFinalData()
 			}
-			// baseShape also failed - likely truly unavailable in region
+			// baseShape also failed - fetch product_state for a specific error
+			const productState = await this.fetchProductState()
+			if (productState && productState !== 'AVAILABLE') {
+				throw new NotFoundError(ErrorMessageProductDelisted(this.asin, productState, this.region), {
+					asin: this.asin,
+					code: 'PRODUCT_DELISTED',
+					productState
+				})
+			}
 			throw new NotFoundError(ErrorMessageRegion(this.asin, this.region), {
 				asin: this.asin,
 				code: 'REGION_UNAVAILABLE'
