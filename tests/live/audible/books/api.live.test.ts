@@ -301,7 +301,7 @@ describe('Audible API Live Tests', () => {
 		it('should validate genre ASINs from different regions', async () => {
 			const warnings: string[] = []
 			const foundGenreAsins: string[] = []
-			const regionsToTest = ['us', 'uk', 'au']
+			const regionsToTest = ['us', 'uk', 'au', 'br']
 			const asin = 'B08G9PRS1K'
 
 			for (const region of regionsToTest) {
