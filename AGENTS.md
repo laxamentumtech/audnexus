@@ -56,25 +56,8 @@ const mockFetch = mock(() => Promise.resolve({ data: 'test' }))
 ## 2. Code Quality Standards
 
 ### 2.1 TypeScript Configuration
-
-The project uses TypeScript 5.9.3 with strict mode enabled. Key configuration in `tsconfig.json`:
-
-```json
-{
-	"compilerOptions": {
-		"strict": true,
-		"target": "ESNext",
-		"module": "ESNext",
-		"moduleResolution": "bundler",
-		"isolatedModules": true,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true
-	}
-}
-```
-
+The project uses TypeScript 5.9.3 with strict mode enabled. See `tsconfig.json`.
 **Build command:**
-
 ```bash
 bun run build-ts  # or bun run build (includes build-ts)
 ```
@@ -96,14 +79,7 @@ The project uses ESLint 10.0.0 with the following configuration (`eslint.config.
 | `simple-import-sort/imports` | error | Enforces import sorting order |
 | `simple-import-sort/exports` | error | Enforces export sorting order |
 
-**Import sort order:**
-
-1. React and React-related packages: `['react', '^@?\\w']`
-2. Internal packages: `['^(@|components)(/.*|$)']`
-3. Side effect imports: `['^\\u0000']`
-4. Parent imports: `['^\\.\\.(?!/?$)', '^\\.\\./?$']`
-5. Relative imports: `['^\\./(?=.*/)(?!/?$)', '^\\.(?!/?$)', '^\\./?$']`
-6. Style imports: `['^.+\\.?(css)$']`
+**Import sort order:** Use `simple-import-sort/imports` rule via `bun run lint`.
 
 **Run linting:**
 
@@ -127,28 +103,7 @@ bun run format
 
 ### 2.4 Module Aliases
 
-The project uses module aliases for cleaner imports via the `package.json` `"imports"` field (native Bun/Node.js ESM support):
-
-| Alias                 | Maps To                        |
-| --------------------- | ------------------------------ |
-| `#config/*`           | `./dist/config/*.js`           |
-| `#helpers/*`          | `./dist/helpers/*.js`          |
-| `#helpers/audible/*`  | `./dist/helpers/audible/*.js`  |
-| `#helpers/books/*`    | `./dist/helpers/books/*.js`    |
-| `#helpers/database/*` | `./dist/helpers/database/*.js` |
-| `#helpers/errors/*`   | `./dist/helpers/errors/*.js`   |
-| `#helpers/routes/*`   | `./dist/helpers/routes/*.js`   |
-| `#helpers/utils/*`    | `./dist/helpers/utils/*.js`    |
-| `#static/*`           | `./dist/static/*.js`           |
-| `#interfaces/*`       | `./dist/interfaces/*.js`       |
-| `#tests/*`            | `./tests/*`                    |
-
-**Usage example:**
-
-```typescript
-import { ApiHelper } from '#helpers/audible/ApiHelper'
-import { config } from '#config/index'
-```
+The project uses module aliases. Use `#imports/*` aliases (defined in `package.json`).
 
 ---
 
@@ -202,16 +157,13 @@ bun audit
 ```
 
 ### 3.4 Rollback Procedures
-
 **If a dependency update causes issues:**
-
 ```bash
-# 1. Revert package.json changes
-git checkout package.json
-
+```bash
+# 1. Revert package.json and bun.lock changes
+git checkout package.json bun.lock
 # 2. Reinstall previous versions
 bun install
-
 # 3. Verify restoration
 bun run lint && bun run test && bun run build
 ```
@@ -297,62 +249,7 @@ RUN_LIVE_TESTS=true bun run test:live
 - Requires human review and code updates
 
 ### 4.5 Deployment Workflows
-
-**Coolify Workflow** (`.github/workflows/deploy-coolify.yml`):
-
-Triggers:
-
-- Push to `main` or `develop` branches
-
-**Required secrets:**
-
-| Secret Name       | Description                                                                      |
-| ----------------- | -------------------------------------------------------------------------------- |
-| `COOLIFY_WEBHOOK` | Coolify deploy webhook URL from application's Webhook page                       |
-| `COOLIFY_TOKEN`   | Coolify API token from "Keys & Tokens" > "API Tokens" (with "Deploy" permission) |
-
-**Deployment process:**
-
-1. Builds Docker image from Dockerfile and pushes to ghcr.io
-2. Triggers Coolify deployment via API call on push to main/develop
-3. Uses Bearer token authentication with `COOLIFY_TOKEN`
-4. Coolify pulls the prebuilt image from ghcr.io and deploys it
-
-**CapRover Workflow** (`.github/workflows/deploy-caprover.yml`):
-
-Triggers:
-
-- Push to `main` branch
-
-**Required secrets:**
-
-| Secret Name         | Description              |
-| ------------------- | ------------------------ |
-| `CAPROVER_HOST`     | CapRover server host     |
-| `CAPROVER_PASSWORD` | CapRover server password |
-
-**Deployment process:**
-
-1. Installs CapRover CLI
-2. Deploys to CapRover using CLI
-3. Deploys from `main` branch
-
-**Docker Publish Workflow** (`.github/workflows/docker-publish.yml`):
-
-Triggers:
-
-- Schedule: Daily at 05:15 UTC
-- Push to `develop`, `main`, or semver tags (`v*.*.*`)
-- Pull requests to `main`
-
-**Process:**
-
-1. Builds Docker image using project Dockerfile
-2. Pushes to GitHub Container Registry (ghcr.io)
-3. Tags image with branch name or version tag
-
-**Note:** This workflow only builds and pushes images to ghcr.io - it does not deploy. Use the Coolify workflow for actual deployments.
-
+See `.github/workflows/` for deployment workflows (`deploy-coolify.yml`, `deploy-caprover.yml`, `docker-publish.yml`).
 ---
 
 ## 5. Commit Standards
@@ -379,41 +276,14 @@ All commits must follow the Conventional Commits specification:
 | `test`     | Adding or modifying tests | `test: add unit tests for ApiHelper`        |
 | `deps`     | Dependency updates        | `deps: update mongodb to 7.1.0`             |
 | `ci`       | CI/CD changes             | `ci: add new GitHub workflow`               |
-
-**Scope (optional but recommended):**
-
 - `api` - API-related changes
 - `db` - Database-related changes
 - `auth` - Authentication changes
 - `scraper` - Web scraping changes
 - `helper` - Helper function changes
 - `config` - Configuration changes
-
-### 5.2 Commit Message Examples
-
-**Valid examples:**
-
-```bash
-feat(api): add new book endpoint for author search
-fix(db): resolve connection pool timeout issue
-chore(deps): update fastify to version 5.7.4
-docs: update README with new API examples
-test: add integration tests for RedisHelper
-refactor(helper): simplify chapter parsing logic
-deps: upgrade mongodb driver to 7.1.0
-ci: add live test workflow
-```
-
-**Invalid examples (will fail CI):**
-
-```bash
-update stuff          # Missing type
-Fixed bug              # Not conventional format
-chore: update          # Too vague
-feat: did things       # Unclear description
-```
-
-### 5.3 CI Validation
+Invalid: missing type, non-conventional format, or vague description.
+### 5.2 CI Validation
 
 The repository uses `webiny/action-conventional-commits` to validate commit messages on PRs to `main`.
 
@@ -443,21 +313,7 @@ RUN_LIVE_TESTS=true bun run test:live
 - Verifying API endpoint changes
 - Integration testing with real data
 
-### 6.2 Live Test Configuration
-
-**Command:**
-
-```bash
-bun run test:live
-```
-
-**Bun Configuration (bunfig.toml):**
-
-- Live tests are run with Bun's native test runner
-- Configuration is defined in `bunfig.toml` (test timeout, coverage settings)
-- Requires `RUN_LIVE_TESTS=true` environment variable to enable live tests
-- Run locally with: `RUN_LIVE_TESTS=true bun run test:live`
-
+### 6.2 Handling Test Results
 ### 6.3 Warning vs Failure Interpretation
 
 **Warnings (non-blocking):**
@@ -495,142 +351,6 @@ When live tests detect changes:
 
 ---
 
-## 7. Rollback Procedures
-
-### 7.1 Breaking Change Detection
-
-**Before any dependency update, check for breaking changes:**
-
-1. **Review changelog:**
-
-   ```bash
-   # Check package changelog
-   npm view <package-name> changelog
-   ```
-
-2. **Check peer dependencies:**
-
-   ```bash
-   bun pm ls
-   ```
-
-3. **Test in isolation:**
-
-   ```bash
-   # Create a test branch
-   git checkout -b test/update-<package>
-   bun update <package-name>
-   bun install
-   bun run lint && bun run test && bun run build
-   ```
-
-4. **Review test output for warnings:**
-
-   ```text
-   [warning] Deprecated API usage detected
-   [warning] Peer dependency mismatch
-   ```
-
-### 7.2 Rollback Steps
-
-**If a change causes failures:**
-
-```bash
-# 1. Identify the problematic commit
-git log --oneline -10
-
-# 2. Revert the specific commit
-git revert <commit-hash>
-
-# 3. Push the revert
-git push origin <branch-name>
-
-# 4. Verify the fix
-bun run lint && bun run test && bun run build
-```
-
-**Full rollback of dependency update:**
-
-```bash
-# 1. Edit package.json to previous versions
-git checkout package.json
-
-# 2. Remove lock file changes
-git checkout bun.lock
-
-# 3. Reinstall
-bun install
-
-# 4. Verify
-bun run lint && bun run test && bun run build
-```
-
-### 7.3 Commit Format for Rollbacks
-
-**When reverting a dependency update:**
-
-```bash
-chore(revert): revert mongodb driver to 6.8.0
-
-Reason: Breaking change detected in connection pool behavior
-
-Reverts commit abc123def456
-```
-
-**When reverting a feature:**
-
-```bash
-revert: feat(api): add new book endpoint
-
-Reason: Causes memory leak under high load
-
-Reverts commit abc123def456
-```
-
-### 7.4 Emergency Procedures
-
-**Critical bug in production:**
-
-1. **Identify the breaking commit:**
-
-   ```bash
-   git log --oneline --since="1 day ago"
-   ```
-
-2. **Revert immediately:**
-
-   ```bash
-   git revert <commit-hash>
-   # ⚠️ CRITICAL WARNING: Before force-pushing, confirm that no one else has pushed to main,
-   # notify your team, and exhaust all alternatives. First verify repo state:
-   git fetch origin main
-   git log origin/main..main
-   git push --force-with-lease origin main  # ONLY if absolutely necessary and after confirming no other pushes
-   ```
-
-3. **Document the incident:**
-
-   ```markdown
-   ## Incident: [Brief Description]
-
-   **Date:** YYYY-MM-DD
-   **Severity:** Critical
-   **Impact:** [Description of impact]
-
-   ### Root Cause
-
-   [Explanation of what caused the issue]
-
-   ### Resolution
-
-   [Steps taken to resolve]
-
-   ### Prevention
-
-   [Steps to prevent recurrence]
-   ```
-
----
 
 ## Quick Reference Commands
 
