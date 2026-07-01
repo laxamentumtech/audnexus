@@ -94,6 +94,14 @@ describe('BookSearchApiHelper', () => {
 			expect(results).toHaveLength(1)
 		})
 
+		it('logs a warning for each rejected product', async () => {
+			mockFetch.mockResolvedValue({ data: { products: [minimalProduct] } })
+			mockGetFinalData.mockRejectedValue(new Error('parse failed'))
+			const helper = new BookSearchApiHelper('dungeon crawler carl', 'us', mockLogger)
+			await helper.parseResults()
+			expect(mockLogger.warn).toHaveBeenCalled()
+		})
+
 		it('throws with structured message on fetch error', async () => {
 			mockFetch.mockRejectedValue({ status: 403 })
 			const helper = new BookSearchApiHelper('dungeon crawler carl', 'us', mockLogger)

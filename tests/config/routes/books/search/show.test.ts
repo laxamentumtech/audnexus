@@ -78,6 +78,12 @@ describe('GET /books/search', () => {
 		expect(reply.code).not.toHaveBeenCalledWith(400)
 	})
 
+	it('returns 400 for unknown region', async () => {
+		const reply = makeReply()
+		await getHandler(app)({ query: { q: 'test', region: 'zz' }, log: mockLog }, reply)
+		expect(reply.code).toHaveBeenCalledWith(400)
+	})
+
 	it('defaults region to us when not provided', async () => {
 		mockParseResults.mockResolvedValue([])
 		await getHandler(app)({ query: { q: 'test' }, log: mockLog }, makeReply())

@@ -1,12 +1,12 @@
 import type { FastifyBaseLogger } from 'fastify'
 
-import ApiHelper from './ApiHelper'
-
 import { ApiBook, AudibleProduct } from '#config/types'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageHTTPFetch } from '#static/messages'
 import { regions } from '#static/regions'
+
+import ApiHelper from './ApiHelper'
 
 class BookSearchApiHelper {
 	query: string
@@ -59,6 +59,12 @@ class BookSearchApiHelper {
 				return helper.getFinalData()
 			})
 		)
+
+		for (const [i, r] of results.entries()) {
+			if (r.status === 'rejected') {
+				this.logger?.warn({ asin: response.products[i].asin, err: r.reason }, 'Failed to parse search result')
+			}
+		}
 
 		return results
 			.filter((r): r is PromiseFulfilledResult<ApiBook> => r.status === 'fulfilled')
