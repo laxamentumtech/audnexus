@@ -12,13 +12,55 @@ name: release-please
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
       - uses: googleapis/release-please-action@7987652d64b4581673a76e33ad5e98e3dd56832f # v4
+        id: release
         with:
-          # this assumes that you have created a personal access token
-          # (PAT) and configured it as a GitHub action secret named
-          # `MY_RELEASE_PLEASE_TOKEN` (this secret name is not important).
           token: ${{ secrets.GITHUB_TOKEN }}
-          # this is a built-in strategy in release-please, see "Action Inputs"
-          # for more options
           release-type: node
+
+  ai-changelog:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Find previous tag
+        id: prev
+        run: |
+          CURRENT_TAG="${{ needs.release-please.outputs.tag_name }}"
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "^${CURRENT_TAG}$" | head -1 || true)
+          echo "tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Previous tag: ${PREV_TAG:-<none, first release>}"
+
+      - uses: nosovj/llm-release-action@6f89a8b0e61470f54c4c0555369da82e7959416b # v1
+        id: llm
+        with:
+          model: openai/${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
+          current_version: ${{ steps.prev.outputs.tag }}
+          head_ref: ${{ needs.release-please.outputs.tag_name }}
+          max_commits: '100'
+          temperature: '0.3'
+          max_tokens: '4096'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_BASE_URL }}
+
+      - name: Update GitHub Release with AI changelog
+        run: |
+          CHANGELOG=$(echo '${{ steps.llm.outputs.changelogs }}' | jq -r '.default.en')
+          if [ -z "$CHANGELOG" ] || [ "$CHANGELOG" = "null" ]; then
+            echo "No changelog generated, keeping default release notes"
+            exit 0
+          fi
+          gh release edit "${{ needs.release-please.outputs.tag_name }}" --notes "$CHANGELOG"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
