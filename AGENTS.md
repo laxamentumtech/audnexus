@@ -56,8 +56,10 @@ const mockFetch = mock(() => Promise.resolve({ data: 'test' }))
 ## 2. Code Quality Standards
 
 ### 2.1 TypeScript Configuration
+
 The project uses TypeScript 5.9.3 with strict mode enabled. See `tsconfig.json`.
 **Build command:**
+
 ```bash
 bun run build-ts  # or bun run build (includes build-ts)
 ```
@@ -157,8 +159,10 @@ bun audit
 ```
 
 ### 3.4 Rollback Procedures
+
 **If a dependency update causes issues:**
-```bash
+
+````bash
 ```bash
 # 1. Revert package.json and bun.lock changes
 git checkout package.json bun.lock
@@ -166,7 +170,7 @@ git checkout package.json bun.lock
 bun install
 # 3. Verify restoration
 bun run lint && bun run test && bun run build
-```
+````
 
 ---
 
@@ -249,6 +253,7 @@ RUN_LIVE_TESTS=true bun run test:live
 - Requires human review and code updates
 
 ### 4.5 Deployment Workflows
+
 See `.github/workflows/` for deployment workflows (`deploy-coolify.yml`, `deploy-caprover.yml`, `docker-publish.yml`).
 ---
 
@@ -276,13 +281,15 @@ All commits must follow the Conventional Commits specification:
 | `test`     | Adding or modifying tests | `test: add unit tests for ApiHelper`        |
 | `deps`     | Dependency updates        | `deps: update mongodb to 7.1.0`             |
 | `ci`       | CI/CD changes             | `ci: add new GitHub workflow`               |
+
 - `api` - API-related changes
 - `db` - Database-related changes
 - `auth` - Authentication changes
 - `scraper` - Web scraping changes
 - `helper` - Helper function changes
 - `config` - Configuration changes
-Invalid: missing type, non-conventional format, or vague description.
+  Invalid: missing type, non-conventional format, or vague description.
+
 ### 5.2 CI Validation
 
 The repository uses `webiny/action-conventional-commits` to validate commit messages on PRs to `main`.
@@ -314,6 +321,7 @@ RUN_LIVE_TESTS=true bun run test:live
 - Integration testing with real data
 
 ### 6.2 Handling Test Results
+
 ### 6.3 Warning vs Failure Interpretation
 
 **Warnings (non-blocking):**
@@ -350,7 +358,6 @@ When live tests detect changes:
    ```
 
 ---
-
 
 ## Quick Reference Commands
 
