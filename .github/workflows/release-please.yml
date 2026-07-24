@@ -56,7 +56,10 @@ jobs:
 
       - name: Update GitHub Release with AI changelog
         run: |
-          CHANGELOG=$(echo '${{ steps.llm.outputs.changelogs }}' | jq -r '.default.en')
+          CHANGELOG=$(jq -r '.default.en' << 'EOF'
+          ${{ steps.llm.outputs.changelogs }}
+          EOF
+          )
           if [ -z "$CHANGELOG" ] || [ "$CHANGELOG" = "null" ]; then
             echo "No changelog generated, keeping default release notes"
             exit 0

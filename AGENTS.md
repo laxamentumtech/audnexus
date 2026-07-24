@@ -373,7 +373,7 @@ bun run build         # Build TypeScript
 bun run build-docs    # Build API documentation
 
 # Release
-bun run release       # Create new release (standard-version)
+bun run release       # Create new release
 ```
 
 ---

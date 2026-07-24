@@ -64,9 +64,10 @@
 		"concurrently": "^9.1.2",
 		"eslint": "^10.0.0",
 		"eslint-config-prettier": "^10.1.2",
-		"globals": "^17.3.0",
 		"eslint-plugin-simple-import-sort": "^12.1.1",
+		"globals": "^17.3.0",
 		"prettier": "^3.5.3",
+		"prettier-plugin-yaml": "^1.2.0",
 		"typescript": "^5.9.3"
 	},
 	"imports": {
