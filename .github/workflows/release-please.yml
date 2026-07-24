@@ -56,10 +56,7 @@ jobs:
 
       - name: Update GitHub Release with AI changelog
         run: |
-          CHANGELOG=$(jq -r '.default.en' << '__CHANGELOG_JSON_END__'
-          ${{ steps.llm.outputs.changelogs }}
-          __CHANGELOG_JSON_END__
-          )
+          CHANGELOG=$(jq -r '.default.en' <<< "$LLM_CHANGLOGS")
           if [ -z "$CHANGELOG" ] || [ "$CHANGELOG" = "null" ]; then
             echo "No changelog generated, keeping default release notes"
             exit 0
@@ -67,3 +64,4 @@ jobs:
           gh release edit "${{ needs.release-please.outputs.tag_name }}" --notes "$CHANGELOG"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LLM_CHANGLOGS: ${{ steps.llm.outputs.changelogs }}

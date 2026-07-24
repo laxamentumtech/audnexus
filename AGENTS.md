@@ -162,7 +162,6 @@ bun audit
 
 **If a dependency update causes issues:**
 
-````bash
 ```bash
 # 1. Revert package.json and bun.lock changes
 git checkout package.json bun.lock
@@ -170,7 +169,7 @@ git checkout package.json bun.lock
 bun install
 # 3. Verify restoration
 bun run lint && bun run test && bun run build
-````
+```
 
 ---
 
