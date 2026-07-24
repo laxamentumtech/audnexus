@@ -13,6 +13,22 @@ describe('schemas should', () => {
 		expect(AsinSchema.safeParse('B0B9YP4F9P').success).toBe(true)
 	})
 
+	test('trim surrounding whitespace from ASINs before validation', () => {
+		// Audible's API returns some author ASINs with a leading tab character,
+		// e.g. "\tB07NCZDY5W" (see PR #869). These must be accepted and normalized.
+		expect(AsinSchema.safeParse('\tB07NCZDY5W').success).toBe(true)
+		expect(AsinSchema.safeParse(' B079LRSMNN ').success).toBe(true)
+		expect(AsinSchema.safeParse('\nB07Q769RZS\n').success).toBe(true)
+
+		// The parsed value must be trimmed, not just validated.
+		expect(AsinSchema.parse('\tB07NCZDY5W')).toBe('B07NCZDY5W')
+		expect(AsinSchema.parse('  1705047572  ')).toBe('1705047572')
+
+		// Internal whitespace is not stripped and must still fail.
+		expect(AsinSchema.safeParse('B079\tRSMNN').success).toBe(false)
+		expect(AsinSchema.safeParse('B079 RSMNN').success).toBe(false)
+	})
+
 	test('validate ASINs with 11 characters', () => {
 		expect(GenreAsinSchema.safeParse('18574784011').success).toBe(true)
 		expect(GenreAsinSchema.safeParse('123456789011').success).toBe(true)
