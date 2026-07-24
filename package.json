@@ -32,7 +32,7 @@
 	"dependencies": {
 		"@fastify/cors": "^11.2.0",
 		"@fastify/helmet": "^13.0.0",
-		"@fastify/rate-limit": "^10.0.0",
+		"@fastify/rate-limit": "^11.0.0",
 		"@fastify/redis": "^7.0.0",
 		"@fastify/schedule": "^6.0.0",
 		"axios": "^1.13.5",
