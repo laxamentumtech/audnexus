@@ -1,5 +1,5 @@
 # Base with bun installed
-FROM oven/bun:alpine AS base
+FROM oven/bun:alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS base
 WORKDIR /app
 RUN apk add --no-cache curl
 
