@@ -7,7 +7,8 @@ import {
 	AudibleProduct,
 	AudibleProductSchema,
 	AudibleSeries,
-	fallbackShape
+	fallbackShape,
+	recognizedContentTypes
 } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
@@ -362,6 +363,23 @@ describe('ApiHelper edge cases should', () => {
 			expect.stringContaining('Unknown content_delivery_type')
 		)
 	})
+
+	// The six new recognized types added beyond MultiPartBook/SinglePartBook.
+	// Each must parse through AudibleProductSchema without the Unknown-content-type warning.
+	const newContentTypes = recognizedContentTypes.filter(
+		(type) => type !== 'MultiPartBook' && type !== 'SinglePartBook'
+	)
+	for (const type of newContentTypes) {
+		test(`parses recognized content_delivery_type '${type}' without warning`, async () => {
+			const response = deepCopy(mockResponse)
+			response.product.content_delivery_type = type
+			const mockLogger = createMockLogger()
+			helper = new ApiHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
+			const data = await helper.parseResponse(response)
+			expect(data.asin).toBe(asin)
+			expect(mockLogger.warn).not.toHaveBeenCalled()
+		})
+	}
 
 	test('throws region unavailable when baseShape also fails', async () => {
 		const emptyProductResponse = { product: {} } as AudibleProduct

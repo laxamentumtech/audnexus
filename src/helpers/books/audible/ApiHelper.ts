@@ -18,7 +18,8 @@ import {
 	AudibleSeriesSchema,
 	baseShape,
 	FallbackAudibleProduct,
-	fallbackShape
+	fallbackShape,
+	recognizedContentTypes
 } from '#config/types'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
@@ -429,7 +430,7 @@ class ApiHelper {
 		}
 
 		// Check if content_delivery_type exists and is a known book type
-		const knownTypes = ['MultiPartBook', 'SinglePartBook']
+		const knownTypes = recognizedContentTypes
 		if (!contentType || !knownTypes.includes(contentType)) {
 			// Try parsing with baseShape directly (fallback for missing/unknown type)
 			const baseResult = baseShape.safeParse(product)

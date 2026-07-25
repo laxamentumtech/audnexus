@@ -216,10 +216,26 @@ const podcastShape = z.object({
 
 // This is the shape of the data we get from Audible's API for series content
 const seriesShape = z.object({
-	content_delivery_type: z.enum(['MultiPartBook', 'SinglePartBook']),
+	content_delivery_type: z.enum([
+		'MultiPartBook',
+		'SinglePartBook',
+		'AudioPart',
+		'SinglePartIssue',
+		'PodcastEpisode',
+		'BookSeries',
+		'Periodical',
+		'Bundle'
+	]),
 	publication_name: z.string().optional(),
 	series: z.array(AudibleSeriesSchema).optional()
 })
+
+// Single source of truth for the recognized content_delivery_type values.
+// Used by the schema, the parser, and the live-test availability check
+// so they cannot drift apart. PodcastParent is intentionally excluded:
+// it is handled as a content type mismatch in ApiHelper.parseResponse.
+export const recognizedContentTypes: readonly string[] =
+	seriesShape.shape.content_delivery_type.options
 
 // This is the shape for fallback when content_delivery_type is missing or unknown
 export const fallbackShape = baseShape.extend({
