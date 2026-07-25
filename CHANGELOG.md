@@ -3,6 +3,68 @@
 All notable changes to this project will be documented in this file. Releases are automated via [release-please](https://github.com/googleapis/release-please) and [LLM Release Action](https://github.com/nosovj/llm-release-action) for AI-generated release notes.
 
 
+## [1.16.0](https://github.com/laxamentumtech/audnexus/compare/audnexus-v1.15.0...audnexus-v1.16.0) (2026-07-25)
+
+
+### Features
+
+* add Cloudflare IP auto-discovery for rate limiting ([6b633a3](https://github.com/laxamentumtech/audnexus/commit/6b633a37dd2823cdba9fe9753541380b935b6df7))
+* **ci:** harden CI workflow and refine error handling ([1dff995](https://github.com/laxamentumtech/audnexus/commit/1dff9950d66135e4a3b3331848392bb81558b440))
+* **config:** add metrics auth warning and TRUSTED_PROXIES support ([c2b12fd](https://github.com/laxamentumtech/audnexus/commit/c2b12fdb16162c20861993542285c0bc9cb7e3a4))
+* **config:** add SCHEDULER_MAX_PER_REGION and DEFAULT_REGION for configurable batch processing ([8af62be](https://github.com/laxamentumtech/audnexus/commit/8af62be57fc3f8ce14be0c617d281dc81b1a6baf))
+* disable metrics by default, secure rate limiting, and fix CI ([0a1b639](https://github.com/laxamentumtech/audnexus/commit/0a1b6393bc71485af7bf9364bbd51f6452475f47))
+* distinguish delisted products from region-unavailable errors ([#863](https://github.com/laxamentumtech/audnexus/issues/863)) ([3a0a417](https://github.com/laxamentumtech/audnexus/commit/3a0a4176125a9ddb47b42f96147aceb92a3e37ae))
+* **docker:** add non-root user and healthcheck ([018d74c](https://github.com/laxamentumtech/audnexus/commit/018d74cec1d4814935eaf1ed0e5734d67609588d))
+* **helper:** :sparkles: cleanup chapter titles with underscore ([7d4831f](https://github.com/laxamentumtech/audnexus/commit/7d4831f24f6ab39b2fc134ec7785bb2e2c447a77))
+* **metrics:** add CIDR support for IP allowlisting ([24d615a](https://github.com/laxamentumtech/audnexus/commit/24d615aa9c41877898a44d0f658a7c1bd0cf8bb1))
+* **search:** add book title search endpoint ([#874](https://github.com/laxamentumtech/audnexus/issues/874)) ([5baebae](https://github.com/laxamentumtech/audnexus/commit/5baebaef0dce094d5da4d7ee220d7991233af1ea))
+* **server:** register metrics hooks and routes ([273846f](https://github.com/laxamentumtech/audnexus/commit/273846fd1437d51a65423eb45605ac1c0d00cf02))
+* **tests:** add live integration tests for Audible monitoring ([19d6231](https://github.com/laxamentumtech/audnexus/commit/19d6231eb873c1a82d0aaacc3fdbd1830fd062fb))
+* **tests:** add live integration tests for Audible monitoring ([182d246](https://github.com/laxamentumtech/audnexus/commit/182d246398278f9e6a807b67768918c4ea1b9138))
+
+
+### Bug Fixes
+
+* **backup:** redirect log() to stderr and fix password passing ([f92de86](https://github.com/laxamentumtech/audnexus/commit/f92de860f7209f83bcca542dcfd0d7c71c2dc257))
+* **batch-processor:** correct maxConcurrencyObserved initialization ([a7a568a](https://github.com/laxamentumtech/audnexus/commit/a7a568ac016ce7f7918658c97c02233cead357b1))
+* check for running container in migrate-mongodb.sh ([2967c3c](https://github.com/laxamentumtech/audnexus/commit/2967c3c840ef556c5998cefc08b3d0754dd30f1d))
+* **ci:** add .release-please-manifest.json required by release-please ([3b60edd](https://github.com/laxamentumtech/audnexus/commit/3b60edd97cd17fed74b415686875b45b0fabc550))
+* **ci:** add .release-please-manifest.json required by release-please ([210b9a4](https://github.com/laxamentumtech/audnexus/commit/210b9a48dbc6bffeb17f58a2ff93e947f498678a))
+* **ci:** add curl timeout and response body capture to Coolify deploy ([3ba1ec7](https://github.com/laxamentumtech/audnexus/commit/3ba1ec70d464fb26c0b0fb76365c05cc61d5b2e9))
+* **circuit-breaker:** validate and normalize options ([56b3aaf](https://github.com/laxamentumtech/audnexus/commit/56b3aaf99ceeb8925814939160a43f87ed41cbea))
+* **cloudflare:** prevent race condition in concurrent IP fetches ([08312af](https://github.com/laxamentumtech/audnexus/commit/08312af15566de03698101c3eec9167b0b5c9431))
+* **config:** standardize env var names and make mongoClient optional ([a8453b4](https://github.com/laxamentumtech/audnexus/commit/a8453b4f2cc1d5c83fcb675aa3a2b5833092b873))
+* **config:** trim surrounding whitespace from ASINs before validation ([#875](https://github.com/laxamentumtech/audnexus/issues/875)) ([f333563](https://github.com/laxamentumtech/audnexus/commit/f333563ce620070b21bb2267751ccda0990751e8))
+* disable metrics by default, filter error responses, and secure rate limiting ([bb79540](https://github.com/laxamentumtech/audnexus/commit/bb79540f16f865e5ce81f3fcd78f8da6d0c8cd9f))
+* **docker:** remove NODE_ prefix from env vars in docker-compose.yml for consistency ([29230b0](https://github.com/laxamentumtech/audnexus/commit/29230b0e802b599d50ca65f6efb5c1e861d97e42))
+* **helpers:** improve error handling and add fallback logger ([cf0015f](https://github.com/laxamentumtech/audnexus/commit/cf0015ff92c5aa0d307ac0222e4b7ff20d0d5fcc))
+* implement rate limiting improvements ([7468147](https://github.com/laxamentumtech/audnexus/commit/7468147b415e3af0406bfc5ca9839e8e87cbfdf0))
+* **lint:** fix linting issues causing CI failure ([11c8282](https://github.com/laxamentumtech/audnexus/commit/11c82825c51bae309047f5e069c7b2f12eceb2e6))
+* rate limiting improvements ([41d805b](https://github.com/laxamentumtech/audnexus/commit/41d805b01deb268830c4852e7ce967b61c913c9e))
+* review findings across helpers, utils, server, tests ([4ffe04f](https://github.com/laxamentumtech/audnexus/commit/4ffe04f86d5365ce28b8ce3b51eedd3f879f3171))
+* **route:** :bug: properly show error when updating an item fails ([c457327](https://github.com/laxamentumtech/audnexus/commit/c457327f73fc7d38adaf46ecda330f97221162e5))
+* **scheduler:** remove artificial rate limiting in parallel mode ([d7cc5ae](https://github.com/laxamentumtech/audnexus/commit/d7cc5aeb7a9bb695ea1cf821df49c8240db87b8c))
+* **scheduler:** rethrow errors in parallel processing callbacks ([ca9749c](https://github.com/laxamentumtech/audnexus/commit/ca9749cf9a3c84e3f1a979a283de73780a3cb638))
+* **scripts:** ensure log directory exists before first log call ([aacf422](https://github.com/laxamentumtech/audnexus/commit/aacf42207db115a5db40218891edfe578ed4e4cc))
+* **scripts:** improve security and error handling in backup scripts ([8c86eb9](https://github.com/laxamentumtech/audnexus/commit/8c86eb9b2f50aeeb3bfbec36045c145fbcee4e3f))
+* **security:** use timingSafeEqual for token comparison and restrict trustProxy ([60bd113](https://github.com/laxamentumtech/audnexus/commit/60bd113e556afcd7c063b110c8d7ec76e1a1fff4))
+* **src:** improve error handling and logging ([977f082](https://github.com/laxamentumtech/audnexus/commit/977f082813c6dcfc36561e6892936e3e9952f848))
+* **test:** check error type before casting to NotFoundError ([320bc98](https://github.com/laxamentumtech/audnexus/commit/320bc98c7cb74bc49197291ee25f99f482ec0423))
+* **test:** fix availability check to prevent false positives ([3ba1ec7](https://github.com/laxamentumtech/audnexus/commit/3ba1ec70d464fb26c0b0fb76365c05cc61d5b2e9))
+* **test:** remove misleading comment in live test ([e51016b](https://github.com/laxamentumtech/audnexus/commit/e51016b42b873f3cbcf84632033e4b82e1604064))
+* **tests:** add clarification comments that RSA keys are fake/mock for testing ([d5610cb](https://github.com/laxamentumtech/audnexus/commit/d5610cb1573a9080eb328da8b98cedab51e17ea5))
+* **tests:** fix test isolation and assertion issues ([1c68f24](https://github.com/laxamentumtech/audnexus/commit/1c68f24462080c98d348649d331eee3e139c2771))
+* **tests:** p-limit mock handles synchronous throws ([ca9749c](https://github.com/laxamentumtech/audnexus/commit/ca9749cf9a3c84e3f1a979a283de73780a3cb638))
+* **tests:** resolve test failures and update mocks ([7e902b2](https://github.com/laxamentumtech/audnexus/commit/7e902b2b5ae22c6d2829d07dd1736681f2e4bfa6))
+* **types:** :bug: default runtimeLengthMin to 0 to allow podcast content ([1bd00c1](https://github.com/laxamentumtech/audnexus/commit/1bd00c18a77506663f01d3f1ee95dfa14e964e58))
+* **utils:** resolve race condition in batchProcessor and cap CircuitBreaker counter ([6019c8e](https://github.com/laxamentumtech/audnexus/commit/6019c8efe49123b652c692038ecf5adcea088157))
+* **workflow,api:** harden workflows & fix error handling ([87feda6](https://github.com/laxamentumtech/audnexus/commit/87feda67b118d3c38209ffaa3a5433f03dc56cee))
+
+
+### Performance Improvements
+
+* node performance optimization ([#844](https://github.com/laxamentumtech/audnexus/issues/844)) ([ca9749c](https://github.com/laxamentumtech/audnexus/commit/ca9749cf9a3c84e3f1a979a283de73780a3cb638))
+
 ## [1.15.0](https://github.com/laxamentumtech/audnexus/compare/audnexus-v1.14.0...audnexus-v1.15.0) (2026-07-25)
 
 
