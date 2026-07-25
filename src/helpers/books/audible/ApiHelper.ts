@@ -315,7 +315,7 @@ class ApiHelper {
 			}),
 			copyright: this.getCopyrightYear(),
 			description: cleanupDescription(
-				htmlToText(this.audibleResponse['merchandising_summary'], {
+				htmlToText(this.audibleResponse['merchandising_summary'] ?? '', {
 					wordwrap: false
 				})
 			).trim(),
@@ -356,7 +356,7 @@ class ApiHelper {
 				})
 			}),
 			subtitle: this.audibleResponse.subtitle,
-			summary: this.audibleResponse.publisher_summary,
+			summary: this.audibleResponse.publisher_summary ?? '',
 			title: this.audibleResponse.title
 		})
 	}
@@ -418,6 +418,14 @@ class ApiHelper {
 		}
 
 		const product = jsonResponse.product
+		// Audible occasionally omits asin from the product response (e.g. region de,
+		// certain content types). Fall back to the requested ASIN so parsing can proceed.
+		if (product && !product.asin) {
+			product.asin = this.asin
+			this.logger?.debug(
+				`[AUDIBLE API] Response missing asin for ${this.asin}; using request ASIN as fallback`
+			)
+		}
 		const contentType = product?.content_delivery_type
 
 		// Check for content type mismatch (e.g., podcast instead of book)
