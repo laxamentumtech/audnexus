@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file. Releases are automated via [release-please](https://github.com/googleapis/release-please) and [LLM Release Action](https://github.com/nosovj/llm-release-action) for AI-generated release notes.
 
 
+## [1.15.1](https://github.com/laxamentumtech/audnexus/compare/v1.15.0...v1.15.1) (2026-07-25)
+
+
+### Bug Fixes
+
+* **ci:** add include-component-in-tag to release-please config ([#891](https://github.com/laxamentumtech/audnexus/issues/891)) ([a1a2684](https://github.com/laxamentumtech/audnexus/commit/a1a26847226fa129b146459afa4c058f3ac9d502))
+
 ## [1.15.0](https://github.com/laxamentumtech/audnexus/compare/audnexus-v1.14.0...audnexus-v1.15.0) (2026-07-25)
 
 
