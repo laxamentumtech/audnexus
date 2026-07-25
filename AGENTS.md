@@ -27,7 +27,7 @@ This command executes Bun's test runner with the following options:
 
 ### 1.2 Coverage
 
-Coverage reports are generated automatically by Bun test. Coverage configuration is defined in `bunfig.toml`:
+Coverage reports are generated automatically by Bun test. Coverage configuration is defined in `bunfig.toml`.
 
 **Coverage reports are generated in:** `coverage/` directory
 
@@ -105,7 +105,7 @@ bun run format
 
 ### 2.4 Module Aliases
 
-The project uses module aliases. Use `#imports/*` aliases (defined in `package.json`).
+The project uses module aliases (`#helpers/*`, `#config/*`, `#static/*`, etc., defined in `package.json`).
 
 ---
 
@@ -317,8 +317,6 @@ RUN_LIVE_TESTS=true bun run test:live
 - Detecting changes in Audible's HTML structure
 - Verifying API endpoint changes
 - Integration testing with real data
-
-### 6.2 Handling Test Results
 
 ### 6.3 Warning vs Failure Interpretation
 

@@ -53,12 +53,6 @@ describe('health route should', () => {
 		} as unknown as MongoClient
 
 		app.mongoClient = mockMongoClient
-
-		const mockReply = {
-			status: mock(() => mockReply),
-			send: mock(() => mockReply)
-		}
-		app.reply = mockReply
 	})
 
 	afterEach(() => {

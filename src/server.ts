@@ -52,15 +52,9 @@ const userTrustedProxies = process.env.TRUSTED_PROXIES
  * Removes duplicates and returns a deduplicated array
  */
 async function buildTrustedProxies(): Promise<string[]> {
-	try {
-		const cloudflareIps = await getCloudflareIps()
-		// Merge user IPs with Cloudflare IPs, removing duplicates
-		return [...new Set([...userTrustedProxies, ...cloudflareIps])]
-	} catch (error) {
-		// If Cloudflare IP fetch fails, fall back to user-configured IPs only
-		console.warn('Failed to fetch Cloudflare IPs', error)
-		return userTrustedProxies
-	}
+	const cloudflareIps = await getCloudflareIps()
+	// Merge user IPs with Cloudflare IPs, removing duplicates
+	return [...new Set([...userTrustedProxies, ...cloudflareIps])]
 }
 
 /**

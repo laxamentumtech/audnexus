@@ -3,6 +3,8 @@ import { AxiosError, AxiosResponse } from 'axios'
 import pooledAxios from '#helpers/utils/connectionPool'
 import sleep from '#helpers/utils/sleep'
 
+const MAX_BACKOFF_MS = 8000
+
 /**
  * Calculates the delay for retry attempts with exponential backoff.
  * For 429 status, uses exponential backoff starting at 1s, doubling each retry (max 8s).
@@ -14,13 +16,13 @@ import sleep from '#helpers/utils/sleep'
 function calculateRetryDelay(retries: number, error: AxiosError): number {
 	if (!error.response || !error.response.headers) {
 		// No response or headers, fall back to exponential backoff
-		return Math.min(1000 * Math.pow(2, retries), 8000)
+		return Math.min(1000 * Math.pow(2, retries), MAX_BACKOFF_MS)
 	}
 
 	const retryAfter = error.response.headers['retry-after']
 	if (!retryAfter) {
 		// No Retry-After header, fall back to exponential backoff
-		return Math.min(1000 * Math.pow(2, retries), 8000)
+		return Math.min(1000 * Math.pow(2, retries), MAX_BACKOFF_MS)
 	}
 
 	// Retry-After can be a delay in seconds or an HTTP-date
@@ -40,7 +42,7 @@ function calculateRetryDelay(retries: number, error: AxiosError): number {
 	}
 
 	// Invalid Retry-After value, fall back to exponential backoff
-	return Math.min(1000 * Math.pow(2, retries), 8000)
+	return Math.min(1000 * Math.pow(2, retries), MAX_BACKOFF_MS)
 }
 
 /**

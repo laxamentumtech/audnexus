@@ -36,14 +36,17 @@ class BookSearchApiHelper {
 		]
 		const paramStr = helper.getParamString(paramArr)
 		const encoded = encodeURIComponent(query)
-		this.requestUrl = `${baseDomain}.${regionTLD}/${baseUrl}?keywords=${encoded}&num_results=10&response_groups=${paramStr}`
+		const NUM_RESULTS = 10
+		this.requestUrl = `${baseDomain}.${regionTLD}/${baseUrl}?keywords=${encoded}&num_results=${NUM_RESULTS}&response_groups=${paramStr}`
 	}
 
 	async fetchBooks(): Promise<{ products: AudibleProduct['product'][] }> {
 		return fetch(this.requestUrl)
 			.then((response) => response.data as { products: AudibleProduct['product'][] })
 			.catch((error) => {
-				throw new Error(ErrorMessageHTTPFetch('search', error.status, 'Audible API'))
+				throw new Error(
+					ErrorMessageHTTPFetch(this.requestUrl, error.response?.status, 'Audible API')
+				)
 			})
 	}
 

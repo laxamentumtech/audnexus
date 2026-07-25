@@ -88,6 +88,7 @@ async function getIps(): Promise<CloudflareIpsResult> {
 			return freshData
 		})
 		.catch(() => {
+			cache.lastFetchTime = now
 			// If fetch fails, return cached data if available (even if expired)
 			if (cache.data) {
 				return cache.data
