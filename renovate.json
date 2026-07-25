@@ -1,17 +1,18 @@
 {
-	"baseBranchPatterns": ["develop"],
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"extends": ["config:best-practices"],
+	"baseBranches": ["develop"],
 	"branchConcurrentLimit": 10,
-	"commitMessageAction": "Upgrade",
-	"commitMessagePrefix": "build(deps):",
-	"commitMessageTopic": "{{depName}}",
-	"configMigration": true,
-	"extends": [
-		"config:recommended",
-		"docker:pinDigests",
-		"helpers:pinGitHubActionDigests",
-		":pinDevDependencies"
-	],
+	"minimumReleaseAge": "7 days",
+	"timezone": "CST",
+	"rebaseWhen": "auto",
 	"labels": ["dependencies"],
+	"commitMessagePrefix": "build(deps):",
+	"vulnerabilityAlerts": {
+		"enabled": true,
+		"labels": ["security"],
+		"automerge": false
+	},
 	"lockFileMaintenance": {
 		"enabled": true,
 		"automerge": true,
@@ -20,16 +21,30 @@
 	},
 	"packageRules": [
 		{
-			"description": "Automatically merge minor and patch-level updates",
-			"matchUpdateTypes": ["minor", "digest", "patch", "pin"],
+			"description": "Automerge stable patch/minor + digest/pin once required checks pass",
+			"matchUpdateTypes": ["patch", "minor", "digest", "pin"],
+			"matchCurrentVersion": "!/^0/",
 			"automerge": true,
-			"automergeType": "branch"
+			"automergeType": "pr",
+			"platformAutomerge": true
+		},
+		{
+			"description": "Automerge non-major GitHub Actions updates (digest-pinned, low risk)",
+			"matchManagers": ["github-actions"],
+			"matchUpdateTypes": ["minor", "patch", "digest", "pin"],
+			"automerge": true,
+			"automergeType": "pr",
+			"platformAutomerge": true
+		},
+		{
+			"description": "Majors open as a PR for review — never auto-merge (guards the release line; overrides automerge rules above)",
+			"matchUpdateTypes": ["major"],
+			"automerge": false
+		},
+		{
+			"description": "Do NOT automerge pre-1.0 packages (breaking changes at any time per SemVer)",
+			"matchCurrentVersion": "/^0/",
+			"automerge": false
 		}
-	],
-	"rebaseWhen": "auto",
-	"minimumReleaseAge": "7 days",
-	"timezone": "CST",
-	"vulnerabilityAlerts": {
-		"labels": ["security"]
-	}
+	]
 }
