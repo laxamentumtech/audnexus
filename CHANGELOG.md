@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. Releases are automated via [release-please](https://github.com/googleapis/release-please) and [LLM Release Action](https://github.com/nosovj/llm-release-action) for AI-generated release notes.
 
+
+## [1.15.0](https://github.com/laxamentumtech/audnexus/compare/audnexus-v1.14.0...audnexus-v1.15.0) (2026-07-25)
+
+
+### Features
+
+* **search:** add book title search endpoint ([#874](https://github.com/laxamentumtech/audnexus/issues/874)) ([5baebae](https://github.com/laxamentumtech/audnexus/commit/5baebaef0dce094d5da4d7ee220d7991233af1ea))
+
+
+### Bug Fixes
+
+* **ci:** add .release-please-manifest.json required by release-please ([210b9a4](https://github.com/laxamentumtech/audnexus/commit/210b9a48dbc6bffeb17f58a2ff93e947f498678a))
+* **config:** trim surrounding whitespace from ASINs before validation ([#875](https://github.com/laxamentumtech/audnexus/issues/875)) ([f333563](https://github.com/laxamentumtech/audnexus/commit/f333563ce620070b21bb2267751ccda0990751e8))
+* **workflow,api:** harden workflows & fix error handling ([87feda6](https://github.com/laxamentumtech/audnexus/commit/87feda67b118d3c38209ffaa3a5433f03dc56cee))
+
 ## [1.14.0](https://github.com/laxamentumtech/audnexus/compare/v1.13.0...v1.14.0) (2026-05-23)
 
 
