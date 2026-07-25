@@ -1,0 +1,92 @@
+version: '3.7'
+
+services:
+  node-server:
+    image: ghcr.io/laxamentumtech/audnexus:latest@sha256:cdb7159b7ec0576e2a00a944709859e8fdf51bdb414aedf48093745abcf162ff
+    restart: always
+    environment:
+      ADP_TOKEN: ${ADP_TOKEN}
+      MAX_REQUESTS: ${MAX_REQUESTS:-300}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/audnexus}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      UPDATE_INTERVAL: ${UPDATE_INTERVAL:-30}
+      UPDATE_THRESHOLD: ${UPDATE_THRESHOLD:-7}
+    ports:
+      - '3000:3000'
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - traefik-overlay
+      - internal
+    deploy:
+      labels:
+        - 'traefik.enable=true'
+        - 'traefik.docker.network=traefik-overlay'
+        - 'traefik.http.routers.node-server.rule=Host(`${TRAEFIK_DOMAIN}`)'
+        - 'traefik.http.routers.node-server.entrypoints=websecure'
+        - 'traefik.http.routers.redirs.entrypoints=websecure'
+        - 'traefik.http.services.node-server.loadbalancer.server.port=3000'
+      replicas: 15
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/health']
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 10s
+
+  mongo:
+    image: mongo:7.0.37@sha256:8ecb514b00bdcc0bde67ef4e6c330385377a9dc68e24ee94e28c07c891647348
+    restart: always
+    volumes:
+      - /mnt/docker/mongo/data:/data/db
+    networks:
+      - internal
+    ports:
+      - '27017:27017'
+    healthcheck:
+      test: ['CMD', 'mongosh', '--eval', "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  redis:
+    image: redis:8.6-alpine
+    restart: always
+    networks:
+      - internal
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  traefik:
+    image: traefik:v3.7.8@sha256:4299bbed850421258fc5448c2e0e6ad350981d4d335a68de11b92448aedbefe5
+    restart: always
+    command:
+      - '--providers.docker=true'
+      - '--entryPoints.websecure.address=:443'
+      - '--providers.docker.exposedbydefault=false'
+      - '--entrypoints.websecure.http.tls=true'
+      - '--certificatesresolvers.myresolver.acme.tlschallenge=true'
+      - '--certificatesresolvers.myresolver.acme.email=${TRAEFIK_EMAIL}'
+      - '--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json'
+    ports:
+      - '443:443'
+    volumes:
+      - /mnt/docker/letsencrypt:/letsencrypt
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik-overlay
+    deploy:
+      replicas: 1
+
+networks:
+  traefik-overlay:
+  internal:

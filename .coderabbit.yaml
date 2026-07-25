@@ -1,0 +1,51 @@
+language: 'en-US'
+
+reviews:
+  profile: 'assertive'
+  high_level_summary: true
+  poem: false
+  review_status: true
+  review_details: true
+  fail_commit_status: true
+  in_progress_fortune: false
+  auto_apply_labels: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - develop
+      - main
+  path_instructions:
+    - path: '**/*'
+      instructions: |
+        Please review focusing on:
+        - Code quality and consistency with existing patterns
+        - Adherence to TypeScript best practices
+        - Test coverage for any new code
+        - Security implications of changes
+        - Performance considerations
+        - Documentation updates where needed
+
+        This project follows the AGENTS.md repository standards. Please ensure:
+        - Conventional commit format is followed
+        - Unit tests are included with proper coverage
+        - No breaking changes are introduced without proper discussion
+  pre_merge_checks:
+    description:
+      mode: 'error'
+    title:
+      mode: 'error'
+      requirements: 'Use conventional commits format: type(scope): description'
+    issue_assessment:
+      mode: 'warning'
+    custom_checks:
+      - mode: 'error'
+        name: 'Follow AGENTS.md standards'
+        instructions: 'PR must follow all standards in AGENTS.md including: test coverage thresholds (85%+ statements/lines/functions, 80%+ branches), TypeScript compilation, linting, and conventional commit format'
+  tools:
+    eslint:
+      enabled: true
+    actionlint:
+      enabled: true
+    yamllint:
+      enabled: true

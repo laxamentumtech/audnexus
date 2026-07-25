@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"module": "ESNext",
+		"rootDir": "./src",
+		"moduleResolution": "bundler",
+		"isolatedModules": true,
+		"baseUrl": ".",
+		"paths": {
+			"#config/*": ["./src/config/*"],
+			"#helpers/*": ["./src/helpers/*"],
+			"#interfaces/*": ["./src/interfaces/*"],
+			"#static/*": ["./src/static/*"]
+		},
+		"outDir": "./dist",
+		"esModuleInterop": true,
+		"forceConsistentCasingInFileNames": true,
+		"strict": true,
+		"noImplicitAny": true,
+		"skipLibCheck": true
+	},
+	"include": ["src/"]
+}

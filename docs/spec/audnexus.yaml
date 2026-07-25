@@ -1,0 +1,1272 @@
+openapi: 3.0.0
+info:
+  title: Audnexus
+  description: |
+    Aggegate audiobook data
+  contact:
+    name: David Dembeck
+    url: 'https://github.com/laxamentumtech/audnexus'
+  license:
+    name: GPL v3
+    url: 'https://www.gnu.org/licenses/gpl-3.0.en.html'
+  version: 1.11.0
+externalDocs:
+  description: Find out more about Audnexus
+  url: 'https://github.com/djdembeck/audnexus'
+servers:
+  - url: 'https://api.audnex.us'
+    description: Public API
+tags:
+  - name: Authors
+    description: Author functions
+  - name: Books
+    description: Book functions
+  - name: Chapters
+    description: Chapter functions
+  - name: Search
+    description: Search functions
+  - name: Health
+    description: Health check functions
+  - name: Metrics
+    description: Performance metrics
+paths:
+  '/health':
+    get:
+      summary: Health check
+      description: Returns service health status including MongoDB and Redis connectivity
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - healthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                  checks:
+                    type: object
+                    properties:
+                      server:
+                        type: boolean
+                      database:
+                        type: boolean
+                      redis:
+                        type: boolean
+                        nullable: true
+              example:
+                status: healthy
+                timestamp: '2024-01-15T10:30:00.000Z'
+                checks:
+                  server: true
+                  database: true
+                  redis: true
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                      - unhealthy
+                  timestamp:
+                    type: string
+                    format: date-time
+                  checks:
+                    type: object
+                    properties:
+                      server:
+                        type: boolean
+                      database:
+                        type: boolean
+                      redis:
+                        type: boolean
+                        nullable: true
+              example:
+                status: unhealthy
+                timestamp: '2024-01-15T10:30:00.000Z'
+                checks:
+                  server: true
+                  database: false
+                  redis: false
+  '/metrics':
+    get:
+      summary: Performance metrics
+      description: |
+        Returns performance metrics including memory usage, uptime, and request statistics.
+        This endpoint requires authentication via either `x-metrics-token` header or IP-based access control.
+      operationId: getMetrics
+      tags:
+        - Metrics
+      responses:
+        '200':
+          description: Metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  memory:
+                    type: object
+                    properties:
+                      used:
+                        type: number
+                        description: Heap memory used in MB
+                      total:
+                        type: number
+                        description: Total heap size in MB
+                      external:
+                        type: number
+                        description: External memory in MB
+                      rss:
+                        type: number
+                        description: Resident set size in MB
+                  uptime:
+                    type: number
+                    description: Server uptime in seconds
+                  requests:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        count:
+                          type: number
+                          description: Number of requests to this endpoint
+                        duration:
+                          type: number
+                          description: Total duration in milliseconds
+                        min:
+                          type: number
+                          description: Minimum request duration in milliseconds
+                        max:
+                          type: number
+                          description: Maximum request duration in milliseconds
+                        avg:
+                          type: number
+                          description: Average request duration in milliseconds
+                example:
+                  memory:
+                    used: 45.23
+                    total: 128.0
+                    external: 12.5
+                    rss: 95.8
+                  uptime: 86400
+                  requests:
+                    '/books/{ASIN}':
+                      count: 1500
+                      duration: 45000
+                      min: 10
+                      max: 500
+                      avg: 30
+                    '/health':
+                      count: 500
+                      duration: 2500
+                      min: 2
+                      max: 20
+                      avg: 5
+        '403':
+          description: Forbidden - authentication required
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+              example:
+                error: Forbidden
+        '404':
+          description: Metrics endpoint disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+              example:
+                error: Metrics endpoint disabled
+      security:
+        - ApiKeyAuth: []
+        - ipAuth: []
+    parameters: []
+  '/books/{ASIN}':
+    get:
+      summary: Find book by ID
+      description: Returns a single book
+      operationId: getBookById
+      parameters:
+        - name: ASIN
+          in: path
+          description: ID of book to return
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+        - name: seedAuthors
+          in: query
+          description: Whether to seed authors of book
+          required: false
+          explode: false
+          schema:
+            type: number
+            enum:
+              - 0
+              - 1
+        - name: update
+          in: query
+          description: Have server check for updated data upstream
+          required: false
+          explode: false
+          schema:
+            type: number
+            enum:
+              - 0
+              - 1
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+              examples:
+                B08G9PRS1K:
+                  value:
+                    asin: B08G9PRS1K
+                    authors:
+                      - asin: B00G0WYW92
+                        name: Andy Weir
+                    copyright: 2021
+                    description: "Ryland Grace is the sole survivor on a desperate, last-chance mission - and if he fails, humanity and the Earth itself will perish. Except that right now, he doesn't know that. He can't even remember his own name, let alone the nature of his assignment or how to complete it...."
+                    formatType: unabridged
+                    genres:
+                      - asin: '18580606011'
+                        name: Science Fiction & Fantasy
+                        type: genre
+                      - asin: '18580628011'
+                        name: Science Fiction
+                        type: tag
+                      - asin: '18580629011'
+                        name: Adventure
+                        type: tag
+                      - asin: '18580639011'
+                        name: Hard Science Fiction
+                        type: tag
+                      - asin: '18580645011'
+                        name: Space Opera
+                        type: tag
+                    image: 'https://m.media-amazon.com/images/I/91vS2L5YfEL.jpg'
+                    isAdult: false
+                    isbn: '9781603935470'
+                    language: english
+                    literatureType: fiction
+                    narrators:
+                      - name: Ray Porter
+                    publisherName: Audible Studios
+                    rating: '4.9'
+                    region: us
+                    releaseDate: '2021-05-04T00:00:00.000Z'
+                    runtimeLengthMin: 970
+                    summary: "<p><b><i>Winner of the 2022 Audie Awards' Audiobook of the Year</i></b></p> <p><b><i>Number-One Audible and </i></b><b>New York Times</b><b><i> Audio Best Seller</i></b></p> <p><b><i>More than one million audiobooks sold</i></b></p> <p><b>A lone astronaut must save the earth from disaster in this incredible new science-based thriller from the number-one </b><b><i>New York Times</i></b><b> best-selling author of </b><b><i>The Martian</i></b><b>.</b></p> <p>Ryland Grace is the sole survivor on a desperate, last-chance mission - and if he fails, humanity and the Earth itself will perish.</p> <p>Except that right now, he doesn't know that. He can't even remember his own name, let alone the nature of his assignment or how to complete it.</p> <p>All he knows is that he's been asleep for a very, very long time. And he's just been awakened to find himself millions of miles from home, with nothing but two corpses for company.</p> <p>His crewmates dead, his memories fuzzily returning, he realizes that an impossible task now confronts him. Alone on this tiny ship that's been cobbled together by every government and space agency on the planet and hurled into the depths of space, it's up to him to conquer an extinction-level threat to our species.</p> <p>And thanks to an unexpected ally, he just might have a chance.</p> <p>Part scientific mystery, part dazzling interstellar journey, <i>Project Hail Mary</i> is a tale of discovery, speculation, and survival to rival <i>The Martian</i> - while taking us to places it never dreamed of going.</p> <p>PLEASE NOTE: To accommodate this audio edition, some changes to the original text have been made with the approval of author Andy Weir.</p>"
+                    title: Project Hail Mary
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Book'
+        '400':
+          description: Invalid ID supplied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+        '404':
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+      tags:
+        - Books
+    delete:
+      summary: Deletes a book
+      operationId: deleteBook
+      parameters:
+        - name: ASIN
+          in: path
+          description: Book id to delete
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid ID supplied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+              examples: {}
+        '404':
+          description: Book not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+              examples: {}
+      description: Deletes a single book
+      tags:
+        - Books
+    parameters:
+      - schema:
+          type: string
+        name: ASIN
+        in: path
+        required: true
+        description: Audible.com ID
+  '/books/{ASIN}/chapters':
+    get:
+      summary: Find chapters by ASIN
+      description: Returns a single book's chapters
+      operationId: getChapterById
+      parameters:
+        - name: ASIN
+          in: path
+          description: ID of book to return
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+        - schema:
+            type: number
+            enum:
+              - 0
+              - 1
+          in: query
+          name: update
+          description: Have server check for updated data upstream
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+              examples:
+                B08G9PRS1K:
+                  value:
+                    asin: B08G9PRS1K
+                    brandIntroDurationMs: 2043
+                    brandOutroDurationMs: 5061
+                    chapters:
+                      - lengthMs: 13307
+                        startOffsetMs: 0
+                        startOffsetSec: 0
+                        title: Opening Credits
+                      - lengthMs: 5909
+                        startOffsetMs: 13307
+                        startOffsetSec: 13
+                        title: Dedication
+                      - lengthMs: 2203908
+                        startOffsetMs: 19216
+                        startOffsetSec: 19
+                        title: Chapter 1
+                      - lengthMs: 1721527
+                        startOffsetMs: 2223124
+                        startOffsetSec: 2223
+                        title: Chapter 2
+                      - lengthMs: 2241282
+                        startOffsetMs: 3944651
+                        startOffsetSec: 3945
+                        title: Chapter 3
+                      - lengthMs: 2460850
+                        startOffsetMs: 6185933
+                        startOffsetSec: 6186
+                        title: Chapter 4
+                      - lengthMs: 3189400
+                        startOffsetMs: 8646783
+                        startOffsetSec: 8647
+                        title: Chapter 5
+                      - lengthMs: 2650650
+                        startOffsetMs: 11836183
+                        startOffsetSec: 11836
+                        title: Chapter 6
+                      - lengthMs: 1806744
+                        startOffsetMs: 14486833
+                        startOffsetSec: 14487
+                        title: Chapter 7
+                      - lengthMs: 2189734
+                        startOffsetMs: 16293577
+                        startOffsetSec: 16294
+                        title: Chapter 8
+                      - lengthMs: 1759608
+                        startOffsetMs: 18483311
+                        startOffsetSec: 18483
+                        title: Chapter 9
+                      - lengthMs: 2120817
+                        startOffsetMs: 20242919
+                        startOffsetSec: 20243
+                        title: Chapter 10
+                      - lengthMs: 1566928
+                        startOffsetMs: 22363736
+                        startOffsetSec: 22364
+                        title: Chapter 11
+                      - lengthMs: 1744236
+                        startOffsetMs: 23930664
+                        startOffsetSec: 23931
+                        title: Chapter 12
+                      - lengthMs: 1954655
+                        startOffsetMs: 25674900
+                        startOffsetSec: 25675
+                        title: Chapter 13
+                      - lengthMs: 2405262
+                        startOffsetMs: 27629555
+                        startOffsetSec: 27630
+                        title: Chapter 14
+                      - lengthMs: 1429838
+                        startOffsetMs: 30034817
+                        startOffsetSec: 30035
+                        title: Chapter 15
+                      - lengthMs: 1950336
+                        startOffsetMs: 31464655
+                        startOffsetSec: 31465
+                        title: Chapter 16
+                      - lengthMs: 1928602
+                        startOffsetMs: 33414991
+                        startOffsetSec: 33415
+                        title: Chapter 17
+                      - lengthMs: 1863772
+                        startOffsetMs: 35343593
+                        startOffsetSec: 35344
+                        title: Chapter 18
+                      - lengthMs: 2176359
+                        startOffsetMs: 37207365
+                        startOffsetSec: 37207
+                        title: Chapter 19
+                      - lengthMs: 1984841
+                        startOffsetMs: 39383724
+                        startOffsetSec: 39384
+                        title: Chapter 20
+                      - lengthMs: 2536919
+                        startOffsetMs: 41368565
+                        startOffsetSec: 41369
+                        title: Chapter 21
+                      - lengthMs: 2396531
+                        startOffsetMs: 43905484
+                        startOffsetSec: 43905
+                        title: Chapter 22
+                      - lengthMs: 1726217
+                        startOffsetMs: 46302015
+                        startOffsetSec: 46302
+                        title: Chapter 23
+                      - lengthMs: 1672672
+                        startOffsetMs: 48028232
+                        startOffsetSec: 48028
+                        title: Chapter 24
+                      - lengthMs: 2376608
+                        startOffsetMs: 49700904
+                        startOffsetSec: 49701
+                        title: Chapter 25
+                      - lengthMs: 1290100
+                        startOffsetMs: 52077512
+                        startOffsetSec: 52078
+                        title: Chapter 26
+                      - lengthMs: 613331
+                        startOffsetMs: 53367612
+                        startOffsetSec: 53368
+                        title: Chapter 27
+                      - lengthMs: 1191369
+                        startOffsetMs: 53980943
+                        startOffsetSec: 53981
+                        title: Chapter 28
+                      - lengthMs: 2198976
+                        startOffsetMs: 55172312
+                        startOffsetSec: 55172
+                        title: Chapter 29
+                      - lengthMs: 838616
+                        startOffsetMs: 57371288
+                        startOffsetSec: 57371
+                        title: Chapter 30
+                      - lengthMs: 43091
+                        startOffsetMs: 58209904
+                        startOffsetSec: 58210
+                        title: End Credits
+                    isAccurate: true
+                    region: us
+                    runtimeLengthMs: 58252995
+                    runtimeLengthSec: 58253
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Chapter'
+        '400':
+          description: Invalid ID supplied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+        '404':
+          description: Chapters not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+      tags:
+        - Chapters
+    delete:
+      summary: Delete chapters by ASIN
+      operationId: delete-books-ASIN-chapters
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+        '404':
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+      description: Deletes a single book's chapters
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
+      tags:
+        - Chapters
+    parameters:
+      - schema:
+          type: string
+        name: ASIN
+        in: path
+        required: true
+        description: Audible.com ID
+  /authors:
+    get:
+      summary: Find authors by name
+      description: 'Returns a list of authors, based on search query provided'
+      operationId: searchAuthorByName
+      parameters:
+        - name: name
+          in: query
+          description: Name to search with
+          required: true
+          explode: false
+          schema:
+            type: string
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Author'
+            application/xml:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Author'
+        '400':
+          description: No search params provided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+      tags:
+        - Authors
+        - Search
+  '/authors/{ASIN}':
+    get:
+      summary: Find author by ID
+      description: Returns a single author
+      operationId: getAuthorById
+      parameters:
+        - name: ASIN
+          in: path
+          description: ID of author to return
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+        - schema:
+            type: string
+            enum:
+              - '0'
+              - '1'
+          in: query
+          description: Have server check for updated data upstream
+          name: update
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Author'
+              examples:
+                B00G0WYW92:
+                  value:
+                    asin: B00G0WYW92
+                    description: 'ANDY WEIR built a two-decade career as a software engineer until the success of his first published novel, The Martian, allowed him to live out his dream of writing full-time. He is a lifelong space nerd and a devoted hobbyist of such subjects as relativistic physics, orbital mechanics, and the history of manned spaceflight. He also mixes a mean cocktail. He lives in California.'
+                    genres:
+                      - asin: '18580606011'
+                        name: Science Fiction & Fantasy
+                        type: genre
+                      - asin: '18574597011'
+                        name: 'Mystery, Thriller & Suspense'
+                        type: genre
+                      - asin: '18574426011'
+                        name: Literature & Fiction
+                        type: genre
+                    image: 'https://images-na.ssl-images-amazon.com/images/S/amzn-author-media-prod/dcqug62o4s52ubd61ogont4t3l.jpg'
+                    name: Andy Weir
+                    region: us
+                    similar:
+                      - asin: B002XLHS8Q
+                        name: Adrian Tchaikovsky
+                      - asin: B001H6U8X0
+                        name: Blake Crouch
+                      - asin: B001IGFHW6
+                        name: Brandon Sanderson
+                      - asin: B007JP96JU
+                        name: Cixin Liu
+                      - asin: B010ETTBJC
+                        name: Dennis E. Taylor
+                      - asin: B004XRR8Z6
+                        name: Ernest Cline
+                      - asin: B000APO5OM
+                        name: Frank Herbert
+                      - asin: B00EDBZVNI
+                        name: Pierce Brown
+            application/xml:
+              schema:
+                $ref: '#/components/schemas/Author'
+        '400':
+          description: Invalid ID supplied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+        '404':
+          description: Author not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+      tags:
+        - Authors
+    delete:
+      summary: Deletes a author
+      operationId: deleteAuthor
+      parameters:
+        - name: ASIN
+          in: path
+          description: Author id to delete
+          required: true
+          style: simple
+          explode: false
+          schema:
+            type: string
+        - schema:
+            type: string
+            enum:
+              - au
+              - ca
+              - de
+              - es
+              - fr
+              - in
+              - it
+              - jp
+              - us
+              - uk
+            default: us
+          in: query
+          name: region
+          description: Region code
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '400':
+          description: Invalid ID supplied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+        '404':
+          description: Author not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+                x-examples:
+                  example-1:
+                    statusCode: 400
+                    error: Bad Request
+                    message: Bad ASIN
+      description: Deletes a single author
+      tags:
+        - Authors
+    parameters:
+      - schema:
+          type: string
+        name: ASIN
+        in: path
+        required: true
+        description: Audible.com ID
+      - schema:
+          type: string
+          enum:
+            - au
+            - ca
+            - de
+            - es
+            - fr
+            - in
+            - it
+            - jp
+            - us
+            - uk
+          default: us
+        in: query
+        name: region
+        description: Region code
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-metrics-token
+      description: |
+        Authentication token for metrics endpoint. Set via `METRICS_AUTH_TOKEN` environment variable.
+        Note: This is optional if `METRICS_ALLOWED_IPS` is configured for IP-based access.
+    ipAuth:
+      type: apiKey
+      in: header
+      name: x-forwarded-for
+      description: |
+        IP-based access control. Client IP is extracted from `x-forwarded-for` header or direct connection.
+        Set via `METRICS_ALLOWED_IPS` environment variable (comma-separated list, supports CIDR notation).
+        Note: This is optional if `METRICS_AUTH_TOKEN` is configured for token-based access.
+  schemas:
+    Author:
+      type: object
+      properties:
+        asin:
+          type: string
+        description:
+          type: string
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/Genre'
+        image:
+          type: string
+        name:
+          type: string
+        region:
+          type: string
+          enum:
+            - au
+            - ca
+            - de
+            - es
+            - fr
+            - in
+            - it
+            - jp
+            - us
+            - uk
+          default: us
+        similar:
+          type: array
+          x-stoplight:
+            id: lz8j0b6ux1bbl
+          items:
+            $ref: '#/components/schemas/Person'
+      required:
+        - asin
+        - description
+        - name
+        - region
+      description: ''
+      title: ''
+    Book:
+      type: object
+      xml:
+        name: Book
+      properties:
+        asin:
+          type: string
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+        copyright:
+          type: integer
+        description:
+          type: string
+        formatType:
+          type: string
+        genres:
+          type: array
+          items:
+            $ref: '#/components/schemas/Genre'
+        image:
+          type: string
+          format: uri
+        isAdult:
+          type: boolean
+        isbn:
+          type: string
+        language:
+          type: string
+        literatureType:
+          x-stoplight:
+            id: wotxyc7icmziz
+          oneOf:
+            - x-stoplight:
+                id: nwzs4od1hbfse
+              enum:
+                - fiction
+                - nonfiction
+        narrators:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+        publisherName:
+          type: string
+        rating:
+          type: string
+        region:
+          type: string
+          enum:
+            - au
+            - ca
+            - de
+            - es
+            - fr
+            - in
+            - it
+            - jp
+            - us
+            - uk
+          default: us
+        releaseDate:
+          type: string
+          format: date-time
+        runtimeLengthMin:
+          type: number
+        seriesPrimary:
+          $ref: '#/components/schemas/Series'
+        seriesSecondary:
+          $ref: '#/components/schemas/Series'
+        subtitle:
+          type: string
+        summary:
+          type: string
+        title:
+          type: string
+      required:
+        - asin
+        - authors
+        - description
+        - formatType
+        - language
+        - publisherName
+        - rating
+        - region
+        - releaseDate
+        - runtimeLengthMin
+        - summary
+        - title
+    Chapter:
+      required:
+        - asin
+        - brandIntroDurationMs
+        - brandOutroDurationMs
+        - chapters
+        - isAccurate
+        - region
+        - runtimeLengthMs
+        - runtimeLengthSec
+      type: object
+      properties:
+        asin:
+          type: string
+        brandIntroDurationMs:
+          type: number
+        brandOutroDurationMs:
+          type: number
+        chapters:
+          type: array
+          items:
+            $ref: '#/components/schemas/Chapter_chapters'
+        isAccurate:
+          type: boolean
+        region:
+          type: string
+          enum:
+            - au
+            - ca
+            - de
+            - es
+            - fr
+            - in
+            - it
+            - jp
+            - us
+            - uk
+          default: us
+        runtimeLengthMs:
+          type: number
+        runtimeLengthSec:
+          type: number
+    Genre:
+      required:
+        - asin
+        - name
+        - type
+      type: object
+      properties:
+        asin:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+      xml:
+        name: Genre
+    Person:
+      type: object
+      xml:
+        name: Person
+      properties:
+        asin:
+          type: string
+        name:
+          type: string
+      required:
+        - name
+    Series:
+      required:
+        - name
+      type: object
+      properties:
+        asin:
+          type: string
+        name:
+          type: string
+        position:
+          type: string
+      xml:
+        name: Series
+    Author_links:
+      properties:
+        link:
+          type: string
+        type:
+          type: string
+    Chapter_chapters:
+      type: object
+      properties:
+        lengthMs:
+          type: number
+        startOffsetMs:
+          type: number
+        startOffsetSec:
+          type: number
+        title:
+          type: string
+      required:
+        - lengthMs
+        - startOffsetMs
+        - startOffsetSec
+        - title

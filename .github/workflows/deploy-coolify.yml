@@ -1,0 +1,52 @@
+name: Coolify
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          persist-credentials: false
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        env:
+          REGISTRY: ghcr.io
+          IMAGE_NAME: ${{ github.repository }}
+
+      - name: Deploy to Coolify
+        run: |
+          response_body=$(mktemp)
+          response=$(curl -s -o "$response_body" -w "%{http_code}" --max-time 30 --request GET '${{ secrets.COOLIFY_WEBHOOK }}' \
+            --header 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}')
+          if [ "$response" -ne 200 ] && [ "$response" -ne 202 ]; then
+            echo "Coolify deployment failed with status: $response"
+            echo "Response body:"
+            cat "$response_body"
+            rm -f "$response_body"
+            exit 1
+          fi
+          rm -f "$response_body"
+          echo "Coolify deployment triggered successfully"

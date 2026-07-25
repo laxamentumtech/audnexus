@@ -1,0 +1,35 @@
+{
+	"baseBranchPatterns": ["develop"],
+	"branchConcurrentLimit": 10,
+	"commitMessageAction": "Upgrade",
+	"commitMessagePrefix": "build(deps):",
+	"commitMessageTopic": "{{depName}}",
+	"configMigration": true,
+	"extends": [
+		"config:recommended",
+		"docker:pinDigests",
+		"helpers:pinGitHubActionDigests",
+		":pinDevDependencies"
+	],
+	"labels": ["dependencies"],
+	"lockFileMaintenance": {
+		"enabled": true,
+		"automerge": true,
+		"automergeType": "pr",
+		"platformAutomerge": true
+	},
+	"packageRules": [
+		{
+			"description": "Automatically merge minor and patch-level updates",
+			"matchUpdateTypes": ["minor", "digest", "patch", "pin"],
+			"automerge": true,
+			"automergeType": "branch"
+		}
+	],
+	"rebaseWhen": "auto",
+	"minimumReleaseAge": "7 days",
+	"timezone": "CST",
+	"vulnerabilityAlerts": {
+		"labels": ["security"]
+	}
+}
