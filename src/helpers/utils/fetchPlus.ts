@@ -5,6 +5,11 @@ import sleep from '#helpers/utils/sleep'
 
 const MAX_BACKOFF_MS = 8000
 
+// HTTP statuses that warrant retry with exponential backoff + jitter.
+// 429 keeps an exact-delay path (no jitter) to preserve Retry-After semantics;
+// 503/504 add bounded jitter on top of backoff to avoid thundering Audible retry bursts.
+const TRANSIENT_STATUSES = new Set([429, 503, 504])
+
 /**
  * Calculates the delay for retry attempts with exponential backoff.
  * For 429 status, uses exponential backoff starting at 1s, doubling each retry (max 8s).
@@ -68,11 +73,14 @@ function fetchPlus(url: string, options = {}, retries = 0): Promise<AxiosRespons
 			})
 			.catch(async (reason: AxiosError) => {
 				if (retries < 3) {
-					// Check if this is a 429 (Too Many Requests) response
+					// Transient (429/503/504) responses back off before retrying.
 					const status = reason.response?.status
-					if (status === 429) {
+					if (status && TRANSIENT_STATUSES.has(status)) {
 						const delay = calculateRetryDelay(retries, reason)
-						await sleep(delay)
+						// 429 keeps the exact Retry-After/backoff delay (asserted in tests);
+						// 503/504 add bounded jitter (up to 250ms) to spread retries.
+						const finalDelay = status === 429 ? delay : delay + Math.floor(Math.random() * 250)
+						await sleep(finalDelay)
 					}
 
 					fetchPlus(url, options, retries + 1)
