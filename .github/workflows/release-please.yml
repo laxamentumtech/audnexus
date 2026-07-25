@@ -52,7 +52,7 @@ jobs:
           max_tokens: '4096'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_API_BASE: ${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
 
       - name: Update GitHub Release with AI changelog
         run: |
