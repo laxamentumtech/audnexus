@@ -11,7 +11,7 @@ on:
         type: string
 
 concurrency:
-  group: release-${{ github.workflow }}-${{ github.sha }}
+  group: release-${{ github.workflow }}-${{ github.ref }}
 
 permissions:
   contents: write
@@ -85,7 +85,7 @@ jobs:
 
       - name: Update GitHub Release with AI changelog
         run: |
-          CHANGELOG=$(jq -r '.default.en' <<< "$LLM_CHANGLOGS")
+          CHANGELOG=$(jq -r '.default.en' <<< "$LLM_CHANGLOGS" 2>/dev/null) || true
           if [ -z "$CHANGELOG" ] || [ "$CHANGELOG" = "null" ]; then
             echo "No changelog generated, keeping default release notes"
             exit 0

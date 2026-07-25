@@ -253,8 +253,7 @@ RUN_LIVE_TESTS=true bun run test:live
 
 ### 4.5 Deployment Workflows
 
-See `.github/workflows/` for deployment workflows (`deploy-coolify.yml`, `deploy-caprover.yml`, `docker-publish.yml`).
----
+## See `.github/workflows/` for deployment workflows (`deploy-coolify.yml`, `deploy-caprover.yml`, `docker-publish.yml`).
 
 ## 5. Commit Standards
 
@@ -379,7 +378,7 @@ bun run build         # Build TypeScript
 bun run build-docs    # Build API documentation
 
 # Release
-bun run release       # Create new release
+# Releases are handled by the release-please CI workflow on main branch
 ```
 
 ---
