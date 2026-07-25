@@ -253,7 +253,7 @@ RUN_LIVE_TESTS=true bun run test:live
 
 ### 4.5 Deployment Workflows
 
-## See `.github/workflows/` for deployment workflows (`deploy-coolify.yml`, `deploy-caprover.yml`, `docker-publish.yml`).
+## See `.github/workflows/` for deployment workflows (`deploy-coolify.yml`, `docker-publish.yml`).
 
 ## 5. Commit Standards
 
@@ -272,13 +272,13 @@ All commits must follow the Conventional Commits specification:
 | `feat`     | A new feature             | `feat(api): add book search endpoint`       |
 | `fix`      | A bug fix                 | `fix(auth): resolve token expiration issue` |
 | `chore`    | Maintenance tasks         | `chore(deps): update axios version`         |
-| `docs`     | Documentation changes     | `docs: update API documentation`            |
-| `style`    | Code style changes        | `style: format code with prettier`          |
+| `docs`     | Documentation changes     | `docs(config): update API documentation`    |
+| `style`    | Code style changes        | `style(code): format code with prettier`    |
 | `refactor` | Code refactoring          | `refactor(helper): simplify book parsing`   |
 | `perf`     | Performance improvements  | `perf(db): optimize query performance`      |
-| `test`     | Adding or modifying tests | `test: add unit tests for ApiHelper`        |
+| `test`     | Adding or modifying tests | `test(helper): add unit tests for ApiHelper`        |
 | `deps`     | Dependency updates        | `deps: update mongodb to 7.1.0`             |
-| `ci`       | CI/CD changes             | `ci: add new GitHub workflow`               |
+| `ci`       | CI/CD changes             | `ci(workflows): add new GitHub workflow`               |
 
 - `api` - API-related changes
 - `db` - Database-related changes
@@ -393,7 +393,6 @@ bun run build-docs    # Build API documentation
 | `.github/workflows/live-tests.yml`           | Live test workflow                           |
 | `.github/workflows/conventional-commits.yml` | Commit validation                            |
 | `.github/workflows/deploy-coolify.yml`       | Coolify deployment integration               |
-| `.github/workflows/deploy-caprover.yml`      | CapRover deployment integration              |
 | `.github/workflows/docker-publish.yml`       | Docker image publishing                      |
 
 ---

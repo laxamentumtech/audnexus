@@ -44,9 +44,8 @@ class BookSearchApiHelper {
 		return fetch(this.requestUrl)
 			.then((response) => response.data as { products: AudibleProduct['product'][] })
 			.catch((error) => {
-				throw new Error(
-					ErrorMessageHTTPFetch(this.requestUrl, error.response?.status, 'Audible API')
-				)
+				const status = error?.status ?? error?.response?.status
+				throw new Error(ErrorMessageHTTPFetch('Audible book search API', status, 'Audible API'))
 			})
 	}
 
@@ -55,7 +54,7 @@ class BookSearchApiHelper {
 		if (!response?.products?.length) return []
 
 		const results = await Promise.allSettled(
-			response.products.map((product) => {
+			response.products.map(async (product) => {
 				const helper = new ApiHelper(product.asin, this.region, this.logger)
 				helper.audibleResponse = product
 				return helper.getFinalData()

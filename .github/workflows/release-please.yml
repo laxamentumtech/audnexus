@@ -13,13 +13,14 @@ on:
 concurrency:
   group: release-${{ github.workflow }}-${{ github.ref }}
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
       tag_name: ${{ steps.release.outputs.tag_name }}
@@ -27,6 +28,7 @@ jobs:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: release
@@ -35,6 +37,9 @@ jobs:
 
   ai-changelog:
     needs: release-please
+    # Run on auto-triggered releases or manual dispatch with tag_name input.
+    # Manual dispatch (workflow_dispatch) skips the release-please action and
+    # only generates an AI changelog for the specified tag.
     if: ${{ needs.release-please.outputs.release_created == 'true' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
@@ -84,13 +89,14 @@ jobs:
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
 
       - name: Update GitHub Release with AI changelog
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LLM_CHANGLOGS: ${{ steps.llm.outputs.changelogs }}
+          RELEASE_TAG: ${{ steps.tags.outputs.current }}
         run: |
           CHANGELOG=$(jq -r '.default.en' <<< "$LLM_CHANGLOGS" 2>/dev/null) || true
           if [ -z "$CHANGELOG" ] || [ "$CHANGELOG" = "null" ]; then
             echo "No changelog generated, keeping default release notes"
             exit 0
           fi
-          gh release edit "${{ steps.tags.outputs.current }}" --notes "$CHANGELOG"
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          LLM_CHANGLOGS: ${{ steps.llm.outputs.changelogs }}
+          gh release edit "$RELEASE_TAG" --notes "$CHANGELOG"
