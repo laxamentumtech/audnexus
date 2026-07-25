@@ -41,7 +41,7 @@ jobs:
           echo "tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
           echo "Previous tag: ${PREV_TAG:-<none, first release>}"
 
-      - uses: nosovj/llm-release-action@6f89a8b0e61470f54c4c0555369da82e7959416b # v1
+      - uses: nosovj/llm-release-action@aba906f1ff5d376390d9e751bf407f40971079e0 # v1
         id: llm
         with:
           model: openai/${{ vars.OPENAI_MODEL || 'gpt-4o-mini' }}
