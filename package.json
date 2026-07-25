@@ -14,7 +14,6 @@
 		"format": "prettier --config .prettierrc --write 'src/**/*.ts'",
 		"lint": "prettier --config .prettierrc --check 'src/**/*.ts' && tsc --noEmit && eslint \"**/*.{js,ts}\" --quiet --fix",
 		"preinstall": "npx only-allow bun",
-		"release": "standard-version",
 		"serve": "bun run dist/server.js",
 		"start": "bun run build && bun run serve",
 		"test": "bun test --timeout 30000 --parallel=1 tests/typing tests/static tests/helpers/errors tests/helpers/routes tests/helpers/utils tests/helpers/books tests/helpers/authors tests/database tests/config tests/audible",
@@ -65,10 +64,10 @@
 		"concurrently": "^9.1.2",
 		"eslint": "^10.0.0",
 		"eslint-config-prettier": "^10.1.2",
-		"globals": "^17.3.0",
 		"eslint-plugin-simple-import-sort": "^12.1.1",
+		"globals": "^17.3.0",
 		"prettier": "^3.5.3",
-		"standard-version": "^9.5.0",
+		"prettier-plugin-yaml": "^1.2.0",
 		"typescript": "^5.9.3"
 	},
 	"imports": {

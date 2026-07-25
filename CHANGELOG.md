@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+All notable changes to this project will be documented in this file. Releases are automated via [release-please](https://github.com/googleapis/release-please) and [LLM Release Action](https://github.com/nosovj/llm-release-action) for AI-generated release notes.
 
 ## [1.11.0](https://github.com/laxamentumtech/audnexus/compare/v1.10.0...v1.11.0) (2026-02-16)
 
