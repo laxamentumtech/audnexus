@@ -29,6 +29,7 @@ import showAuthor from '#config/routes/authors/show'
 import deleteChapter from '#config/routes/books/chapters/delete'
 import showChapter from '#config/routes/books/chapters/show'
 import deleteBook from '#config/routes/books/delete'
+import searchBook from '#config/routes/books/search/show'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
 import { registerMetricsRoute } from '#config/routes/metrics'
@@ -51,15 +52,14 @@ const userTrustedProxies = process.env.TRUSTED_PROXIES
  * Removes duplicates and returns a deduplicated array
  */
 async function buildTrustedProxies(): Promise<string[]> {
+	let cloudflareIps: string[] = []
 	try {
-		const cloudflareIps = await getCloudflareIps()
-		// Merge user IPs with Cloudflare IPs, removing duplicates
-		return [...new Set([...userTrustedProxies, ...cloudflareIps])]
-	} catch (error) {
-		// If Cloudflare IP fetch fails, fall back to user-configured IPs only
-		console.warn('Failed to fetch Cloudflare IPs', error)
-		return userTrustedProxies
+		cloudflareIps = await getCloudflareIps()
+	} catch (err) {
+		console.warn('Failed to fetch Cloudflare IPs, using user-configured proxies only:', err)
 	}
+	// Merge user IPs with Cloudflare IPs, removing duplicates
+	return [...new Set([...userTrustedProxies, ...cloudflareIps])]
 }
 
 /**
@@ -209,6 +209,7 @@ async function registerPlugins() {
  */
 async function registerRoutes() {
 	await server
+		.register(searchBook)
 		.register(showBook)
 		.register(deleteBook)
 		.register(showChapter)

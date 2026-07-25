@@ -12,7 +12,7 @@ export const asin10Regex = new RegExp(`^${baseAsin10Regex.source}$`)
 export const asin11Regex = /\d{11}/gm
 
 // Reusable types
-export const AsinSchema = z.string().regex(asin10Regex)
+export const AsinSchema = z.string().trim().regex(asin10Regex)
 // Using different regex for 11 digit ASINs because zod validation needs quantifier
 export const GenreAsinSchema = z.string().regex(new RegExp(/^\d{10,12}$/))
 export const NameSchema = z.string().min(2)

@@ -395,8 +395,8 @@ class ApiHelper {
 		)
 		return fetch(url)
 			.then((response) => {
-				const json = response.data as { product?: { product_state?: string } }
-				return json?.product?.product_state
+				const json = response.data as { product?: { customer_rights?: { product_state?: string } } }
+				return json?.product?.customer_rights?.product_state
 			})
 			.catch((error) => {
 				this.logger?.error(

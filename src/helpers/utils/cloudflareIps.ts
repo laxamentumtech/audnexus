@@ -88,6 +88,8 @@ async function getIps(): Promise<CloudflareIpsResult> {
 			return freshData
 		})
 		.catch(() => {
+			// Do NOT reset lastFetchTime on failure — stale cache should
+			// expire normally so a subsequent retry isn't throttled by TTL.
 			// If fetch fails, return cached data if available (even if expired)
 			if (cache.data) {
 				return cache.data

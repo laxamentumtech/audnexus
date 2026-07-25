@@ -187,7 +187,7 @@ describe('ChapterHelper should throw error when', () => {
 	})
 
 	test('error fetching Chapter data', async () => {
-const mockLogger = createMockLogger()
+		const mockLogger = createMockLogger()
 		spyOn(fetchPlus, 'default').mockImplementation(() =>
 			Promise.reject({
 				status: 403
