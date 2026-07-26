@@ -466,10 +466,12 @@ describe('ApiHelper should throw error when', () => {
 		expect(() => helper.getFinalData()).toThrow('No input data')
 	})
 
-	test('release_date is in the future', async () => {
+	test('release_date is in the future returns the future date (pre-order)', async () => {
 		helper.audibleResponse = mockResponse.product
 		helper.audibleResponse!.release_date = '2080-01-01'
-		expect(() => helper.getReleaseDate()).toThrow('Release date is in the future')
+		const result = helper.getReleaseDate()
+		expect(result).toBeInstanceOf(Date)
+		expect(result.toISOString()).toBe(new Date('2080-01-01').toISOString())
 	})
 
 	test('category is invalid', () => {

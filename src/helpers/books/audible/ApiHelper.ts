@@ -31,7 +31,6 @@ import {
 	ErrorMessageParse,
 	ErrorMessageProductDelisted,
 	ErrorMessageRegion,
-	ErrorMessageReleaseDate,
 	ErrorMessageRequiredKey
 } from '#static/messages'
 import { regions } from '#static/regions'
@@ -189,7 +188,8 @@ class ApiHelper {
 	 * 1. The release date of the product
 	 * 2. The issue date of the product
 	 *
-	 * Error on a date in the future.
+	 * Future dates are valid and indicate pre-order/upcoming titles; they are
+	 * returned as-is so callers can treat them as pre-order metadata.
 	 */
 	getReleaseDate() {
 		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
@@ -197,8 +197,6 @@ class ApiHelper {
 			? new Date(this.audibleResponse.release_date)
 			: new Date(this.audibleResponse.issue_date)
 
-		// Check that release date isn't in the future
-		if (releaseDate > new Date()) throw new Error(ErrorMessageReleaseDate(this.asin))
 		return releaseDate
 	}
 
