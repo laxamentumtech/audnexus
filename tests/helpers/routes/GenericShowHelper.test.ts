@@ -350,13 +350,15 @@ describe('GenericShowHelper pre-order transient handling', () => {
 
 		spyOn(helper, 'getNewData').mockResolvedValue(pastBook)
 		const setDataSpy = spyOn(helper.paprHelper, 'setData')
-		spyOn(helper.paprHelper, 'createOrUpdate').mockResolvedValue({ data: pastBook })
+		const createOrUpdateSpy = spyOn(helper.paprHelper, 'createOrUpdate')
+		createOrUpdateSpy.mockResolvedValue({ data: pastBook })
 		spyOn(helper, 'getDataWithProjection').mockResolvedValue(pastBook)
 		const setOneSpy = spyOn(helper.redisHelper, 'setOne')
 
 		await helper.createOrUpdateData()
 
 		expect(setDataSpy).toHaveBeenCalledTimes(1)
+		expect(createOrUpdateSpy).toHaveBeenCalledTimes(1)
 		expect(setOneSpy).toHaveBeenCalledTimes(1)
 	})
 })
