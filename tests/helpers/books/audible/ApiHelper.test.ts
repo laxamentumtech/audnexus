@@ -364,11 +364,15 @@ describe('ApiHelper edge cases should', () => {
 		)
 	})
 
-	// The six new recognized types added beyond MultiPartBook/SinglePartBook.
-	// Each must parse through AudibleProductSchema without the Unknown-content-type warning.
-	const newContentTypes = recognizedContentTypes.filter(
-		(type) => type !== 'MultiPartBook' && type !== 'SinglePartBook'
-	)
+	// The six recognized types beyond the original MultiPartBook/SinglePartBook.
+	const newContentTypes = ['AudioPart', 'SinglePartIssue', 'PodcastEpisode', 'BookSeries', 'Periodical', 'Bundle'] as const
+
+	test('recognizedContentTypes includes all six newer content types', () => {
+		for (const type of newContentTypes) {
+			expect(recognizedContentTypes).toContain(type)
+		}
+	})
+
 	for (const type of newContentTypes) {
 		test(`parses recognized content_delivery_type '${type}' without warning`, async () => {
 			const response = deepCopy(mockResponse)
