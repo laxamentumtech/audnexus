@@ -70,12 +70,11 @@ describe('ApiHelper should', () => {
 		expect(helper.requestUrl).toBe(url)
 	})
 
-	test('check required keys on parse', async () => {
-		const invalidResponse = deepCopy(mockResponse)
-		delete (invalidResponse.product as Record<string, unknown>).asin
-		await expect(helper.parseResponse(invalidResponse)).rejects.toThrow(
-			/Required key 'asin' does not exist/
-		)
+	test('fall back to request ASIN when response asin is missing', async () => {
+		const responseWithoutAsin = deepCopy(mockResponse)
+		delete (responseWithoutAsin.product as Record<string, unknown>).asin
+		const parsed = await helper.parseResponse(responseWithoutAsin)
+		expect(parsed.asin).toBe(asin)
 	})
 
 	test('get copyright year', async () => {
@@ -348,6 +347,30 @@ describe('ApiHelper edge cases should', () => {
 		)
 		expect(data.asin).toBe('B0GM8R53L2')
 		expect(data.title).toBe('Test Book Without Content Delivery Type')
+	})
+
+	test('parses a book with offset-format product_site_launch_date', async () => {
+		const response = deepCopy(mockResponse)
+		;(response.product as Record<string, unknown>).product_site_launch_date =
+			'2014-05-15T10:28:42+02:00'
+		const parsed = await helper.parseResponse(response)
+		expect(parsed.asin).toBe(asin)
+	})
+
+	test('parses a book missing merchandising_summary with empty description and summary', async () => {
+		const response = deepCopy(mockResponse)
+		delete (response.product as Record<string, unknown>).merchandising_summary
+		delete (response.product as Record<string, unknown>).publisher_summary
+		const parsed = await helper.parseResponse(response)
+		expect(parsed.description).toBe('')
+		expect(parsed.summary).toBe('')
+	})
+
+	test('parses a book missing product_site_launch_date', async () => {
+		const response = deepCopy(mockResponse)
+		delete (response.product as Record<string, unknown>).product_site_launch_date
+		const parsed = await helper.parseResponse(response)
+		expect(parsed.asin).toBe(asin)
 	})
 
 	test('parses book with unknown content_delivery_type successfully', async () => {
