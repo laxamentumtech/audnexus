@@ -374,6 +374,24 @@ describe('ApiHelper edge cases should', () => {
 		expect(parsed.asin).toBe(asin)
 	})
 
+	test('throws ContentTypeMismatchError for empty content_delivery_type', async () => {
+		const emptyTypeResponse = deepCopy(mockResponse)
+		emptyTypeResponse.product.content_delivery_type = '' as never
+		await expect(helper.parseResponse(emptyTypeResponse)).rejects.toBeInstanceOf(
+			ContentTypeMismatchError
+		)
+		await expect(helper.parseResponse(emptyTypeResponse)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a , not a book. ASIN: ${asin}`,
+			details: {
+				asin,
+				requestedType: 'book',
+				actualType: ''
+			}
+		})
+	})
+
 	test('throws ContentTypeMismatchError for unknown content_delivery_type', async () => {
 		const unknownTypeResponse = deepCopy(mockResponse)
 		unknownTypeResponse.product.content_delivery_type = 'UnknownType'

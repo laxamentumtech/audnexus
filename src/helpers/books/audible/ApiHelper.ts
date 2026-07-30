@@ -436,7 +436,7 @@ class ApiHelper {
 		}
 
 		// Check if content_delivery_type exists and is a known book type
-		const knownTypes = ['MultiPartBook', 'SinglePartBook']
+		const knownTypes = recognizedContentTypes
 		// Present but not a known book type → reject with a clear error instead of
 		// silently storing a non-book that later fails as "Data type is not ApiBook".
 		if (contentType !== undefined && !knownTypes.includes(contentType)) {

@@ -12,41 +12,39 @@ const TRANSIENT_STATUSES = new Set([429, 503, 504])
 
 /**
  * Calculates the delay for retry attempts with exponential backoff.
- * For 429 status, uses exponential backoff starting at 1s, doubling each retry (max 8s).
- * Respects Retry-After header if present (includes delay-in-seconds and HTTP-date formats).
+ * For 429 status, honors Retry-After header when present (delay-in-seconds and HTTP-date formats),
+ * otherwise uses exponential backoff starting at 1s, doubling each retry (max 8s).
+ * For 503/504, always uses exponential backoff (Retry-After is ignored).
  * @param {number} retries The current retry count
  * @param {AxiosError} error The axios error response
  * @returns {number} The delay in milliseconds
  */
 function calculateRetryDelay(retries: number, error: AxiosError): number {
-	if (!error.response || !error.response.headers) {
-		// No response or headers, fall back to exponential backoff
-		return Math.min(1000 * Math.pow(2, retries), MAX_BACKOFF_MS)
-	}
+	const status = error.response?.status
 
-	const retryAfter = error.response.headers['retry-after']
-	if (!retryAfter) {
-		// No Retry-After header, fall back to exponential backoff
-		return Math.min(1000 * Math.pow(2, retries), MAX_BACKOFF_MS)
-	}
+	// Only honor Retry-After for 429; 503/504 always use exponential backoff
+	if (status === 429 && error.response?.headers) {
+		const retryAfter = error.response.headers['retry-after']
+		if (retryAfter) {
+			// Retry-After can be a delay in seconds or an HTTP-date
+			const parsedAsNumber = parseInt(retryAfter, 10)
+			if (!isNaN(parsedAsNumber) && parsedAsNumber > 0) {
+				return parsedAsNumber * 1000
+			}
 
-	// Retry-After can be a delay in seconds or an HTTP-date
-	const parsedAsNumber = parseInt(retryAfter, 10)
-	if (!isNaN(parsedAsNumber) && parsedAsNumber > 0) {
-		return parsedAsNumber * 1000
-	}
-
-	// Try parsing as HTTP-date (e.g., "Wed, 21 Oct 2015 07:28:00 GMT")
-	const parsedDate = new Date(retryAfter)
-	if (!isNaN(parsedDate.getTime())) {
-		const now = Date.now()
-		const delay = parsedDate.getTime() - now
-		if (delay > 0) {
-			return delay
+			// Try parsing as HTTP-date (e.g., "Wed, 21 Oct 2015 07:28:00 GMT")
+			const parsedDate = new Date(retryAfter)
+			if (!isNaN(parsedDate.getTime())) {
+				const now = Date.now()
+				const delay = parsedDate.getTime() - now
+				if (delay > 0) {
+					return delay
+				}
+			}
 		}
 	}
 
-	// Invalid Retry-After value, fall back to exponential backoff
+	// Exponential backoff (429 without Retry-After, 503, 504, or no response)
 	return Math.min(1000 * Math.pow(2, retries), MAX_BACKOFF_MS)
 }
 
