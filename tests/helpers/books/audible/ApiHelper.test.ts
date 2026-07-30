@@ -212,6 +212,22 @@ describe('ApiHelper should', () => {
 		})
 	})
 
+	test('throws ContentTypeMismatchError for empty content_delivery_type', async () => {
+		const emptyTypeResponse = deepCopy(mockResponse)
+		emptyTypeResponse.product.content_delivery_type = '' as never
+		await expect(helper.parseResponse(emptyTypeResponse)).rejects.toBeInstanceOf(ContentTypeMismatchError)
+		await expect(helper.parseResponse(emptyTypeResponse)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a unknown type, not a book. ASIN: ${asin}`,
+			details: {
+				asin: asin,
+				requestedType: 'book',
+				actualType: ''
+			}
+		})
+	})
+
 	describe('handle region: ', () => {
 		test.each(Object.keys(regions))('%s', async (region) => {
 			helper = new ApiHelper('B079LRSMNN', region)

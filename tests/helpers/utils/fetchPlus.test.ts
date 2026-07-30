@@ -92,7 +92,10 @@ describe('fetchPlus should', () => {
 		const response = await fetchPlus('test.com')
 		expect(response).toEqual(successResponse)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
-		expect(sleepDelays).toEqual([1000])
+		// Jittered backoff at retry 0: base 1000ms, jitter range ~750-1500ms
+		expect(sleepDelays.length).toBe(1)
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(500)
+		expect(sleepDelays[0]).toBeLessThanOrEqual(1500)
 	})
 
 	test('retry with Retry-After header on 429', async () => {
@@ -133,7 +136,12 @@ describe('fetchPlus should', () => {
 
 		expect(response).toEqual(successResponse)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(3)
-		expect(sleepDelays).toEqual([1000, 2000])
+		expect(sleepDelays.length).toBe(2)
+		// Retry 0: base 1000ms with jitter, retry 1: base 2000ms with jitter
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(500)
+		expect(sleepDelays[0]).toBeLessThanOrEqual(1500)
+		expect(sleepDelays[1]).toBeGreaterThanOrEqual(1000)
+		expect(sleepDelays[1]).toBeLessThanOrEqual(3000)
 	})
 
 	test('retry with exponential backoff on 429 with headers missing retry-after key', async () => {
@@ -153,10 +161,13 @@ describe('fetchPlus should', () => {
 
 		expect(response).toEqual(successResponse)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
-		expect(sleepDelays).toEqual([1000])
+		// Jittered backoff at retry 0: base 1000ms, jitter range ~750-1500ms
+		expect(sleepDelays.length).toBe(1)
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(500)
+		expect(sleepDelays[0]).toBeLessThanOrEqual(1500)
 	})
 
-	test('not add delay for non-429 errors', async () => {
+	test('not add delay for non-retriable errors', async () => {
 		mockStatus = { status: 500 }
 		mockGet.mockImplementation(() => {
 			const error: Error & { response: typeof mockStatus } = Object.assign(
@@ -169,6 +180,94 @@ describe('fetchPlus should', () => {
 		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(4)
 		expect(sleepDelays).toEqual([])
+	})
+
+	test('retry with exponential backoff on 503', async () => {
+		const mockError = {
+			response: {
+				status: 503,
+				headers: {}
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet
+			.mockRejectedValueOnce(mockError)
+			.mockResolvedValueOnce(successResponse)
+
+		const response = await fetchPlus('test.com')
+		expect(response).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays.length).toBe(1)
+		// Jittered backoff at retry 0: base 1000ms, jitter range ~750-1500ms
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(500)
+		expect(sleepDelays[0]).toBeLessThanOrEqual(1500)
+	})
+
+	test('retry with exponential backoff on 504', async () => {
+		const mockError = {
+			response: {
+				status: 504,
+				headers: {}
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet
+			.mockRejectedValueOnce(mockError)
+			.mockResolvedValueOnce(successResponse)
+
+		const response = await fetchPlus('test.com')
+		expect(response).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays.length).toBe(1)
+		// Jittered backoff at retry 0: base 1000ms, jitter range ~750-1500ms
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(500)
+		expect(sleepDelays[0]).toBeLessThanOrEqual(1500)
+	})
+
+	test('not honor Retry-After header on 503', async () => {
+		const mockError = {
+			response: {
+				status: 503,
+				headers: { 'retry-after': '10' }
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet
+			.mockRejectedValueOnce(mockError)
+			.mockResolvedValueOnce(successResponse)
+
+		const response = await fetchPlus('test.com')
+		expect(response).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		// Must use exponential backoff with jitter, NOT the Retry-After value (10000ms)
+		expect(sleepDelays[0]).not.toBe(10000)
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(500)
+		expect(sleepDelays[0]).toBeLessThanOrEqual(1500)
+	})
+
+	test('not honor Retry-After header on 504', async () => {
+		const mockError = {
+			response: {
+				status: 504,
+				headers: { 'retry-after': '10' }
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet
+			.mockRejectedValueOnce(mockError)
+			.mockResolvedValueOnce(successResponse)
+
+		const response = await fetchPlus('test.com')
+		expect(response).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		// Must use exponential backoff with jitter, NOT the Retry-After value (10000ms)
+		expect(sleepDelays[0]).not.toBe(10000)
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(500)
+		expect(sleepDelays[0]).toBeLessThanOrEqual(1500)
 	})
 })
 

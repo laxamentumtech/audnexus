@@ -429,6 +429,14 @@ class ApiHelper {
 			)
 		}
 
+		// Reject empty content_delivery_type (not the same as missing/undefined)
+		if ((contentType as string) === '') {
+			throw new ContentTypeMismatchError(
+				ErrorMessageContentTypeMismatch(this.asin, 'unknown type', 'book'),
+				{ asin: this.asin, requestedType: 'book', actualType: '' }
+			)
+		}
+
 		// Check if content_delivery_type exists and is a known book type
 		const knownTypes = recognizedContentTypes
 		if (!contentType || !knownTypes.includes(contentType)) {
