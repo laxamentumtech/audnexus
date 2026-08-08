@@ -16,6 +16,8 @@
 
 </div>
 
+> **Looking for audiobook metadata?** Check out [AudiobookDB](https://audiobookdb.org) — our community-maintained audiobook metadata database and the successor to this API: proper book/release separation, moderated community contributions, and fast search. New projects should start there; audnexus remains online and maintained.
+
 ---
 
 <p align="center"> An audiobook data aggregation API, combining multiple sources of data into one, consistent source.
