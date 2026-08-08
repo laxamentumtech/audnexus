@@ -9,6 +9,10 @@ on:
 permissions:
   contents: none
 
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   cleanup:
     if: github.event.pull_request.head.repo.full_name == github.repository
@@ -27,13 +31,27 @@ jobs:
           VERSION_ID=$(gh api --paginate --method GET /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions \
             --jq ".[] | select(.metadata.container.tags[] | contains(\"pr-${PR_NUMBER}\")) | .id" | head -1 || true)
           if [ -n "$VERSION_ID" ]; then
-            gh api --method DELETE /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions/${VERSION_ID}
-            echo "Deleted pr-${PR_NUMBER} image"
+            # Only delete if the version has no other tags besides pr-N variants
+            OTHER_TAGS=$(gh api --paginate --method GET /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions \
+              --jq ".[] | select(.id == \"${VERSION_ID}\") | .metadata.container.tags[] | select(. != (\"pr-\" + \"${PR_NUMBER}\"))" | head -1 || true)
+            if [ -z "$OTHER_TAGS" ]; then
+              gh api --method DELETE /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions/${VERSION_ID}
+              echo "Deleted pr-${PR_NUMBER} image"
+            else
+              echo "Skipping pr-${PR_NUMBER} — version also tagged: ${OTHER_TAGS}"
+            fi
           fi
           # Delete matching sha-* tag
           SHA_TAG=$(gh api --paginate --method GET /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions \
             --jq ".[] | select(.metadata.container.tags[] | contains(\"${{ github.event.pull_request.head.sha }}\")) | .id" | head -1 || true)
           if [ -n "$SHA_TAG" ]; then
-            gh api --method DELETE /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions/${SHA_TAG}
-            echo "Deleted sha image"
+            # Only delete if the version has no other tags besides the sha tag
+            OTHER_TAGS=$(gh api --paginate --method GET /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions \
+              --jq ".[] | select(.id == \"${SHA_TAG}\") | .metadata.container.tags[] | select(. != \"${{ github.event.pull_request.head.sha }}\")" | head -1 || true)
+            if [ -z "$OTHER_TAGS" ]; then
+              gh api --method DELETE /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions/${SHA_TAG}
+              echo "Deleted sha image"
+            else
+              echo "Skipping sha image — version also tagged: ${OTHER_TAGS}"
+            fi
           fi
