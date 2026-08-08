@@ -63,13 +63,15 @@ describe('RouteCommonHelper should throw an error', () => {
 		expect(() => helper.runValidations()).toThrow(BadRequestError)
 		expect(() => helper.runValidations()).toThrow('Bad ASIN')
 	})
-	test('if the asin is numeric (ISBN-style)', () => {
-		// 10-char numeric strings previously passed AsinSchema validation,
-		// hit Audible's scrape URL, and returned a misleading 404.
-		// Route params require a B-prefixed book ASIN.
+	test('if the asin is numeric (10-char ISBN-style)', () => {
+		// Numeric ASINs are legitimate Audible book identifiers (e.g. 1978650817,
+		// Randomize by Andy Weir) and must pass route validation; upstream Audible
+		// resolves existence, so unknown numeric values 404 there instead of a 400 here.
+		// (GitHub issue #914: numeric ASINs were wrongly rejected as "Bad ASIN".)
+		helper = new RouteCommonHelper('1978650817', query, ctx.client)
+		expect(() => helper.runValidations()).not.toThrow()
 		helper = new RouteCommonHelper('9781538548', query, ctx.client)
-		expect(() => helper.runValidations()).toThrow(BadRequestError)
-		expect(() => helper.runValidations()).toThrow('Bad ASIN')
+		expect(() => helper.runValidations()).not.toThrow()
 	})
 	test('if the name is not valid', () => {
 		helper = new RouteCommonHelper('', { name: '' }, ctx.client)
