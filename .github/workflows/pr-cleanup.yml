@@ -1,0 +1,38 @@
+# Delete Docker images built for closed PRs to keep GHCR tidy.
+
+name: PR Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  packages: write
+  contents: read
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete PR Docker image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          PACKAGE_NAME="${{ github.repository }}"
+          PACKAGE_NAME="${PACKAGE_NAME//\//_}"
+          # Delete pr-N tag
+          VERSION_ID=$(gh api --method GET /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions \
+            --jq ".[] | select(.metadata.container.tags[] | contains(\"pr-${PR_NUMBER}\")) | .id" | head -1 || true)
+          if [ -n "$VERSION_ID" ]; then
+            gh api --method DELETE /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions/${VERSION_ID}
+            echo "Deleted pr-${PR_NUMBER} image"
+          fi
+          # Delete matching sha-* tag
+          SHA_TAG=$(gh api --method GET /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions \
+            --jq ".[] | select(.metadata.container.tags[] | contains(\"${{ github.event.pull_request.head.sha }}\")) | .id" | head -1 || true)
+          if [ -n "$SHA_TAG" ]; then
+            gh api --method DELETE /orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME}/versions/${SHA_TAG}
+            echo "Deleted sha image"
+          fi
