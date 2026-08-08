@@ -1,7 +1,7 @@
 import { FastifyReply } from 'fastify'
 import { ZodError } from 'zod'
 
-import { ApiQueryString, ApiQueryStringSchema, BookAsinSchema } from '#config/types'
+import { ApiQueryString, ApiQueryStringSchema, AsinSchema } from '#config/types'
 import { BadRequestError } from '#helpers/errors/ApiErrors'
 import {
 	ErrorMessageBadQuery,
@@ -59,7 +59,7 @@ class RouteCommonHelper {
 	 * @returns {boolean}
 	 */
 	isValidAsin(asin: string): boolean {
-		return BookAsinSchema.safeParse(asin).success
+		return AsinSchema.safeParse(asin).success
 	}
 
 	/**
