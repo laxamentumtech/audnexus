@@ -7,19 +7,19 @@ repos:
         name: Prettier format check
         entry: bun run lint
         language: system
-        types: [javascript]
+        files: "\\.(ts|js|json|yml|yaml|md)$"
         pass_filenames: false
 
       - id: bun-build
         name: Bun TypeScript build
         entry: bun run build
         language: system
-        types: [javascript]
+        files: "\\.(ts|js|json|yml|yaml|md)$"
         pass_filenames: false
 
       - id: bun-test
         name: Bun test
         entry: bun run test
         language: system
-        types: [javascript]
+        files: "\\.(ts|js|json|yml|yaml|md)$"
         pass_filenames: false

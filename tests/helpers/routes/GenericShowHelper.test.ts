@@ -320,13 +320,16 @@ describe('GenericShowHelper pre-order transient handling', () => {
 		)
 	})
 
-	test('returns pre-order data transiently without persisting to Papr or Redis', async () => {
+	test('returns pre-order data transiently when existing record is present', async () => {
 		const futureDate = new Date()
 		futureDate.setFullYear(futureDate.getFullYear() + 1)
 		const preOrderBook = {
 			...(bookWithoutProjection as unknown as ApiBook),
 			releaseDate: futureDate
 		} as ApiBook
+
+		// Set originalData to simulate an existing cached/stored record
+		helper.originalData = bookWithoutProjection
 
 		spyOn(helper, 'getNewData').mockResolvedValue(preOrderBook)
 		const setDataSpy = spyOn(helper.paprHelper, 'setData')
@@ -340,6 +343,32 @@ describe('GenericShowHelper pre-order transient handling', () => {
 		expect(createOrUpdateSpy).not.toHaveBeenCalled()
 		expect(setOneSpy).not.toHaveBeenCalled()
 		expect(mockLogger.info).toHaveBeenCalledTimes(1)
+	})
+
+	test('persists pre-order data on first-time fetch (no existing record)', async () => {
+		const futureDate = new Date()
+		futureDate.setFullYear(futureDate.getFullYear() + 1)
+		const preOrderBook = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: futureDate
+		} as ApiBook
+
+		// originalData is null (default) — first-time fetch
+		expect(helper.originalData).toBeNull()
+
+		spyOn(helper, 'getNewData').mockResolvedValue(preOrderBook)
+		const setDataSpy = spyOn(helper.paprHelper, 'setData')
+		const createOrUpdateSpy = spyOn(helper.paprHelper, 'createOrUpdate')
+		createOrUpdateSpy.mockResolvedValue({ data: preOrderBook })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(preOrderBook)
+		const setOneSpy = spyOn(helper.redisHelper, 'setOne')
+
+		await helper.createOrUpdateData()
+
+		// Persistence SHOULD happen for first-time pre-order fetches
+		expect(setDataSpy).toHaveBeenCalledTimes(1)
+		expect(createOrUpdateSpy).toHaveBeenCalledTimes(1)
+		expect(setOneSpy).toHaveBeenCalledTimes(1)
 	})
 
 	test('persists released books normally (releaseDate in the past)', async () => {

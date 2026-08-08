@@ -422,14 +422,20 @@ describe('ApiHelper edge cases should', () => {
 	})
 
 	for (const type of newContentTypes) {
-		test(`parses recognized content_delivery_type '${type}' without warning`, async () => {
+		test(`throws ContentTypeMismatchError for non-book content_delivery_type '${type}'`, async () => {
 			const response = deepCopy(mockResponse)
 			response.product.content_delivery_type = type
-			const mockLogger = createMockLogger()
-			helper = new ApiHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
-			const data = await helper.parseResponse(response)
-			expect(data.asin).toBe(asin)
-			expect(mockLogger.warn).not.toHaveBeenCalled()
+			helper = new ApiHelper(asin, region)
+			await expect(helper.parseResponse(response)).rejects.toMatchObject({
+				name: 'ContentTypeMismatchError',
+				statusCode: 400,
+				message: `Item is a ${type}, not a book. ASIN: ${asin}`,
+				details: {
+					asin,
+					requestedType: 'book',
+					actualType: type
+				}
+			})
 		})
 	}
 

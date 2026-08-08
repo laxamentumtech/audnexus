@@ -27,9 +27,12 @@ function calculateRetryDelay(retries: number, error: AxiosError): number {
 		const retryAfter = error.response.headers['retry-after']
 		if (retryAfter) {
 			// Retry-After can be a delay in seconds or an HTTP-date
-			const parsedAsNumber = parseInt(retryAfter, 10)
-			if (!isNaN(parsedAsNumber) && parsedAsNumber > 0) {
-				return parsedAsNumber * 1000
+			// Validate digits-only before parseInt to avoid accepting garbage
+			if (typeof retryAfter === 'string' && /^\d+$/.test(retryAfter)) {
+				const parsedAsNumber = parseInt(retryAfter, 10)
+				if (parsedAsNumber >= 0) {
+					return Math.min(parsedAsNumber * 1000, MAX_BACKOFF_MS)
+				}
 			}
 
 			// Try parsing as HTTP-date (e.g., "Wed, 21 Oct 2015 07:28:00 GMT")
@@ -38,7 +41,7 @@ function calculateRetryDelay(retries: number, error: AxiosError): number {
 				const now = Date.now()
 				const delay = parsedDate.getTime() - now
 				if (delay > 0) {
-					return delay
+					return Math.min(delay, MAX_BACKOFF_MS)
 				}
 			}
 		}

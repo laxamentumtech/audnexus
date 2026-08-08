@@ -18,8 +18,7 @@ import {
 	AudibleSeriesSchema,
 	baseShape,
 	FallbackAudibleProduct,
-	fallbackShape,
-	recognizedContentTypes
+	fallbackShape
 } from '#config/types'
 import literatureTypeFromProduct from '#helpers/books/audible/literatureType'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
@@ -438,11 +437,14 @@ class ApiHelper {
 			)
 		}
 
-		// Check if content_delivery_type exists and is a known book type
-		const knownTypes = recognizedContentTypes
-		// Present but not a known book type → reject with a clear error instead of
+		// Only MultiPartBook and SinglePartBook are book-shaped content types.
+		// recognizedContentTypes also includes AudioPart, SinglePartIssue,
+		// PodcastEpisode, BookSeries, Periodical, Bundle — those are NOT books and
+		// should not be parsed as ApiBook.
+		const bookContentTypes = ['MultiPartBook', 'SinglePartBook'] as const
+		// Present but not a book type → reject with a clear error instead of
 		// silently storing a non-book that later fails as "Data type is not ApiBook".
-		if (contentType !== undefined && !knownTypes.includes(contentType)) {
+		if (contentType !== undefined && !bookContentTypes.includes(contentType as never)) {
 			throw new ContentTypeMismatchError(
 				ErrorMessageContentTypeMismatch(this.asin, contentType, 'book'),
 				{ asin: this.asin, requestedType: 'book', actualType: contentType }

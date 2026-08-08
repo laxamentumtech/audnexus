@@ -145,7 +145,7 @@ const LITERATURE_TABLES: Record<string, RegionTable> = {
 				'Fairy Tales, Folk Tales & Myths',
 				'Humour',
 				'Literature & Fiction',
-				'Mystery & Suspsense',
+				'Mystery & Suspense',
 				'Science Fiction & Fantasy'
 			],
 			'Comedy & Humor': ['Literature & Fiction'],
@@ -340,7 +340,7 @@ export default function literatureTypeFromProduct(
 		return 'nonfiction'
 	}
 	return thesaurusKeywords?.some(
-		(keyword) => /(^|[^a-z])fiction([^a-z]|$)/i.test(keyword) && !/nonfiction/i.test(keyword)
+		(keyword) => /(^|[^a-z])fiction([^a-z]|$)/i.test(keyword) && !/non[- ]?fiction/i.test(keyword)
 	)
 		? 'fiction'
 		: 'nonfiction'

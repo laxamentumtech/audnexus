@@ -168,8 +168,10 @@ export default class GenericShowHelper {
 		if (this.type == 'chapter' && !newData) return undefined
 
 		// Pre-order books carry provisional metadata that can change before release;
-		// return them transiently without persisting to Papr or Redis.
-		if (this.isPreOrder(newData)) {
+		// skip persistence only when we already have a cached/stored record to serve
+		// (this.originalData is not null). First-time fetches with no existing record
+		// proceed through the normal persistence path.
+		if (this.isPreOrder(newData) && this.originalData !== null) {
 			this.logger?.info(
 				`Pre-order book ${this.asin} (releaseDate ${(newData as ApiBook).releaseDate.toISOString()}): returning transient data, skipping persistence.`
 			)

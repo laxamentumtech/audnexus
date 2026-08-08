@@ -11,7 +11,8 @@ on:
   pull_request:
   workflow_dispatch:
 
-permissions: read-all
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
@@ -31,7 +32,7 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun run lint
+      - run: prettier --config .prettierrc --check 'src/**/*.ts' && tsc --noEmit && eslint "**/*.{js,ts}" --quiet
 
   build:
     needs: [lint-format]

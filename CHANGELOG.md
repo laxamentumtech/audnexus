@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to this project will be documented in this file. Releases are automated via [release-please](https://github.com/googleapis/release-please) and [LLM Release Action](https://github.com/nosovj/llm-release-action) for AI-generated release notes.
+All notable changes to this project will be documented in this file. Releases are automated via the [annalist](https://github.com/djdembeck/annalist) GitHub App with fill_after mode for AI-generated release notes.
 
 
 ## [1.15.0](https://github.com/laxamentumtech/audnexus/compare/audnexus-v1.14.0...audnexus-v1.15.0) (2026-07-25)
