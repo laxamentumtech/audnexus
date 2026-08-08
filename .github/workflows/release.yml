@@ -50,7 +50,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Verify lint, test, and build
-        run: bun run lint && bun run test && bun run build
+        run: bun run lint:check && bun run test && bun run build
 
       - name: Determine next version
         id: version
