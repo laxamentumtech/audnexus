@@ -48,6 +48,11 @@ describe('literatureTypeFromProduct', () => {
 		expect(literatureTypeFromProduct(ladders, ['literature-and-fiction'], 'us')).toBe('fiction')
 	})
 
+	test('keyword fallback: nonfiction keyword does not match fiction', () => {
+		const ladders: Ladders = []
+		expect(literatureTypeFromProduct(ladders, ['nonfiction'], 'us')).toBe('nonfiction')
+	})
+
 	test('no signal, ladders present, nonfiction', () => {
 		const ladders: Ladders = [cat(['Biographies & Memoirs', 'Historical'])]
 		expect(literatureTypeFromProduct(ladders, ['test'], 'us')).toBe('nonfiction')
