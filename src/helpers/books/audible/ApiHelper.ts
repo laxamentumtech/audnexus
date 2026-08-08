@@ -440,13 +440,24 @@ class ApiHelper {
 
 		// Check if content_delivery_type exists and is a known book type
 		const knownTypes = recognizedContentTypes
-		if (!contentType || !knownTypes.includes(contentType)) {
-			// Try parsing with baseShape directly (fallback for missing/unknown type)
+		// Present but not a known book type → reject with a clear error instead of
+		// silently storing a non-book that later fails as "Data type is not ApiBook".
+		if (contentType !== undefined && !knownTypes.includes(contentType)) {
+			throw new ContentTypeMismatchError(
+				ErrorMessageContentTypeMismatch(this.asin, contentType, 'book'),
+				{ asin: this.asin, requestedType: 'book', actualType: contentType }
+			)
+		}
+		// Missing content_delivery_type → fall back to baseShape (some catalog
+		// responses omit it entirely) and let fetchProductState surface a delisted/
+		// region-unavailable NotFoundError if baseShape also fails.
+		if (!contentType) {
+			// Try parsing with baseShape directly (fallback for missing type)
 			const baseResult = baseShape.safeParse(product)
 			if (baseResult.success) {
-				// Log unknown type for future analysis
+				// Log missing type for future analysis
 				this.logger?.warn(
-					`[AUDIBLE API] Unknown content_delivery_type: ${contentType} for ASIN ${this.asin}`
+					`[AUDIBLE API] Missing content_delivery_type for ASIN ${this.asin}; falling back to baseShape`
 				)
 				// Set the discriminant for the fallback type
 				this.audibleResponse = fallbackShape.parse({

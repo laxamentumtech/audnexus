@@ -374,17 +374,42 @@ describe('ApiHelper edge cases should', () => {
 		expect(parsed.asin).toBe(asin)
 	})
 
-	test('parses book with unknown content_delivery_type successfully', async () => {
+	test('throws ContentTypeMismatchError for empty content_delivery_type', async () => {
+		const emptyTypeResponse = deepCopy(mockResponse)
+		emptyTypeResponse.product.content_delivery_type = '' as never
+		await expect(helper.parseResponse(emptyTypeResponse)).rejects.toBeInstanceOf(
+			ContentTypeMismatchError
+		)
+		await expect(helper.parseResponse(emptyTypeResponse)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a , not a book. ASIN: ${asin}`,
+			details: {
+				asin,
+				requestedType: 'book',
+				actualType: ''
+			}
+		})
+	})
+
+	test('throws ContentTypeMismatchError for unknown content_delivery_type', async () => {
 		const unknownTypeResponse = deepCopy(mockResponse)
 		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
 		const mockLogger = createMockLogger()
 		helper = new ApiHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
-		const data = await helper.parseResponse(unknownTypeResponse)
-		expect(data.asin).toBe(asin)
-		expect(mockLogger.warn).toHaveBeenCalled()
-		expect(mockLogger.warn).toHaveBeenCalledWith(
-			expect.stringContaining('Unknown content_delivery_type')
+		await expect(helper.parseResponse(unknownTypeResponse)).rejects.toBeInstanceOf(
+			ContentTypeMismatchError
 		)
+		await expect(helper.parseResponse(unknownTypeResponse)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a UnknownType, not a book. ASIN: ${asin}`,
+			details: {
+				asin,
+				requestedType: 'book',
+				actualType: 'UnknownType'
+			}
+		})
 	})
 
 	// The six recognized types beyond the original MultiPartBook/SinglePartBook.
@@ -446,7 +471,9 @@ describe('ApiHelper edge cases should', () => {
 			).mockResolvedValue(state)
 			try {
 				const emptyProductResponse = { product: {} } as AudibleProduct
-				await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
+				await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(
+					NotFoundError
+				)
 				await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
 					name: 'NotFoundError',
 					statusCode: 404,
