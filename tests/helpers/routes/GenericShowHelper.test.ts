@@ -21,6 +21,7 @@ mock.module('#helpers/database/papr/audible/PaprAudibleBookHelper', () => {
 	}
 })
 
+import type { ApiBook } from '#config/types'
 import { BadRequestError, NotFoundError } from '#helpers/errors/ApiErrors'
 import GenericShowHelper from '#helpers/routes/GenericShowHelper'
 import { bookWithoutProjection } from '#tests/datasets/helpers/books'
@@ -300,6 +301,94 @@ describe('GenericShowHelper updateActions non-Error rejection handling', () => {
 			expect(error.message).toBe('undefined')
 			expect(error.cause).toBe(undefined)
 		}
+	})
+})
+
+describe('GenericShowHelper pre-order transient handling', () => {
+	let helper: GenericShowHelper
+	const asin = 'B0DLQ2TZCD'
+	let mockLogger: ReturnType<typeof createMockLogger>
+
+	beforeEach(() => {
+		mockLogger = createMockLogger()
+		helper = new GenericShowHelper(
+			asin,
+			{ region: 'us', seedAuthors: undefined, update: '1' },
+			null,
+			'book',
+			mockLogger
+		)
+	})
+
+	test('returns pre-order data transiently when existing record is present', async () => {
+		const futureDate = new Date()
+		futureDate.setFullYear(futureDate.getFullYear() + 1)
+		const preOrderBook = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: futureDate
+		} as ApiBook
+
+		// Set originalData to simulate an existing cached/stored record
+		helper.originalData = bookWithoutProjection
+
+		spyOn(helper, 'getNewData').mockResolvedValue(preOrderBook)
+		const setDataSpy = spyOn(helper.paprHelper, 'setData')
+		const createOrUpdateSpy = spyOn(helper.paprHelper, 'createOrUpdate')
+		const setOneSpy = spyOn(helper.redisHelper, 'setOne')
+
+		const result = await helper.createOrUpdateData()
+
+		expect(result).toBe(preOrderBook)
+		expect(setDataSpy).not.toHaveBeenCalled()
+		expect(createOrUpdateSpy).not.toHaveBeenCalled()
+		expect(setOneSpy).not.toHaveBeenCalled()
+		expect(mockLogger.info).toHaveBeenCalledTimes(1)
+	})
+
+	test('persists pre-order data on first-time fetch (no existing record)', async () => {
+		const futureDate = new Date()
+		futureDate.setFullYear(futureDate.getFullYear() + 1)
+		const preOrderBook = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: futureDate
+		} as ApiBook
+
+		// originalData is null (default) — first-time fetch
+		expect(helper.originalData).toBeNull()
+
+		spyOn(helper, 'getNewData').mockResolvedValue(preOrderBook)
+		const setDataSpy = spyOn(helper.paprHelper, 'setData')
+		const createOrUpdateSpy = spyOn(helper.paprHelper, 'createOrUpdate')
+		createOrUpdateSpy.mockResolvedValue({ data: preOrderBook })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(preOrderBook)
+		const setOneSpy = spyOn(helper.redisHelper, 'setOne')
+
+		await helper.createOrUpdateData()
+
+		// Persistence SHOULD happen for first-time pre-order fetches
+		expect(setDataSpy).toHaveBeenCalledTimes(1)
+		expect(createOrUpdateSpy).toHaveBeenCalledTimes(1)
+		expect(setOneSpy).toHaveBeenCalledTimes(1)
+	})
+
+	test('persists released books normally (releaseDate in the past)', async () => {
+		const pastBook = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: new Date('2020-01-01')
+		} as ApiBook
+
+		spyOn(helper, 'getNewData').mockResolvedValue(pastBook)
+		const setDataSpy = spyOn(helper.paprHelper, 'setData')
+		const createOrUpdateSpy = spyOn(helper.paprHelper, 'createOrUpdate')
+		createOrUpdateSpy.mockResolvedValue({ data: pastBook })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(pastBook)
+		const setOneSpy = spyOn(helper.redisHelper, 'setOne')
+
+		await helper.createOrUpdateData()
+
+		expect(setDataSpy).toHaveBeenCalledTimes(1)
+		expect(createOrUpdateSpy).toHaveBeenCalledTimes(1)
+		expect(setOneSpy).toHaveBeenCalledTimes(1)
 	})
 })
 

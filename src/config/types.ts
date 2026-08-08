@@ -13,6 +13,13 @@ export const asin11Regex = /\d{11}/gm
 
 // Reusable types
 export const AsinSchema = z.string().trim().regex(asin10Regex)
+// Audible book/author ASINs are always B-prefixed 10-char identifiers.
+// Used for route-param validation only; AsinSchema stays permissive for stored
+// data (chapter asins etc. can legitimately be numeric).
+export const BookAsinSchema = z
+	.string()
+	.trim()
+	.regex(/^B[\dA-Z]{9}$/)
 // Using different regex for 11 digit ASINs because zod validation needs quantifier
 export const GenreAsinSchema = z.string().regex(new RegExp(/^\d{10,12}$/))
 export const NameSchema = z.string().min(2)
@@ -184,11 +191,11 @@ export const baseShape = z.object({
 	issue_date: z.string(),
 	language: z.string(),
 	merchandising_description: z.string().optional(),
-	merchandising_summary: z.string(),
+	merchandising_summary: z.string().optional(),
 	narrators: z.array(ApiNarratorOnBookSchema).optional(),
 	product_images: z.record(z.string(), z.string().url()).optional(),
 	platinum_keywords: z.array(z.string()).optional(),
-	product_site_launch_date: z.string().datetime().optional(),
+	product_site_launch_date: z.string().optional(),
 	publisher_name: z.string(),
 	publisher_summary: z.string().optional(),
 	rating: AudibleRatingSchema.optional(),
@@ -216,10 +223,26 @@ const podcastShape = z.object({
 
 // This is the shape of the data we get from Audible's API for series content
 const seriesShape = z.object({
-	content_delivery_type: z.enum(['MultiPartBook', 'SinglePartBook']),
+	content_delivery_type: z.enum([
+		'MultiPartBook',
+		'SinglePartBook',
+		'AudioPart',
+		'SinglePartIssue',
+		'PodcastEpisode',
+		'BookSeries',
+		'Periodical',
+		'Bundle'
+	]),
 	publication_name: z.string().optional(),
 	series: z.array(AudibleSeriesSchema).optional()
 })
+
+// Single source of truth for the recognized content_delivery_type values.
+// Used by the schema, the parser, and the live-test availability check
+// so they cannot drift apart. PodcastParent is intentionally excluded:
+// it is handled as a content type mismatch in ApiHelper.parseResponse.
+export const recognizedContentTypes: readonly string[] =
+	seriesShape.shape.content_delivery_type.options
 
 // This is the shape for fallback when content_delivery_type is missing or unknown
 export const fallbackShape = baseShape.extend({

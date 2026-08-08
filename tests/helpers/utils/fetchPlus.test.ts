@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 
 const mockGet = mock()
 
@@ -85,9 +85,7 @@ describe('fetchPlus should', () => {
 		}
 		const successResponse = { data: 'success', status: 200 } as AxiosResponse
 
-		mockGet
-			.mockRejectedValueOnce(mockError)
-			.mockResolvedValueOnce(successResponse)
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
 
 		const response = await fetchPlus('test.com')
 		expect(response).toEqual(successResponse)
@@ -104,9 +102,7 @@ describe('fetchPlus should', () => {
 		}
 		const successResponse = { data: 'success', status: 200 } as AxiosResponse
 
-		mockGet
-			.mockRejectedValueOnce(mockError)
-			.mockResolvedValueOnce(successResponse)
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
 
 		const response = await fetchPlus('test.com')
 
@@ -145,15 +141,107 @@ describe('fetchPlus should', () => {
 		}
 		const successResponse = { data: 'success', status: 200 } as AxiosResponse
 
-		mockGet
-			.mockRejectedValueOnce(mockError)
-			.mockResolvedValueOnce(successResponse)
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
 
 		const response = await fetchPlus('test.com')
 
 		expect(response).toEqual(successResponse)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
 		expect(sleepDelays).toEqual([1000])
+	})
+
+	test('retry with exponential backoff on 503', async () => {
+		const mockError = {
+			response: {
+				status: 503,
+				headers: {}
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		// Mock Math.random to 0.5 → jitter = floor(0.5 * 250) = 125
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0.5)
+		try {
+			const response = await fetchPlus('test.com')
+			expect(response).toEqual(successResponse)
+			expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+			expect(sleepDelays).toEqual([1125])
+		} finally {
+			randomSpy.mockRestore()
+		}
+	})
+
+	test('retry with exponential backoff on 504', async () => {
+		const mockError = {
+			response: {
+				status: 504,
+				headers: {}
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0.5)
+		try {
+			const response = await fetchPlus('test.com')
+			expect(response).toEqual(successResponse)
+			expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+			expect(sleepDelays).toEqual([1125])
+		} finally {
+			randomSpy.mockRestore()
+		}
+	})
+
+	test('not honor Retry-After header on 503', async () => {
+		const mockError = {
+			response: {
+				status: 503,
+				headers: { 'retry-after': '10' }
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		// Mock Math.random to 0.5 → jitter = floor(0.5 * 250) = 125
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0.5)
+		try {
+			const response = await fetchPlus('test.com')
+			expect(response).toEqual(successResponse)
+			expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+			// Should use exponential backoff (1000ms + jitter), NOT Retry-After (10000ms)
+			expect(sleepDelays).toEqual([1125])
+			expect(sleepDelays[0]).toBeLessThan(2000)
+		} finally {
+			randomSpy.mockRestore()
+		}
+	})
+
+	test('not honor Retry-After header on 504', async () => {
+		const mockError = {
+			response: {
+				status: 504,
+				headers: { 'retry-after': '10' }
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0.5)
+		try {
+			const response = await fetchPlus('test.com')
+			expect(response).toEqual(successResponse)
+			expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+			// Should use exponential backoff (1000ms + jitter), NOT Retry-After (10000ms)
+			expect(sleepDelays).toEqual([1125])
+			expect(sleepDelays[0]).toBeLessThan(2000)
+		} finally {
+			randomSpy.mockRestore()
+		}
 	})
 
 	test('not add delay for non-429 errors', async () => {

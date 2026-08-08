@@ -20,6 +20,7 @@ import {
 	FallbackAudibleProduct,
 	fallbackShape
 } from '#config/types'
+import literatureTypeFromProduct from '#helpers/books/audible/literatureType'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
@@ -31,7 +32,6 @@ import {
 	ErrorMessageParse,
 	ErrorMessageProductDelisted,
 	ErrorMessageRegion,
-	ErrorMessageReleaseDate,
 	ErrorMessageRequiredKey
 } from '#static/messages'
 import { regions } from '#static/regions'
@@ -189,7 +189,8 @@ class ApiHelper {
 	 * 1. The release date of the product
 	 * 2. The issue date of the product
 	 *
-	 * Error on a date in the future.
+	 * Future dates are valid and indicate pre-order/upcoming titles; they are
+	 * returned as-is so callers can treat them as pre-order metadata.
 	 */
 	getReleaseDate() {
 		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
@@ -197,8 +198,6 @@ class ApiHelper {
 			? new Date(this.audibleResponse.release_date)
 			: new Date(this.audibleResponse.issue_date)
 
-		// Check that release date isn't in the future
-		if (releaseDate > new Date()) throw new Error(ErrorMessageReleaseDate(this.asin))
 		return releaseDate
 	}
 
@@ -289,6 +288,12 @@ class ApiHelper {
 	 */
 	getFinalData(): ApiBook {
 		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+		// Classify literature type BEFORE getGenres() which mutates category_ladders
+		const literatureType = literatureTypeFromProduct(
+			this.audibleResponse.category_ladders,
+			this.audibleResponse.thesaurus_subject_keywords,
+			this.region
+		)
 		// Get flattened categories
 		this.getCategories()
 		// Find secondary series if available
@@ -315,7 +320,7 @@ class ApiHelper {
 			}),
 			copyright: this.getCopyrightYear(),
 			description: cleanupDescription(
-				htmlToText(this.audibleResponse['merchandising_summary'], {
+				htmlToText(this.audibleResponse['merchandising_summary'] ?? '', {
 					wordwrap: false
 				})
 			).trim(),
@@ -327,11 +332,7 @@ class ApiHelper {
 			isAdult: this.audibleResponse.is_adult_product,
 			isbn: this.audibleResponse.isbn ?? '',
 			language: this.audibleResponse.language,
-			literatureType: this.audibleResponse.thesaurus_subject_keywords?.some((keyword) =>
-				keyword.includes('fiction')
-			)
-				? 'fiction'
-				: 'nonfiction',
+			literatureType,
 			narrators:
 				this.audibleResponse.narrators?.map((person: ApiNarratorOnBook) => {
 					const narratorJson: ApiNarratorOnBook = {
@@ -356,7 +357,7 @@ class ApiHelper {
 				})
 			}),
 			subtitle: this.audibleResponse.subtitle,
-			summary: this.audibleResponse.publisher_summary,
+			summary: this.audibleResponse.publisher_summary ?? '',
 			title: this.audibleResponse.title
 		})
 	}
@@ -418,6 +419,14 @@ class ApiHelper {
 		}
 
 		const product = jsonResponse.product
+		// Audible occasionally omits asin from the product response (e.g. region de,
+		// certain content types). Fall back to the requested ASIN so parsing can proceed.
+		if (product && !product.asin) {
+			product.asin = this.asin
+			this.logger?.debug(
+				`[AUDIBLE API] Response missing asin for ${this.asin}; using request ASIN as fallback`
+			)
+		}
 		const contentType = product?.content_delivery_type
 
 		// Check for content type mismatch (e.g., podcast instead of book)
@@ -428,15 +437,29 @@ class ApiHelper {
 			)
 		}
 
-		// Check if content_delivery_type exists and is a known book type
-		const knownTypes = ['MultiPartBook', 'SinglePartBook']
-		if (!contentType || !knownTypes.includes(contentType)) {
-			// Try parsing with baseShape directly (fallback for missing/unknown type)
+		// Only MultiPartBook and SinglePartBook are book-shaped content types.
+		// recognizedContentTypes also includes AudioPart, SinglePartIssue,
+		// PodcastEpisode, BookSeries, Periodical, Bundle — those are NOT books and
+		// should not be parsed as ApiBook.
+		const bookContentTypes = ['MultiPartBook', 'SinglePartBook'] as const
+		// Present but not a book type → reject with a clear error instead of
+		// silently storing a non-book that later fails as "Data type is not ApiBook".
+		if (contentType !== undefined && !bookContentTypes.includes(contentType as never)) {
+			throw new ContentTypeMismatchError(
+				ErrorMessageContentTypeMismatch(this.asin, contentType, 'book'),
+				{ asin: this.asin, requestedType: 'book', actualType: contentType }
+			)
+		}
+		// Missing content_delivery_type → fall back to baseShape (some catalog
+		// responses omit it entirely) and let fetchProductState surface a delisted/
+		// region-unavailable NotFoundError if baseShape also fails.
+		if (!contentType) {
+			// Try parsing with baseShape directly (fallback for missing type)
 			const baseResult = baseShape.safeParse(product)
 			if (baseResult.success) {
-				// Log unknown type for future analysis
+				// Log missing type for future analysis
 				this.logger?.warn(
-					`[AUDIBLE API] Unknown content_delivery_type: ${contentType} for ASIN ${this.asin}`
+					`[AUDIBLE API] Missing content_delivery_type for ASIN ${this.asin}; falling back to baseShape`
 				)
 				// Set the discriminant for the fallback type
 				this.audibleResponse = fallbackShape.parse({

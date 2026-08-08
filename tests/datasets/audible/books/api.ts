@@ -6,6 +6,7 @@ import {
 	AudibleProduct,
 	AudibleProductSchema
 } from '#config/types'
+import literatureTypeFromProduct from '#helpers/books/audible/literatureType'
 
 export interface MinimalResponse {
 	asin: string
@@ -62,11 +63,11 @@ export function setupMinimalParsed(
 		isbn: response.isbn ?? '',
 		isAdult: response.is_adult_product,
 		language: response.language,
-		literatureType: response.thesaurus_subject_keywords?.some((keyword) =>
-			keyword.includes('fiction')
-		)
-			? 'fiction'
-			: 'nonfiction',
+		literatureType: literatureTypeFromProduct(
+			response.category_ladders,
+			response.thesaurus_subject_keywords,
+			'us'
+		),
 		narrators: response.narrators,
 		image,
 		...(response.rating && {
@@ -1289,7 +1290,7 @@ export const minimalB0036I54I6: ApiBook = {
 	isAdult: false,
 	isbn: '',
 	language: 'english',
-	literatureType: 'nonfiction',
+	literatureType: 'fiction',
 	narrators: [],
 	publisherName: 'Stanford Audio',
 	rating: '3.9',

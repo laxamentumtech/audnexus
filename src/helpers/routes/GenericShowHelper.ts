@@ -148,6 +148,14 @@ export default class GenericShowHelper {
 	}
 
 	/**
+	 * A book is a pre-order when its freshly-fetched releaseDate is strictly in
+	 * the future. Pre-order metadata is provisional and must not be persisted.
+	 */
+	private isPreOrder(data: ApiAuthorProfile | ApiBook | ApiChapter | undefined): boolean {
+		return this.type === 'book' && !!data && (data as ApiBook).releaseDate > new Date()
+	}
+
+	/**
 	 * Get the new data and pass it to the paprHelper to create or update the data
 	 * Then, set redis cache and return the data
 	 * @returns {Promise<ApiAuthorProfile | ApiBook | ApiChapter | undefined>}
@@ -158,6 +166,17 @@ export default class GenericShowHelper {
 		const newData = await this.getNewData()
 		// Special handling for chapter undefined
 		if (this.type == 'chapter' && !newData) return undefined
+
+		// Pre-order books carry provisional metadata that can change before release;
+		// skip persistence only when we already have a cached/stored record to serve
+		// (this.originalData is not null). First-time fetches with no existing record
+		// proceed through the normal persistence path.
+		if (this.isPreOrder(newData) && this.originalData !== null) {
+			this.logger?.info(
+				`Pre-order book ${this.asin} (releaseDate ${(newData as ApiBook).releaseDate.toISOString()}): returning transient data, skipping persistence.`
+			)
+			return newData
+		}
 
 		this.paprHelper.setData(newData as never)
 

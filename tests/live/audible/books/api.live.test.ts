@@ -1,4 +1,4 @@
-import type { ApiBook, AudibleProduct } from '#config/types'
+import { type ApiBook, type AudibleProduct, recognizedContentTypes } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import { BadRequestError, ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 
@@ -24,7 +24,7 @@ function isInUnavailableAllowlist(asin: string, region: string): boolean {
 function checkAvailability(response: AudibleProduct): boolean {
 	const product = response.product
 	const contentType = product?.content_delivery_type
-	const knownTypes = ['PodcastParent', 'MultiPartBook', 'SinglePartBook'] // PodcastParent included for detection purposes - content type mismatch should be thrown
+	const knownTypes = [...recognizedContentTypes, 'PodcastParent'] // PodcastParent included for detection - content type mismatch should be thrown
 
 	// Content is only considered available when content_delivery_type is present and known
 	// This prevents false positives from incomplete product stubs

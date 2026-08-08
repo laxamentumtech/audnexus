@@ -376,7 +376,7 @@ bun run build         # Build TypeScript
 bun run build-docs    # Build API documentation
 
 # Release
-# Releases are handled by the release-please CI workflow on main branch
+# Releases are handled by the annalist GitHub App with fill_after mode on main branch
 ```
 
 ---

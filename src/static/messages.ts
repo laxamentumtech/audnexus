@@ -33,9 +33,6 @@ export const ErrorMessageContentTypeMismatch = (
 // Validation failed
 export const ErrorMessageValidationFailed = (asin: string, reason: string) =>
 	`Validation failed for ASIN: ${asin}. ${reason}`
-// Release date is in the future
-export const ErrorMessageReleaseDate = (asin: string) =>
-	`Release date is in the future for ASIN: ${asin}`
 // Required key generic message
 export const ErrorMessageRequiredKey = (asin: string, key: string, source: string) =>
 	`Required key '${key}' does not ${source} in Audible API response for ASIN ${asin}`

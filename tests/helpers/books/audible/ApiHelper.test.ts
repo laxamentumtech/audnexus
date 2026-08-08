@@ -7,7 +7,8 @@ import {
 	AudibleProduct,
 	AudibleProductSchema,
 	AudibleSeries,
-	fallbackShape
+	fallbackShape,
+	recognizedContentTypes
 } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
@@ -70,12 +71,11 @@ describe('ApiHelper should', () => {
 		expect(helper.requestUrl).toBe(url)
 	})
 
-	test('check required keys on parse', async () => {
-		const invalidResponse = deepCopy(mockResponse)
-		delete (invalidResponse.product as Record<string, unknown>).asin
-		await expect(helper.parseResponse(invalidResponse)).rejects.toThrow(
-			/Required key 'asin' does not exist/
-		)
+	test('fall back to request ASIN when response asin is missing', async () => {
+		const responseWithoutAsin = deepCopy(mockResponse)
+		delete (responseWithoutAsin.product as Record<string, unknown>).asin
+		const parsed = await helper.parseResponse(responseWithoutAsin)
+		expect(parsed.asin).toBe(asin)
 	})
 
 	test('get copyright year', async () => {
@@ -350,18 +350,94 @@ describe('ApiHelper edge cases should', () => {
 		expect(data.title).toBe('Test Book Without Content Delivery Type')
 	})
 
-	test('parses book with unknown content_delivery_type successfully', async () => {
+	test('parses a book with offset-format product_site_launch_date', async () => {
+		const response = deepCopy(mockResponse)
+		;(response.product as Record<string, unknown>).product_site_launch_date =
+			'2014-05-15T10:28:42+02:00'
+		const parsed = await helper.parseResponse(response)
+		expect(parsed.asin).toBe(asin)
+	})
+
+	test('parses a book missing merchandising_summary with empty description and summary', async () => {
+		const response = deepCopy(mockResponse)
+		delete (response.product as Record<string, unknown>).merchandising_summary
+		delete (response.product as Record<string, unknown>).publisher_summary
+		const parsed = await helper.parseResponse(response)
+		expect(parsed.description).toBe('')
+		expect(parsed.summary).toBe('')
+	})
+
+	test('parses a book missing product_site_launch_date', async () => {
+		const response = deepCopy(mockResponse)
+		delete (response.product as Record<string, unknown>).product_site_launch_date
+		const parsed = await helper.parseResponse(response)
+		expect(parsed.asin).toBe(asin)
+	})
+
+	test('throws ContentTypeMismatchError for empty content_delivery_type', async () => {
+		const emptyTypeResponse = deepCopy(mockResponse)
+		emptyTypeResponse.product.content_delivery_type = '' as never
+		await expect(helper.parseResponse(emptyTypeResponse)).rejects.toBeInstanceOf(
+			ContentTypeMismatchError
+		)
+		await expect(helper.parseResponse(emptyTypeResponse)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a , not a book. ASIN: ${asin}`,
+			details: {
+				asin,
+				requestedType: 'book',
+				actualType: ''
+			}
+		})
+	})
+
+	test('throws ContentTypeMismatchError for unknown content_delivery_type', async () => {
 		const unknownTypeResponse = deepCopy(mockResponse)
 		unknownTypeResponse.product.content_delivery_type = 'UnknownType'
 		const mockLogger = createMockLogger()
 		helper = new ApiHelper(asin, region, mockLogger as unknown as FastifyBaseLogger)
-		const data = await helper.parseResponse(unknownTypeResponse)
-		expect(data.asin).toBe(asin)
-		expect(mockLogger.warn).toHaveBeenCalled()
-		expect(mockLogger.warn).toHaveBeenCalledWith(
-			expect.stringContaining('Unknown content_delivery_type')
+		await expect(helper.parseResponse(unknownTypeResponse)).rejects.toBeInstanceOf(
+			ContentTypeMismatchError
 		)
+		await expect(helper.parseResponse(unknownTypeResponse)).rejects.toMatchObject({
+			name: 'ContentTypeMismatchError',
+			statusCode: 400,
+			message: `Item is a UnknownType, not a book. ASIN: ${asin}`,
+			details: {
+				asin,
+				requestedType: 'book',
+				actualType: 'UnknownType'
+			}
+		})
 	})
+
+	// The six recognized types beyond the original MultiPartBook/SinglePartBook.
+	const newContentTypes = ['AudioPart', 'SinglePartIssue', 'PodcastEpisode', 'BookSeries', 'Periodical', 'Bundle'] as const
+
+	test('recognizedContentTypes includes all six newer content types', () => {
+		for (const type of newContentTypes) {
+			expect(recognizedContentTypes).toContain(type)
+		}
+	})
+
+	for (const type of newContentTypes) {
+		test(`throws ContentTypeMismatchError for non-book content_delivery_type '${type}'`, async () => {
+			const response = deepCopy(mockResponse)
+			response.product.content_delivery_type = type
+			helper = new ApiHelper(asin, region)
+			await expect(helper.parseResponse(response)).rejects.toMatchObject({
+				name: 'ContentTypeMismatchError',
+				statusCode: 400,
+				message: `Item is a ${type}, not a book. ASIN: ${asin}`,
+				details: {
+					asin,
+					requestedType: 'book',
+					actualType: type
+				}
+			})
+		})
+	}
 
 	test('throws region unavailable when baseShape also fails', async () => {
 		const emptyProductResponse = { product: {} } as AudibleProduct
@@ -401,7 +477,9 @@ describe('ApiHelper edge cases should', () => {
 			).mockResolvedValue(state)
 			try {
 				const emptyProductResponse = { product: {} } as AudibleProduct
-				await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(NotFoundError)
+				await expect(helper.parseResponse(emptyProductResponse)).rejects.toBeInstanceOf(
+					NotFoundError
+				)
 				await expect(helper.parseResponse(emptyProductResponse)).rejects.toMatchObject({
 					name: 'NotFoundError',
 					statusCode: 404,
@@ -443,10 +521,12 @@ describe('ApiHelper should throw error when', () => {
 		expect(() => helper.getFinalData()).toThrow('No input data')
 	})
 
-	test('release_date is in the future', async () => {
+	test('release_date is in the future returns the future date (pre-order)', async () => {
 		helper.audibleResponse = mockResponse.product
 		helper.audibleResponse!.release_date = '2080-01-01'
-		expect(() => helper.getReleaseDate()).toThrow('Release date is in the future')
+		const result = helper.getReleaseDate()
+		expect(result).toBeInstanceOf(Date)
+		expect(result.toISOString()).toBe(new Date('2080-01-01').toISOString())
 	})
 
 	test('category is invalid', () => {
