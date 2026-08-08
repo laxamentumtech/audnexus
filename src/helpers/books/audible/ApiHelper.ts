@@ -21,6 +21,7 @@ import {
 	fallbackShape,
 	recognizedContentTypes
 } from '#config/types'
+import literatureTypeFromProduct from '#helpers/books/audible/literatureType'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
@@ -288,6 +289,12 @@ class ApiHelper {
 	 */
 	getFinalData(): ApiBook {
 		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
+		// Classify literature type BEFORE getGenres() which mutates category_ladders
+		const literatureType = literatureTypeFromProduct(
+			this.audibleResponse.category_ladders,
+			this.audibleResponse.thesaurus_subject_keywords,
+			this.region
+		)
 		// Get flattened categories
 		this.getCategories()
 		// Find secondary series if available
@@ -326,11 +333,7 @@ class ApiHelper {
 			isAdult: this.audibleResponse.is_adult_product,
 			isbn: this.audibleResponse.isbn ?? '',
 			language: this.audibleResponse.language,
-			literatureType: this.audibleResponse.thesaurus_subject_keywords?.some((keyword) =>
-				keyword.includes('fiction')
-			)
-				? 'fiction'
-				: 'nonfiction',
+			literatureType,
 			narrators:
 				this.audibleResponse.narrators?.map((person: ApiNarratorOnBook) => {
 					const narratorJson: ApiNarratorOnBook = {
