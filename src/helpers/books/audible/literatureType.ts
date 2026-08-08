@@ -339,7 +339,9 @@ export default function literatureTypeFromProduct(
 		if (matches) return 'fiction'
 		return 'nonfiction'
 	}
-	return thesaurusKeywords?.some((keyword) => /(^|[^a-z])fiction([^a-z]|$)/i.test(keyword))
+	return thesaurusKeywords?.some(
+		(keyword) => /(^|[^a-z])fiction([^a-z]|$)/i.test(keyword) && !/nonfiction/i.test(keyword)
+	)
 		? 'fiction'
 		: 'nonfiction'
 }
