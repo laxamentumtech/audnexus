@@ -63,7 +63,11 @@ export function setupMinimalParsed(
 		isbn: response.isbn ?? '',
 		isAdult: response.is_adult_product,
 		language: response.language,
-		literatureType: literatureTypeFromProduct(response.category_ladders, response.thesaurus_subject_keywords, 'us'),
+		literatureType: literatureTypeFromProduct(
+			response.category_ladders,
+			response.thesaurus_subject_keywords,
+			'us'
+		),
 		narrators: response.narrators,
 		image,
 		...(response.rating && {
@@ -1294,7 +1298,7 @@ export const minimalB0036I54I6: ApiBook = {
 	releaseDate: new Date('1999-12-16T00:00:00.000Z'),
 	runtimeLengthMin: 114,
 	summary:
-		"Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions for American poetry and share the woman's perspective in distinct, powerful voices. Professor Middlebrook, author of the best selling <i>Anne Sexton: A Biography</i>, sheds light on the unique and important contributions of these poets by examining 4 works: \"Morning Song\" and \"Ariel\" by Plath and \"The Fortress\" and \"The Double Image\" by Sexton. Her conversations with Professor Lindenberger and an audience further delve into the work and lives of these women, their friendship, and their tragic deaths.",
+		'Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions for American poetry and share the woman\'s perspective in distinct, powerful voices. Professor Middlebrook, author of the best selling <i>Anne Sexton: A Biography</i>, sheds light on the unique and important contributions of these poets by examining 4 works: "Morning Song" and "Ariel" by Plath and "The Fortress" and "The Double Image" by Sexton. Her conversations with Professor Lindenberger and an audience further delve into the work and lives of these women, their friendship, and their tragic deaths.',
 	title: 'The Poetry of Anne Sexton and Sylvia Plath'
 }
 

@@ -21,8 +21,8 @@ import {
 	fallbackShape,
 	recognizedContentTypes
 } from '#config/types'
-import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import literatureTypeFromProduct from '#helpers/books/audible/literatureType'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
@@ -289,7 +289,7 @@ class ApiHelper {
 	 */
 	getFinalData(): ApiBook {
 		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
-		// Classify literature type BEFORE getCategories() / getGenres() which mutate category_ladders
+		// Classify literature type BEFORE getGenres() which mutates category_ladders
 		const literatureType = literatureTypeFromProduct(
 			this.audibleResponse.category_ladders,
 			this.audibleResponse.thesaurus_subject_keywords,

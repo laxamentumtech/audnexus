@@ -7,12 +7,14 @@ type Ladders = AudibleProduct['product']['category_ladders']
 
 const cat = (ladder: string[], root = 'Genres'): Ladders[number] => ({
 	root,
-	ladder: ladder.map((name, i) => ({ id: String(18570000000 + i), name })),
+	ladder: ladder.map((name, i) => ({ id: String(18570000000 + i), name }))
 })
 
 describe('literatureTypeFromProduct', () => {
 	test('fiction root, no fiction keyword', () => {
-		const ladders: Ladders = [cat(['Mystery, Thriller & Suspense', 'Thriller & Suspense', 'Espionage'])]
+		const ladders: Ladders = [
+			cat(['Mystery, Thriller & Suspense', 'Thriller & Suspense', 'Espionage'])
+		]
 		expect(literatureTypeFromProduct(ladders, [], 'us')).toBe('fiction')
 	})
 
