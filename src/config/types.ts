@@ -12,14 +12,11 @@ export const asin10Regex = new RegExp(`^${baseAsin10Regex.source}$`)
 export const asin11Regex = /\d{11}/gm
 
 // Reusable types
+// Audible book ASINs are either B-prefixed 10-char identifiers (e.g. B079LRSMNN)
+// or 10-char numeric identifiers (e.g. 1978650817). Both are valid book lookup
+// params; upstream Audible itself resolves existence, so unknown values should
+// surface as not-found there rather than being rejected here.
 export const AsinSchema = z.string().trim().regex(asin10Regex)
-// Audible book/author ASINs are always B-prefixed 10-char identifiers.
-// Used for route-param validation only; AsinSchema stays permissive for stored
-// data (chapter asins etc. can legitimately be numeric).
-export const BookAsinSchema = z
-	.string()
-	.trim()
-	.regex(/^B[\dA-Z]{9}$/)
 // Using different regex for 11 digit ASINs because zod validation needs quantifier
 export const GenreAsinSchema = z.string().regex(new RegExp(/^\d{10,12}$/))
 export const NameSchema = z.string().min(2)
