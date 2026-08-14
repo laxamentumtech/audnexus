@@ -39,7 +39,7 @@
 		"cheerio": "^1.0.0",
 		"domhandler": "5.0.3",
 		"fastify": "^5.7.4",
-		"html-to-text": "9.0.5",
+		"html-to-text": "10.0.0",
 		"ip-range-check": "^0.2.0",
 		"jsrsasign": "^11.0.0",
 		"lodash": "^4.17.21",
