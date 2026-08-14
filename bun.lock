@@ -22,7 +22,7 @@
         "mongodb": "^7.1.0",
         "p-limit": "^7.3.0",
         "papr": "^17.0.0",
-        "toad-scheduler": "^3.0.1",
+        "toad-scheduler": "^4.0.0",
         "zod": "^4.3.6",
       },
       "devDependencies": {
@@ -309,7 +309,7 @@
 
     "core-js": ["core-js@3.48.0", "", {}, "sha512-zpEHTy1fjTMZCKLHUZoVeylt9XrzaIN2rbPXEt0k+q7JE5CkCZdo6bNq55bn24a69CH7ErAVLKijxJja4fw+UQ=="],
 
-    "croner": ["croner@8.1.2", "", {}, "sha512-ypfPFcAXHuAZRCzo3vJL6ltENzniTjwe/qsLleH1V2/7SRDjgvRQyrLmumFTLmjFax4IuSxfGXEn79fozXcJog=="],
+    "croner": ["croner@10.0.1", "", {}, "sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g=="],
 
     "cross-spawn": ["cross-spawn@7.0.6", "", { "dependencies": { "path-key": "3.1.1", "shebang-command": "2.0.0", "which": "2.0.2" } }, "sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA=="],
 
@@ -805,7 +805,7 @@
 
     "toad-cache": ["toad-cache@3.7.0", "", {}, "sha512-/m8M+2BJUpoJdgAHoG+baCwBT+tf2VraSfkBgl0Y00qIWt41DJ8R5B8nsEw0I58YwF5IZH6z24/2TobDKnqSWw=="],
 
-    "toad-scheduler": ["toad-scheduler@3.1.0", "", { "dependencies": { "croner": "8.1.2" } }, "sha512-ZTwsGMWyKTOokgTmIvjPIvkT3ZiPFgkAi8L0OLONOcSc/BUDPRzNMOfVWZzugIAxyntvY0Nzy1etNk+31Q4FXQ=="],
+    "toad-scheduler": ["toad-scheduler@4.1.0", "", { "dependencies": { "croner": "^10.0.1" } }, "sha512-2HF37I09Tc4SW+nF1nkSLd3tDaZzsNrCzMn6p+Hzg3io9Rqkc8JQ3KK26Q6AUtBqEg9coleau3bRj8873FHjGA=="],
 
     "tr46": ["tr46@5.1.1", "", { "dependencies": { "punycode": "2.3.1" } }, "sha512-hdF5ZgjTqgAntKkklYw0R03MG2x/bSzTtkxmIRw/sTNV8YXsCJ1tfLAX23lhxhHJlEf3CRCOCGGWw3vI3GaSPw=="],
 
