@@ -234,6 +234,25 @@ describe('ApiHelper edge cases should', () => {
 		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
 	})
 
+	test('getFinalData maps ratings object', async () => {
+		helper.audibleResponse = mockResponse.product
+		const parsed = helper.getFinalData()
+		expect(parsed.rating).toBe('4.5')
+		expect(parsed.ratings).toEqual({
+			value: '4.5',
+			numRatings: 20105,
+			numReviews: 1727,
+			distribution: { five: 13753, four: 4256, three: 1374, two: 445, one: 277 },
+			performanceDistribution: { five: 16052, four: 2055, three: 383, two: 73, one: 73 },
+			storyDistribution: { five: 11841, four: 4158, three: 1657, two: 553, one: 367 }
+		})
+	})
+
+	test('getRatings returns undefined when rating block is missing', () => {
+		helper.audibleResponse = { ...mockResponse.product, rating: undefined }
+		expect(helper.getRatings()).toBeUndefined()
+	})
+
 	test('pass key check with a number value of 0', async () => {
 		const data = mockResponse
 		mockResponse.product.runtime_length_min = 0

@@ -294,6 +294,28 @@ paths:
                       - name: Ray Porter
                     publisherName: Audible Studios
                     rating: '4.9'
+                    ratings:
+                      value: '4.9'
+                      numRatings: 158505
+                      numReviews: 18832
+                      distribution:
+                        five: 141378
+                        four: 14019
+                        three: 2262
+                        two: 558
+                        one: 288
+                      performanceDistribution:
+                        five: 136044
+                        four: 7138
+                        three: 1126
+                        two: 237
+                        one: 185
+                      storyDistribution:
+                        five: 125817
+                        four: 14956
+                        three: 2467
+                        two: 619
+                        one: 318
                     region: us
                     releaseDate: '2021-05-04T00:00:00.000Z'
                     runtimeLengthMin: 970
@@ -1125,6 +1147,27 @@ components:
           type: string
         rating:
           type: string
+        ratings:
+          type: object
+          description: Rating counts and star distribution from Audible
+          properties:
+            value:
+              type: string
+            numRatings:
+              type: number
+            numReviews:
+              type: number
+            distribution:
+              $ref: '#/components/schemas/RatingDistribution'
+            performanceDistribution:
+              $ref: '#/components/schemas/RatingDistribution'
+            storyDistribution:
+              $ref: '#/components/schemas/RatingDistribution'
+          required:
+            - value
+            - numRatings
+            - numReviews
+            - distribution
         region:
           type: string
           enum:
@@ -1235,6 +1278,26 @@ components:
           type: string
       required:
         - name
+    RatingDistribution:
+      type: object
+      description: Star distribution counts
+      properties:
+        five:
+          type: number
+        four:
+          type: number
+        three:
+          type: number
+        two:
+          type: number
+        one:
+          type: number
+      required:
+        - five
+        - four
+        - three
+        - two
+        - one
     Series:
       required:
         - name

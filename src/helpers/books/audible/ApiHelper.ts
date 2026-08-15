@@ -8,6 +8,7 @@ import {
 	ApiGenre,
 	ApiGenreSchema,
 	ApiNarratorOnBook,
+	ApiRatings,
 	ApiSeries,
 	ApiSeriesSchema,
 	AudibleCategory,
@@ -202,6 +203,42 @@ class ApiHelper {
 	}
 
 	/**
+	 * Compile the ratings object (counts + star distributions) from the
+	 * upstream rating response group. Returns undefined when Audible
+	 * did not return a rating block.
+	 */
+	getRatings(): ApiRatings | undefined {
+		const rating = this.audibleResponse?.rating
+		if (!rating) return undefined
+		return {
+			value: rating.overall_distribution.display_average_rating.toString(),
+			numRatings: rating.overall_distribution.num_ratings,
+			numReviews: rating.num_reviews,
+			distribution: {
+				five: rating.overall_distribution.num_five_star_ratings,
+				four: rating.overall_distribution.num_four_star_ratings,
+				three: rating.overall_distribution.num_three_star_ratings,
+				two: rating.overall_distribution.num_two_star_ratings,
+				one: rating.overall_distribution.num_one_star_ratings
+			},
+			performanceDistribution: {
+				five: rating.performance_distribution.num_five_star_ratings,
+				four: rating.performance_distribution.num_four_star_ratings,
+				three: rating.performance_distribution.num_three_star_ratings,
+				two: rating.performance_distribution.num_two_star_ratings,
+				one: rating.performance_distribution.num_one_star_ratings
+			},
+			storyDistribution: {
+				five: rating.story_distribution.num_five_star_ratings,
+				four: rating.story_distribution.num_four_star_ratings,
+				three: rating.story_distribution.num_three_star_ratings,
+				two: rating.story_distribution.num_two_star_ratings,
+				one: rating.story_distribution.num_one_star_ratings
+			}
+		}
+	}
+
+	/**
 	 * Transform series data into a usable format
 	 */
 	getSeries(series: AudibleSeries): ApiSeries | undefined {
@@ -346,6 +383,9 @@ class ApiHelper {
 			publisherName: this.audibleResponse.publisher_name,
 			...(this.audibleResponse.rating && {
 				rating: this.audibleResponse.rating.overall_distribution.display_average_rating.toString()
+			}),
+			...(this.getRatings() && {
+				ratings: this.getRatings()
 			}),
 			region: this.region,
 			releaseDate: this.getReleaseDate(),

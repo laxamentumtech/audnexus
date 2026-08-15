@@ -36,6 +36,35 @@ const bookSchema = schema(
 		),
 		publisherName: types.string({ required: true }),
 		rating: types.string({ required: true }),
+		ratings: types.object({
+			value: types.string({ required: true }),
+			numRatings: types.number({ required: true }),
+			numReviews: types.number({ required: true }),
+			distribution: types.object(
+				{
+					five: types.number({ required: true }),
+					four: types.number({ required: true }),
+					three: types.number({ required: true }),
+					two: types.number({ required: true }),
+					one: types.number({ required: true })
+				},
+				{ required: true }
+			),
+			performanceDistribution: types.object({
+				five: types.number({ required: true }),
+				four: types.number({ required: true }),
+				three: types.number({ required: true }),
+				two: types.number({ required: true }),
+				one: types.number({ required: true })
+			}),
+			storyDistribution: types.object({
+				five: types.number({ required: true }),
+				four: types.number({ required: true }),
+				three: types.number({ required: true }),
+				two: types.number({ required: true }),
+				one: types.number({ required: true })
+			})
+		}),
 		region: types.string({
 			enum: Object.keys(regions),
 			pattern: regionRegex,
