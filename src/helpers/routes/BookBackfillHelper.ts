@@ -39,7 +39,10 @@ export default class BookBackfillHelper {
 				this.logger,
 				true
 			)
-			await helper.handler()
+			const updatedBook = await helper.handler()
+			if (!updatedBook || !('ratings' in updatedBook && updatedBook.ratings)) {
+				throw new Error(`Ratings were not populated for ${book.asin}`)
+			}
 		})
 		return { total: summary.total, updated: summary.success, failed: summary.failures }
 	}

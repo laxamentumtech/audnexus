@@ -85,20 +85,24 @@ export function setupMinimalParsed(
 					two: response.rating.overall_distribution.num_two_star_ratings,
 					one: response.rating.overall_distribution.num_one_star_ratings
 				},
-				performanceDistribution: {
-					five: response.rating.performance_distribution.num_five_star_ratings,
-					four: response.rating.performance_distribution.num_four_star_ratings,
-					three: response.rating.performance_distribution.num_three_star_ratings,
-					two: response.rating.performance_distribution.num_two_star_ratings,
-					one: response.rating.performance_distribution.num_one_star_ratings
-				},
-				storyDistribution: {
-					five: response.rating.story_distribution.num_five_star_ratings,
-					four: response.rating.story_distribution.num_four_star_ratings,
-					three: response.rating.story_distribution.num_three_star_ratings,
-					two: response.rating.story_distribution.num_two_star_ratings,
-					one: response.rating.story_distribution.num_one_star_ratings
-				}
+				...(response.rating.performance_distribution && {
+					performanceDistribution: {
+						five: response.rating.performance_distribution.num_five_star_ratings,
+						four: response.rating.performance_distribution.num_four_star_ratings,
+						three: response.rating.performance_distribution.num_three_star_ratings,
+						two: response.rating.performance_distribution.num_two_star_ratings,
+						one: response.rating.performance_distribution.num_one_star_ratings
+					}
+				}),
+				...(response.rating.story_distribution && {
+					storyDistribution: {
+						five: response.rating.story_distribution.num_five_star_ratings,
+						four: response.rating.story_distribution.num_four_star_ratings,
+						three: response.rating.story_distribution.num_three_star_ratings,
+						two: response.rating.story_distribution.num_two_star_ratings,
+						one: response.rating.story_distribution.num_one_star_ratings
+					}
+				})
 			}
 		}),
 		publisherName: response.publisher_name,

@@ -33,6 +33,17 @@ const books = [
 	{ asin: 'B000000003', region: null }
 ]
 
+const bookWithRatings = {
+	asin: 'B000000001',
+	rating: '4.6',
+	ratings: { value: '4.6', numRatings: 120, numReviews: 8 }
+}
+
+const bookWithoutRatings = {
+	asin: 'B000000002',
+	rating: '4.2'
+}
+
 describe('BookBackfillHelper should', () => {
 	let helper: BookBackfillHelper
 
@@ -41,14 +52,34 @@ describe('BookBackfillHelper should', () => {
 		showConstructorArgs.length = 0
 		helper = new BookBackfillHelper(createMockLogger())
 		mockBookFind.mockResolvedValue(books)
-		mockShowHandler.mockResolvedValue(undefined)
-		mockProcessBatchByRegion.mockImplementation(async (_items: unknown[], processor: (item: unknown) => Promise<unknown>) => {
-			await Promise.all(books.map((book) => processor(book)))
-			return {
-				results: [],
-				summary: { total: 3, success: 2, failures: 1, regions: {}, maxConcurrencyObserved: 1 }
+		mockShowHandler.mockResolvedValue(bookWithRatings)
+		mockProcessBatchByRegion.mockImplementation(
+			async (
+				items: { asin: string }[],
+				processor: (item: { asin: string }) => Promise<unknown>
+			) => {
+				let success = 0
+				let failures = 0
+				for (const item of items) {
+					try {
+						await processor(item)
+						success += 1
+					} catch {
+						failures += 1
+					}
+				}
+				return {
+					results: [],
+					summary: {
+						total: items.length,
+						success,
+						failures,
+						regions: {},
+						maxConcurrencyObserved: 1
+					}
+				}
 			}
-		})
+		)
 	})
 
 	test('queries only books missing the ratings field, sorted by updatedAt desc', async () => {
@@ -73,7 +104,20 @@ describe('BookBackfillHelper should', () => {
 	})
 
 	test('maps the batch summary to the backfill result', async () => {
+		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 3, failed: 0 })
+	})
+
+	test('counts a book as failed when the refetch does not populate ratings', async () => {
+		mockShowHandler.mockImplementation(async () => {
+			const asin = showConstructorArgs.at(-1)?.[0]
+			return asin === 'B000000002' ? bookWithoutRatings : bookWithRatings
+		})
 		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 2, failed: 1 })
+	})
+
+	test('counts a book as failed when the handler returns undefined', async () => {
+		mockShowHandler.mockImplementation(async () => undefined)
+		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 0, failed: 3 })
 	})
 })
 

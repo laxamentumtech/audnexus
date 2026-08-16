@@ -47,12 +47,9 @@ function expectRatingsConsistent(book: ApiBook) {
 	expect(book.ratings?.value).toBe(book.rating)
 	const distribution = book.ratings?.distribution
 	expect(distribution).toBeDefined()
+	if (!distribution) throw new Error('distribution expected to be defined')
 	const totalStars =
-		distribution.five +
-		distribution.four +
-		distribution.three +
-		distribution.two +
-		distribution.one
+		distribution.five + distribution.four + distribution.three + distribution.two + distribution.one
 	expect(totalStars).toBe(book.ratings?.numRatings)
 	expect(book.ratings?.numReviews).toBeGreaterThanOrEqual(0)
 }
