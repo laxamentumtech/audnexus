@@ -177,8 +177,10 @@ const AudibleRatingItemSchema = z.object({
 const AudibleRatingSchema = z.object({
 	num_reviews: z.number().or(z.literal(0)),
 	overall_distribution: AudibleRatingItemSchema,
-	performance_distribution: AudibleRatingItemSchema,
-	story_distribution: AudibleRatingItemSchema
+	// Audible omits these groups for some products; keep them optional so the
+	// parse does not reject products that lack a performance/story distribution
+	performance_distribution: AudibleRatingItemSchema.optional(),
+	story_distribution: AudibleRatingItemSchema.optional()
 })
 
 export const AudibleSeriesSchema = z.object({

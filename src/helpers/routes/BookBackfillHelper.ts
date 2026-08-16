@@ -20,6 +20,10 @@ export default class BookBackfillHelper {
 	/**
 	 * Re-fetches every book document that lacks the `ratings` field,
 	 * using the same update path as the scheduled updates.
+	 *
+	 * forceUpdate is set so the recency gate does not skip recently-updated
+	 * books — the backfill targets books missing `ratings` regardless of
+	 * their `updatedAt`.
 	 */
 	async process(): Promise<BackfillResult> {
 		const books = await BookModel.find(
@@ -31,7 +35,9 @@ export default class BookBackfillHelper {
 			const helper = new BookShowHelper(
 				book.asin,
 				{ region: book.region ?? 'us', update: '1' },
-				null
+				null,
+				this.logger,
+				true
 			)
 			await helper.handler()
 		})

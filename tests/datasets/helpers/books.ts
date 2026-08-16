@@ -1,7 +1,7 @@
 import { ObjectId, WithId } from 'mongodb'
 
 import { BookDocument } from '#config/models/Book'
-import { ApiBook, ApiBookSchema, ApiGenreSchema, AudibleProductSchema } from '#config/types'
+import { ApiBook, ApiBookSchema, ApiGenreSchema, ApiRatings, AudibleProductSchema } from '#config/types'
 
 // Reusable
 const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
@@ -32,7 +32,7 @@ const narrators = [
 ]
 const publisherName = 'Podium Audio'
 const rating = '4.5'
-const ratings = {
+export const ratings: ApiRatings = {
 	value: '4.5',
 	numRatings: 20105,
 	numReviews: 1727,

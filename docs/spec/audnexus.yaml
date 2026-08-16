@@ -444,6 +444,75 @@ paths:
         in: path
         required: true
         description: Audible.com ID
+  '/books/backfill-ratings':
+    post:
+      summary: Backfill ratings
+      description: |
+        Re-fetches every stored book that is missing the `ratings` field and
+        persists the rating counts and star distributions. Admin-only; disabled
+        unless the `UPDATE_STATS` environment flag is enabled.
+      operationId: backfillRatings
+      tags:
+        - Books
+      parameters:
+        - name: x-admin-token
+          in: header
+          description: Admin token used to authorize the backfill
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Backfill completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  total:
+                    type: integer
+                    description: Number of books processed
+                  updated:
+                    type: integer
+                    description: Number of books successfully updated
+                  failed:
+                    type: integer
+                    description: Number of books that failed to update
+                example:
+                  message: Ratings backfill complete
+                  total: 1500
+                  updated: 1498
+                  failed: 2
+        '401':
+          description: Missing or invalid admin token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+              example:
+                error: Unauthorized
+                message: Invalid admin token
+        '404':
+          description: Backfill endpoint disabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+              example:
+                error: Not Found
+                message: Route not available
   '/books/{ASIN}/chapters':
     get:
       summary: Find chapters by ASIN
