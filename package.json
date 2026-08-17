@@ -47,7 +47,7 @@
 		"mongodb": "^7.1.0",
 		"p-limit": "^7.3.0",
 		"papr": "^17.0.0",
-		"toad-scheduler": "^3.0.1",
+		"toad-scheduler": "^4.0.0",
 		"zod": "^4.3.6"
 	},
 	"devDependencies": {
