@@ -1,7 +1,7 @@
 import { ObjectId, WithId } from 'mongodb'
 
 import { BookDocument } from '#config/models/Book'
-import { ApiBook, ApiBookSchema, ApiGenreSchema, AudibleProductSchema } from '#config/types'
+import { ApiBook, ApiBookSchema, ApiGenreSchema, ApiRatings, AudibleProductSchema } from '#config/types'
 
 // Reusable
 const _id = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f8f')
@@ -32,6 +32,14 @@ const narrators = [
 ]
 const publisherName = 'Podium Audio'
 const rating = '4.5'
+export const ratings: ApiRatings = {
+	value: '4.5',
+	numRatings: 20105,
+	numReviews: 1727,
+	distribution: { five: 13753, four: 4256, three: 1374, two: 445, one: 277 },
+	performanceDistribution: { five: 16052, four: 2055, three: 383, two: 73, one: 73 },
+	storyDistribution: { five: 11841, four: 4158, three: 1657, two: 553, one: 367 }
+}
 const region = 'us'
 const releaseDate = new Date('2018-02-20T00:00:00.000Z')
 const runtimeLengthMin = 1042
@@ -385,6 +393,7 @@ export const parsedBook = ApiBookSchema.parse({
 	narrators,
 	publisherName,
 	rating,
+	ratings,
 	region,
 	releaseDate,
 	runtimeLengthMin,
@@ -446,6 +455,7 @@ export const parsedBookWithoutGenres: ApiBook = {
 	narrators,
 	publisherName,
 	rating,
+	ratings,
 	region,
 	releaseDate,
 	runtimeLengthMin,

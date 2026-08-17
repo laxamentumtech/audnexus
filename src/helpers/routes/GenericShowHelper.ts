@@ -39,17 +39,20 @@ export default class GenericShowHelper {
 	sharedHelper: SharedHelper
 	type: 'author' | 'book' | 'chapter'
 	logger?: FastifyBaseLogger
+	forceUpdate?: boolean
 	constructor(
 		asin: string,
 		options: ApiQueryString,
 		redis: FastifyRedis | null,
 		type: 'author' | 'book' | 'chapter',
-		logger?: FastifyBaseLogger
+		logger?: FastifyBaseLogger,
+		forceUpdate?: boolean
 	) {
 		this.asin = asin
 		this.options = options
 		this.type = type
 		this.logger = logger
+		this.forceUpdate = forceUpdate
 		this.paprHelper = this.setupPaprHelper()
 		this.redisHelper = new RedisHelper(redis, type, asin, options.region, logger)
 		this.schema = this.setupSchema()
@@ -210,8 +213,9 @@ export default class GenericShowHelper {
 	 */
 	async updateActions(): Promise<ApiAuthorProfile | ApiBook | ApiChapter | undefined> {
 		if (!this.originalData) throw new Error(ErrorMessageMissingOriginal(this.asin, this.type))
-		// 1. Check if the data is updated recently
-		if (this.isUpdatedRecently()) return this.getDataWithProjection()
+		// 1. Check if the data is updated recently — bypassed when forceUpdate is
+		// set (e.g. the ratings backfill), which must re-fetch every book it targets
+		if (!this.forceUpdate && this.isUpdatedRecently()) return this.getDataWithProjection()
 
 		// 2. Update the data,
 		// return undefined for chapters if the data is not updated

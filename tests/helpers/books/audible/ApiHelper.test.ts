@@ -23,7 +23,7 @@ import {
 	podcast,
 	podcastWithoutProgramParticipation
 } from '#tests/datasets/audible/books/api'
-import { apiResponse, parsedBook, parsedBookWithoutNarrators } from '#tests/datasets/helpers/books'
+import { apiResponse, parsedBook, parsedBookWithoutNarrators, ratings } from '#tests/datasets/helpers/books'
 import { createMockLogger } from '#tests/setup/mockLogger'
 
 mock.module('#helpers/utils/fetchPlus', () => {
@@ -232,6 +232,34 @@ describe('ApiHelper edge cases should', () => {
 		helper.audibleResponse!.narrators = undefined
 
 		expect(helper.getFinalData()).toEqual(parsedBookWithoutNarrators)
+	})
+
+	test('getFinalData maps ratings object', async () => {
+		helper.audibleResponse = mockResponse.product
+		const parsed = helper.getFinalData()
+		expect(parsed.rating).toBe('4.5')
+		expect(parsed.ratings).toEqual(ratings)
+	})
+
+	test('getRatings omits absent performance/story distributions', () => {
+		helper.audibleResponse = {
+			...mockResponse.product,
+			rating: {
+				...mockResponse.product.rating,
+				performance_distribution: undefined,
+				story_distribution: undefined
+			}
+		}
+		const result = helper.getRatings()
+		expect(result).toBeDefined()
+		expect(result).not.toHaveProperty('performanceDistribution')
+		expect(result).not.toHaveProperty('storyDistribution')
+		expect(result?.distribution).toEqual(ratings.distribution)
+	})
+
+	test('getRatings returns undefined when rating block is missing', () => {
+		helper.audibleResponse = { ...mockResponse.product, rating: undefined }
+		expect(helper.getRatings()).toBeUndefined()
 	})
 
 	test('pass key check with a number value of 0', async () => {
