@@ -25,7 +25,7 @@ services:
       start_period: 30s
 
   mongo:
-    image: mongo:7.0.37@sha256:8ecb514b00bdcc0bde67ef4e6c330385377a9dc68e24ee94e28c07c891647348
+    image: mongo:8.3.8@sha256:5211c51171f57ae60842b11664bb244628971b3d35325762a97888337b9bb0db
     restart: always
     volumes:
       - /mnt/docker/mongo/data:/data/db
