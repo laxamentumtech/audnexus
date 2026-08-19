@@ -77,6 +77,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
+	SCHEDULER_BATCH_SIZE: 1000,
 	DEFAULT_REGION: 'us',
 	...overrides
 })
@@ -141,6 +142,15 @@ describe('BookShowHelper should', () => {
 		spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalData = bookWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)
+	})
+
+	test('forceUpdate bypasses the recency gate and re-fetches', async () => {
+		helper = new BookShowHelper(asin, { region: 'us', update: '1' }, null, undefined, true)
+		spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
+		helper.originalData = bookWithoutProjectionUpdatedNow
+		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)
+		// Recency gate bypassed: the upstream fetch actually ran
+		expect(mockStitchProcess).toHaveBeenCalled()
 	})
 
 	test('isUpdatedRecently returns false if no originalData is present', () => {

@@ -26,6 +26,7 @@ import { registerPerformanceHooks } from '#config/performance/hooks'
 import deleteAuthor from '#config/routes/authors/delete'
 import searchAuthor from '#config/routes/authors/search/show'
 import showAuthor from '#config/routes/authors/show'
+import backfillBookRatings from '#config/routes/books/backfill'
 import deleteChapter from '#config/routes/books/chapters/delete'
 import showChapter from '#config/routes/books/chapters/show'
 import deleteBook from '#config/routes/books/delete'
@@ -212,6 +213,7 @@ async function registerRoutes() {
 		.register(searchBook)
 		.register(showBook)
 		.register(deleteBook)
+		.register(backfillBookRatings)
 		.register(showChapter)
 		.register(deleteChapter)
 		.register(showAuthor)

@@ -28,6 +28,34 @@ let asin: string
 let helper: StitchHelper
 let response: ApiBook
 
+// Live rating counts and the average star rating drift over time, so the
+// snapshot comparison excludes `ratings` and the derived `rating` field; the
+// ratings object is validated structurally instead.
+function stripRatings(book: ApiBook): Partial<ApiBook> {
+	const rest: Partial<ApiBook> = { ...book }
+	delete rest.ratings
+	delete rest.rating
+	return rest
+}
+
+// Live contributor payloads also drift (e.g. newly added asins), so compare
+// authors by name and order only.
+function authorNames(book: ApiBook) {
+	return book.authors.map((author) => author.name)
+}
+
+function expectRatingsConsistent(book: ApiBook) {
+	expect(book.ratings).toBeDefined()
+	expect(book.ratings?.value).toBe(book.rating)
+	const distribution = book.ratings?.distribution
+	expect(distribution).toBeDefined()
+	if (!distribution) throw new Error('distribution expected to be defined')
+	const totalStars =
+		distribution.five + distribution.four + distribution.three + distribution.two + distribution.one
+	expect(totalStars).toBe(book.ratings?.numRatings)
+	expect(book.ratings?.numReviews).toBeGreaterThanOrEqual(0)
+}
+
 describe('Audible API and HTML Parsing', () => {
 	describe('When stitching together Scorcerers Stone', () => {
 		beforeAll(async () => {
@@ -38,7 +66,8 @@ describe('Audible API and HTML Parsing', () => {
 		}, 10000)
 
 		it('returned the correct data', () => {
-			expect(response).toEqual(combinedB017V4IM1G)
+			expect(stripRatings(response)).toEqual(stripRatings(combinedB017V4IM1G))
+			expectRatingsConsistent(response)
 		})
 	})
 
@@ -51,7 +80,8 @@ describe('Audible API and HTML Parsing', () => {
 		}, 10000)
 
 		it('returned the correct data', () => {
-			expect(response).toEqual(combinedB08C6YJ1LS)
+			expect(stripRatings(response)).toEqual(stripRatings(combinedB08C6YJ1LS))
+			expectRatingsConsistent(response)
 		})
 	})
 
@@ -77,7 +107,9 @@ describe('Audible API and HTML Parsing', () => {
 		}, 10000)
 
 		it('returned the correct data', () => {
-			expect(response).toEqual(minimalB0036I54I6)
+			expect(stripRatings(response)).toEqual(stripRatings(minimalB0036I54I6))
+			expect(authorNames(response)).toEqual(authorNames(minimalB0036I54I6))
+			expectRatingsConsistent(response)
 		})
 
 		it('throws NotFoundError for chapters with correct properties', () => {

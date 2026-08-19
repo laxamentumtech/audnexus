@@ -3,6 +3,7 @@ import {
 	DEFAULT_PERFORMANCE_CONFIG,
 	getPerformanceConfig,
 	PerformanceConfig,
+	PerformanceConfigSchema,
 	resetPerformanceConfig,
 	setPerformanceConfig
 } from '#config/performance'
@@ -159,6 +160,12 @@ describe('PerformanceConfig', () => {
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
 
+		it('should use default 1000 for SCHEDULER_BATCH_SIZE when not set', () => {
+			delete process.env.SCHEDULER_BATCH_SIZE
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(1000)
+		})
+
 		it('should use default "us" for DEFAULT_REGION when not set', () => {
 			delete process.env.DEFAULT_REGION
 			const config = createPerformanceConfig()
@@ -215,6 +222,12 @@ describe('PerformanceConfig', () => {
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(10)
 		})
 
+		it('should override SCHEDULER_BATCH_SIZE from environment', () => {
+			process.env.SCHEDULER_BATCH_SIZE = '2000'
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(2000)
+		})
+
 		it('should override DEFAULT_REGION from environment', () => {
 			process.env.DEFAULT_REGION = 'uk'
 			const config = createPerformanceConfig()
@@ -230,6 +243,7 @@ describe('PerformanceConfig', () => {
 			process.env.MAX_CONCURRENT_REQUESTS = '75'
 			process.env.SCHEDULER_CONCURRENCY = '8'
 			process.env.SCHEDULER_MAX_PER_REGION = '12'
+			process.env.SCHEDULER_BATCH_SIZE = '1500'
 			process.env.DEFAULT_REGION = 'uk'
 
 			const config = createPerformanceConfig()
@@ -242,6 +256,7 @@ describe('PerformanceConfig', () => {
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(75)
 			expect(config.SCHEDULER_CONCURRENCY).toBe(8)
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(12)
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(1500)
 			expect(config.DEFAULT_REGION).toBe('uk')
 		})
 	})
@@ -382,6 +397,90 @@ describe('PerformanceConfig', () => {
 			const config = createPerformanceConfig()
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 		})
+
+		it('should fallback to 1000 for SCHEDULER_BATCH_SIZE with non-numeric string "abc"', () => {
+			process.env.SCHEDULER_BATCH_SIZE = 'abc'
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(1000)
+		})
+
+		it('should fallback to 1000 for SCHEDULER_BATCH_SIZE with negative string "-1"', () => {
+			process.env.SCHEDULER_BATCH_SIZE = '-1'
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(1000)
+		})
+
+		it('should fallback to 1000 for SCHEDULER_BATCH_SIZE with zero "0"', () => {
+			process.env.SCHEDULER_BATCH_SIZE = '0'
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(1000)
+		})
+
+		it('should clamp SCHEDULER_BATCH_SIZE to the hard upper bound', () => {
+			process.env.SCHEDULER_BATCH_SIZE = '10000000'
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(10000)
+		})
+
+		it('should clamp SCHEDULER_BATCH_SIZE above Number.MAX_SAFE_INTEGER', () => {
+			process.env.SCHEDULER_BATCH_SIZE = '9007199254740992'
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(10000)
+		})
+
+		it('should clamp SCHEDULER_BATCH_SIZE for huge non-safe inputs', () => {
+			process.env.SCHEDULER_BATCH_SIZE = '999999999999999999999999'
+			const config = createPerformanceConfig()
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(10000)
+		})
+
+		it('should reject SCHEDULER_BATCH_SIZE above the cap through the schema', () => {
+			const result = PerformanceConfigSchema.safeParse({
+				SCHEDULER_BATCH_SIZE: 10001
+			})
+			expect(result.success).toBe(false)
+		})
+
+		it('should accept SCHEDULER_BATCH_SIZE at the cap through the schema', () => {
+			const result = PerformanceConfigSchema.safeParse({
+				SCHEDULER_BATCH_SIZE: 10000
+			})
+			expect(result.success).toBe(true)
+		})
+
+		it('should reject SCHEDULER_BATCH_SIZE above the cap through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() =>
+				setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 10001 })
+			).toThrow()
+		})
+
+		it('should reject SCHEDULER_BATCH_SIZE of zero through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 0 })).toThrow()
+		})
+
+		it('should reject negative SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: -1 })).toThrow()
+		})
+
+		it('should reject fractional SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 1.5 })).toThrow()
+		})
+
+		it('should reject NaN SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: NaN })).toThrow()
+		})
+
+		it('should accept a valid SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() =>
+				setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 1000 })
+			).not.toThrow()
+		})
 	})
 
 	describe('Singleton Pattern', () => {
@@ -413,6 +512,7 @@ describe('PerformanceConfig', () => {
 				MAX_CONCURRENT_REQUESTS: 100,
 				SCHEDULER_CONCURRENCY: 10,
 				SCHEDULER_MAX_PER_REGION: 10,
+				SCHEDULER_BATCH_SIZE: 2000,
 				DEFAULT_REGION: 'uk'
 			}
 
@@ -427,6 +527,7 @@ describe('PerformanceConfig', () => {
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(100)
 			expect(config.SCHEDULER_CONCURRENCY).toBe(10)
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(10)
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(2000)
 			expect(config.DEFAULT_REGION).toBe('uk')
 		})
 
@@ -441,6 +542,7 @@ describe('PerformanceConfig', () => {
 				MAX_CONCURRENT_REQUESTS: 50,
 				SCHEDULER_CONCURRENCY: 5,
 				SCHEDULER_MAX_PER_REGION: 5,
+				SCHEDULER_BATCH_SIZE: 1000,
 				DEFAULT_REGION: 'us'
 			}
 
@@ -467,6 +569,7 @@ describe('PerformanceConfig', () => {
 			expect(DEFAULT_PERFORMANCE_CONFIG.MAX_CONCURRENT_REQUESTS).toBe(50)
 			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_CONCURRENCY).toBe(5)
 			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_MAX_PER_REGION).toBe(5)
+			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_BATCH_SIZE).toBe(1000)
 			expect(DEFAULT_PERFORMANCE_CONFIG.DEFAULT_REGION).toBe('us')
 		})
 
@@ -481,6 +584,7 @@ describe('PerformanceConfig', () => {
 				'MAX_CONCURRENT_REQUESTS',
 				'SCHEDULER_CONCURRENCY',
 				'SCHEDULER_MAX_PER_REGION',
+				'SCHEDULER_BATCH_SIZE',
 				'DEFAULT_REGION'
 			]
 
@@ -503,6 +607,7 @@ describe('PerformanceConfig', () => {
 			expect(typeof config.MAX_CONCURRENT_REQUESTS).toBe('number')
 			expect(typeof config.SCHEDULER_CONCURRENCY).toBe('number')
 			expect(typeof config.SCHEDULER_MAX_PER_REGION).toBe('number')
+			expect(typeof config.SCHEDULER_BATCH_SIZE).toBe('number')
 			expect(typeof config.DEFAULT_REGION).toBe('string')
 		})
 
@@ -523,6 +628,7 @@ describe('PerformanceConfig', () => {
 			delete process.env.MAX_CONCURRENT_REQUESTS
 			delete process.env.SCHEDULER_CONCURRENCY
 			delete process.env.SCHEDULER_MAX_PER_REGION
+			delete process.env.SCHEDULER_BATCH_SIZE
 			delete process.env.DEFAULT_REGION
 
 			const config = createPerformanceConfig()
@@ -535,6 +641,7 @@ describe('PerformanceConfig', () => {
 			expect(config.MAX_CONCURRENT_REQUESTS).toBe(50)
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
+			expect(config.SCHEDULER_BATCH_SIZE).toBe(1000)
 			expect(config.DEFAULT_REGION).toBe('us')
 		})
 

@@ -8,6 +8,8 @@ import {
 	ApiGenre,
 	ApiGenreSchema,
 	ApiNarratorOnBook,
+	ApiRatingDistribution,
+	ApiRatings,
 	ApiSeries,
 	ApiSeriesSchema,
 	AudibleCategory,
@@ -202,6 +204,46 @@ class ApiHelper {
 	}
 
 	/**
+	 * Map an upstream star-distribution group to the camelCase shape.
+	 */
+	private starCounts(
+		distribution: NonNullable<AudibleProduct['product']['rating']>['overall_distribution']
+	): ApiRatingDistribution {
+		return {
+			five: distribution.num_five_star_ratings,
+			four: distribution.num_four_star_ratings,
+			three: distribution.num_three_star_ratings,
+			two: distribution.num_two_star_ratings,
+			one: distribution.num_one_star_ratings
+		}
+	}
+
+	/**
+	 * Compile the ratings object (counts + star distributions) from the
+	 * upstream rating response group. Returns undefined when Audible
+	 * did not return a rating block. Audible omits the
+	 * performance/story distribution groups for some products; those
+	 * sub-distributions are then left absent on the result (matching
+	 * ApiRatingsSchema, which marks them optional) instead of throwing.
+	 */
+	getRatings(): ApiRatings | undefined {
+		const rating = this.audibleResponse?.rating
+		if (!rating) return undefined
+		return {
+			value: rating.overall_distribution.display_average_rating.toString(),
+			numRatings: rating.overall_distribution.num_ratings,
+			numReviews: rating.num_reviews,
+			distribution: this.starCounts(rating.overall_distribution),
+			...(rating.performance_distribution && {
+				performanceDistribution: this.starCounts(rating.performance_distribution)
+			}),
+			...(rating.story_distribution && {
+				storyDistribution: this.starCounts(rating.story_distribution)
+			})
+		}
+	}
+
+	/**
 	 * Transform series data into a usable format
 	 */
 	getSeries(series: AudibleSeries): ApiSeries | undefined {
@@ -308,6 +350,7 @@ class ApiHelper {
 			series1 = this.getSeriesPrimary(this.audibleResponse.series)
 			series2 = this.getSeriesSecondary(this.audibleResponse.series)
 		}
+		const ratings = this.getRatings()
 		// Parse final data
 		return ApiBookSchema.parse({
 			asin: this.audibleResponse.asin,
@@ -346,6 +389,9 @@ class ApiHelper {
 			publisherName: this.audibleResponse.publisher_name,
 			...(this.audibleResponse.rating && {
 				rating: this.audibleResponse.rating.overall_distribution.display_average_rating.toString()
+			}),
+			...(ratings && {
+				ratings
 			}),
 			region: this.region,
 			releaseDate: this.getReleaseDate(),
