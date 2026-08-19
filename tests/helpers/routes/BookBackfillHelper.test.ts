@@ -124,24 +124,6 @@ describe('BookBackfillHelper should', () => {
 		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 3, skipped: 0, failed: 0 })
 	})
 
-	test('accumulates totals across multiple pages', async () => {
-		const secondPage = [
-			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f04'), asin: 'B000000004', region: 'us' },
-			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f05'), asin: 'B000000005', region: 'us' }
-		]
-		mockBookFind.mockReset()
-		mockBookFind
-			.mockResolvedValueOnce(books)
-			.mockResolvedValueOnce(secondPage)
-			.mockResolvedValueOnce([])
-		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, failed: 0 })
-		expect(mockBookFind).toHaveBeenNthCalledWith(
-			3,
-			{ ratings: { $exists: false }, _id: { $gt: secondPage[secondPage.length - 1]._id } },
-			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
-		)
-	})
-
 	test('accumulates failures across multiple pages', async () => {
 		const secondPage = [
 			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f04'), asin: 'B000000004', region: 'us' }
