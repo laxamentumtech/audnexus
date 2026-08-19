@@ -188,13 +188,20 @@ export function resetPerformanceConfig(): void {
 
 /**
  * Set a custom configuration instance (useful for testing).
- * Rejects SCHEDULER_BATCH_SIZE values above the hard cap; other fields are
+ * Rejects SCHEDULER_BATCH_SIZE values outside the valid range (a safe
+ * positive integer at most MAX_SCHEDULER_BATCH_SIZE); other fields are
  * stored as-is so runtime guardrails (e.g. SCHEDULER_CONCURRENCY >= 1) can
  * raise their own errors.
  */
 export function setPerformanceConfig(config: PerformanceConfig): void {
-	if (config.SCHEDULER_BATCH_SIZE > MAX_SCHEDULER_BATCH_SIZE) {
-		throw new Error(`SCHEDULER_BATCH_SIZE must be at most ${MAX_SCHEDULER_BATCH_SIZE}`)
+	if (
+		!Number.isSafeInteger(config.SCHEDULER_BATCH_SIZE) ||
+		config.SCHEDULER_BATCH_SIZE <= 0 ||
+		config.SCHEDULER_BATCH_SIZE > MAX_SCHEDULER_BATCH_SIZE
+	) {
+		throw new Error(
+			`SCHEDULER_BATCH_SIZE must be an integer between 1 and ${MAX_SCHEDULER_BATCH_SIZE}`
+		)
 	}
 	_config = config
 }

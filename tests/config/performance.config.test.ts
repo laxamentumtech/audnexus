@@ -454,6 +454,33 @@ describe('PerformanceConfig', () => {
 				setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 10001 })
 			).toThrow()
 		})
+
+		it('should reject SCHEDULER_BATCH_SIZE of zero through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 0 })).toThrow()
+		})
+
+		it('should reject negative SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: -1 })).toThrow()
+		})
+
+		it('should reject fractional SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 1.5 })).toThrow()
+		})
+
+		it('should reject NaN SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: NaN })).toThrow()
+		})
+
+		it('should accept a valid SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
+			const config = createPerformanceConfig()
+			expect(() =>
+				setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 1000 })
+			).not.toThrow()
+		})
 	})
 
 	describe('Singleton Pattern', () => {
