@@ -451,19 +451,28 @@ paths:
         Re-fetches every stored book that is missing the `ratings` field and
         persists the rating counts and star distributions. Admin-only; disabled
         unless the `UPDATE_STATS` environment flag is enabled.
+
+        The backfill runs in the background: the endpoint returns `202`
+        immediately and the final summary (total / updated / skipped / failed)
+        is logged, not returned. Pre-order books (releaseDate in the future)
+        are reported as `skipped` — their refreshed data is not persisted
+        while pre-release, so they cannot be counted as updated. Only one
+        backfill runs per process; concurrent requests receive `409`.
       operationId: backfillRatings
       tags:
         - Books
       parameters:
         - name: x-admin-token
           in: header
-          description: Admin token used to authorize the backfill
+          description: |
+            Admin token used to authorize the backfill. Set via the `ADMIN_TOKEN`
+            environment variable.
           required: true
           schema:
             type: string
       responses:
-        '200':
-          description: Backfill completed
+        '202':
+          description: Backfill started and running in the background
           content:
             application/json:
               schema:
@@ -471,20 +480,8 @@ paths:
                 properties:
                   message:
                     type: string
-                  total:
-                    type: integer
-                    description: Number of books processed
-                  updated:
-                    type: integer
-                    description: Number of books successfully updated
-                  failed:
-                    type: integer
-                    description: Number of books that failed to update
                 example:
-                  message: Ratings backfill complete
-                  total: 1500
-                  updated: 1498
-                  failed: 2
+                  message: Ratings backfill started
         '401':
           description: Missing or invalid admin token
           content:
@@ -499,6 +496,20 @@ paths:
               example:
                 error: Unauthorized
                 message: Invalid admin token
+        '409':
+          description: A backfill is already running in the background
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+              example:
+                error: Conflict
+                message: Backfill already in progress
         '404':
           description: Backfill endpoint disabled
           content:

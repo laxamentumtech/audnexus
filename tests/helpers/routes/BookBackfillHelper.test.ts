@@ -36,7 +36,15 @@ const books = [
 const bookWithRatings = {
 	asin: 'B000000001',
 	rating: '4.6',
+	releaseDate: new Date('2024-01-01T00:00:00Z'),
 	ratings: { value: '4.6', numRatings: 120, numReviews: 8 }
+}
+
+const bookPreOrder = {
+	asin: 'B000000003',
+	rating: '4.0',
+	releaseDate: new Date('2999-01-01T00:00:00Z'),
+	ratings: { value: '4.0', numRatings: 5, numReviews: 1 }
 }
 
 const bookWithoutRatings = {
@@ -104,20 +112,24 @@ describe('BookBackfillHelper should', () => {
 	})
 
 	test('maps the batch summary to the backfill result', async () => {
-		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 3, failed: 0 })
+		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 3, skipped: 0, failed: 0 })
 	})
 
 	test('counts a book as failed when the refetch does not populate ratings', async () => {
-		mockShowHandler.mockImplementation(async () => {
-			const asin = showConstructorArgs.at(-1)?.[0]
-			return asin === 'B000000002' ? bookWithoutRatings : bookWithRatings
-		})
-		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 2, failed: 1 })
+		mockBookFind.mockResolvedValue([books[1]])
+		mockShowHandler.mockImplementation(async () => bookWithoutRatings)
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
 	})
 
 	test('counts a book as failed when the handler returns undefined', async () => {
 		mockShowHandler.mockImplementation(async () => undefined)
-		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 0, failed: 3 })
+		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 0, skipped: 0, failed: 3 })
+	})
+
+	test('counts a pre-order book as skipped, not updated', async () => {
+		mockBookFind.mockResolvedValue([books[2]])
+		mockShowHandler.mockImplementation(async () => bookPreOrder)
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 1, failed: 0 })
 	})
 })
 

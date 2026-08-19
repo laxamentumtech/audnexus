@@ -28,11 +28,13 @@ let asin: string
 let helper: StitchHelper
 let response: ApiBook
 
-// Live rating counts drift over time, so the snapshot comparison excludes
-// `ratings`; the ratings object is validated structurally instead.
-function stripRatings(book: ApiBook) {
-	const rest = { ...book }
+// Live rating counts and the average star rating drift over time, so the
+// snapshot comparison excludes `ratings` and the derived `rating` field; the
+// ratings object is validated structurally instead.
+function stripRatings(book: ApiBook): Partial<ApiBook> {
+	const rest: Partial<ApiBook> = { ...book }
 	delete rest.ratings
+	delete rest.rating
 	return rest
 }
 

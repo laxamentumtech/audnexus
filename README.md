@@ -283,6 +283,10 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - `METRICS_AUTH_TOKEN`: Authentication token for /metrics endpoint (optional)
    - `METRICS_ALLOWED_IPS`: Comma-separated list of allowed IPs/CIDR ranges for /metrics (supports CIDR notation, optional)
 
+   **Stats Admin:**
+   - `UPDATE_STATS`: Enable stats-updating admin routes (default: `0`)
+   - `ADMIN_TOKEN`: Admin token for /books/backfill-ratings endpoint, sent via the `x-admin-token` header (optional; only effective when `UPDATE_STATS=1`)
+
 3. **Configure build and deployment:**
    - Build command: Coolify will automatically use the Dockerfile
    - Port: 3000
@@ -361,6 +365,11 @@ The stack defaults to 15 replicas for the node-server container. Customize this 
 
 - `METRICS_AUTH_TOKEN`: Authentication token for /metrics endpoint (optional)
 - `METRICS_ALLOWED_IPS`: Comma-separated list of allowed IPs/CIDR ranges for /metrics (supports CIDR notation, optional)
+
+**Stats Admin:**
+
+- `UPDATE_STATS`: Enable stats-updating admin routes (default: `0`)
+- `ADMIN_TOKEN`: Admin token for /books/backfill-ratings endpoint, sent via the `x-admin-token` header (optional; only effective when `UPDATE_STATS=1`)
 
 **Traefik Configuration:**
 
