@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import { ObjectId } from 'mongodb'
 
 import { createMockLogger } from '#tests/setup/mockLogger'
 
@@ -72,8 +73,8 @@ let helper: UpdateScheduler
 let mockLogger: any
 const projection = {
 	projection: { asin: 1, region: 1 },
-	sort: { updatedAt: -1 },
-	allowDiskUse: true
+	sort: { _id: 1 },
+	limit: 1000
 }
 
 const createMockContext = (): MockContext => {
@@ -87,7 +88,6 @@ const createMockContext = (): MockContext => {
 		}
 	}
 }
-
 
 const createBatchSummary = (regions?: Record<string, number>) => ({
 	total: 1,
@@ -131,6 +131,7 @@ const makePerformanceConfig = (useParallel: boolean): PerformanceConfig => ({
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
+	SCHEDULER_BATCH_SIZE: 1000,
 	DEFAULT_REGION: 'us'
 })
 
@@ -161,26 +162,117 @@ describe('UpdateScheduler should', () => {
 		expect(helper.interval).toBe(1)
 	})
 
-	test('getAllAuthorAsins', async () => {
-		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
-		await expect(helper.getAllAuthorAsins()).resolves.toEqual([authorWithoutProjection])
-		expect(AuthorModel.find).toHaveBeenCalledWith({}, projection)
+	test('paginates authors in _id-ordered batches', async () => {
+		mockAuthorFind.mockResolvedValueOnce([authorWithoutProjection]).mockResolvedValueOnce([])
+		await helper.updateAuthors()
+		expect(AuthorModel.find).toHaveBeenNthCalledWith(1, {}, projection)
+		expect(AuthorModel.find).toHaveBeenNthCalledWith(
+			2,
+			{ _id: { $gt: authorWithoutProjection._id } },
+			projection
+		)
 	})
 
-	test('getAllBookAsins', async () => {
-		mockBookFind.mockResolvedValue([bookWithoutProjection])
-		await expect(helper.getAllBookAsins()).resolves.toEqual([bookWithoutProjection])
-		expect(BookModel.find).toHaveBeenCalledWith({}, projection)
+	test('paginates books in _id-ordered batches', async () => {
+		mockBookFind.mockResolvedValueOnce([bookWithoutProjection]).mockResolvedValueOnce([])
+		await helper.updateBooks()
+		expect(BookModel.find).toHaveBeenNthCalledWith(1, {}, projection)
+		expect(BookModel.find).toHaveBeenNthCalledWith(
+			2,
+			{ _id: { $gt: bookWithoutProjection._id } },
+			projection
+		)
 	})
 
-	test('getAllChapterAsins', async () => {
-		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
-		await expect(helper.getAllChapterAsins()).resolves.toEqual([chaptersWithoutProjection])
-		expect(ChapterModel.find).toHaveBeenCalledWith({}, projection)
+	test('paginates chapters in _id-ordered batches', async () => {
+		mockChapterFind.mockResolvedValueOnce([chaptersWithoutProjection]).mockResolvedValueOnce([])
+		await helper.updateChapters()
+		expect(ChapterModel.find).toHaveBeenNthCalledWith(1, {}, projection)
+		expect(ChapterModel.find).toHaveBeenNthCalledWith(
+			2,
+			{ _id: { $gt: chaptersWithoutProjection._id } },
+			projection
+		)
 	})
 
+	test('merges summaries across multiple pages', async () => {
+		setPerformanceConfig(makePerformanceConfig(true))
+		const secondPage = {
+			...bookWithoutProjection,
+			_id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f99')
+		}
+		mockBookFind
+			.mockResolvedValueOnce([bookWithoutProjection])
+			.mockResolvedValueOnce([secondPage])
+			.mockResolvedValueOnce([])
+		mockProcessBatchByRegion.mockImplementation(
+			async <T, R>(items: T[], worker: (item: T) => Promise<R>) => {
+				for (const item of items) {
+					await worker(item)
+				}
+				return {
+					results: [],
+					summary: {
+						total: items.length,
+						success: items.length,
+						failures: 0,
+						regions: { us: items.length },
+						maxConcurrencyObserved: 1
+					}
+				}
+			}
+		)
+		mockBookHandler.mockResolvedValue(undefined)
+
+		await helper.updateBooks()
+
+		expect(BookModel.find).toHaveBeenNthCalledWith(
+			3,
+			{ _id: { $gt: secondPage._id } },
+			projection
+		)
+		expect(mockLogger.debug).toHaveBeenCalledWith(
+			'Books batch complete: total=2 success=2 failures=0'
+		)
+	})
+
+	test('aggregates failures across multiple pages', async () => {
+		setPerformanceConfig(makePerformanceConfig(true))
+		const secondPage = {
+			...bookWithoutProjection,
+			_id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f98')
+		}
+		mockBookFind
+			.mockResolvedValueOnce([bookWithoutProjection])
+			.mockResolvedValueOnce([secondPage])
+			.mockResolvedValueOnce([])
+		mockProcessBatchByRegion.mockImplementation(
+			async <T, R>(items: T[], worker: (item: T) => Promise<R>) => {
+				for (const item of items) {
+					await worker(item)
+				}
+				return {
+					results: [],
+					summary: {
+						total: items.length,
+						success: 0,
+						failures: items.length,
+						regions: { us: items.length },
+						maxConcurrencyObserved: 1
+					}
+				}
+			}
+		)
+		mockBookHandler.mockResolvedValue(undefined)
+
+		await helper.updateBooks()
+
+		expect(mockLogger.debug).toHaveBeenCalledWith(
+			'Books batch complete: total=2 success=0 failures=2'
+		)
+	})
 	test('updateAuthors', async () => {
-		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockAuthorFind.mockResolvedValueOnce([authorWithoutProjection]).mockResolvedValueOnce([])
 		mockAuthorHandler.mockResolvedValue(undefined)
 		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateAuthors()).resolves.toEqual(undefined)
@@ -189,7 +281,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateBooks', async () => {
-		mockBookFind.mockResolvedValue([bookWithoutProjection])
+		mockBookFind.mockResolvedValueOnce([bookWithoutProjection]).mockResolvedValueOnce([])
 		mockBookHandler.mockResolvedValue(undefined)
 		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateBooks()).resolves.toEqual(undefined)
@@ -198,7 +290,7 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateChapters', async () => {
-		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
+		mockChapterFind.mockResolvedValueOnce([chaptersWithoutProjection]).mockResolvedValueOnce([])
 		mockChapterHandler.mockResolvedValue(undefined)
 		setPerformanceConfig(makePerformanceConfig(false))
 		await expect(helper.updateChapters()).resolves.toEqual(undefined)
@@ -253,7 +345,7 @@ describe('UpdateScheduler should', () => {
 	test('updateAuthors with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockAuthorFind.mockResolvedValueOnce([authorWithoutProjection]).mockResolvedValueOnce([])
 		mockProcessBatchByRegion.mockResolvedValue({
 			results: [undefined],
 			summary: createBatchSummary()
@@ -272,7 +364,7 @@ describe('UpdateScheduler should', () => {
 	test('updateBooks with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		mockBookFind.mockResolvedValue([bookWithoutProjection])
+		mockBookFind.mockResolvedValueOnce([bookWithoutProjection]).mockResolvedValueOnce([])
 		mockProcessBatchByRegion.mockResolvedValue({
 			results: [undefined],
 			summary: createBatchSummary()
@@ -291,7 +383,7 @@ describe('UpdateScheduler should', () => {
 	test('updateChapters with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
+		mockChapterFind.mockResolvedValueOnce([chaptersWithoutProjection]).mockResolvedValueOnce([])
 		mockProcessBatchByRegion.mockResolvedValue({
 			results: [undefined],
 			summary: createBatchSummary()
@@ -310,7 +402,7 @@ describe('UpdateScheduler should', () => {
 	test('updateAuthors with parallel processing handles errors gracefully', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockAuthorFind.mockResolvedValueOnce([authorWithoutProjection]).mockResolvedValueOnce([])
 		mockAuthorHandler.mockRejectedValue(new Error('Test error'))
 		mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
 
@@ -323,7 +415,7 @@ describe('UpdateScheduler should', () => {
 	test('updateBooks with parallel processing handles errors gracefully', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		mockBookFind.mockResolvedValue([bookWithoutProjection])
+		mockBookFind.mockResolvedValueOnce([bookWithoutProjection]).mockResolvedValueOnce([])
 		mockBookHandler.mockRejectedValue(new Error('Test error'))
 		mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
 
@@ -336,7 +428,7 @@ describe('UpdateScheduler should', () => {
 	test('updateChapters with parallel processing handles errors gracefully', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
+		mockChapterFind.mockResolvedValueOnce([chaptersWithoutProjection]).mockResolvedValueOnce([])
 		mockChapterHandler.mockRejectedValue(new Error('Test error'))
 		mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
 
@@ -349,7 +441,7 @@ describe('UpdateScheduler should', () => {
 	test('updateAuthors uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
 		setPerformanceConfig(makePerformanceConfig(false))
 
-		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockAuthorFind.mockResolvedValueOnce([authorWithoutProjection]).mockResolvedValueOnce([])
 		mockAuthorHandler.mockResolvedValue(undefined)
 
 		await helper.updateAuthors()
@@ -361,7 +453,7 @@ describe('UpdateScheduler should', () => {
 	test('updateBooks uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
 		setPerformanceConfig(makePerformanceConfig(false))
 
-		mockBookFind.mockResolvedValue([bookWithoutProjection])
+		mockBookFind.mockResolvedValueOnce([bookWithoutProjection]).mockResolvedValueOnce([])
 		mockBookHandler.mockResolvedValue(undefined)
 
 		await helper.updateBooks()
@@ -373,7 +465,7 @@ describe('UpdateScheduler should', () => {
 	test('updateChapters uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
 		setPerformanceConfig(makePerformanceConfig(false))
 
-		mockChapterFind.mockResolvedValue([chaptersWithoutProjection])
+		mockChapterFind.mockResolvedValueOnce([chaptersWithoutProjection]).mockResolvedValueOnce([])
 		mockChapterHandler.mockResolvedValue(undefined)
 
 		await helper.updateChapters()
@@ -385,7 +477,7 @@ describe('UpdateScheduler should', () => {
 	test('updateAuthors logs warning when maxConcurrencyObserved exceeds configured concurrency', async () => {
 		setPerformanceConfig(makePerformanceConfig(true))
 
-		mockAuthorFind.mockResolvedValue([authorWithoutProjection])
+		mockAuthorFind.mockResolvedValueOnce([authorWithoutProjection]).mockResolvedValueOnce([])
 		mockProcessBatchByRegion.mockResolvedValue({
 			results: [undefined],
 			summary: {

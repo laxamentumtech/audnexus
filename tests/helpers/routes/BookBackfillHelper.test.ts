@@ -24,13 +24,15 @@ mock.module('#helpers/routes/BookShowHelper', () => ({
 	}
 }))
 
+import { ObjectId } from 'mongodb'
+
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
 import { createMockLogger } from '#tests/setup/mockLogger'
 
 const books = [
-	{ asin: 'B000000001', region: 'us' },
-	{ asin: 'B000000002', region: 'uk' },
-	{ asin: 'B000000003', region: null }
+	{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f01'), asin: 'B000000001', region: 'us' },
+	{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f02'), asin: 'B000000002', region: 'uk' },
+	{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f03'), asin: 'B000000003', region: null }
 ]
 
 const bookWithRatings = {
@@ -59,7 +61,8 @@ describe('BookBackfillHelper should', () => {
 		mock.clearAllMocks()
 		showConstructorArgs.length = 0
 		helper = new BookBackfillHelper(createMockLogger())
-		mockBookFind.mockResolvedValue(books)
+		// First call returns the batch, second returns empty to end pagation
+		mockBookFind.mockResolvedValueOnce(books).mockResolvedValueOnce([])
 		mockShowHandler.mockResolvedValue(bookWithRatings)
 		mockProcessBatchByRegion.mockImplementation(
 			async (
@@ -90,12 +93,18 @@ describe('BookBackfillHelper should', () => {
 		)
 	})
 
-	test('queries only books missing the ratings field, sorted by updatedAt desc', async () => {
+	test('queries only books missing the ratings field in _id-ordered batches', async () => {
 		await helper.process()
-		expect(mockBookFind).toHaveBeenCalledTimes(1)
-		expect(mockBookFind).toHaveBeenCalledWith(
+		expect(mockBookFind).toHaveBeenCalledTimes(2)
+		expect(mockBookFind).toHaveBeenNthCalledWith(
+			1,
 			{ ratings: { $exists: false } },
-			{ projection: { asin: 1, region: 1 }, sort: { updatedAt: -1 }, allowDiskUse: true }
+			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
+		)
+		expect(mockBookFind).toHaveBeenNthCalledWith(
+			2,
+			{ ratings: { $exists: false }, _id: { $gt: books[books.length - 1]._id } },
+			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
 
@@ -115,19 +124,64 @@ describe('BookBackfillHelper should', () => {
 		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 3, skipped: 0, failed: 0 })
 	})
 
+	test('accumulates failures across multiple pages', async () => {
+		const secondPage = [
+			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f04'), asin: 'B000000004', region: 'us' }
+		]
+		mockBookFind.mockReset()
+		mockBookFind
+			.mockResolvedValueOnce(books)
+			.mockResolvedValueOnce(secondPage)
+			.mockResolvedValueOnce([])
+		// First page: B2 without ratings (failed), B1/B3 pre-orders (skipped);
+		// second page: B4 pre-order (skipped). Skipped counts as batch success.
+		mockShowHandler.mockImplementation(async () => {
+			const asin = showConstructorArgs.at(-1)?.[0]
+			return asin === 'B000000002' ? bookWithoutRatings : bookPreOrder
+		})
+		await expect(helper.process()).resolves.toEqual({ total: 4, updated: 0, skipped: 3, failed: 1 })
+	})
+
+	test('accumulates totals across multiple pages', async () => {
+		const secondPage = [
+			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f04'), asin: 'B000000004', region: 'us' },
+			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f05'), asin: 'B000000005', region: 'us' }
+		]
+		mockBookFind.mockReset()
+		mockBookFind
+			.mockResolvedValueOnce(books)
+			.mockResolvedValueOnce(secondPage)
+			.mockResolvedValueOnce([])
+		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, failed: 0 })
+		expect(mockBookFind).toHaveBeenNthCalledWith(
+			2,
+			{ ratings: { $exists: false }, _id: { $gt: books[books.length - 1]._id } },
+			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
+		)
+		expect(mockBookFind).toHaveBeenNthCalledWith(
+			3,
+			{ ratings: { $exists: false }, _id: { $gt: secondPage[secondPage.length - 1]._id } },
+			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
+		)
+	})
+
 	test('counts a book as failed when the refetch does not populate ratings', async () => {
-		mockBookFind.mockResolvedValue([books[1]])
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[1]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => bookWithoutRatings)
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
 	})
 
 	test('counts a book as failed when the handler returns undefined', async () => {
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce(books).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => undefined)
 		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 0, skipped: 0, failed: 3 })
 	})
 
 	test('counts a pre-order book as skipped, not updated', async () => {
-		mockBookFind.mockResolvedValue([books[2]])
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[2]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => bookPreOrder)
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 1, failed: 0 })
 	})

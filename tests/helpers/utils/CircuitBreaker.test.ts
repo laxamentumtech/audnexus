@@ -21,6 +21,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
+	SCHEDULER_BATCH_SIZE: 1000,
 	DEFAULT_REGION: 'us',
 	...overrides
 })

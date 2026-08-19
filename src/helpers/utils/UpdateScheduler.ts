@@ -1,9 +1,11 @@
 import { FastifyRedis } from '@fastify/redis'
 import { FastifyBaseLogger } from 'fastify'
+import type { ObjectId } from 'mongodb'
+import type { ProjectionType } from 'papr'
 import { AsyncTask, LongIntervalJob } from 'toad-scheduler'
 
 import AuthorModel from '#config/models/Author'
-import BookModel from '#config/models/Book'
+import BookModel, { type BookDocument } from '#config/models/Book'
 import ChapterModel from '#config/models/Chapter'
 import { getPerformanceConfig } from '#config/performance'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
@@ -21,8 +23,26 @@ const MAX_PER_REGION_CONCURRENCY = 5
 
 // Document types with region
 interface DocumentWithRegion {
+	_id: ObjectId
 	asin: string
 	region?: string | null
+}
+
+/**
+ * Merge a per-batch summary into the aggregate summary, preserving the
+ * single end-of-run log line the scheduler emitted before pagination.
+ */
+function mergeSummary(target: BatchProcessSummary, batch: BatchProcessSummary): void {
+	target.total += batch.total
+	target.success += batch.success
+	target.failures += batch.failures
+	for (const [region, count] of Object.entries(batch.regions)) {
+		target.regions[region] = (target.regions[region] ?? 0) + count
+	}
+	target.maxConcurrencyObserved = Math.max(
+		target.maxConcurrencyObserved,
+		batch.maxConcurrencyObserved
+	)
 }
 
 class UpdateScheduler {
@@ -35,25 +55,34 @@ class UpdateScheduler {
 		this.logger = logger
 	}
 
-	getAllAuthorAsins = async () => {
-		return AuthorModel.find(
-			{},
-			{ projection: { asin: 1, region: 1 }, sort: { updatedAt: -1 }, allowDiskUse: true }
-		)
-	}
-
-	getAllBookAsins = async () => {
-		return BookModel.find(
-			{},
-			{ projection: { asin: 1, region: 1 }, sort: { updatedAt: -1 }, allowDiskUse: true }
-		)
-	}
-
-	getAllChapterAsins = async () => {
-		return ChapterModel.find(
-			{},
-			{ projection: { asin: 1, region: 1 }, sort: { updatedAt: -1 }, allowDiskUse: true }
-		)
+	/**
+	 * Walk a collection in `_id`-ordered batches, invoking the callback for each
+	 * batch. Memory stays bounded to one batch regardless of collection size —
+	 * papr's find() drains the whole cursor into a single array, so a
+	 * collection-wide query without a limit OOMs on multi-million-document
+	 * collections.
+	 */
+	private async processAllAsins(
+		model: typeof AuthorModel | typeof BookModel | typeof ChapterModel,
+		processBatch: (batch: DocumentWithRegion[]) => Promise<void>
+	): Promise<void> {
+		const batchSize = getPerformanceConfig().SCHEDULER_BATCH_SIZE
+		const projection = { asin: 1, region: 1 }
+		type BatchDoc = ProjectionType<BookDocument, typeof projection>
+		let lastId: ObjectId | null = null
+		// The three models expose the same find() shape for this projection; the
+		// cast avoids a union-of-models call that TS cannot resolve.
+		const findModel = model as typeof BookModel
+		while (true) {
+			const batch: BatchDoc[] = await findModel.find(lastId ? { _id: { $gt: lastId } } : {}, {
+				projection,
+				sort: { _id: 1 },
+				limit: batchSize
+			})
+			if (batch.length === 0) break
+			await processBatch(batch)
+			lastId = batch[batch.length - 1]._id
+		}
 	}
 
 	/**
@@ -119,25 +148,42 @@ class UpdateScheduler {
 		}
 	}
 
+	private createEmptySummary(): BatchProcessSummary {
+		return { total: 0, success: 0, failures: 0, regions: {}, maxConcurrencyObserved: 0 }
+	}
+
 	/**
-	 * Update all authors
-	 * Uses parallel processing when USE_PARALLEL_SCHEDULER feature flag is enabled
+	 * Walk one collection in bounded `_id` batches, updating every document via
+	 * the per-document callback. Uses parallel processing with per-region
+	 * concurrency control when USE_PARALLEL_SCHEDULER is enabled; otherwise
+	 * processes sequentially with a delay between requests.
 	 */
-	async updateAuthors(): Promise<void> {
-		const authors = await this.getAllAuthorAsins()
-		this.logger.debug(NoticeUpdateScheduled('Authors'))
-		this.logMemoryUsage('authors:start')
-
+	private async runPaginatedUpdate(
+		label: string,
+		model: typeof AuthorModel | typeof BookModel | typeof ChapterModel,
+		processOne: (doc: DocumentWithRegion, options: { withDelay: boolean }) => Promise<void>
+	): Promise<void> {
 		const config = getPerformanceConfig()
-
-		if (config.USE_PARALLEL_SCHEDULER) {
-			// Parallel processing with concurrency control
-			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, MAX_PER_REGION_CONCURRENCY)
-			const { summary } = await processBatchByRegion(
-				authors,
-				async (author) => {
+		if (!config.USE_PARALLEL_SCHEDULER) {
+			await this.processAllAsins(model, async (docs) => {
+				for (const doc of docs) {
 					try {
-						await this.processAuthor(author, { withDelay: false })
+						await processOne(doc, { withDelay: true })
+					} catch (error) {
+						this.logger.error(error)
+					}
+				}
+			})
+			return
+		}
+		const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, MAX_PER_REGION_CONCURRENCY)
+		const summary = this.createEmptySummary()
+		await this.processAllAsins(model, async (docs) => {
+			const { summary: batchSummary } = await processBatchByRegion(
+				docs,
+				async (doc) => {
+					try {
+						await processOne(doc, { withDelay: false })
 					} catch (error) {
 						this.logger.error(error)
 						throw error
@@ -145,17 +191,21 @@ class UpdateScheduler {
 				},
 				{ concurrency: config.SCHEDULER_CONCURRENCY, maxPerRegion: perRegionLimit }
 			)
-			this.logBatchSummary('Authors', summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
-		} else {
-			// Sequential processing (original behavior) - add delay between requests
-			for (const author of authors) {
-				try {
-					await this.processAuthor(author, { withDelay: true })
-				} catch (error) {
-					this.logger.error(error)
-				}
-			}
-		}
+			mergeSummary(summary, batchSummary)
+		})
+		this.logBatchSummary(label, summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
+	}
+
+	/**
+	 * Update all authors
+	 * Uses parallel processing when USE_PARALLEL_SCHEDULER feature flag is enabled
+	 */
+	async updateAuthors(): Promise<void> {
+		this.logger.debug(NoticeUpdateScheduled('Authors'))
+		this.logMemoryUsage('authors:start')
+		await this.runPaginatedUpdate('Authors', AuthorModel, (author, options) =>
+			this.processAuthor(author, options)
+		)
 		this.logMemoryUsage('authors:complete')
 	}
 
@@ -164,38 +214,11 @@ class UpdateScheduler {
 	 * Uses parallel processing when USE_PARALLEL_SCHEDULER feature flag is enabled
 	 */
 	async updateBooks(): Promise<void> {
-		const books = await this.getAllBookAsins()
 		this.logger.debug(NoticeUpdateScheduled('Books'))
 		this.logMemoryUsage('books:start')
-
-		const config = getPerformanceConfig()
-
-		if (config.USE_PARALLEL_SCHEDULER) {
-			// Parallel processing with concurrency control
-			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, MAX_PER_REGION_CONCURRENCY)
-			const { summary } = await processBatchByRegion(
-				books,
-				async (book) => {
-					try {
-						await this.processBook(book, { withDelay: false })
-					} catch (error) {
-						this.logger.error(error)
-						throw error
-					}
-				},
-				{ concurrency: config.SCHEDULER_CONCURRENCY, maxPerRegion: perRegionLimit }
-			)
-			this.logBatchSummary('Books', summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
-		} else {
-			// Sequential processing (original behavior) - add delay between requests
-			for (const book of books) {
-				try {
-					await this.processBook(book, { withDelay: true })
-				} catch (error) {
-					this.logger.error(error)
-				}
-			}
-		}
+		await this.runPaginatedUpdate('Books', BookModel, (book, options) =>
+			this.processBook(book, options)
+		)
 		this.logMemoryUsage('books:complete')
 	}
 
@@ -204,38 +227,11 @@ class UpdateScheduler {
 	 * Uses parallel processing when USE_PARALLEL_SCHEDULER feature flag is enabled
 	 */
 	async updateChapters(): Promise<void> {
-		const chapters = await this.getAllChapterAsins()
 		this.logger.debug(NoticeUpdateScheduled('Chapters'))
 		this.logMemoryUsage('chapters:start')
-
-		const config = getPerformanceConfig()
-
-		if (config.USE_PARALLEL_SCHEDULER) {
-			// Parallel processing with concurrency control
-			const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, MAX_PER_REGION_CONCURRENCY)
-			const { summary } = await processBatchByRegion(
-				chapters,
-				async (chapter) => {
-					try {
-						await this.processChapter(chapter, { withDelay: false })
-					} catch (error) {
-						this.logger.error(error)
-						throw error
-					}
-				},
-				{ concurrency: config.SCHEDULER_CONCURRENCY, maxPerRegion: perRegionLimit }
-			)
-			this.logBatchSummary('Chapters', summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
-		} else {
-			// Sequential processing (original behavior) - add delay between requests
-			for (const chapter of chapters) {
-				try {
-					await this.processChapter(chapter, { withDelay: true })
-				} catch (error) {
-					this.logger.error(error)
-				}
-			}
-		}
+		await this.runPaginatedUpdate('Chapters', ChapterModel, (chapter, options) =>
+			this.processChapter(chapter, options)
+		)
 		this.logMemoryUsage('chapters:complete')
 	}
 
