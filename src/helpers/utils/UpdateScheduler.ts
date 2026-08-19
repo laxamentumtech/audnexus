@@ -1,8 +1,8 @@
-import { FastifyRedis } from '@fastify/redis'
-import { FastifyBaseLogger } from 'fastify'
+import type { FastifyRedis } from '@fastify/redis'
+import type { FastifyBaseLogger } from 'fastify'
+import type { Redis } from 'ioredis'
 import type { ObjectId } from 'mongodb'
 import type { ProjectionType } from 'papr'
-import { AsyncTask, LongIntervalJob } from 'toad-scheduler'
 
 import AuthorModel from '#config/models/Author'
 import BookModel, { type BookDocument } from '#config/models/Book'
@@ -12,11 +12,9 @@ import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import { type BatchProcessSummary, processBatchByRegion } from '#helpers/utils/batchProcessor'
+import { jitteredSleep } from '#helpers/utils/jitteredSleep'
+import { iterateKeyset } from '#helpers/utils/keyset'
 import { NoticeUpdateScheduled } from '#static/messages'
-
-const waitFor = (ms: number) => new Promise((r) => setTimeout(r, ms))
-// Wait for between 0 and 5 seconds
-const randomWait = () => waitFor(Math.floor(Math.random() * 5000))
 
 // Maximum per-region concurrency limit
 const MAX_PER_REGION_CONCURRENCY = 5
@@ -46,11 +44,9 @@ function mergeSummary(target: BatchProcessSummary, batch: BatchProcessSummary): 
 }
 
 class UpdateScheduler {
-	interval: number
-	redis: FastifyRedis
+	redis: Redis | null
 	logger: FastifyBaseLogger
-	constructor(interval: number, redis: FastifyRedis, logger: FastifyBaseLogger) {
-		this.interval = interval
+	constructor(redis: Redis | null, logger: FastifyBaseLogger) {
 		this.redis = redis
 		this.logger = logger
 	}
@@ -60,29 +56,27 @@ class UpdateScheduler {
 	 * batch. Memory stays bounded to one batch regardless of collection size —
 	 * papr's find() drains the whole cursor into a single array, so a
 	 * collection-wide query without a limit OOMs on multi-million-document
-	 * collections.
+	 * collections. Delegates to the shared `iterateKeyset` primitive.
 	 */
 	private async processAllAsins(
 		model: typeof AuthorModel | typeof BookModel | typeof ChapterModel,
 		processBatch: (batch: DocumentWithRegion[]) => Promise<void>
 	): Promise<void> {
 		const batchSize = getPerformanceConfig().SCHEDULER_BATCH_SIZE
-		const projection = { asin: 1, region: 1 }
-		type BatchDoc = ProjectionType<BookDocument, typeof projection>
-		let lastId: ObjectId | null = null
+		const projection: { asin: 1; region: 1 } = { asin: 1, region: 1 }
 		// The three models expose the same find() shape for this projection; the
 		// cast avoids a union-of-models call that TS cannot resolve.
 		const findModel = model as typeof BookModel
-		while (true) {
-			const batch: BatchDoc[] = await findModel.find(lastId ? { _id: { $gt: lastId } } : {}, {
-				projection,
-				sort: { _id: 1 },
-				limit: batchSize
-			})
-			if (batch.length === 0) break
-			await processBatch(batch)
-			lastId = batch[batch.length - 1]._id
-		}
+		type BatchDoc = ProjectionType<BookDocument, typeof projection>
+		const find = (
+			filter: object,
+			opts: { projection: { asin: 1; region: 1 }; sort: { _id: 1 }; limit: number }
+		): Promise<BatchDoc[]> => findModel.find(filter as never, opts as never)
+		await iterateKeyset<BatchDoc, { asin: 1; region: 1 }>(
+			find,
+			{ projection, batchSize },
+			processBatch
+		)
 	}
 
 	/**
@@ -95,13 +89,13 @@ class UpdateScheduler {
 		const helper = new AuthorShowHelper(
 			author.asin,
 			{ region: author.region ?? 'us', update: '1' },
-			this.redis
+			this.redis as unknown as FastifyRedis | null
 		)
 		try {
 			await helper.handler()
 		} finally {
 			if (options.withDelay) {
-				await randomWait()
+				await jitteredSleep()
 			}
 		}
 	}
@@ -116,13 +110,13 @@ class UpdateScheduler {
 		const helper = new BookShowHelper(
 			book.asin,
 			{ region: book.region ?? 'us', update: '1' },
-			this.redis
+			this.redis as unknown as FastifyRedis | null
 		)
 		try {
 			await helper.handler()
 		} finally {
 			if (options.withDelay) {
-				await randomWait()
+				await jitteredSleep()
 			}
 		}
 	}
@@ -137,13 +131,13 @@ class UpdateScheduler {
 		const helper = new ChapterShowHelper(
 			chapter.asin,
 			{ region: chapter.region ?? 'us', update: '1' },
-			this.redis
+			this.redis as unknown as FastifyRedis | null
 		)
 		try {
 			await helper.handler()
 		} finally {
 			if (options.withDelay) {
-				await randomWait()
+				await jitteredSleep()
 			}
 		}
 	}
@@ -162,7 +156,7 @@ class UpdateScheduler {
 		label: string,
 		model: typeof AuthorModel | typeof BookModel | typeof ChapterModel,
 		processOne: (doc: DocumentWithRegion, options: { withDelay: boolean }) => Promise<void>
-	): Promise<void> {
+	): Promise<BatchProcessSummary> {
 		const config = getPerformanceConfig()
 		if (!config.USE_PARALLEL_SCHEDULER) {
 			await this.processAllAsins(model, async (docs) => {
@@ -174,7 +168,7 @@ class UpdateScheduler {
 					}
 				}
 			})
-			return
+			return this.createEmptySummary()
 		}
 		const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, MAX_PER_REGION_CONCURRENCY)
 		const summary = this.createEmptySummary()
@@ -194,18 +188,20 @@ class UpdateScheduler {
 			mergeSummary(summary, batchSummary)
 		})
 		this.logBatchSummary(label, summary, config.SCHEDULER_CONCURRENCY, perRegionLimit)
+		return summary
 	}
 
 	/**
 	 * Update all authors
 	 * Uses parallel processing when USE_PARALLEL_SCHEDULER feature flag is enabled
 	 */
-	async updateAuthors(): Promise<void> {
+	async updateAuthors(aggregate?: BatchProcessSummary): Promise<void> {
 		this.logger.debug(NoticeUpdateScheduled('Authors'))
 		this.logMemoryUsage('authors:start')
-		await this.runPaginatedUpdate('Authors', AuthorModel, (author, options) =>
+		const summary = await this.runPaginatedUpdate('Authors', AuthorModel, (author, options) =>
 			this.processAuthor(author, options)
 		)
+		if (aggregate) mergeSummary(aggregate, summary)
 		this.logMemoryUsage('authors:complete')
 	}
 
@@ -213,12 +209,13 @@ class UpdateScheduler {
 	 * Update all books
 	 * Uses parallel processing when USE_PARALLEL_SCHEDULER feature flag is enabled
 	 */
-	async updateBooks(): Promise<void> {
+	async updateBooks(aggregate?: BatchProcessSummary): Promise<void> {
 		this.logger.debug(NoticeUpdateScheduled('Books'))
 		this.logMemoryUsage('books:start')
-		await this.runPaginatedUpdate('Books', BookModel, (book, options) =>
+		const summary = await this.runPaginatedUpdate('Books', BookModel, (book, options) =>
 			this.processBook(book, options)
 		)
+		if (aggregate) mergeSummary(aggregate, summary)
 		this.logMemoryUsage('books:complete')
 	}
 
@@ -226,12 +223,13 @@ class UpdateScheduler {
 	 * Update all chapters
 	 * Uses parallel processing when USE_PARALLEL_SCHEDULER feature flag is enabled
 	 */
-	async updateChapters(): Promise<void> {
+	async updateChapters(aggregate?: BatchProcessSummary): Promise<void> {
 		this.logger.debug(NoticeUpdateScheduled('Chapters'))
 		this.logMemoryUsage('chapters:start')
-		await this.runPaginatedUpdate('Chapters', ChapterModel, (chapter, options) =>
+		const summary = await this.runPaginatedUpdate('Chapters', ChapterModel, (chapter, options) =>
 			this.processChapter(chapter, options)
 		)
+		if (aggregate) mergeSummary(aggregate, summary)
 		this.logMemoryUsage('chapters:complete')
 	}
 
@@ -239,12 +237,14 @@ class UpdateScheduler {
 	 * Update all (authors, books, chapters)
 	 * Sequential execution between categories
 	 */
-	async updateAll(): Promise<void> {
+	async updateAll(): Promise<BatchProcessSummary> {
 		this.logMemoryUsage('updateAll:start')
-		await this.updateAuthors()
-		await this.updateBooks()
-		await this.updateChapters()
+		const summary = this.createEmptySummary()
+		await this.updateAuthors(summary)
+		await this.updateBooks(summary)
+		await this.updateChapters(summary)
 		this.logMemoryUsage('updateAll:complete')
+		return summary
 	}
 
 	private logBatchSummary(
@@ -272,29 +272,6 @@ class UpdateScheduler {
 		const toMb = (value: number) => Math.round((value / 1024 / 1024) * 100) / 100
 		this.logger.debug(
 			`UpdateScheduler memory ${stage}: heapUsed=${toMb(usage.heapUsed)}MB rss=${toMb(usage.rss)}MB`
-		)
-	}
-
-	updateAllTask() {
-		return new AsyncTask(
-			'updateAll',
-			() => {
-				return this.updateAll().then((res) => res)
-			},
-			(err) => {
-				this.logger.error(err)
-			}
-		)
-	}
-
-	updateAllJob() {
-		return new LongIntervalJob(
-			{ days: this.interval, runImmediately: true },
-			this.updateAllTask(),
-			{
-				id: 'id_1',
-				preventOverrun: true
-			}
 		)
 	}
 }

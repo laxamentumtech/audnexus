@@ -42,14 +42,10 @@ mock.module('#helpers/routes/ChapterShowHelper', () => ({
 }))
 
 const mockProcessBatchByRegion = mock()
-const mockProcessBatch = mock()
 
 mock.module('#helpers/utils/batchProcessor', () => ({
-	processBatchByRegion: mockProcessBatchByRegion,
-	processBatch: mockProcessBatch
+	processBatchByRegion: mockProcessBatchByRegion
 }))
-
-import { AsyncTask, LongIntervalJob } from 'toad-scheduler'
 
 import AuthorModel from '#config/models/Author'
 import BookModel from '#config/models/Book'
@@ -132,13 +128,14 @@ const makePerformanceConfig = (useParallel: boolean): PerformanceConfig => ({
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
 	SCHEDULER_BATCH_SIZE: 1000,
+	JITTER_MS: { min: 0, max: 5000 },
 	DEFAULT_REGION: 'us'
 })
 
 beforeEach(() => {
 	ctx = createMockContext()
 	mockLogger = createMockLogger()
-	helper = new UpdateScheduler(1, ctx.client, mockLogger)
+	helper = new UpdateScheduler(ctx.client, mockLogger)
 	resetPerformanceConfig()
 	mockAuthorFind.mockClear()
 	mockBookFind.mockClear()
@@ -147,7 +144,6 @@ beforeEach(() => {
 	mockBookHandler.mockClear()
 	mockChapterHandler.mockClear()
 	mockProcessBatchByRegion.mockClear()
-	mockProcessBatch.mockClear()
 })
 
 afterEach(() => {
@@ -159,7 +155,6 @@ describe('UpdateScheduler should', () => {
 	test('setup constructor', () => {
 		expect(helper).toBeInstanceOf(UpdateScheduler)
 		expect(helper.redis).toBe(ctx.client)
-		expect(helper.interval).toBe(1)
 	})
 
 	test('paginates authors in _id-ordered batches', async () => {
@@ -299,47 +294,21 @@ describe('UpdateScheduler should', () => {
 	})
 
 	test('updateAll', async () => {
+		const emptySummary = {
+			total: 0,
+			success: 0,
+			failures: 0,
+			regions: {},
+			maxConcurrencyObserved: 0
+		}
 		const updateAuthorsSpy = spyOn(helper, 'updateAuthors').mockResolvedValue(undefined)
 		const updateBooksSpy = spyOn(helper, 'updateBooks').mockResolvedValue(undefined)
 		const updateChaptersSpy = spyOn(helper, 'updateChapters').mockResolvedValue(undefined)
 		setPerformanceConfig(makePerformanceConfig(false))
-		await expect(helper.updateAll()).resolves.toEqual(undefined)
-		expect(updateAuthorsSpy).toHaveBeenCalledWith()
-		expect(updateBooksSpy).toHaveBeenCalledWith()
-		expect(updateChaptersSpy).toHaveBeenCalledWith()
-	})
-
-	test('updateAllTask', async () => {
-		const updateAllSpy = spyOn(helper, 'updateAll').mockResolvedValue(undefined)
-		expect(JSON.stringify(helper.updateAllTask())).toEqual(
-			JSON.stringify(
-				new AsyncTask(
-					'updateAll',
-					() => {
-						return helper.updateAll().then((res) => res)
-					},
-					(err) => {
-						console.error(err)
-					}
-				)
-			)
-		)
-		updateAllSpy.mockRestore()
-	})
-
-	test('updateAllJob', async () => {
-		const updateAllTaskSpy = spyOn(helper, 'updateAllTask').mockReturnValue(
-			new AsyncTask('id_1', async () => undefined)
-		)
-		expect(JSON.stringify(helper.updateAllJob())).toEqual(
-			JSON.stringify(
-				new LongIntervalJob({ days: 1, runImmediately: true }, helper.updateAllTask(), {
-					id: 'id_1',
-					preventOverrun: true
-				})
-			)
-		)
-		updateAllTaskSpy.mockRestore()
+		await expect(helper.updateAll()).resolves.toEqual(emptySummary)
+		expect(updateAuthorsSpy).toHaveBeenCalledWith(emptySummary)
+		expect(updateBooksSpy).toHaveBeenCalledWith(emptySummary)
+		expect(updateChaptersSpy).toHaveBeenCalledWith(emptySummary)
 	})
 
 	test('updateAuthors with parallel processing when USE_PARALLEL_SCHEDULER is true', async () => {

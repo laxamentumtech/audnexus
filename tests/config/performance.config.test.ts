@@ -483,6 +483,46 @@ describe('PerformanceConfig', () => {
 		})
 	})
 
+	describe('Jitter Range', () => {
+		it('should use default 0-5000 for JITTER_MS when not set', () => {
+			delete process.env.JITTER_MS
+			const config = createPerformanceConfig()
+			expect(config.JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should parse a min-max range for JITTER_MS', () => {
+			process.env.JITTER_MS = '1000-3000'
+			const config = createPerformanceConfig()
+			expect(config.JITTER_MS).toEqual({ min: 1000, max: 3000 })
+		})
+
+		it('should parse a bare max value as 0-N for JITTER_MS', () => {
+			process.env.JITTER_MS = '750'
+			const config = createPerformanceConfig()
+			expect(config.JITTER_MS).toEqual({ min: 0, max: 750 })
+		})
+
+		it('should fallback to defaults for non-numeric JITTER_MS', () => {
+			process.env.JITTER_MS = 'abc'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for inverted JITTER_MS range', () => {
+			process.env.JITTER_MS = '3000-1000'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for negative JITTER_MS', () => {
+			process.env.JITTER_MS = '-5'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for too many JITTER_MS parts', () => {
+			process.env.JITTER_MS = '1-2-3'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+	})
+
 	describe('Singleton Pattern', () => {
 		it('should return same instance from getPerformanceConfig', () => {
 			const config1 = getPerformanceConfig()
@@ -513,6 +553,7 @@ describe('PerformanceConfig', () => {
 				SCHEDULER_CONCURRENCY: 10,
 				SCHEDULER_MAX_PER_REGION: 10,
 				SCHEDULER_BATCH_SIZE: 2000,
+				JITTER_MS: { min: 100, max: 200 },
 				DEFAULT_REGION: 'uk'
 			}
 
@@ -528,6 +569,7 @@ describe('PerformanceConfig', () => {
 			expect(config.SCHEDULER_CONCURRENCY).toBe(10)
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(10)
 			expect(config.SCHEDULER_BATCH_SIZE).toBe(2000)
+			expect(config.JITTER_MS).toEqual({ min: 100, max: 200 })
 			expect(config.DEFAULT_REGION).toBe('uk')
 		})
 
@@ -543,6 +585,7 @@ describe('PerformanceConfig', () => {
 				SCHEDULER_CONCURRENCY: 5,
 				SCHEDULER_MAX_PER_REGION: 5,
 				SCHEDULER_BATCH_SIZE: 1000,
+				JITTER_MS: { min: 0, max: 5000 },
 				DEFAULT_REGION: 'us'
 			}
 
@@ -570,6 +613,7 @@ describe('PerformanceConfig', () => {
 			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_CONCURRENCY).toBe(5)
 			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_MAX_PER_REGION).toBe(5)
 			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_BATCH_SIZE).toBe(1000)
+			expect(DEFAULT_PERFORMANCE_CONFIG.JITTER_MS).toEqual({ min: 0, max: 5000 })
 			expect(DEFAULT_PERFORMANCE_CONFIG.DEFAULT_REGION).toBe('us')
 		})
 
@@ -585,6 +629,7 @@ describe('PerformanceConfig', () => {
 				'SCHEDULER_CONCURRENCY',
 				'SCHEDULER_MAX_PER_REGION',
 				'SCHEDULER_BATCH_SIZE',
+				'JITTER_MS',
 				'DEFAULT_REGION'
 			]
 
@@ -608,6 +653,8 @@ describe('PerformanceConfig', () => {
 			expect(typeof config.SCHEDULER_CONCURRENCY).toBe('number')
 			expect(typeof config.SCHEDULER_MAX_PER_REGION).toBe('number')
 			expect(typeof config.SCHEDULER_BATCH_SIZE).toBe('number')
+			expect(typeof config.JITTER_MS.min).toBe('number')
+			expect(typeof config.JITTER_MS.max).toBe('number')
 			expect(typeof config.DEFAULT_REGION).toBe('string')
 		})
 
@@ -629,6 +676,7 @@ describe('PerformanceConfig', () => {
 			delete process.env.SCHEDULER_CONCURRENCY
 			delete process.env.SCHEDULER_MAX_PER_REGION
 			delete process.env.SCHEDULER_BATCH_SIZE
+			delete process.env.JITTER_MS
 			delete process.env.DEFAULT_REGION
 
 			const config = createPerformanceConfig()
@@ -642,6 +690,7 @@ describe('PerformanceConfig', () => {
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 			expect(config.SCHEDULER_BATCH_SIZE).toBe(1000)
+			expect(config.JITTER_MS).toEqual({ min: 0, max: 5000 })
 			expect(config.DEFAULT_REGION).toBe('us')
 		})
 

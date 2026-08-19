@@ -70,6 +70,11 @@ export const PerformanceConfigSchema = z.object({
 	/** Documents per batch when paginating over books/authors/chapters */
 	SCHEDULER_BATCH_SIZE: z.number().int().positive().max(MAX_SCHEDULER_BATCH_SIZE).default(1000),
 
+	/** Randomized pacing wait range in ms for batch workers (env: "min-max" or bare "max") */
+	JITTER_MS: z
+		.object({ min: z.number().int().min(0), max: z.number().int().min(0) })
+		.default({ min: 0, max: 5000 }),
+
 	/** Default region for batch processing when none specified */
 	DEFAULT_REGION: z.string().default('us')
 })
@@ -125,6 +130,19 @@ export function createPerformanceConfig(): PerformanceConfig {
 			? 1000
 			: Math.min(schedulerBatchSize, MAX_SCHEDULER_BATCH_SIZE)
 
+	const defaultJitter = { min: 0, max: 5000 }
+	const jitterRaw = process.env.JITTER_MS?.trim()
+	const jitterMs = (() => {
+		if (!jitterRaw) return defaultJitter
+		const parts = jitterRaw.split('-').map((part) => Number.parseInt(part, 10))
+		if (parts.length > 2 || parts.some((n) => !Number.isInteger(n) || n < 0)) {
+			return defaultJitter
+		}
+		const min = parts.length === 2 ? parts[0] : 0
+		const max = parts[parts.length - 1]
+		return min > max ? defaultJitter : { min, max }
+	})()
+
 	return PerformanceConfigSchema.parse({
 		USE_PARALLEL_SCHEDULER: parseBoolean(process.env.USE_PARALLEL_SCHEDULER) ?? false,
 		USE_CONNECTION_POOLING: parseBoolean(process.env.USE_CONNECTION_POOLING) ?? true,
@@ -136,6 +154,7 @@ export function createPerformanceConfig(): PerformanceConfig {
 		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency,
 		SCHEDULER_MAX_PER_REGION: validatedSchedulerMaxPerRegion,
 		SCHEDULER_BATCH_SIZE: validatedSchedulerBatchSize,
+		JITTER_MS: jitterMs,
 		DEFAULT_REGION: process.env.DEFAULT_REGION?.trim() || 'us'
 	})
 }
@@ -159,6 +178,7 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
 	SCHEDULER_BATCH_SIZE: 1000,
+	JITTER_MS: { min: 0, max: 5000 },
 	DEFAULT_REGION: 'us'
 }
 

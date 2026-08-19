@@ -5,11 +5,7 @@ import {
 	resetPerformanceConfig,
 	setPerformanceConfig
 } from '#config/performance'
-import {
-	CircuitBreaker,
-	getAudibleCircuitBreaker,
-	resetAudibleCircuitBreaker
-} from '#helpers/utils/CircuitBreaker'
+import { CircuitBreaker } from '#helpers/utils/CircuitBreaker'
 
 const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
 	USE_PARALLEL_SCHEDULER: false,
@@ -22,6 +18,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
 	SCHEDULER_BATCH_SIZE: 1000,
+	JITTER_MS: { min: 0, max: 5000 },
 	DEFAULT_REGION: 'us',
 	...overrides
 })
@@ -29,7 +26,6 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 describe('CircuitBreaker', () => {
 	beforeEach(() => {
 		resetPerformanceConfig()
-		resetAudibleCircuitBreaker()
 	})
 
 	describe('basic operation', () => {
@@ -258,23 +254,6 @@ describe('CircuitBreaker', () => {
 			await expect(breaker.execute(fn)).rejects.toThrow()
 
 			expect(breaker.getStats().state).toBe('OPEN')
-		})
-	})
-
-	describe('global instance', () => {
-		it('should return same instance from getAudibleCircuitBreaker', () => {
-			const breaker1 = getAudibleCircuitBreaker()
-			const breaker2 = getAudibleCircuitBreaker()
-
-			expect(breaker1).toBe(breaker2)
-		})
-
-		it('should create new instance after reset', () => {
-			const breaker1 = getAudibleCircuitBreaker()
-			resetAudibleCircuitBreaker()
-			const breaker2 = getAudibleCircuitBreaker()
-
-			expect(breaker1).not.toBe(breaker2)
 		})
 	})
 

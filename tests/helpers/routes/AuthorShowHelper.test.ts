@@ -74,6 +74,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
 	SCHEDULER_BATCH_SIZE: 1000,
+	JITTER_MS: { min: 0, max: 5000 },
 	DEFAULT_REGION: 'us',
 	...overrides
 })

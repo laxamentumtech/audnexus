@@ -36,6 +36,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
 	SCHEDULER_BATCH_SIZE: 1000,
+	JITTER_MS: { min: 0, max: 5000 },
 	DEFAULT_REGION: 'us',
 	...overrides
 })
@@ -57,7 +58,7 @@ describe('UpdateScheduler parallel processing', () => {
 	beforeEach(() => {
 		const ctx = createMockContext()
 		const mockLogger = createMockLogger()
-		helper = new UpdateScheduler(1, ctx.client, mockLogger)
+		helper = new UpdateScheduler(ctx.client, mockLogger)
 		resetPerformanceConfig()
 		mockAuthorFind.mockReset()
 		mockAuthorHandler.mockReset()
