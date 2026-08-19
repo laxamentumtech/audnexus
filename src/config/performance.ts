@@ -56,6 +56,9 @@ export const PerformanceConfigSchema = z.object({
 	/** Hard cap for max per-region concurrency in batch processing */
 	SCHEDULER_MAX_PER_REGION: z.number().int().positive().default(5),
 
+	/** Documents per batch when paginating over books/authors/chapters */
+	SCHEDULER_BATCH_SIZE: z.number().int().positive().max(MAX_SCHEDULER_BATCH_SIZE).default(1000),
+
 	/** Default region for batch processing when none specified */
 	DEFAULT_REGION: z.string().default('us')
 })
@@ -81,6 +84,9 @@ export function createPerformanceConfig(): PerformanceConfig {
 	const schedulerMaxPerRegion = process.env.SCHEDULER_MAX_PER_REGION
 		? parseInt(process.env.SCHEDULER_MAX_PER_REGION, 10)
 		: 5
+	const schedulerBatchSize = process.env.SCHEDULER_BATCH_SIZE
+		? parseInt(process.env.SCHEDULER_BATCH_SIZE, 10)
+		: 1000
 
 	// Handle invalid values before passing to Zod
 	const validatedMaxConcurrent =
@@ -101,6 +107,12 @@ export function createPerformanceConfig(): PerformanceConfig {
 		schedulerMaxPerRegion <= 0
 			? 5
 			: schedulerMaxPerRegion
+	const validatedSchedulerBatchSize =
+		Number.isNaN(schedulerBatchSize) ||
+		!Number.isFinite(schedulerBatchSize) ||
+		schedulerBatchSize <= 0
+			? 1000
+			: schedulerBatchSize
 
 	return PerformanceConfigSchema.parse({
 		USE_PARALLEL_SCHEDULER: parseBoolean(process.env.USE_PARALLEL_SCHEDULER) ?? false,
@@ -112,6 +124,7 @@ export function createPerformanceConfig(): PerformanceConfig {
 		MAX_CONCURRENT_REQUESTS: validatedMaxConcurrent,
 		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency,
 		SCHEDULER_MAX_PER_REGION: validatedSchedulerMaxPerRegion,
+		SCHEDULER_BATCH_SIZE: validatedSchedulerBatchSize,
 		DEFAULT_REGION: process.env.DEFAULT_REGION?.trim() || 'us'
 	})
 }
@@ -134,6 +147,7 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
+	SCHEDULER_BATCH_SIZE: 1000,
 	DEFAULT_REGION: 'us'
 }
 
@@ -163,7 +177,8 @@ export function resetPerformanceConfig(): void {
 
 /**
  * Set a custom configuration instance (useful for testing).
+ * Rejects values outside the schema (e.g. SCHEDULER_BATCH_SIZE above the cap).
  */
 export function setPerformanceConfig(config: PerformanceConfig): void {
-	_config = config
+	_config = PerformanceConfigSchema.parse(config)
 }

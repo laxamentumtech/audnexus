@@ -35,6 +35,7 @@ const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceCon
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
+	SCHEDULER_BATCH_SIZE: 1000,
 	DEFAULT_REGION: 'us',
 	...overrides
 })
@@ -84,7 +85,7 @@ describe('UpdateScheduler parallel processing', () => {
 			region: 'us'
 		}))
 
-		mockAuthorFind.mockResolvedValue(authors)
+		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
 
 		let concurrentCount = 0
 		let maxConcurrent = 0
@@ -120,7 +121,7 @@ describe('UpdateScheduler parallel processing', () => {
 			{ asin: 'B3', region: 'uk' }
 		]
 
-		mockAuthorFind.mockResolvedValue(authors)
+		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
 
 		let concurrentCount = 0
 		let maxConcurrent = 0
@@ -153,7 +154,7 @@ describe('UpdateScheduler parallel processing', () => {
 			{ asin: 'A3', region: 'us' }
 		]
 
-		mockAuthorFind.mockResolvedValue(authors)
+		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
 		mockAuthorHandler
 			.mockRejectedValueOnce(new Error('fail'))
 			.mockResolvedValueOnce(undefined)
