@@ -25,6 +25,17 @@ function parseBoolean(value: string | undefined): boolean | undefined {
 }
 
 // ============================================================================
+// Scheduler Batch Size
+// ============================================================================
+
+/**
+ * Hard upper bound for SCHEDULER_BATCH_SIZE. Keeps memory bounded even when
+ * an operator configures an extreme value, and stays within Zod 4's safe
+ * integer range so config creation never throws.
+ */
+const MAX_SCHEDULER_BATCH_SIZE = 10000
+
+// ============================================================================
 // Feature Flag Schemas
 // ============================================================================
 
@@ -112,7 +123,7 @@ export function createPerformanceConfig(): PerformanceConfig {
 		!Number.isFinite(schedulerBatchSize) ||
 		schedulerBatchSize <= 0
 			? 1000
-			: schedulerBatchSize
+			: Math.min(schedulerBatchSize, MAX_SCHEDULER_BATCH_SIZE)
 
 	return PerformanceConfigSchema.parse({
 		USE_PARALLEL_SCHEDULER: parseBoolean(process.env.USE_PARALLEL_SCHEDULER) ?? false,
@@ -177,8 +188,13 @@ export function resetPerformanceConfig(): void {
 
 /**
  * Set a custom configuration instance (useful for testing).
- * Rejects values outside the schema (e.g. SCHEDULER_BATCH_SIZE above the cap).
+ * Rejects SCHEDULER_BATCH_SIZE values above the hard cap; other fields are
+ * stored as-is so runtime guardrails (e.g. SCHEDULER_CONCURRENCY >= 1) can
+ * raise their own errors.
  */
 export function setPerformanceConfig(config: PerformanceConfig): void {
-	_config = PerformanceConfigSchema.parse(config)
+	if (config.SCHEDULER_BATCH_SIZE > MAX_SCHEDULER_BATCH_SIZE) {
+		throw new Error(`SCHEDULER_BATCH_SIZE must be at most ${MAX_SCHEDULER_BATCH_SIZE}`)
+	}
+	_config = config
 }

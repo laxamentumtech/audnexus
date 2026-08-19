@@ -271,7 +271,6 @@ describe('UpdateScheduler should', () => {
 			'Books batch complete: total=2 success=0 failures=2'
 		)
 	})
-
 	test('updateAuthors', async () => {
 		mockAuthorFind.mockResolvedValueOnce([authorWithoutProjection]).mockResolvedValueOnce([])
 		mockAuthorHandler.mockResolvedValue(undefined)

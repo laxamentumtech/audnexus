@@ -136,11 +136,6 @@ describe('BookBackfillHelper should', () => {
 			.mockResolvedValueOnce([])
 		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, failed: 0 })
 		expect(mockBookFind).toHaveBeenNthCalledWith(
-			2,
-			{ ratings: { $exists: false }, _id: { $gt: books[books.length - 1]._id } },
-			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
-		)
-		expect(mockBookFind).toHaveBeenNthCalledWith(
 			3,
 			{ ratings: { $exists: false }, _id: { $gt: secondPage[secondPage.length - 1]._id } },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
@@ -156,13 +151,36 @@ describe('BookBackfillHelper should', () => {
 			.mockResolvedValueOnce(books)
 			.mockResolvedValueOnce(secondPage)
 			.mockResolvedValueOnce([])
-		// First page: one book without ratings (failed); second page: one
-		// pre-order (skipped) — skipped counts as a batch success.
+		// First page: B2 without ratings (failed), B1/B3 pre-orders (skipped);
+		// second page: B4 pre-order (skipped). Skipped counts as batch success.
 		mockShowHandler.mockImplementation(async () => {
 			const asin = showConstructorArgs.at(-1)?.[0]
 			return asin === 'B000000002' ? bookWithoutRatings : bookPreOrder
 		})
-		await expect(helper.process()).resolves.toEqual({ total: 4, updated: 2, skipped: 1, failed: 1 })
+		await expect(helper.process()).resolves.toEqual({ total: 4, updated: 0, skipped: 3, failed: 1 })
+	})
+
+	test('accumulates totals across multiple pages', async () => {
+		const secondPage = [
+			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f04'), asin: 'B000000004', region: 'us' },
+			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f05'), asin: 'B000000005', region: 'us' }
+		]
+		mockBookFind.mockReset()
+		mockBookFind
+			.mockResolvedValueOnce(books)
+			.mockResolvedValueOnce(secondPage)
+			.mockResolvedValueOnce([])
+		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, failed: 0 })
+		expect(mockBookFind).toHaveBeenNthCalledWith(
+			2,
+			{ ratings: { $exists: false }, _id: { $gt: books[books.length - 1]._id } },
+			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
+		)
+		expect(mockBookFind).toHaveBeenNthCalledWith(
+			3,
+			{ ratings: { $exists: false }, _id: { $gt: secondPage[secondPage.length - 1]._id } },
+			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
+		)
 	})
 
 	test('counts a book as failed when the refetch does not populate ratings', async () => {
