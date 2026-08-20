@@ -388,6 +388,36 @@ describe('UpdateScheduler should', () => {
 		expect(mockChapterHandler).toHaveBeenCalled()
 	})
 
+	test('updateAuthors accumulates summary across successes and failures in sequential processing', async () => {
+		setPerformanceConfig(
+			createTestPerformanceConfig({ USE_PARALLEL_SCHEDULER: false, JITTER_MS: { min: 0, max: 0 } })
+		)
+
+		const usA = { ...authorWithoutProjection, asin: 'B000000001', region: 'us' }
+		const usB = { ...authorWithoutProjection, asin: 'B000000002', region: 'us' }
+		const regionless = { ...authorWithoutProjection, asin: 'B000000003', region: undefined }
+		mockAuthorFind.mockResolvedValueOnce([usA, usB, regionless]).mockResolvedValueOnce([])
+		// Sequential processing invokes the handler in document order; the third
+		// (region-less) doc's call rejects to exercise the failure branch.
+		mockAuthorHandler
+			.mockResolvedValueOnce(undefined)
+			.mockResolvedValueOnce(undefined)
+			.mockRejectedValueOnce(new Error('Test error'))
+
+		await helper.updateAuthors()
+
+		expect(AuthorModel.find).toHaveBeenCalledWith({}, projection)
+		expect(mockProcessBatchByRegion).not.toHaveBeenCalled()
+		expect(mockAuthorHandler).toHaveBeenCalledTimes(3)
+		expect(mockLogger.error).toHaveBeenCalledTimes(1)
+		expect(mockLogger.debug).toHaveBeenCalledWith(
+			'Authors batch complete: total=3 success=2 failures=1'
+		)
+		// normalizeRegion leaves 'us' as-is and maps a missing region to DEFAULT_REGION ('us'),
+		// so all three docs land under the 'us' bucket.
+		expect(mockLogger.debug).toHaveBeenCalledWith('Authors batch regions: 1 maxConcurrency=0')
+	})
+
 	test('updateAuthors uses sequential processing when USE_PARALLEL_SCHEDULER is false', async () => {
 		setPerformanceConfig(createTestPerformanceConfig({ USE_PARALLEL_SCHEDULER: false }))
 

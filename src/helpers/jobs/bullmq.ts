@@ -1,4 +1,5 @@
 import { Queue, type QueueOptions, Worker, type WorkerOptions } from 'bullmq'
+import { Job } from 'bullmq'
 // ioredis 5.11.1 is pinned to bullmq's own ioredis version so the shared
 // connection type-checks against its connection options.
 import type { FastifyBaseLogger } from 'fastify'
@@ -52,9 +53,11 @@ export class QueueUnavailableError extends Error {
 	}
 }
 
-/** Single shared ioredis connection for all BullMQ machinery and for the
- * per-item cache helpers. The worker container always sets REDIS_URL; the API
- * server calls these only when REDIS_URL is present. */
+/** Single shared ioredis connection for all BullMQ machinery. BullMQ requires
+ * maxRetriesPerRequest: null (blocking commands), so this connection must only
+ * feed BullMQ itself — never the per-item cache helpers (see getCacheRedis).
+ * The worker container always sets REDIS_URL; the API server calls these only
+ * when REDIS_URL is present. */
 let queueRedis: Redis | null = null
 export function getQueueRedis(): Redis {
 	if (!queueRedis) {
@@ -64,6 +67,40 @@ export function getQueueRedis(): Redis {
 		queueRedis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
 	}
 	return queueRedis
+}
+
+/** Separate bounded connection for the per-item cache helpers (update/cache
+ * path only — BullMQ machinery keeps using getQueueRedis). BullMQ's
+ * maxRetriesPerRequest: null would make the cache helpers hang unbounded in
+ * ioredis's offline queue when Redis is down, so this one fails instead:
+ * bounded retries and a 10s command timeout, so an offline command errors
+ * out rather than queueing forever — fail-fast per-command is what makes the
+ * job retriable instead of hanging. The retryStrategy never gives up (it
+ * always returns a bounded delay), so a short Redis outage heals in place —
+ * important because the update pass hands this same instance to
+ * UpdateScheduler for hours, and a permanent close would silently break every
+ * later cache command. Only an out-of-band close leaves a dead singleton, and
+ * getCacheRedis() detects that and recreates the connection on the next call
+ * as last-resort recovery. */
+let cacheRedis: Redis | null = null
+export function getCacheRedis(): Redis {
+	// dead singleton (out-of-band close) → re-create.
+	if (cacheRedis && (cacheRedis.status === 'end' || cacheRedis.status === 'close')) {
+		cacheRedis = null
+	}
+	if (!cacheRedis) {
+		if (!process.env.REDIS_URL) {
+			throw new Error('REDIS_URL is required for update cache helpers')
+		}
+		cacheRedis = new Redis(process.env.REDIS_URL, {
+			maxRetriesPerRequest: CACHE_MAX_RETRIES_PER_REQUEST,
+			commandTimeout: CACHE_COMMAND_TIMEOUT_MS,
+			// Never returns null: ioredis must keep reconnecting in place,
+			// because the update pass holds this instance for hours.
+			retryStrategy: (times) => Math.min(times * CACHE_RETRY_BASE_MS, CACHE_RETRY_CAP_MS)
+		})
+	}
+	return cacheRedis
 }
 
 let queue: Queue | null = null
@@ -85,18 +122,28 @@ function requireReadyConnection(): void {
 	}
 }
 
-/** How long a guarded BullMQ command may stay pending before we treat the
- * connection as dead: the ready check above can go stale (TOCTOU) — if the
- * link drops right after the check, the command hangs in ioredis's offline
- * queue, so a still-pending command with a non-ready connection fails as
- * unavailable instead of hanging. */
+/** How long a guarded BullMQ command may stay pending before we fail it:
+ * the ready check above can go stale (TOCTOU) — if the link drops right
+ * after the check, the command hangs in ioredis's offline queue, so a
+ * still-pending command fails as unavailable instead of hanging. */
 export const COMMAND_TIMEOUT_MS = 5000
 
-/** Run a BullMQ command with a hard deadline: if the command is still
- * pending after `timeoutMs` and the shared connection is no longer ready,
- * reject with QueueUnavailableError. A command that settles in time is
- * returned untouched (the timer is cleared); with the connection still ready
- * the race simply keeps waiting for the command itself. */
+/** Per-item cache connection tuning (see getCacheRedis). Bounded by design:
+ * unlike the BullMQ connection, offline cache commands must error out rather
+ * than queue forever in ioredis's offline queue. */
+export const CACHE_MAX_RETRIES_PER_REQUEST = 3
+export const CACHE_COMMAND_TIMEOUT_MS = 10_000
+export const CACHE_RETRY_BASE_MS = 200
+export const CACHE_RETRY_CAP_MS = 3000
+
+/** Run a BullMQ command with an absolute deadline: if the command is still
+ * pending after `timeoutMs`, reject unconditionally with
+ * QueueUnavailableError — even if the connection still reports ready, since
+ * a command stuck on a "ready" link waits forever and the caller cannot
+ * distinguish that from a healthy queue. A command that settles in time is
+ * returned untouched (the timer is cleared). If the command later executes
+ * after we rejected, the backfill's deterministic jobId dedup makes the
+ * duplicate a no-op. */
 export async function withCommandTimeout<T>(
 	fn: () => Promise<T>,
 	timeoutMs: number = COMMAND_TIMEOUT_MS
@@ -104,9 +151,8 @@ export async function withCommandTimeout<T>(
 	let timer: NodeJS.Timeout
 	const deadline = new Promise<never>((_, reject) => {
 		timer = setTimeout(() => {
-			if (getQueueRedis().status !== 'ready') {
-				reject(new QueueUnavailableError())
-			}
+			console.warn('withCommandTimeout: BullMQ command exceeded deadline, failing as unavailable')
+			reject(new QueueUnavailableError())
 		}, timeoutMs)
 	})
 	return Promise.race([fn(), deadline]).finally(() => {
@@ -114,22 +160,53 @@ export async function withCommandTimeout<T>(
 	})
 }
 
+/** Deterministic job id for backfill jobs: makes the enqueue idempotent
+ * (atomic single-flight) — concurrent adds with the same jobId are deduped
+ * by BullMQ's atomic add script, closing the TOCTOU window left by the
+ * count-based in-flight check. */
+const BACKFILL_JOB_ID = JOB_NAMES.backfillRatings
+
+/** Remove a lingering terminal backfill record before re-enqueueing.
+ * removeOnComplete retains the last 100 completed job records, and their
+ * hashes stay in Redis — BullMQ's add script treats an add with a jobId
+ * whose hash already exists as a no-op duplicate (returns the id, never
+ * enqueues), which would silently break the next legitimate backfill.
+ * Only terminal records (completed/failed) are removed so the id frees up;
+ * in-flight records (waiting/active/delayed/paused) are left alone — the
+ * route's 409 guard covers those, and a concurrent slip-through hits the
+ * atomic duplicate path on add, which is a safe no-op. The state is re-read
+ * immediately before the remove: the earlier read only proves the id was
+ * terminal at that instant, and a concurrent re-enqueue between check and
+ * remove would otherwise delete a freshly waiting job. */
+async function removeTerminatedBackfillJob(): Promise<void> {
+	const existing = await withCommandTimeout(() => Job.fromId(getQueue(), BACKFILL_JOB_ID))
+	if (!existing) return
+	const state = await withCommandTimeout(() => existing.getState())
+	if (state !== 'completed' && state !== 'failed') return
+	const fresh = await withCommandTimeout(() => Job.fromId(getQueue(), BACKFILL_JOB_ID))
+	const freshState = fresh ? await withCommandTimeout(() => fresh.getState()) : null
+	if (freshState === 'completed' || freshState === 'failed') {
+		await withCommandTimeout(() => getQueue().remove(BACKFILL_JOB_ID))
+	}
+}
+
 export async function enqueueBackfillRatings(): Promise<string> {
 	requireReadyConnection()
+	await removeTerminatedBackfillJob()
 	const job = await withCommandTimeout(() =>
-		getQueue().add(JOB_NAMES.backfillRatings, {}, { ...JOB_RETRIES })
+		getQueue().add(JOB_NAMES.backfillRatings, {}, { ...JOB_RETRIES, jobId: BACKFILL_JOB_ID })
 	)
 	return job.id ?? ''
 }
 
 /** Replace the toad-scheduler LongIntervalJob: a BullMQ repeatable job firing
- * every `days` (converted to seconds — BullMQ repeat has no day unit).
+ * every `days` (converted to milliseconds — BullMQ repeat has no day unit).
  * `immediately: true` preserves the old runImmediately behavior.
  * days <= 0 is a no-op (no scheduler created) so local/smoke setups can run
  * the worker without a schedule. */
 export async function upsertUpdateScheduler(days: number): Promise<void> {
-	const seconds = Math.floor(days * 86400)
-	if (seconds <= 0) return
+	const everyMs = Math.floor(days * 86_400_000)
+	if (everyMs <= 0) return
 	requireReadyConnection()
 	// v5.81+ scheduler shape: repeat options take `immediately` (with `every`
 	// it fires once at creation and runs every interval); name/data/opts live
@@ -137,7 +214,7 @@ export async function upsertUpdateScheduler(days: number): Promise<void> {
 	await withCommandTimeout(() =>
 		getQueue().upsertJobScheduler(
 			'update-all-scheduler',
-			{ every: seconds, immediately: true },
+			{ every: everyMs, immediately: true },
 			{ name: JOB_NAMES.updateAll, opts: { ...JOB_RETRIES } }
 		)
 	)
@@ -164,7 +241,7 @@ export async function handleJob(
 	logger: FastifyBaseLogger
 ): Promise<Record<string, number>> {
 	if (job.name === JOB_NAMES.updateAll) {
-		const scheduler = new UpdateScheduler(getQueueRedis(), logger)
+		const scheduler = new UpdateScheduler(getCacheRedis(), logger)
 		const summary = await scheduler.updateAll()
 		return { total: summary.total, success: summary.success, failures: summary.failures }
 	}
@@ -212,5 +289,9 @@ export async function closeQueue(): Promise<void> {
 	if (queueRedis) {
 		await queueRedis.quit()
 		queueRedis = null
+	}
+	if (cacheRedis) {
+		await cacheRedis.quit()
+		cacheRedis = null
 	}
 }

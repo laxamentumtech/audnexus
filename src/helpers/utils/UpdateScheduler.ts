@@ -9,7 +9,11 @@ import { getPerformanceConfig } from '#config/performance'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
-import { type BatchProcessSummary, processBatchByRegion } from '#helpers/utils/batchProcessor'
+import {
+	type BatchProcessSummary,
+	normalizeRegion,
+	processBatchByRegion
+} from '#helpers/utils/batchProcessor'
 import { jitteredSleep } from '#helpers/utils/jitteredSleep'
 import {
 	ASIN_REGION_PROJECTION,
@@ -146,16 +150,23 @@ class UpdateScheduler {
 	): Promise<BatchProcessSummary> {
 		const config = getPerformanceConfig()
 		if (!config.USE_PARALLEL_SCHEDULER) {
+			const summary = this.createEmptySummary()
 			await this.processAllAsins(model, async (docs) => {
 				for (const doc of docs) {
+					const region = normalizeRegion(doc.region)
+					summary.total += 1
+					summary.regions[region] = (summary.regions[region] ?? 0) + 1
 					try {
 						await processOne(doc, { withDelay: true })
+						summary.success += 1
 					} catch (error) {
 						this.logger.error(error)
+						summary.failures += 1
 					}
 				}
 			})
-			return this.createEmptySummary()
+			this.logBatchSummary(label, summary, config.SCHEDULER_CONCURRENCY, 1)
+			return summary
 		}
 		const perRegionLimit = Math.min(config.SCHEDULER_CONCURRENCY, MAX_PER_REGION_CONCURRENCY)
 		const summary = this.createEmptySummary()

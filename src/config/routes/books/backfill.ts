@@ -29,7 +29,9 @@ async function _backfill(fastify: FastifyInstance) {
 		}
 		// Durable in-flight guard (queue-level, survives process restarts):
 		// waiting covers queued duplicates, active a running pass, delayed a
-		// pass between retries.
+		// pass between retries. This is the primary guard; the enqueue itself
+		// also passes a deterministic jobId, so BullMQ's atomic add dedupes a
+		// concurrent slip-through (check-then-act TOCTOU) as a no-op.
 		// Redis present but not ready → 503 (same contract as missing REDIS_URL),
 		// not a hang: the shared connection keeps ioredis's null retry policy for
 		// BullMQ, so the queue helpers fail fast on connection status instead.
