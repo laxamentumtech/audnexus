@@ -1,7 +1,11 @@
 import crypto from 'crypto'
 import { FastifyInstance } from 'fastify'
 
-import { countBackfillJobsInFlight, enqueueBackfillRatings } from '#helpers/jobs/bullmq'
+import {
+	countBackfillJobsInFlight,
+	enqueueBackfillRatings,
+	QueueUnavailableError
+} from '#helpers/jobs/bullmq'
 
 async function _backfill(fastify: FastifyInstance) {
 	fastify.post('/books/backfill-ratings', async (request, reply) => {
@@ -24,12 +28,26 @@ async function _backfill(fastify: FastifyInstance) {
 				.send({ error: 'Service Unavailable', message: 'Backfill requires REDIS_URL' })
 		}
 		// Durable in-flight guard (queue-level, survives process restarts):
-		// waiting covers queued duplicates, active a running pass.
-		if ((await countBackfillJobsInFlight()) > 0) {
-			return reply.code(409).send({ error: 'Conflict', message: 'Backfill already in progress' })
+		// waiting covers queued duplicates, active a running pass, delayed a
+		// pass between retries.
+		// Redis present but not ready → 503 (same contract as missing REDIS_URL),
+		// not a hang: the shared connection keeps ioredis's null retry policy for
+		// BullMQ, so the queue helpers fail fast on connection status instead.
+		try {
+			if ((await countBackfillJobsInFlight()) > 0) {
+				return reply.code(409).send({ error: 'Conflict', message: 'Backfill already in progress' })
+			}
+			const id = await enqueueBackfillRatings()
+			return reply.code(202).send({ message: 'Ratings backfill started', id })
+		} catch (err) {
+			if (err instanceof QueueUnavailableError) {
+				return reply.code(503).send({
+					error: 'Service Unavailable',
+					message: 'Backfill requires a ready Redis connection'
+				})
+			}
+			throw err
 		}
-		const id = await enqueueBackfillRatings()
-		return reply.code(202).send({ message: 'Ratings backfill started', id })
 	})
 }
 

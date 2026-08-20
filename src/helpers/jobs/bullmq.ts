@@ -15,20 +15,41 @@ export const JOB_NAMES = {
 } as const
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES]
 
+/** Fixed 5-minute retry backoff — jobs are long batch passes; a short retry is pointless. */
+export const RETRY_BACKOFF_MS = 300000
+/** 1h job lock: BullMQ heartbeats the token on every awaited microtask, so this
+ * only trips on a truly dead worker. */
+export const LOCK_DURATION_MS = 3600000
+/** How often the worker checks for stalled jobs (crashed mid-process). */
+export const STALLED_CHECK_INTERVAL_MS = 30000
+/** Retention: last N completed/failed job records kept per queue. */
+export const RETENTION_COMPLETED = 100
+export const RETENTION_FAILED = 200
+
 /** Jobs are long batch passes; a fixed 5-minute retry is the only sane recovery. */
 export const JOB_RETRIES = {
 	attempts: 2,
-	backoff: { type: 'fixed' as const, delay: 300000 }
+	backoff: { type: 'fixed' as const, delay: RETRY_BACKOFF_MS }
 } as const
 
 /** Long-running passes must never lose the lock: BullMQ heartbeats the token on
  * every awaited microtask, so a 1h lockDuration only trips on a truly dead worker. */
 const WORKER_OPTIONS: Omit<WorkerOptions, 'connection'> = {
 	concurrency: 1,
-	lockDuration: 3600000,
-	stalledInterval: 30000,
-	removeOnComplete: { count: 100 },
-	removeOnFail: { count: 200 }
+	lockDuration: LOCK_DURATION_MS,
+	stalledInterval: STALLED_CHECK_INTERVAL_MS,
+	removeOnComplete: { count: RETENTION_COMPLETED },
+	removeOnFail: { count: RETENTION_FAILED }
+}
+
+/** Thrown by queue helpers when the shared connection is not ready, so callers
+ * (e.g. the backfill route) fail fast with 503 instead of hanging on queued
+ * ioredis commands. */
+export class QueueUnavailableError extends Error {
+	constructor() {
+		super('Queue unavailable: Redis connection is not ready')
+		this.name = 'QueueUnavailableError'
+	}
 }
 
 /** Single shared ioredis connection for all BullMQ machinery and for the
@@ -54,13 +75,50 @@ function getQueue(): Queue {
 	return queue
 }
 
-export async function enqueueUpdateAll(): Promise<string> {
-	const job = await getQueue().add(JOB_NAMES.updateAll, {}, { ...JOB_RETRIES })
-	return job.id ?? ''
+/** BullMQ overrides maxRetriesPerRequest to null (blocking commands require
+ * it), so with Redis down an ordinary command would queue in ioredis's
+ * offline queue and hang forever. Check connection readiness first and fail
+ * fast — the backfill route maps this to 503. */
+function requireReadyConnection(): void {
+	if (getQueueRedis().status !== 'ready') {
+		throw new QueueUnavailableError()
+	}
+}
+
+/** How long a guarded BullMQ command may stay pending before we treat the
+ * connection as dead: the ready check above can go stale (TOCTOU) — if the
+ * link drops right after the check, the command hangs in ioredis's offline
+ * queue, so a still-pending command with a non-ready connection fails as
+ * unavailable instead of hanging. */
+export const COMMAND_TIMEOUT_MS = 5000
+
+/** Run a BullMQ command with a hard deadline: if the command is still
+ * pending after `timeoutMs` and the shared connection is no longer ready,
+ * reject with QueueUnavailableError. A command that settles in time is
+ * returned untouched (the timer is cleared); with the connection still ready
+ * the race simply keeps waiting for the command itself. */
+export async function withCommandTimeout<T>(
+	fn: () => Promise<T>,
+	timeoutMs: number = COMMAND_TIMEOUT_MS
+): Promise<T> {
+	let timer: NodeJS.Timeout
+	const deadline = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => {
+			if (getQueueRedis().status !== 'ready') {
+				reject(new QueueUnavailableError())
+			}
+		}, timeoutMs)
+	})
+	return Promise.race([fn(), deadline]).finally(() => {
+		clearTimeout(timer)
+	})
 }
 
 export async function enqueueBackfillRatings(): Promise<string> {
-	const job = await getQueue().add(JOB_NAMES.backfillRatings, {}, { ...JOB_RETRIES })
+	requireReadyConnection()
+	const job = await withCommandTimeout(() =>
+		getQueue().add(JOB_NAMES.backfillRatings, {}, { ...JOB_RETRIES })
+	)
 	return job.id ?? ''
 }
 
@@ -72,21 +130,30 @@ export async function enqueueBackfillRatings(): Promise<string> {
 export async function upsertUpdateScheduler(days: number): Promise<void> {
 	const seconds = Math.floor(days * 86400)
 	if (seconds <= 0) return
+	requireReadyConnection()
 	// v5.81+ scheduler shape: repeat options take `immediately` (with `every`
 	// it fires once at creation and runs every interval); name/data/opts live
 	// in the job template.
-	await getQueue().upsertJobScheduler(
-		'update-all-scheduler',
-		{ every: seconds, immediately: true },
-		{ name: JOB_NAMES.updateAll, opts: { ...JOB_RETRIES } }
+	await withCommandTimeout(() =>
+		getQueue().upsertJobScheduler(
+			'update-all-scheduler',
+			{ every: seconds, immediately: true },
+			{ name: JOB_NAMES.updateAll, opts: { ...JOB_RETRIES } }
+		)
 	)
 }
 
 /** Durable in-flight check for the backfill route (replaces the in-process
- * boolean guard): waiting covers queued duplicates, active a running pass. */
+ * boolean guard). Counts only backfill jobs — the update-all scheduler keeps
+ * a persistent delayed job in the queue, so queue-wide counts would make the
+ * route permanently 409: waiting covers queued duplicates, active a running
+ * pass, delayed a pass between fixed-backoff retries, paused a paused queue. */
 export async function countBackfillJobsInFlight(): Promise<number> {
-	const counts = await getQueue().getJobCounts('waiting', 'active')
-	return (counts.waiting ?? 0) + (counts.active ?? 0)
+	requireReadyConnection()
+	const jobs = await withCommandTimeout(() =>
+		getQueue().getJobs(['waiting', 'active', 'delayed', 'paused'])
+	)
+	return jobs.filter((job) => job.name === JOB_NAMES.backfillRatings).length
 }
 
 /** Single dispatch for both job types — the shared job runner. Each processor

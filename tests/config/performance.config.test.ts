@@ -2,11 +2,11 @@ import {
 	createPerformanceConfig,
 	DEFAULT_PERFORMANCE_CONFIG,
 	getPerformanceConfig,
-	PerformanceConfig,
 	PerformanceConfigSchema,
 	resetPerformanceConfig,
 	setPerformanceConfig
 } from '#config/performance'
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 describe('PerformanceConfig', () => {
 	const originalEnv = process.env
@@ -450,9 +450,7 @@ describe('PerformanceConfig', () => {
 
 		it('should reject SCHEDULER_BATCH_SIZE above the cap through setPerformanceConfig', () => {
 			const config = createPerformanceConfig()
-			expect(() =>
-				setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 10001 })
-			).toThrow()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 10001 })).toThrow()
 		})
 
 		it('should reject SCHEDULER_BATCH_SIZE of zero through setPerformanceConfig', () => {
@@ -477,9 +475,7 @@ describe('PerformanceConfig', () => {
 
 		it('should accept a valid SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
 			const config = createPerformanceConfig()
-			expect(() =>
-				setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 1000 })
-			).not.toThrow()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 1000 })).not.toThrow()
 		})
 	})
 
@@ -542,20 +538,19 @@ describe('PerformanceConfig', () => {
 		})
 
 		it('should set custom configuration with setPerformanceConfig', () => {
-			const customConfig: PerformanceConfig = {
+			const customConfig = createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				USE_CONNECTION_POOLING: false,
 				USE_COMPACT_JSON: false,
 				USE_SORTED_KEYS: true,
 				CIRCUIT_BREAKER_ENABLED: false,
-				METRICS_ENABLED: false,
 				MAX_CONCURRENT_REQUESTS: 100,
 				SCHEDULER_CONCURRENCY: 10,
 				SCHEDULER_MAX_PER_REGION: 10,
 				SCHEDULER_BATCH_SIZE: 2000,
 				JITTER_MS: { min: 100, max: 200 },
 				DEFAULT_REGION: 'uk'
-			}
+			})
 
 			setPerformanceConfig(customConfig)
 			const config = getPerformanceConfig()
@@ -574,20 +569,10 @@ describe('PerformanceConfig', () => {
 		})
 
 		it('should allow overriding singleton with environment after reset', () => {
-			const customConfig: PerformanceConfig = {
+			const customConfig = createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
-				USE_CONNECTION_POOLING: true,
-				USE_COMPACT_JSON: true,
-				USE_SORTED_KEYS: false,
-				CIRCUIT_BREAKER_ENABLED: true,
-				METRICS_ENABLED: true,
-				MAX_CONCURRENT_REQUESTS: 50,
-				SCHEDULER_CONCURRENCY: 5,
-				SCHEDULER_MAX_PER_REGION: 5,
-				SCHEDULER_BATCH_SIZE: 1000,
-				JITTER_MS: { min: 0, max: 5000 },
-				DEFAULT_REGION: 'us'
-			}
+				METRICS_ENABLED: true
+			})
 
 			setPerformanceConfig(customConfig)
 			resetPerformanceConfig()

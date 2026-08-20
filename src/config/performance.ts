@@ -73,6 +73,9 @@ export const PerformanceConfigSchema = z.object({
 	/** Randomized pacing wait range in ms for batch workers (env: "min-max" or bare "max") */
 	JITTER_MS: z
 		.object({ min: z.number().int().min(0), max: z.number().int().min(0) })
+		.refine((range) => range.min <= range.max, {
+			message: 'JITTER_MS.min must be <= JITTER_MS.max'
+		})
 		.default({ min: 0, max: 5000 }),
 
 	/** Default region for batch processing when none specified */

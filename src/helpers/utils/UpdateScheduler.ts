@@ -1,11 +1,9 @@
 import type { FastifyRedis } from '@fastify/redis'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
-import type { ObjectId } from 'mongodb'
-import type { ProjectionType } from 'papr'
 
 import AuthorModel from '#config/models/Author'
-import BookModel, { type BookDocument } from '#config/models/Book'
+import BookModel from '#config/models/Book'
 import ChapterModel from '#config/models/Chapter'
 import { getPerformanceConfig } from '#config/performance'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
@@ -13,18 +11,16 @@ import BookShowHelper from '#helpers/routes/BookShowHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import { type BatchProcessSummary, processBatchByRegion } from '#helpers/utils/batchProcessor'
 import { jitteredSleep } from '#helpers/utils/jitteredSleep'
-import { iterateKeyset } from '#helpers/utils/keyset'
+import {
+	ASIN_REGION_PROJECTION,
+	type DocumentWithRegion,
+	iterateKeyset,
+	keysetFindAdapter
+} from '#helpers/utils/keyset'
 import { NoticeUpdateScheduled } from '#static/messages'
 
 // Maximum per-region concurrency limit
 const MAX_PER_REGION_CONCURRENCY = 5
-
-// Document types with region
-interface DocumentWithRegion {
-	_id: ObjectId
-	asin: string
-	region?: string | null
-}
 
 /**
  * Merge a per-batch summary into the aggregate summary, preserving the
@@ -63,18 +59,9 @@ class UpdateScheduler {
 		processBatch: (batch: DocumentWithRegion[]) => Promise<void>
 	): Promise<void> {
 		const batchSize = getPerformanceConfig().SCHEDULER_BATCH_SIZE
-		const projection: { asin: 1; region: 1 } = { asin: 1, region: 1 }
-		// The three models expose the same find() shape for this projection; the
-		// cast avoids a union-of-models call that TS cannot resolve.
-		const findModel = model as typeof BookModel
-		type BatchDoc = ProjectionType<BookDocument, typeof projection>
-		const find = (
-			filter: object,
-			opts: { projection: { asin: 1; region: 1 }; sort: { _id: 1 }; limit: number }
-		): Promise<BatchDoc[]> => findModel.find(filter as never, opts as never)
-		await iterateKeyset<BatchDoc, { asin: 1; region: 1 }>(
-			find,
-			{ projection, batchSize },
+		await iterateKeyset(
+			keysetFindAdapter(model),
+			{ projection: ASIN_REGION_PROJECTION, batchSize },
 			processBatch
 		)
 	}

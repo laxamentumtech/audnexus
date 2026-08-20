@@ -4,7 +4,7 @@ import { createMockLogger } from '#tests/setup/mockLogger'
 
 const mockQueueAdd = mock()
 const mockQueueUpsert = mock()
-const mockQueueGetJobCounts = mock()
+const mockQueueGetJobs = mock()
 const mockQueueClose = mock()
 const mockRedisQuit = mock()
 const mockWorkerClose = mock()
@@ -14,8 +14,15 @@ const mockBackfillProcess = mock()
 
 // No real ioredis sockets: CI has no Redis service, and ioredis connects
 // eagerly and retries forever, which would keep the test process alive.
+// `status` reads from `mockRedisStatus` so tests can flip it to exercise the
+// non-ready connection paths.
+let mockRedisStatus: string = 'ready'
+
 mock.module('ioredis', () => ({
 	Redis: class {
+		get status() {
+			return mockRedisStatus
+		}
 		quit = mockRedisQuit
 	}
 }))
@@ -24,7 +31,7 @@ mock.module('bullmq', () => ({
 	Queue: class {
 		add = mockQueueAdd
 		upsertJobScheduler = mockQueueUpsert
-		getJobCounts = mockQueueGetJobCounts
+		getJobs = mockQueueGetJobs
 		close = mockQueueClose
 	},
 	Worker: class {
@@ -50,18 +57,26 @@ import {
 	countBackfillJobsInFlight,
 	createWorker,
 	enqueueBackfillRatings,
-	enqueueUpdateAll,
 	getQueueRedis,
 	handleJob,
+	JOB_NAMES,
+	JOB_RETRIES,
 	QUEUE_NAME,
-	upsertUpdateScheduler
+	QueueUnavailableError,
+	upsertUpdateScheduler,
+	withCommandTimeout
 } from '#helpers/jobs/bullmq'
+import { TEST_REDIS_URL } from '#tests/setup/performanceConfig'
 
 let savedRedisUrl: string | undefined
 
 beforeEach(() => {
 	savedRedisUrl = process.env.REDIS_URL
-	process.env.REDIS_URL = 'redis://127.0.0.1:6379'
+	process.env.REDIS_URL = TEST_REDIS_URL
+	mockRedisStatus = 'ready'
+	mockQueueAdd.mockClear()
+	mockQueueUpsert.mockClear()
+	mockQueueGetJobs.mockReset()
 })
 
 afterEach(() => {
@@ -86,23 +101,13 @@ describe('bullmq queue helpers', () => {
 		expect(QUEUE_NAME).toBe('audnexus')
 	})
 
-	it('enqueues the update-all job with retry options', async () => {
-		mockQueueAdd.mockResolvedValueOnce({ id: 'job-1' })
-		await expect(enqueueUpdateAll()).resolves.toBe('job-1')
-		expect(mockQueueAdd).toHaveBeenCalledWith(
-			'update-all',
-			{},
-			expect.objectContaining({ attempts: 2, backoff: { type: 'fixed', delay: 300000 } })
-		)
-	})
-
 	it('enqueues the backfill-ratings job with retry options', async () => {
 		mockQueueAdd.mockResolvedValueOnce({ id: 'job-2' })
 		await expect(enqueueBackfillRatings()).resolves.toBe('job-2')
 		expect(mockQueueAdd).toHaveBeenCalledWith(
-			'backfill-ratings',
+			JOB_NAMES.backfillRatings,
 			{},
-			expect.objectContaining({ attempts: 2, backoff: { type: 'fixed', delay: 300000 } })
+			expect.objectContaining(JOB_RETRIES)
 		)
 	})
 
@@ -112,8 +117,8 @@ describe('bullmq queue helpers', () => {
 			'update-all-scheduler',
 			{ every: 2592000, immediately: true },
 			{
-				name: 'update-all',
-				opts: expect.objectContaining({ attempts: 2, backoff: { type: 'fixed', delay: 300000 } })
+				name: JOB_NAMES.updateAll,
+				opts: expect.objectContaining(JOB_RETRIES)
 			}
 		)
 	})
@@ -125,12 +130,50 @@ describe('bullmq queue helpers', () => {
 		expect(mockQueueUpsert).not.toHaveBeenCalled()
 	})
 
-	it('counts waiting and active backfill jobs as in-flight', async () => {
-		mockQueueGetJobCounts.mockResolvedValueOnce({ waiting: 1, active: 2, completed: 9 })
-		await expect(countBackfillJobsInFlight()).resolves.toBe(3)
-		expect(mockQueueGetJobCounts).toHaveBeenCalledWith('waiting', 'active')
-		mockQueueGetJobCounts.mockResolvedValueOnce({})
+	it('counts only backfill jobs across waiting, active, delayed, and paused', async () => {
+		// The update-all scheduler keeps a persistent delayed job in the queue;
+		// queue-wide counts would make the backfill route permanently 409.
+		mockQueueGetJobs.mockResolvedValueOnce([
+			{ name: JOB_NAMES.backfillRatings },
+			{ name: JOB_NAMES.backfillRatings },
+			{ name: JOB_NAMES.updateAll }
+		])
+		await expect(countBackfillJobsInFlight()).resolves.toBe(2)
+		expect(mockQueueGetJobs).toHaveBeenCalledWith(['waiting', 'active', 'delayed', 'paused'])
+		mockQueueGetJobs.mockResolvedValueOnce([])
 		await expect(countBackfillJobsInFlight()).resolves.toBe(0)
+	})
+
+	it('rejects guarded queue operations when the connection is not ready', async () => {
+		mockRedisStatus = 'connecting'
+		await expect(enqueueBackfillRatings()).rejects.toBeInstanceOf(QueueUnavailableError)
+		await expect(countBackfillJobsInFlight()).rejects.toBeInstanceOf(QueueUnavailableError)
+		await expect(upsertUpdateScheduler(30)).rejects.toBeInstanceOf(QueueUnavailableError)
+		expect(mockQueueAdd).not.toHaveBeenCalled()
+		expect(mockQueueGetJobs).not.toHaveBeenCalled()
+		expect(mockQueueUpsert).not.toHaveBeenCalled()
+	})
+
+	it('fails a still-pending command when the connection drops mid-flight', async () => {
+		// TOCTOU guard: the ready check passed, but the command is still
+		// pending when the link drops — withCommandTimeout must reject
+		// instead of hanging in ioredis's offline queue. The status flip is
+		// synchronous, so it lands before the 50ms deadline fires.
+		const { promise: gate } = Promise.withResolvers<never>()
+		mockRedisStatus = 'ready'
+		const raced = withCommandTimeout(() => gate, 50)
+		mockRedisStatus = 'end'
+		await expect(raced).rejects.toBeInstanceOf(QueueUnavailableError)
+	})
+
+	it('keeps waiting for a pending command while the connection stays ready', async () => {
+		// Settling after the start (but before the deadline) proves the race
+		// returns the command's result, not the timeout.
+		mockRedisStatus = 'ready'
+		const { promise, resolve } = Promise.withResolvers<string>()
+		const raced = withCommandTimeout(() => promise, 50)
+		resolve('ok')
+		await expect(raced).resolves.toBe('ok')
 	})
 
 	it('runs update-all jobs through UpdateScheduler', async () => {

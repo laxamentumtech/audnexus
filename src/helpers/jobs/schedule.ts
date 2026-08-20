@@ -7,15 +7,18 @@ import { upsertUpdateScheduler } from '#helpers/jobs/bullmq'
  * keeps the API usable; the worker container always has Redis). Redis
  * failures are logged, not fatal — the API serves reads even when scheduled
  * updates are off. */
-export async function registerUpdateScheduler(days: number, log: FastifyBaseLogger): Promise<void> {
+export async function registerUpdateScheduler(
+	days: number,
+	logger: FastifyBaseLogger
+): Promise<void> {
 	if (!process.env.REDIS_URL) {
-		log.warn('REDIS_URL not set; scheduled updates and backfill enqueue disabled')
+		logger.warn('REDIS_URL not set; scheduled updates and backfill enqueue disabled')
 		return
 	}
 	try {
 		await upsertUpdateScheduler(days)
-		log.info(`Update scheduler enqueued: every ${days} days`)
+		logger.info(`Update scheduler enqueued: every ${days} days`)
 	} catch (err) {
-		log.error(err, 'Failed to register update scheduler; scheduled updates disabled')
+		logger.error(err, 'Failed to register update scheduler; scheduled updates disabled')
 	}
 }

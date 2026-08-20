@@ -59,11 +59,7 @@ mock.module('@fastify/redis', () => ({}))
 
 import type { FastifyRedis } from '@fastify/redis'
 
-import {
-	PerformanceConfig,
-	resetPerformanceConfig,
-	setPerformanceConfig
-} from '#config/performance'
+import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import { ApiChapter } from '#config/types'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
 import {
@@ -71,6 +67,7 @@ import {
 	chaptersWithoutProjectionUpdatedNow,
 	parsedChapters
 } from '#tests/datasets/helpers/chapters'
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 type MockContext = {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -92,22 +89,6 @@ const createMockContext = (): MockContext => {
 		} as unknown as FastifyRedis
 	}
 }
-
-const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: false,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
-	SCHEDULER_MAX_PER_REGION: 5,
-	SCHEDULER_BATCH_SIZE: 1000,
-	JITTER_MS: { min: 0, max: 5000 },
-	DEFAULT_REGION: 'us',
-	...overrides
-})
 
 beforeEach(() => {
 	mock.clearAllMocks()
@@ -215,7 +196,7 @@ describe('ChapterShowHelper should throw error when', () => {
 	})
 
 	test('getChaptersWithProjection sorted chapters is not a chapter type', async () => {
-		setPerformanceConfig(createTestConfig({ USE_SORTED_KEYS: true }))
+		setPerformanceConfig(createTestPerformanceConfig({ USE_SORTED_KEYS: true }))
 		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as ApiChapter)
 		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiChapter`

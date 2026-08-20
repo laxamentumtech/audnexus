@@ -1,13 +1,16 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 
 import _backfill from '#config/routes/books/backfill'
+import { QueueUnavailableError } from '#helpers/jobs/bullmq'
+import { TEST_REDIS_URL } from '#tests/setup/performanceConfig'
 
 const mockEnqueue = mock()
 const mockCountInFlight = mock()
 
 mock.module('#helpers/jobs/bullmq', () => ({
 	enqueueBackfillRatings: mockEnqueue,
-	countBackfillJobsInFlight: mockCountInFlight
+	countBackfillJobsInFlight: mockCountInFlight,
+	QueueUnavailableError: class QueueUnavailableError extends Error {}
 }))
 
 const mockLog = {
@@ -97,6 +100,7 @@ describe('POST /books/backfill-ratings', () => {
 		const reply = makeReply()
 		await getHandler(app)({ headers: { 'x-admin-token': 'wrong' }, log: mockLog }, reply)
 		expect(reply.code).toHaveBeenCalledWith(401)
+		expect(mockCountInFlight).not.toHaveBeenCalled()
 		expect(mockEnqueue).not.toHaveBeenCalled()
 	})
 
@@ -117,7 +121,7 @@ describe('POST /books/backfill-ratings', () => {
 	it('returns 409 when a backfill is already in flight', async () => {
 		process.env.UPDATE_STATS = '1'
 		process.env.ADMIN_TOKEN = 'secret'
-		process.env.REDIS_URL = 'redis://127.0.0.1:6379'
+		process.env.REDIS_URL = TEST_REDIS_URL
 		mockCountInFlight.mockResolvedValueOnce(1)
 		const reply = makeReply()
 		await getHandler(app)({ headers: validHeaders, log: mockLog }, reply)
@@ -132,7 +136,7 @@ describe('POST /books/backfill-ratings', () => {
 	it('returns 202 with the job id when no backfill is in flight', async () => {
 		process.env.UPDATE_STATS = '1'
 		process.env.ADMIN_TOKEN = 'secret'
-		process.env.REDIS_URL = 'redis://127.0.0.1:6379'
+		process.env.REDIS_URL = TEST_REDIS_URL
 		mockCountInFlight.mockResolvedValueOnce(0)
 		mockEnqueue.mockResolvedValueOnce('job-7')
 		const reply = makeReply()
@@ -142,10 +146,40 @@ describe('POST /books/backfill-ratings', () => {
 		expect(mockEnqueue).toHaveBeenCalledTimes(1)
 	})
 
+	it('returns 503 when the in-flight check finds the queue unavailable', async () => {
+		process.env.UPDATE_STATS = '1'
+		process.env.ADMIN_TOKEN = 'secret'
+		process.env.REDIS_URL = TEST_REDIS_URL
+		mockCountInFlight.mockRejectedValueOnce(new QueueUnavailableError())
+		const reply = makeReply()
+		await getHandler(app)({ headers: validHeaders, log: mockLog }, reply)
+		expect(reply.code).toHaveBeenCalledWith(503)
+		expect(reply.send).toHaveBeenCalledWith({
+			error: 'Service Unavailable',
+			message: 'Backfill requires a ready Redis connection'
+		})
+		expect(mockEnqueue).not.toHaveBeenCalled()
+	})
+
+	it('returns 503 when enqueuing the backfill fails with queue unavailable', async () => {
+		process.env.UPDATE_STATS = '1'
+		process.env.ADMIN_TOKEN = 'secret'
+		process.env.REDIS_URL = TEST_REDIS_URL
+		mockCountInFlight.mockResolvedValueOnce(0)
+		mockEnqueue.mockRejectedValueOnce(new QueueUnavailableError())
+		const reply = makeReply()
+		await getHandler(app)({ headers: validHeaders, log: mockLog }, reply)
+		expect(reply.code).toHaveBeenCalledWith(503)
+		expect(reply.send).toHaveBeenCalledWith({
+			error: 'Service Unavailable',
+			message: 'Backfill requires a ready Redis connection'
+		})
+	})
+
 	it('re-queries the in-flight count per call so consecutive free runs both enqueue', async () => {
 		process.env.UPDATE_STATS = '1'
 		process.env.ADMIN_TOKEN = 'secret'
-		process.env.REDIS_URL = 'redis://127.0.0.1:6379'
+		process.env.REDIS_URL = TEST_REDIS_URL
 		mockCountInFlight.mockResolvedValue(0)
 		mockEnqueue.mockResolvedValue('job-1')
 		const handler = getHandler(app)

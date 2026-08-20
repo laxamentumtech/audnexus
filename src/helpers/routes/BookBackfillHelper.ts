@@ -1,11 +1,10 @@
 import type { FastifyBaseLogger } from 'fastify'
-import type { ProjectionType } from 'papr'
 
-import BookModel, { type BookDocument } from '#config/models/Book'
+import BookModel from '#config/models/Book'
 import { getPerformanceConfig } from '#config/performance'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
-import { iterateKeyset } from '#helpers/utils/keyset'
+import { ASIN_REGION_PROJECTION, iterateKeyset, keysetFindAdapter } from '#helpers/utils/keyset'
 import { NoticeUpdateScheduled } from '#static/messages'
 
 interface BackfillResult {
@@ -38,21 +37,19 @@ export default class BookBackfillHelper {
 	 */
 	async process(): Promise<BackfillResult> {
 		const batchSize = getPerformanceConfig().SCHEDULER_BATCH_SIZE
-		const projection: { asin: 1; region: 1 } = { asin: 1, region: 1 }
-		type BatchBook = ProjectionType<BookDocument, typeof projection>
 		let total = 0
 		let updated = 0
 		let skipped = 0
 		let failed = 0
 
 		this.logger.info(NoticeUpdateScheduled('Ratings backfill'))
-		const find = (
-			filter: object,
-			opts: { projection: { asin: 1; region: 1 }; sort: { _id: 1 }; limit: number }
-		): Promise<BatchBook[]> => BookModel.find(filter as never, opts as never)
-		await iterateKeyset<BatchBook, { asin: 1; region: 1 }>(
-			find,
-			{ projection, baseFilter: { ratings: { $exists: false } }, batchSize },
+		await iterateKeyset(
+			keysetFindAdapter(BookModel),
+			{
+				projection: ASIN_REGION_PROJECTION,
+				baseFilter: { ratings: { $exists: false } },
+				batchSize
+			},
 			async (books) => {
 				const { summary } = await processBatchByRegion(books, async (book) => {
 					const helper = new BookShowHelper(

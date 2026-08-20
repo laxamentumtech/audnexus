@@ -54,11 +54,7 @@ mock.module('@fastify/redis', () => ({}))
 import type { FastifyRedis } from '@fastify/redis'
 import type { AxiosResponse } from 'axios'
 
-import {
-	PerformanceConfig,
-	resetPerformanceConfig,
-	setPerformanceConfig
-} from '#config/performance'
+import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import { ApiBook } from '#config/types'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import {
@@ -66,22 +62,7 @@ import {
 	bookWithoutProjectionUpdatedNow,
 	parsedBook
 } from '#tests/datasets/helpers/books'
-
-const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: false,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
-	SCHEDULER_MAX_PER_REGION: 5,
-	SCHEDULER_BATCH_SIZE: 1000,
-	JITTER_MS: { min: 0, max: 5000 },
-	DEFAULT_REGION: 'us',
-	...overrides
-})
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 type MockContext = {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -210,7 +191,7 @@ describe('BookShowHelper should throw error when', () => {
 	})
 
 	test('getDataWithProjection sorted book is not a book type', async () => {
-		setPerformanceConfig(createTestConfig({ USE_SORTED_KEYS: true }))
+		setPerformanceConfig(createTestPerformanceConfig({ USE_SORTED_KEYS: true }))
 		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as ApiBook)
 		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiBook`
