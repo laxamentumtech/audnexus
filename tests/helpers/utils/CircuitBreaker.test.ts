@@ -1,42 +1,18 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test'
 
-import {
-	PerformanceConfig,
-	resetPerformanceConfig,
-	setPerformanceConfig
-} from '#config/performance'
-import {
-	CircuitBreaker,
-	getAudibleCircuitBreaker,
-	resetAudibleCircuitBreaker
-} from '#helpers/utils/CircuitBreaker'
-
-const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: false,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
-	SCHEDULER_MAX_PER_REGION: 5,
-	SCHEDULER_BATCH_SIZE: 1000,
-	DEFAULT_REGION: 'us',
-	...overrides
-})
+import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
+import { CircuitBreaker } from '#helpers/utils/CircuitBreaker'
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 describe('CircuitBreaker', () => {
 	beforeEach(() => {
 		resetPerformanceConfig()
-		resetAudibleCircuitBreaker()
 	})
 
 	describe('basic operation', () => {
 		it('should execute function successfully when CLOSED', async () => {
 			const breaker = new CircuitBreaker()
 			const fn = mock(() => Promise.resolve('success'))
-
 
 			const result = await breaker.execute(fn)
 
@@ -57,7 +33,6 @@ describe('CircuitBreaker', () => {
 			const breaker = new CircuitBreaker()
 			const fn = mock(() => Promise.resolve('success'))
 
-
 			await breaker.execute(fn)
 			await breaker.execute(fn)
 
@@ -68,7 +43,6 @@ describe('CircuitBreaker', () => {
 		it('should track failures', async () => {
 			const breaker = new CircuitBreaker()
 			const fn = mock(() => Promise.reject(new Error('failed')))
-
 
 			await expect(breaker.execute(fn)).rejects.toThrow('failed')
 
@@ -81,7 +55,6 @@ describe('CircuitBreaker', () => {
 		it('should transition to OPEN after failure threshold', async () => {
 			const breaker = new CircuitBreaker({ failureThreshold: 3 })
 			const fn = mock(() => Promise.reject(new Error('failed')))
-
 
 			// Fail 3 times
 			await expect(breaker.execute(fn)).rejects.toThrow()
@@ -101,7 +74,6 @@ describe('CircuitBreaker', () => {
 
 			const successFn = mock(() => Promise.resolve('success'))
 
-
 			// Open the circuit
 			await expect(breaker.execute(failingFn)).rejects.toThrow()
 
@@ -116,7 +88,6 @@ describe('CircuitBreaker', () => {
 				resetTimeoutMs: 10
 			})
 			const fn = mock(() => Promise.reject(new Error('failed')))
-
 
 			// Open the circuit
 			await expect(breaker.execute(fn)).rejects.toThrow()
@@ -138,7 +109,6 @@ describe('CircuitBreaker', () => {
 			const failingFn = mock(() => Promise.reject(new Error('failed')))
 
 			const successFn = mock(() => Promise.resolve('success'))
-
 
 			// Open the circuit
 			await expect(breaker.execute(failingFn)).rejects.toThrow()
@@ -162,7 +132,6 @@ describe('CircuitBreaker', () => {
 			})
 			const failingFn = mock(() => Promise.reject(new Error('failed')))
 
-
 			// Open the circuit
 			await expect(breaker.execute(failingFn)).rejects.toThrow()
 
@@ -185,7 +154,6 @@ describe('CircuitBreaker', () => {
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
 			const fn = mock(() => Promise.reject(new Error('failed')))
 
-
 			await expect(breaker.execute(fn)).rejects.toThrow()
 
 			expect(breaker.canExecute()).toBe(false)
@@ -198,7 +166,6 @@ describe('CircuitBreaker', () => {
 			})
 			const fn = mock(() => Promise.reject(new Error('failed')))
 
-
 			await expect(breaker.execute(fn)).rejects.toThrow()
 			await new Promise((resolve) => setTimeout(resolve, 20))
 
@@ -210,7 +177,6 @@ describe('CircuitBreaker', () => {
 		it('should reset to CLOSED state', async () => {
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
 			const fn = mock(() => Promise.reject(new Error('failed')))
-
 
 			await expect(breaker.execute(fn)).rejects.toThrow()
 			expect(breaker.getStats().state).toBe('OPEN')
@@ -226,14 +192,13 @@ describe('CircuitBreaker', () => {
 	describe('feature flag integration', () => {
 		it('should never trip when CIRCUIT_BREAKER_ENABLED is false', async () => {
 			setPerformanceConfig(
-				createTestConfig({
+				createTestPerformanceConfig({
 					CIRCUIT_BREAKER_ENABLED: false
 				})
 			)
 
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
 			const fn = mock(() => Promise.reject(new Error('failed')))
-
 
 			// Fail many times
 			for (let i = 0; i < 10; i++) {
@@ -246,7 +211,7 @@ describe('CircuitBreaker', () => {
 
 		it('should trip normally when CIRCUIT_BREAKER_ENABLED is true', async () => {
 			setPerformanceConfig(
-				createTestConfig({
+				createTestPerformanceConfig({
 					CIRCUIT_BREAKER_ENABLED: true
 				})
 			)
@@ -254,27 +219,9 @@ describe('CircuitBreaker', () => {
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
 			const fn = mock(() => Promise.reject(new Error('failed')))
 
-
 			await expect(breaker.execute(fn)).rejects.toThrow()
 
 			expect(breaker.getStats().state).toBe('OPEN')
-		})
-	})
-
-	describe('global instance', () => {
-		it('should return same instance from getAudibleCircuitBreaker', () => {
-			const breaker1 = getAudibleCircuitBreaker()
-			const breaker2 = getAudibleCircuitBreaker()
-
-			expect(breaker1).toBe(breaker2)
-		})
-
-		it('should create new instance after reset', () => {
-			const breaker1 = getAudibleCircuitBreaker()
-			resetAudibleCircuitBreaker()
-			const breaker2 = getAudibleCircuitBreaker()
-
-			expect(breaker1).not.toBe(breaker2)
 		})
 	})
 
@@ -283,7 +230,6 @@ describe('CircuitBreaker', () => {
 			const before = Date.now()
 			const breaker = new CircuitBreaker({ failureThreshold: 1 })
 			const fn = mock(() => Promise.reject(new Error('failed')))
-
 
 			await expect(breaker.execute(fn)).rejects.toThrow()
 
