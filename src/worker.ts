@@ -15,15 +15,22 @@ import {
 // console as the logger.
 const logger = console as unknown as FastifyBaseLogger
 
-if (!process.env.MONGODB_URI) {
-	throw new Error('MONGODB_URI is required')
+/** Fail fast on missing required env vars (checked before any connection);
+ * returns the validated MONGODB_URI so the caller keeps it narrowed. */
+export function validateEnv(): string {
+	if (!process.env.MONGODB_URI) {
+		throw new Error('MONGODB_URI is required')
+	}
+	if (!process.env.REDIS_URL) {
+		throw new Error('REDIS_URL is required')
+	}
+	return process.env.MONGODB_URI
 }
-if (!process.env.REDIS_URL) {
-	throw new Error('REDIS_URL is required')
-}
-const ctx = createDefaultContext(process.env.MONGODB_URI)
 
-async function main(): Promise<void> {
+const ctx = createDefaultContext(validateEnv())
+
+export async function startWorker(): Promise<void> {
+	validateEnv()
 	await initialize({ client: await ctx.client.connect() })
 	// The worker owns the schedule: it creates/refreshes the repeatable
 	// update-all job, so the schedule survives API restarts.
@@ -32,7 +39,7 @@ async function main(): Promise<void> {
 	logger.info(`Worker started on queue ${QUEUE_NAME} (jobs: update-all, backfill-ratings)`)
 }
 
-async function shutdown(): Promise<void> {
+export async function shutdown(): Promise<void> {
 	logger.info('Shutting down worker...')
 	try {
 		await getWorker().close()
@@ -43,10 +50,22 @@ async function shutdown(): Promise<void> {
 	}
 }
 
-process.on('SIGTERM', () => void shutdown())
-process.on('SIGINT', () => void shutdown())
+export function registerShutdownHandlers(): void {
+	process.on('SIGTERM', () => void shutdown())
+	process.on('SIGINT', () => void shutdown())
+}
 
-main().catch((err) => {
-	logger.error(err)
-	process.exit(1)
-})
+// Auto-execution only when running as the worker entry — `bun run worker` →
+// `bun run dist/worker.js`, or a direct `bun src/worker.ts`. Importing this
+// module (e.g. tests) executes only the env guards and context creation;
+// handler registration and startup (registerShutdownHandlers + startWorker)
+// run only under the isWorkerEntrypoint gate, which is false on import.
+const isWorkerEntrypoint = /worker\.(m?[jt]s)$/.test(process.argv[1] ?? '')
+if (isWorkerEntrypoint) {
+	registerShutdownHandlers()
+
+	startWorker().catch((err) => {
+		logger.error(err)
+		process.exit(1)
+	})
+}

@@ -18,7 +18,7 @@
 		"serve": "bun run dist/server.js",
 		"worker": "bun run dist/worker.js",
 		"start": "bun run build && bun run serve",
-		"test": "bun test --timeout 30000 --parallel=1 tests/typing tests/static tests/helpers/errors tests/helpers/routes tests/helpers/jobs tests/helpers/utils tests/helpers/books tests/helpers/authors tests/database tests/config tests/audible",
+		"test": "bun test --timeout 30000 --parallel=1 tests/typing tests/static tests/helpers/errors tests/helpers/routes tests/helpers/jobs tests/helpers/utils tests/helpers/books tests/helpers/authors tests/database tests/config tests/audible tests/worker.test.ts",
 		"test:live": "bun test --timeout 60000 tests/live",
 		"watch-debug": "bun --watch --inspect src/server.ts",
 		"watch": "bun --watch src/server.ts"

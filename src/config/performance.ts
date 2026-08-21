@@ -137,12 +137,16 @@ export function createPerformanceConfig(): PerformanceConfig {
 	const jitterRaw = process.env.JITTER_MS?.trim()
 	const jitterMs = (() => {
 		if (!jitterRaw) return defaultJitter
-		const parts = jitterRaw.split('-').map((part) => Number.parseInt(part, 10))
-		if (parts.length > 2 || parts.some((n) => !Number.isInteger(n) || n < 0)) {
+		const parts = jitterRaw.split('-').map((part) => part.trim())
+		if (parts.length > 2 || !parts.every((part) => /^\d+$/.test(part))) {
 			return defaultJitter
 		}
-		const min = parts.length === 2 ? parts[0] : 0
-		const max = parts[parts.length - 1]
+		const numbers = parts.map((part) => Number(part))
+		if (numbers.some((n) => !Number.isSafeInteger(n))) {
+			return defaultJitter
+		}
+		const min = parts.length === 2 ? numbers[0] : 0
+		const max = numbers[numbers.length - 1]
 		return min > max ? defaultJitter : { min, max }
 	})()
 

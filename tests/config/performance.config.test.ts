@@ -517,6 +517,32 @@ describe('PerformanceConfig', () => {
 			process.env.JITTER_MS = '1-2-3'
 			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
 		})
+
+		it('should fallback to defaults for JITTER_MS with unit suffix', () => {
+			process.env.JITTER_MS = '100-200ms'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for decimal JITTER_MS', () => {
+			process.env.JITTER_MS = '100.5-200'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should parse JITTER_MS range with surrounding whitespace', () => {
+			process.env.JITTER_MS = ' 1000 - 3000 '
+			const config = createPerformanceConfig()
+			expect(config.JITTER_MS).toEqual({ min: 1000, max: 3000 })
+		})
+
+		it('should fallback to defaults for JITTER_MS beyond Number.MAX_SAFE_INTEGER', () => {
+			process.env.JITTER_MS = '9007199254740992'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for excessively long digit-only JITTER_MS', () => {
+			process.env.JITTER_MS = '99999999999999999999'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
 	})
 
 	describe('Singleton Pattern', () => {

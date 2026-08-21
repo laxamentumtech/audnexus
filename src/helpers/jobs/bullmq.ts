@@ -4,6 +4,7 @@ import { Job } from 'bullmq'
 // connection type-checks against its connection options.
 import type { FastifyBaseLogger } from 'fastify'
 import { Redis } from 'ioredis'
+import { randomUUID } from 'node:crypto'
 
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
@@ -79,13 +80,26 @@ export function getQueueRedis(): Redis {
  * always returns a bounded delay), so a short Redis outage heals in place —
  * important because the update pass hands this same instance to
  * UpdateScheduler for hours, and a permanent close would silently break every
- * later cache command. Only an out-of-band close leaves a dead singleton, and
- * getCacheRedis() detects that and recreates the connection on the next call
- * as last-resort recovery. */
+ * later cache command. Dead singleton (out-of-band 'end' close) → re-create;
+ * see the status check below for the end-only rule. */
 let cacheRedis: Redis | null = null
 export function getCacheRedis(): Redis {
-	// dead singleton (out-of-band close) → re-create.
-	if (cacheRedis && (cacheRedis.status === 'end' || cacheRedis.status === 'close')) {
+	// dead singleton (client-initiated 'end' close) → re-create. 'close' is
+	// deliberately NOT terminal: it is a transient state during ioredis's
+	// normal disconnect/reconnect cycle (the client flips back to
+	// 'reconnecting' and heals in place), and clearing the singleton on it
+	// would orphan a still-retrying client. 'end' is only reached on a
+	// client-initiated close, so the reconnecting path can never land there
+	// while retryStrategy is active.
+	if (cacheRedis && cacheRedis.status === 'end') {
+		const dead = cacheRedis
+		try {
+			// Explicitly stop the old client so its retry loop cannot keep
+			// running as an orphaned connection.
+			dead.disconnect()
+		} catch {
+			// already disconnected; nothing to clean up
+		}
 		cacheRedis = null
 	}
 	if (!cacheRedis) {
@@ -166,6 +180,67 @@ export async function withCommandTimeout<T>(
  * count-based in-flight check. */
 const BACKFILL_JOB_ID = JOB_NAMES.backfillRatings
 
+/** Short-lived Redis lock serializing the remove-then-add backfill critical
+ * section across processes (see enqueueBackfillRatings). Ownership: each
+ * acquire stores a unique random token as the lock value, and release only
+ * deletes the lock when the stored value still equals the holder's token —
+ * so a lock that self-expired (holder crashed, or critical section outlived
+ * the TTL) can never be deleted out from under a new holder. */
+export const BACKFILL_ENQUEUE_LOCK_KEY = `${QUEUE_NAME}:lock:backfill-enqueue`
+
+/** Worst case for the locked critical section: removeTerminatedBackfillJob
+ * issues up to 5 sequential withCommandTimeout-guarded commands (Job.fromId,
+ * getState, re-read fromId, re-read getState, queue.remove), each of which
+ * can hang until its own COMMAND_TIMEOUT_MS deadline, followed by the
+ * add — 6 guarded commands in total. Size the TTL to that worst case with
+ * a 5s margin; it doubles as the crash backstop (a dead holder's lock
+ * self-expires within ~35s and the next enqueue acquires it cleanly). */
+export const BACKFILL_ENQUEUE_LOCK_TTL_MS = COMMAND_TIMEOUT_MS * 6 + 5000
+const BACKFILL_ENQUEUE_LOCK_ATTEMPTS = 10
+const BACKFILL_ENQUEUE_LOCK_RETRY_MS = 100
+
+/** Acquire BACKFILL_ENQUEUE_LOCK_KEY via a short-lived SET NX PX spin.
+ * Stores a unique random token as the lock value (the ownership proof used
+ * by releaseBackfillEnqueueLock) and returns it; returns null if the
+ * bounded spin (10 attempts, 100ms apart) exhausts — a lock held for the
+ * full TTL would outlive the spin anyway. */
+async function acquireBackfillEnqueueLock(): Promise<string | null> {
+	for (let attempt = 0; attempt < BACKFILL_ENQUEUE_LOCK_ATTEMPTS; attempt++) {
+		const token = randomUUID()
+		const result = await withCommandTimeout(() =>
+			getQueueRedis().set(
+				BACKFILL_ENQUEUE_LOCK_KEY,
+				token,
+				'PX',
+				BACKFILL_ENQUEUE_LOCK_TTL_MS,
+				'NX'
+			)
+		)
+		if (result === 'OK') return token
+		await new Promise<void>((resolve) => setTimeout(resolve, BACKFILL_ENQUEUE_LOCK_RETRY_MS))
+	}
+	return null
+}
+
+/** Release the backfill-enqueue lock — but only while still owned: the
+ * compare-and-del (GET == token then DEL) ensures a lock that expired and
+ * was re-acquired by another holder is never deleted out from under them.
+ * The GET-then-DEL is two commands, not an atomic Lua compare-and-del, but
+ * the window is harmless here: a stale delete (token match read just before
+ * expiry) at worst removes the key a moment before a would-be acquirer
+ * would set it, and the token makes a delete of a *different* holder's lock
+ * a no-op. Errors are non-fatal (the PX TTL is the backstop). */
+async function releaseBackfillEnqueueLock(token: string): Promise<void> {
+	try {
+		const current = await withCommandTimeout(() => getQueueRedis().get(BACKFILL_ENQUEUE_LOCK_KEY))
+		if (current === token) {
+			await withCommandTimeout(() => getQueueRedis().del(BACKFILL_ENQUEUE_LOCK_KEY))
+		}
+	} catch {
+		// best effort — the PX TTL is the backstop
+	}
+}
+
 /** Remove a lingering terminal backfill record before re-enqueueing.
  * removeOnComplete retains the last 100 completed job records, and their
  * hashes stay in Redis — BullMQ's add script treats an add with a jobId
@@ -174,10 +249,11 @@ const BACKFILL_JOB_ID = JOB_NAMES.backfillRatings
  * Only terminal records (completed/failed) are removed so the id frees up;
  * in-flight records (waiting/active/delayed/paused) are left alone — the
  * route's 409 guard covers those, and a concurrent slip-through hits the
- * atomic duplicate path on add, which is a safe no-op. The state is re-read
- * immediately before the remove: the earlier read only proves the id was
- * terminal at that instant, and a concurrent re-enqueue between check and
- * remove would otherwise delete a freshly waiting job. */
+ * atomic duplicate path on add, which is a safe no-op. The fresh state
+ * re-read plus the remove itself are a non-atomic read-then-write pair: a
+ * concurrent enqueue between the re-read and the remove would have its
+ * freshly waiting job deleted, so that critical section runs under the
+ * cross-process backfill-enqueue lock (see enqueueBackfillRatings). */
 async function removeTerminatedBackfillJob(): Promise<void> {
 	const existing = await withCommandTimeout(() => Job.fromId(getQueue(), BACKFILL_JOB_ID))
 	if (!existing) return
@@ -192,11 +268,29 @@ async function removeTerminatedBackfillJob(): Promise<void> {
 
 export async function enqueueBackfillRatings(): Promise<string> {
 	requireReadyConnection()
-	await removeTerminatedBackfillJob()
-	const job = await withCommandTimeout(() =>
-		getQueue().add(JOB_NAMES.backfillRatings, {}, { ...JOB_RETRIES, jobId: BACKFILL_JOB_ID })
-	)
-	return job.id ?? ''
+	const lockToken = await acquireBackfillEnqueueLock()
+	const lockHeld = lockToken !== null
+	try {
+		// The remove is only safe under the lock: without it, a concurrent
+		// enqueue's fresh waiting job could be deleted between the re-read
+		// and the remove. Lock-timeout path → plain add; BullMQ's atomic
+		// jobId dedup still guarantees single-flight, at the cost of a
+		// possibly-stale terminal record blocking this one add — the next
+		// backfill cycle frees it.
+		if (lockHeld) {
+			await removeTerminatedBackfillJob()
+		}
+		const job = await withCommandTimeout(() =>
+			getQueue().add(JOB_NAMES.backfillRatings, {}, { ...JOB_RETRIES, jobId: BACKFILL_JOB_ID })
+		)
+		return job.id ?? ''
+	} finally {
+		// Only release a lock we actually took (ownership-checked by token);
+		// the TTL covers the rest.
+		if (lockHeld) {
+			await releaseBackfillEnqueueLock(lockToken)
+		}
+	}
 }
 
 /** Replace the toad-scheduler LongIntervalJob: a BullMQ repeatable job firing
