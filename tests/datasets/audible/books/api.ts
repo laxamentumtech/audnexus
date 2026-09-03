@@ -581,6 +581,12 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 		],
 		available_codecs: [
 			{
+				enhanced_codec: 'LC_64_44100_stereo',
+				format: 'Enhanced',
+				is_kindle_enhanced: true,
+				name: 'aax_44_64'
+			},
+			{
 				enhanced_codec: 'LC_32_22050_stereo',
 				format: 'Enhanced',
 				is_kindle_enhanced: true,
@@ -599,36 +605,6 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 				name: 'aax_22_64'
 			},
 			{
-				enhanced_codec: 'LC_64_44100_stereo',
-				format: 'Enhanced',
-				is_kindle_enhanced: true,
-				name: 'aax_44_64'
-			},
-			{
-				enhanced_codec: 'mp42264',
-				format: 'Enhanced',
-				is_kindle_enhanced: true,
-				name: 'mp4_22_64'
-			},
-			{
-				enhanced_codec: 'mp444128',
-				format: 'Enhanced',
-				is_kindle_enhanced: true,
-				name: 'mp4_44_128'
-			},
-			{
-				enhanced_codec: 'mp44464',
-				format: 'Enhanced',
-				is_kindle_enhanced: true,
-				name: 'mp4_44_64'
-			},
-			{
-				enhanced_codec: 'mp42232',
-				format: 'Enhanced',
-				is_kindle_enhanced: true,
-				name: 'mp4_22_32'
-			},
-			{
 				enhanced_codec: 'aax',
 				format: 'Enhanced',
 				is_kindle_enhanced: false,
@@ -636,19 +612,6 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 			}
 		],
 		category_ladders: [
-			{
-				ladder: [
-					{
-						id: '18572091011',
-						name: "Children's Audiobooks"
-					},
-					{
-						id: '18572323011',
-						name: 'Growing Up & Facts of Life'
-					}
-				],
-				root: 'Genres'
-			},
 			{
 				ladder: [
 					{
@@ -692,19 +655,10 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 					{
 						id: '18572587011',
 						name: 'Fantasy & Magic'
-					}
-				],
-				root: 'Genres'
-			},
-			{
-				ladder: [
-					{
-						id: '18580606011',
-						name: 'Science Fiction & Fantasy'
 					},
 					{
-						id: '18580607011',
-						name: 'Fantasy'
+						id: '18572588011',
+						name: 'Action & Adventure'
 					}
 				],
 				root: 'Genres'
@@ -712,14 +666,13 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 		],
 		content_delivery_type: 'SinglePartBook',
 		content_type: 'Product',
-		copyright:
-			'©1997 J.K. Rowling (P)1999 Listening Library, an imprint of Penguin Random House Audio Publishing Group',
+		copyright: '©1997 J.K. Rowling (P)1999 Pottermore Limited',
 		date_first_available: '2015-11-20',
 		editorial_reviews: [
 			'<p>"To call Dale a \'reader\' of books is like saying Monet was a Sunday painter." (<i>Los Angeles Times</i>)</p>'
 		],
 		extended_product_description:
-			"<p>Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive. Addressed in green ink on yellowish parchment with a purple seal, they are swiftly confiscated by his grisly aunt and uncle. Then, on Harry's eleventh birthday, a great beetle-eyed giant of a man called Rubeus Hagrid bursts in with some astonishing news: Harry Potter is a wizard, and he has a place at Hogwarts School of Witchcraft and Wizardry. An incredible adventure is about to begin! </p>",
+			'<p>Harry Potter lives hidden away in the cupboard under the stairs at Number Four, Privet Drive. When letters start arriving for him, they are swiftly confiscated by his cruel aunt and uncle. Then, on Harry’s eleventh birthday, a great giant of a man called Rubeus Hagrid bursts in with some astonishing news: Harry Potter is a <i>wizard</i>, and he has a place at Hogwarts School of Witchcraft and Wizardry. An incredible adventure is about to begin!</p>',
 		format_type: 'unabridged',
 		has_children: false,
 		is_adult_product: false,
@@ -732,36 +685,29 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 		language: 'english',
 		merchandising_description: '',
 		merchandising_summary:
-			'<p>Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive. Addressed in green ink on yellowish parchment with a purple seal, they are swiftly confiscated by his grisly aunt and uncle....</p>',
+			'<p>Harry Potter lives hidden away in the cupboard under the stairs at Number Four, Privet Drive. When letters start arriving for him, they are swiftly confiscated by his cruel aunt and uncle.</p>',
 		narrators: [
 			{
 				name: 'Jim Dale'
 			}
 		],
 		platinum_keywords: [
-			'Childrens_Audiobooks/Growing_Up_Facts_of_Life',
-			'Childrens_Audiobooks/Growing_Up_Facts_of_Life/Family_Life',
 			'Childrens_Audiobooks',
-			'Childrens_Audiobooks/Growing_Up_Facts_of_Life/General',
-			'Childrens_Audiobooks/Science_Fiction_Fantasy',
+			'Childrens_Audiobooks/Action_Adventure',
 			'Childrens_Audiobooks/Science_Fiction_Fantasy/Fantasy_Magic',
-			'Science_Fiction_Fantasy/Fantasy',
-			'Science_Fiction_Fantasy',
-			'Teen_Young_Adult/Science_Fiction_Fantasy/Fantasy',
-			'Teen_Young_Adult/Science_Fiction_Fantasy',
-			'Teen_Young_Adult',
-			'Teen_Young_Adult/Science_Fiction_Fantasy/Fantasy/Epic'
+			'Childrens_Audiobooks/Science_Fiction_Fantasy',
+			'Classics'
 		],
 		product_images: {
-			'1024': 'https://m.media-amazon.com/images/I/91eopoUCjLL._SL1024_.jpg',
-			'500': 'https://m.media-amazon.com/images/I/51xJbFMRsxL._SL500_.jpg'
+			500: 'https://m.media-amazon.com/images/I/51PrJFc029L._SL500_.jpg',
+			1024: 'https://m.media-amazon.com/images/I/91LDfWN4CKL._SL1024_.jpg'
 		},
 		product_site_launch_date: '2015-11-13T05:00:00Z',
 		publication_datetime: '2015-11-20T08:00:00Z',
 		publication_name: 'Harry Potter',
 		publisher_name: 'Pottermore Publishing',
 		publisher_summary:
-			"<p>Jim Dale's Grammy Award-winning performance of J.K. Rowling's iconic stories is a listening adventure for the whole family.</p> <p><i>Turning the envelope over, his hand trembling, Harry saw a purple wax seal bearing a coat of arms; a lion, an eagle, a badger and a snake surrounding a large letter 'H'.</i></p> <p>Close your eyes and enter the magical world of Harry Potter. In these editions, Jim Dale's characterful narration is so entertaining, fun, and theatrical you can almost hear the crackle of the fire in the Gryffindor common room.</p> <p>Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive. Addressed in green ink on yellowish parchment with a purple seal, they are swiftly confiscated by his grisly aunt and uncle. Then, on Harry's eleventh birthday, a great beetle-eyed giant of a man called Rubeus Hagrid bursts in with some astonishing news: Harry Potter is a wizard, and he has a place at Hogwarts School of Witchcraft and Wizardry. An incredible adventure is about to begin!</p> <p>Having become classics of our time, the Harry Potter stories never fail to bring comfort and escapism. With their message of hope, belonging and the enduring power of truth and love, the story of the Boy Who Lived continues to delight generations of new listeners.</p>",
+			"<p><b>Hear the story that started it all. From September 1 through October 31, stream this edition of Harry Potter and the Sorcerer’s Stone on us.</b></p> <p><b>A new era of Hogwarts begins. The HBO Original Series </b><b><i>Harry Potter and the Philosopher's Stone</i></b><b> is coming this Christmas.</b></p> <p>---------</p> <p>Harry Potter lives hidden away in the cupboard under the stairs at Number Four, Privet Drive. When letters start arriving for him, they are swiftly confiscated by his cruel aunt and uncle. Then, on Harry’s eleventh birthday, a great giant of a man called Rubeus Hagrid bursts in with some astonishing news: Harry Potter is a <i>wizard</i>, and he has a place at Hogwarts School of Witchcraft and Wizardry. An incredible adventure is about to begin!</p> <p>------------</p> <p>Why start the Harry Potter series?</p> <ul> <li>It's an award-winning classic beloved by countless children and adults</li> <li>Its message of belonging and the power of friendship resonates with everyone</li> <li>Harry Potter, Ron Weasley and Hermione Granger are some of the most memorable figures of modern fiction</li> <li>It has inspired a lifelong love of stories across generations</li> </ul>",
 		rating: {
 			num_reviews: 7606,
 			overall_distribution: {
@@ -819,9 +765,14 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 		sku_lite: 'BK_POTR_000001',
 		social_media_images: {
 			facebook:
-				'https://m.media-amazon.com/images/I/51xJbFMRsxL._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51xJbFMRsxL.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg',
+				'https://m.media-amazon.com/images/I/51PrJFc029L._SL10_UR1600,800_CR200,50,1200,630_CLa%7C1200,630%7C51PrJFc029L.jpg%7C0,0,1200,630+82,82,465,465_PJAdblSocialShare-Gradientoverlay-largeasin-0to70,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Large,TopLeft,600,270_OU01_ZBLISTENING%20ON,617,216,52,500,AudibleSansMd,30,255,255,255.jpg',
+			ig_bg: 'https://m.media-amazon.com/images/I/51PrJFc029L._SL200_BL80_UR1080,2160.jpg',
+			ig_static_with_bg:
+				'https://m.media-amazon.com/images/I/51PrJFc029L._SL200_BL80_UR1080,2160_CLa%7C1080,2160%7C51PrJFc029L.jpg%7C0,0,1080,2160+288,614,500,500_PJAdblSocialShare-Gradientoverlay-Radial,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Small,TopLeft,290,461_ZBLISTENING%20ON,290,410,52,500,AudibleSansMd,34,255,255,255_ZBHarry%20Potter%20and%20the%20So...,290,1183,52,500,AudibleSansSm,32,255,255,255_ZBJ.K.%20Rowling,290,1247,52,500,AudibleSansRg,28,255,255,255.jpg',
+			ig_sticker:
+				'https://m.media-amazon.com/images/I/71UyRin7-TL._CLa%7C614,913%7C51PrJFc029L.jpg%7C0,0,614,913+70,79,471,473_FMpng_PJAudible-logo-dk,BottomLeft,70,-100_ZAHarry%20Potter%20an...,70,560,65,500,AudibleSansSm,42,54,54,54_ZAby%20J.K.%20Rowling,70,640,52,517,AudibleSansRg,32,0,0,0.png',
 			twitter:
-				'https://m.media-amazon.com/images/I/51xJbFMRsxL._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C51xJbFMRsxL.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg'
+				'https://m.media-amazon.com/images/I/51PrJFc029L._SL10_UR1600,800_CR200,50,1024,512_CLa%7C1024,512%7C51PrJFc029L.jpg%7C0,0,1024,512+67,67,376,376_PJAdblSocialShare-Gradientoverlay-twitter-largeasin-0to60,TopLeft,0,0_PJAdblSocialShare-AudibleLogo-Medium,TopLeft,490,223_OU01_ZBLISTENING%20ON,483,152,55,450,AudibleSansMd,32,255,255,255.jpg'
 		},
 		thesaurus_subject_keywords: ['literature-and-fiction'],
 		title: "Harry Potter and the Sorcerer's Stone, Book 1"
