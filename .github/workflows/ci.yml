@@ -93,13 +93,13 @@ jobs:
                   .github/workflows/*.yml|.github/workflows/*.yaml) WORKFLOW=true ;;
                   Dockerfile|.dockerignore|docker-compose.yml|docker-compose.develop.yml) DOCKER=true ;;
                   src/*) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
-                  tests/live/*) : ;;
+                  tests/live/*) LINT=true ;;
                   tests/*) LINT=true; TEST=true ;;
                   *.md|docs/*|renovate.json5|.pre-commit-config.yaml|.gitignore|.editorconfig|LICENSE|.env.example|.coderabbit.yaml|.sisyphus/*|.nvmrc) : ;;
                   package.json|bun.lock|.npmrc) LINT=true; BUILD=true; TEST=true; DOCKER=true; ;;
                   package-lock.json|shrinkwrap.yaml) LINT=true; BUILD=true; TEST=true; DOCKER=true; FAILSAFE="npm artifact (only-allow bun forbids these); full run to expose it" ;;
-                  bunfig.toml) TEST=true ;;
-                  tsconfig.json) LINT=true; BUILD=true ;;
+                  bunfig.toml) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
+                  tsconfig.json) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
                   eslint.config.mjs|.prettierrc|.prettierignore) LINT=true ;;
                   scripts/*) DOCKER=true ;;
                   *) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
@@ -169,7 +169,7 @@ jobs:
             && git rev-parse --verify -q "${BASE_SHA}^{commit}" >/dev/null 2>&1; then
             while IFS= read -r p; do
               PATHS+=("$p")
-            done < <(git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA" \
+            done < <(git diff --name-only --diff-filter=ACM --no-renames "$BASE_SHA" "$HEAD_SHA" \
               | grep -E '^\.github/workflows/.*\.ya?ml$' || true)
           fi
           if [ "${#PATHS[@]}" -gt 0 ]; then
