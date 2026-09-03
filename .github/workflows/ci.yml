@@ -164,14 +164,16 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          PATHS=""
+          PATHS=()
           if [ -n "${BASE_SHA}" ] && [ "${BASE_SHA}" != "0000000000000000000000000000000000000000" ] \
             && git rev-parse --verify -q "${BASE_SHA}^{commit}" >/dev/null 2>&1; then
-            PATHS=$(git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA" \
+            while IFS= read -r p; do
+              PATHS+=("$p")
+            done < <(git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA" \
               | grep -E '^\.github/workflows/.*\.ya?ml$' || true)
           fi
-          if [ -n "$PATHS" ]; then
-            go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 $PATHS
+          if [ "${#PATHS[@]}" -gt 0 ]; then
+            go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 "${PATHS[@]}"
           else
             echo "No resolvable base with changed workflow files (first push or dispatch) — skipping workflow lint"
           fi
