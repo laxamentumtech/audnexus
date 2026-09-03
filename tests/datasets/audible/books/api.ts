@@ -1285,6 +1285,97 @@ export const minimalB0036I54I6: ApiBook = {
 	title: 'The Poetry of Anne Sexton and Sylvia Plath'
 }
 
+// Synthetic recorded API response for B0036I54I6, engineered so that
+// ApiHelper.parseResponse() yields exactly `minimalB0036I54I6`. Used by
+// tests/audible/books/stitch.test.ts to replay fixtures instead of hitting
+// the live Audible API in the standard suite.
+export const B0036I54I6 = AudibleProductSchema.parse({
+	product: {
+		asin: 'B0036I54I6',
+		asset_details: [],
+		authors: [
+			{ name: 'Diane Wood Middlebrook (Professor of English' },
+			{ name: 'Stanford University)' },
+			{ name: 'Herbert Lindenberger (Avalon Foundation Professor of Humanities' },
+			{ name: 'Comparative Literature' }
+		],
+		available_codecs: [],
+		category_ladders: [
+			{
+				ladder: [
+					{ id: '18574426011', name: 'Literature & Fiction' },
+					{ id: '18574449011', name: 'Classics' }
+				],
+				root: 'Genres'
+			},
+			{
+				ladder: [
+					{ id: '18574426011', name: 'Literature & Fiction' },
+					{ id: '18574505011', name: 'Poetry' }
+				],
+				root: 'Genres'
+			}
+		],
+		content_delivery_type: 'SinglePartBook',
+		content_type: 'Product',
+		copyright: '©1993 Diane Wood Middlebrook (P)1993 Stanford Audio',
+		date_first_available: '1999-12-16',
+		extended_product_description:
+			'<p>Both Anne Sexton and Sylvia Plath rose above severe mental disorders.</p>',
+		format_type: 'unabridged',
+		has_children: false,
+		is_adult_product: false,
+		is_listenable: true,
+		is_pdf_url_available: false,
+		is_purchasability_suppressed: false,
+		is_vvab: false,
+		issue_date: '1999-12-16',
+		language: 'english',
+		merchandising_description: '',
+		merchandising_summary:
+			'<p>Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions...</p>',
+		narrators: [],
+		platinum_keywords: ['poetry'],
+		product_images: {
+			'1024': 'https://m.media-amazon.com/images/I/41dNQts9Z7L._SL1024_.jpg'
+		},
+		product_site_launch_date: '1999-12-16T00:00:00Z',
+		publisher_name: 'Stanford Audio',
+		publisher_summary:
+			'Both Anne Sexton and Sylvia Plath rose above severe mental disorders to create bold new directions for American poetry and share the woman\'s perspective in distinct, powerful voices. Professor Middlebrook, author of the best selling <i>Anne Sexton: A Biography</i>, sheds light on the unique and important contributions of these poets by examining 4 works: "Morning Song" and "Ariel" by Plath and "The Fortress" and "The Double Image" by Sexton. Her conversations with Professor Lindenberger and an audience further delve into the work and lives of these women, their friendship, and their tragic deaths.',
+		rating: {
+			num_reviews: 10,
+			overall_distribution: {
+				average_rating: 3.9,
+				display_average_rating: '3.9',
+				display_stars: 4.0,
+				num_five_star_ratings: 78,
+				num_four_star_ratings: 12,
+				num_one_star_ratings: 1,
+				num_ratings: 100,
+				num_three_star_ratings: 6,
+				num_two_star_ratings: 3
+			}
+		},
+		read_along_support: 'false',
+		release_date: '1999-12-16',
+		runtime_length_min: 114,
+		thesaurus_subject_keywords: ['poetry'],
+		title: 'The Poetry of Anne Sexton and Sylvia Plath'
+	},
+	response_groups: [
+		'product_desc',
+		'always-returned',
+		'product_extended_attrs',
+		'contributors',
+		'rating',
+		'category_ladders',
+		'media',
+		'product_attrs',
+		'product_details'
+	]
+})
+
 // Book without social_media_images field - tests optional schema
 export const B0GFYFCX3D = AudibleProductSchema.parse({
 	product: {
