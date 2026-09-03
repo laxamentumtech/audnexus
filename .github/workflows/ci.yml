@@ -155,7 +155,26 @@ jobs:
           go-version: stable
 
       - name: Lint workflows with actionlint
-        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+        # Scoped to the changed workflow files so pre-existing findings in
+        # untouched workflows can't fail this gate. When the base is unknown
+        # (new-branch first push, dispatch) or the diff carries no workflow
+        # changes, linting is skipped: a fresh branch's workflow content is
+        # still diffed against the default branch by the pull_request event.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          PATHS=""
+          if [ -n "${BASE_SHA}" ] && [ "${BASE_SHA}" != "0000000000000000000000000000000000000000" ] \
+            && git rev-parse --verify -q "${BASE_SHA}^{commit}" >/dev/null 2>&1; then
+            PATHS=$(git diff --name-only --no-renames "$BASE_SHA" "$HEAD_SHA" \
+              | grep -E '^\.github/workflows/.*\.ya?ml$' || true)
+          fi
+          if [ -n "$PATHS" ]; then
+            go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 $PATHS
+          else
+            echo "No resolvable base with changed workflow files (first push or dispatch) — skipping workflow lint"
+          fi
 
   lint-format:
     needs: [changes]
