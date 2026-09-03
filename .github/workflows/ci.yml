@@ -1,13 +1,13 @@
 # Circuit-breaker CI pipeline.
-# Chain: lint-format -> build -> test -> docker-build
-# Each stage gates on the previous; a failure short-circuits downstream jobs.
+# Selective chain: changes -> {workflow-lint, lint-format -> build -> test -> docker-build}
+# The `changes` classifier always runs and emits per-concern flags; each concern job
+# skips when its flag is false, accepting upstream `skipped` (never bare `always()`/`failure()`).
 
 name: CI
 
 on:
   push:
     branches: [main, develop]
-    paths-ignore: ['*.md', 'docs/**']
   pull_request:
   workflow_dispatch:
 
@@ -19,7 +19,168 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      # Fail-open: if the classifier step dies before writing its outputs, the
+      # job-level 'true' defaults keep the full chain running (never a silent all-skip).
+      workflow: ${{ steps.classify.outputs.workflow || 'true' }}
+      lint: ${{ steps.classify.outputs.lint || 'true' }}
+      build: ${{ steps.classify.outputs.build || 'true' }}
+      test: ${{ steps.classify.outputs.test || 'true' }}
+      docker: ${{ steps.classify.outputs.docker || 'true' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Classify changed paths
+        id: classify
+        if: always()
+        # Fail-open: every concern defaults to true and is narrowed only after a
+        # confirmed, non-empty, successfully-read diff. Any failure path (zero or
+        # unresolvable base, dispatch, unexpected event, git-diff error, empty
+        # diff) leaves all five true -> full chain. classify is the last step, so a
+        # genuine crash makes THIS job red (loud), never a green silent all-skip.
+        run: |
+          set -uo pipefail
+          WORKFLOW=true
+          LINT=true
+          BUILD=true
+          TEST=true
+          DOCKER=true
+          FAILSAFE=""
+
+          DIFF_FILE="$(mktemp)"
+          trap 'rm -f "$DIFF_FILE"' EXIT
+
+          CLASSIFY=false
+          case "${{ github.event_name }}" in
+            pull_request)
+              BASE="${{ github.event.pull_request.base.sha }}"
+              HEAD="${{ github.event.pull_request.head.sha }}"
+              CLASSIFY=true
+              ;;
+            push)
+              BASE="${{ github.event.before }}"
+              HEAD="${{ github.sha }}"
+              CLASSIFY=true
+              if [ -z "$BASE" ] || ! git rev-parse --verify -q "${BASE}^{commit}" >/dev/null 2>&1; then
+                CLASSIFY=false
+                FAILSAFE="push base missing/zero/unresolvable"
+              fi
+              ;;
+            workflow_dispatch)
+              FAILSAFE="manual dispatch: no diff to classify"
+              ;;
+            *)
+              FAILSAFE="unexpected event '${{ github.event_name }}'"
+              ;;
+          esac
+
+          if [ "$CLASSIFY" = true ]; then
+            if git diff --name-only -z --no-renames "$BASE" "$HEAD" > "$DIFF_FILE" 2>/dev/null; then
+              WORKFLOW=false
+              LINT=false
+              BUILD=false
+              TEST=false
+              DOCKER=false
+              SAW_PATH=false
+              while IFS= read -r -d '' path; do
+                SAW_PATH=true
+                case "$path" in
+                  .github/workflows/*.yml|.github/workflows/*.yaml) WORKFLOW=true ;;
+                  Dockerfile|.dockerignore|docker-compose.yml|docker-compose.develop.yml) DOCKER=true ;;
+                  src/*) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
+                  tests/live/*) LINT=true ;;
+                  tests/*) LINT=true; TEST=true ;;
+                  *.md|docs/*|renovate.json5|.pre-commit-config.yaml|.gitignore|.editorconfig|LICENSE|.env.example|.coderabbit.yaml|.sisyphus/*|.nvmrc) : ;;
+                  package.json|bun.lock|.npmrc) LINT=true; BUILD=true; TEST=true; DOCKER=true; ;;
+                  package-lock.json|shrinkwrap.yaml) LINT=true; BUILD=true; TEST=true; DOCKER=true; FAILSAFE="npm artifact (only-allow bun forbids these); full run to expose it" ;;
+                  bunfig.toml) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
+                  tsconfig.json) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
+                  eslint.config.mjs|.prettierrc|.prettierignore) LINT=true ;;
+                  scripts/*) DOCKER=true ;;
+                  *) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
+                esac
+              done < "$DIFF_FILE"
+              if [ "$SAW_PATH" = false ]; then
+                WORKFLOW=true
+                LINT=true
+                BUILD=true
+                TEST=true
+                DOCKER=true
+                FAILSAFE="empty diff"
+              fi
+            else
+              FAILSAFE="git diff failed (base=$BASE head=$HEAD)"
+            fi
+          fi
+
+          {
+            echo "workflow=${WORKFLOW}"
+            echo "lint=${LINT}"
+            echo "build=${BUILD}"
+            echo "test=${TEST}"
+            echo "docker=${DOCKER}"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Selective CI classification"
+            echo ""
+            echo "| Concern | Flag |"
+            echo "|---|---|"
+            echo "| workflow | ${WORKFLOW} |"
+            echo "| lint | ${LINT} |"
+            echo "| build | ${BUILD} |"
+            echo "| test | ${TEST} |"
+            echo "| docker | ${DOCKER} |"
+            if [ -n "$FAILSAFE" ]; then
+              echo ""
+              echo "Fail-safe full run: ${FAILSAFE}"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  workflow-lint:
+    needs: [changes]
+    if: ${{ !cancelled() && needs['changes'].outputs.workflow == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      - name: Lint workflows with actionlint
+        # Scoped to the changed workflow files so pre-existing findings in
+        # untouched workflows can't fail this gate. When the base is unknown
+        # (new-branch first push, dispatch) or the diff carries no workflow
+        # changes, linting is skipped: a fresh branch's workflow content is
+        # still diffed against the default branch by the pull_request event.
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          PATHS=()
+          if [ -n "${BASE_SHA}" ] && [ "${BASE_SHA}" != "0000000000000000000000000000000000000000" ] \
+            && git rev-parse --verify -q "${BASE_SHA}^{commit}" >/dev/null 2>&1; then
+            while IFS= read -r p; do
+              PATHS+=("$p")
+            done < <(git diff --name-only --diff-filter=ACM --no-renames "$BASE_SHA" "$HEAD_SHA" \
+              | grep -E '^\.github/workflows/.*\.ya?ml$' || true)
+          fi
+          if [ "${#PATHS[@]}" -gt 0 ]; then
+            go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 "${PATHS[@]}"
+          else
+            echo "No resolvable base with changed workflow files (first push or dispatch) — skipping workflow lint"
+          fi
+
   lint-format:
+    needs: [changes]
+    if: ${{ !cancelled() && needs['changes'].outputs.lint == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -35,7 +196,8 @@ jobs:
       - run: bun run lint:check
 
   build:
-    needs: [lint-format]
+    needs: [changes, workflow-lint, lint-format]
+    if: ${{ !cancelled() && needs['changes'].outputs.build == 'true' && (needs['workflow-lint'].result == 'success' || needs['workflow-lint'].result == 'skipped') && (needs['lint-format'].result == 'success' || needs['lint-format'].result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,7 +213,8 @@ jobs:
       - run: bun run build
 
   test:
-    needs: [build]
+    needs: [changes, workflow-lint, lint-format, build]
+    if: ${{ !cancelled() && needs['changes'].outputs.test == 'true' && (needs['workflow-lint'].result == 'success' || needs['workflow-lint'].result == 'skipped') && (needs['lint-format'].result == 'success' || needs['lint-format'].result == 'skipped') && (needs['build'].result == 'success' || needs['build'].result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -67,8 +230,8 @@ jobs:
       - run: bun run test
 
   docker-build:
-    needs: [test]
-    if: success()
+    needs: [changes, workflow-lint, lint-format, build, test]
+    if: ${{ !cancelled() && needs['changes'].outputs.docker == 'true' && (needs['workflow-lint'].result == 'success' || needs['workflow-lint'].result == 'skipped') && (needs['lint-format'].result == 'success' || needs['lint-format'].result == 'skipped') && (needs['build'].result == 'success' || needs['build'].result == 'skipped') && (needs['test'].result == 'success' || needs['test'].result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
