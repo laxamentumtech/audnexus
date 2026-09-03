@@ -1,8 +1,14 @@
-import { beforeAll, describe, expect, it } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, it, mock, spyOn } from 'bun:test'
 
 import { ApiChapter } from '#config/types'
+
+mock.module('#helpers/utils/fetchPlus', () => {
+	return { default: mock() }
+})
+
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import { NotFoundError } from '#helpers/errors/ApiErrors'
+import * as fetchPlus from '#helpers/utils/fetchPlus'
 import {
 	chapterResponseB017V4IM1G,
 	setupParsedChapter
@@ -52,6 +58,7 @@ describe('Audible API', () => {
 		beforeAll(async () => {
 			asin = 'B0036I54I6'
 			helper = new ChapterHelper(asin, 'us')
+			spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject({ status: 404 }))
 			const fetched = await helper.fetchChapter()
 			try {
 				await helper.parseResponse(fetched)
@@ -68,4 +75,8 @@ describe('Audible API', () => {
 			expect(error.message).toContain('Item not available in region')
 		})
 	})
+})
+
+afterAll(() => {
+	mock.restore()
 })
