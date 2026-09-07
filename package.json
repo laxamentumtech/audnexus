@@ -69,7 +69,7 @@
 		"globals": "^17.3.0",
 		"prettier": "^3.5.3",
 		"prettier-plugin-yaml": "^1.2.0",
-		"typescript": "^5.9.3"
+		"typescript": "^7.0.0"
 	},
 	"imports": {
 		"#config/*": "./dist/config/*.js",
