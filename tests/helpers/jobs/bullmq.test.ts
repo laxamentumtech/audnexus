@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it, type Mock, mock } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, it, type Mock, mock, vi } from 'bun:test'
 
 import { createMockLogger } from '#tests/setup/mockLogger'
 
@@ -34,6 +34,7 @@ mock.module('ioredis', () => ({
 		get status() {
 			return mockRedisStatus
 		}
+		on = mock(() => {})
 		quit = mockRedisQuit
 		disconnect = mock(() => {})
 		set = mockRedisSet
@@ -83,6 +84,7 @@ import {
 	BACKFILL_ENQUEUE_LOCK_KEY,
 	BACKFILL_ENQUEUE_LOCK_TTL_MS,
 	closeQueue,
+	COMMAND_TIMEOUT_MS,
 	countBackfillJobsInFlight,
 	createWorker,
 	enqueueBackfillRatings,
@@ -458,6 +460,24 @@ describe('bullmq queue helpers', () => {
 				)
 			})
 		}
+
+		it('waits out the connect handshake instead of failing a cold connection', async () => {
+			// Cold-boot regression: the first guard call creates the ioredis
+			// client in the same tick, so a synchronous status read hard-failed
+			// every container boot (worker exit 1 on the LXC207 dev deploy).
+			vi.useFakeTimers()
+			try {
+				mockRedisStatus = 'connecting'
+				const pending = upsertUpdateScheduler(30)
+				vi.advanceTimersByTime(50)
+				mockRedisStatus = 'ready'
+				vi.advanceTimersByTime(50)
+				await pending
+				expect(mockQueueUpsert).toHaveBeenCalledTimes(1)
+			} finally {
+				vi.useRealTimers()
+			}
+		})
 	})
 
 	it('does not create a scheduler for non-positive day intervals', async () => {
@@ -481,14 +501,29 @@ describe('bullmq queue helpers', () => {
 		await expect(countBackfillJobsInFlight()).resolves.toBe(0)
 	})
 
-	it('rejects guarded queue operations when the connection is not ready', async () => {
-		mockRedisStatus = 'connecting'
-		await expect(enqueueBackfillRatings()).rejects.toBeInstanceOf(QueueUnavailableError)
-		await expect(countBackfillJobsInFlight()).rejects.toBeInstanceOf(QueueUnavailableError)
-		await expect(upsertUpdateScheduler(30)).rejects.toBeInstanceOf(QueueUnavailableError)
-		expect(mockQueueAdd).not.toHaveBeenCalled()
-		expect(mockQueueGetJobs).not.toHaveBeenCalled()
-		expect(mockQueueUpsert).not.toHaveBeenCalled()
+	it('rejects guarded queue operations when the connection never becomes ready', async () => {
+		vi.useFakeTimers()
+		try {
+			mockRedisStatus = 'connecting'
+			// Run concurrently so each operation pays the same ready deadline once.
+			const results = Promise.allSettled([
+				enqueueBackfillRatings(),
+				countBackfillJobsInFlight(),
+				upsertUpdateScheduler(30)
+			])
+			vi.advanceTimersByTime(COMMAND_TIMEOUT_MS + 100)
+			for (const result of await results) {
+				expect(result.status).toBe('rejected')
+				if (result.status === 'rejected') {
+					expect(result.reason).toBeInstanceOf(QueueUnavailableError)
+				}
+			}
+			expect(mockQueueAdd).not.toHaveBeenCalled()
+			expect(mockQueueGetJobs).not.toHaveBeenCalled()
+			expect(mockQueueUpsert).not.toHaveBeenCalled()
+		} finally {
+			vi.useRealTimers()
+		}
 	})
 
 	it('fails a still-pending command when the connection drops mid-flight', async () => {

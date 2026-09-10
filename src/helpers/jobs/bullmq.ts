@@ -66,6 +66,11 @@ export function getQueueRedis(): Redis {
 			throw new Error('REDIS_URL is required for background job queues')
 		}
 		queueRedis = new Redis(process.env.REDIS_URL, { maxRetriesPerRequest: null })
+		// Swallow connection-error events: ioredis emits one per failed
+		// reconnect attempt during an outage, and with no listener Node raises
+		// it as an unhandled error that kills the process before the bounded
+		// fail-fast guards below can translate it into QueueUnavailableError.
+		queueRedis.on('error', (err) => console.warn('queue Redis connection error:', err.message))
 	}
 	return queueRedis
 }
@@ -126,13 +131,29 @@ function getQueue(): Queue {
 	return queue
 }
 
+/** How often ensureReadyConnection polls the handshake status: one poll is
+ * enough for a local Redis to clear boot, slow enough to stay out of a hot
+ * loop during a full outage. */
+const READY_POLL_MS = 25
+
 /** BullMQ overrides maxRetriesPerRequest to null (blocking commands require
  * it), so with Redis down an ordinary command would queue in ioredis's
- * offline queue and hang forever. Check connection readiness first and fail
- * fast — the backfill route maps this to 503. */
-function requireReadyConnection(): void {
-	if (getQueueRedis().status !== 'ready') {
-		throw new QueueUnavailableError()
+ * offline queue and hang forever. Wait for readiness first and fail fast —
+ * the backfill route maps this to 503. The wait must be asynchronous: the
+ * first guard call creates the ioredis client in the same tick, so a sync
+ * status read races the connect handshake and hard-fails every cold boot
+ * (found on the LXC207 dev deploy). A healthy local Redis clears this in
+ * milliseconds; a genuinely down Redis never reaches 'ready' and still fails
+ * fast once the deadline lapses. */
+async function ensureReadyConnection(): Promise<void> {
+	const deadline = Date.now() + COMMAND_TIMEOUT_MS
+	while (getQueueRedis().status !== 'ready') {
+		if (Date.now() >= deadline) {
+			throw new QueueUnavailableError()
+		}
+		const { promise, resolve } = Promise.withResolvers<void>()
+		setTimeout(resolve, READY_POLL_MS)
+		await promise
 	}
 }
 
@@ -267,7 +288,7 @@ async function removeTerminatedBackfillJob(): Promise<void> {
 }
 
 export async function enqueueBackfillRatings(): Promise<string> {
-	requireReadyConnection()
+	await ensureReadyConnection()
 	const lockToken = await acquireBackfillEnqueueLock()
 	const lockHeld = lockToken !== null
 	try {
@@ -301,7 +322,7 @@ export async function enqueueBackfillRatings(): Promise<string> {
 export async function upsertUpdateScheduler(days: number): Promise<void> {
 	const everyMs = Math.floor(days * 86_400_000)
 	if (everyMs <= 0) return
-	requireReadyConnection()
+	await ensureReadyConnection()
 	// v5.81+ scheduler shape: repeat options take `immediately` (with `every`
 	// it fires once at creation and runs every interval); name/data/opts live
 	// in the job template.
@@ -320,7 +341,7 @@ export async function upsertUpdateScheduler(days: number): Promise<void> {
  * route permanently 409: waiting covers queued duplicates, active a running
  * pass, delayed a pass between fixed-backoff retries, paused a paused queue. */
 export async function countBackfillJobsInFlight(): Promise<number> {
-	requireReadyConnection()
+	await ensureReadyConnection()
 	const jobs = await withCommandTimeout(() =>
 		getQueue().getJobs(['waiting', 'active', 'delayed', 'paused'])
 	)
