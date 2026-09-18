@@ -22,7 +22,7 @@ COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile --production --ignore-scripts
 
 # Stage 3: Production runtime
-FROM node:22-alpine@sha256:9bef0ef1e268f6069e331225fc483a308e5028c3185a7d2c886bd5bc12a835c6 AS prod
+FROM node:22-alpine@sha256:b6f26b36c8ff49624cfdac716b8ea1138d606df02586a77d364bb5536a634f85 AS prod
 
 # Install curl for healthcheck
 RUN apk add --no-cache curl
