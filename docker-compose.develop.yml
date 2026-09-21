@@ -24,6 +24,37 @@ services:
       retries: 3
       start_period: 30s
 
+  # The worker owns the BullMQ queue: it consumes the repeatable update-all
+  # scheduler and the ratings-backfill jobs enqueued by the API.
+  node-worker:
+    image: ghcr.io/laxamentumtech/audnexus:develop
+    restart: unless-stopped
+    command: ['bun', 'run', 'worker']
+    environment:
+      ADP_TOKEN: ${ADP_TOKEN}
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/audnexus}
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      UPDATE_INTERVAL: ${UPDATE_INTERVAL:-30}
+      UPDATE_THRESHOLD: ${UPDATE_THRESHOLD:-7}
+      SCHEDULER_CONCURRENCY: ${SCHEDULER_CONCURRENCY:-5}
+      SCHEDULER_BATCH_SIZE: ${SCHEDULER_BATCH_SIZE:-1000}
+      JITTER_MS: ${JITTER_MS:-0-5000}
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - internal
+    healthcheck:
+      test:
+        - 'CMD-SHELL'
+        - >-
+          bun -e '(async () => { const { Redis } = await import("ioredis"); const r = new Redis(process.env.REDIS_URL); await r.ping(); process.exit(0) })().catch(() => process.exit(1))'
+      interval: 30s
+      timeout: 6s
+      retries: 3
+      start_period: 10s
+
   mongo:
     image: mongo:7.0.37@sha256:8ecb514b00bdcc0bde67ef4e6c330385377a9dc68e24ee94e28c07c891647348
     restart: always

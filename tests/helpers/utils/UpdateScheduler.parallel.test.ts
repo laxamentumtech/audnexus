@@ -1,10 +1,10 @@
 import type { FastifyRedis } from '@fastify/redis'
 import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import type { PerformanceConfig } from '#config/performance'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 import { createMockLogger } from '#tests/setup/mockLogger'
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 const mockAuthorFind = mock()
 const mockAuthorHandler = mock()
@@ -25,21 +25,6 @@ type MockContext = {
 	client: FastifyRedis
 }
 
-const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: true,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
-	SCHEDULER_MAX_PER_REGION: 5,
-	SCHEDULER_BATCH_SIZE: 1000,
-	DEFAULT_REGION: 'us',
-	...overrides
-})
-
 const createMockContext = (): MockContext => ({
 	client: {
 		get: mock(),
@@ -50,14 +35,13 @@ const createMockContext = (): MockContext => ({
 	}
 })
 
-
 describe('UpdateScheduler parallel processing', () => {
 	let helper: UpdateScheduler
 
 	beforeEach(() => {
 		const ctx = createMockContext()
 		const mockLogger = createMockLogger()
-		helper = new UpdateScheduler(1, ctx.client, mockLogger)
+		helper = new UpdateScheduler(ctx.client, mockLogger)
 		resetPerformanceConfig()
 		mockAuthorFind.mockReset()
 		mockAuthorHandler.mockReset()
@@ -74,7 +58,7 @@ describe('UpdateScheduler parallel processing', () => {
 
 	it('caps per-region concurrency at 5', async () => {
 		setPerformanceConfig(
-			createTestConfig({
+			createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				SCHEDULER_CONCURRENCY: 10
 			})
@@ -106,7 +90,7 @@ describe('UpdateScheduler parallel processing', () => {
 
 	it('respects overall concurrency across regions', async () => {
 		setPerformanceConfig(
-			createTestConfig({
+			createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				SCHEDULER_CONCURRENCY: 5
 			})
@@ -142,7 +126,7 @@ describe('UpdateScheduler parallel processing', () => {
 
 	it('continues processing when one item fails', async () => {
 		setPerformanceConfig(
-			createTestConfig({
+			createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				SCHEDULER_CONCURRENCY: 5
 			})

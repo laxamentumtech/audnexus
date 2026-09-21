@@ -16,6 +16,7 @@ import {
 	parsedBook,
 	parsedBookWithGenres
 } from '#tests/datasets/helpers/books'
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 mock.module('#helpers/utils/fetchPlus', () => {
 	return { default: mock() }
@@ -24,10 +25,16 @@ mock.module('#helpers/utils/fetchPlus', () => {
 mock.module('#helpers/utils/shared', () => {
 	return {
 		default: class SharedHelper {
-			buildUrl() { return '' }
-			getParamString() { return '' }
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			sortObjectByKeys(obj: any) { return obj }
+			buildUrl() {
+				return ''
+			}
+			getParamString() {
+				return ''
+			}
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			sortObjectByKeys(obj: any) {
+				return obj
+			}
 		}
 	}
 })
@@ -56,12 +63,8 @@ beforeEach(() => {
 describe('StitchHelper should', () => {
 	beforeEach(() => {
 		helper = new StitchHelper(asin, region)
-		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() =>
-			Promise.resolve(mockApiResponse)
-		)
-		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
-			Promise.resolve(parsedBook)
-		)
+		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(mockApiResponse))
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() => Promise.resolve(parsedBook))
 		spyOn(helper.scrapeHelper, 'fetchBook').mockImplementation(() =>
 			Promise.resolve(mockHTMLResponse)
 		)
@@ -104,15 +107,11 @@ describe('StitchHelper should', () => {
 describe('SitchHelper should handle fallback', () => {
 	beforeEach(() => {
 		helper = new StitchHelper(asin, region)
-		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
-			Promise.resolve(parsedBook)
-		)
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() => Promise.resolve(parsedBook))
 		spyOn(helper.scrapeHelper, 'parseResponse').mockImplementation(() =>
 			Promise.resolve(genresObject)
 		)
-		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockImplementation(() =>
-			parsedBookWithGenres
-		)
+		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockImplementation(() => parsedBookWithGenres)
 	})
 
 	test('and includeGenres properly', async () => {
@@ -129,15 +128,9 @@ describe('SitchHelper should handle fallback', () => {
 		const parsed = deepCopy(parsedBook)
 		delete parsed.genres
 		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(obj.data))
-		spyOn(helper.scrapeHelper, 'fetchBook').mockImplementation(() =>
-			Promise.resolve(undefined)
-		)
-		spyOn(helper.scrapeHelper, 'parseResponse').mockImplementation(() =>
-			Promise.resolve(undefined)
-		)
-		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
-			Promise.resolve(parsed)
-		)
+		spyOn(helper.scrapeHelper, 'fetchBook').mockImplementation(() => Promise.resolve(undefined))
+		spyOn(helper.scrapeHelper, 'parseResponse').mockImplementation(() => Promise.resolve(undefined))
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() => Promise.resolve(parsed))
 
 		const processed = await helper.process()
 		expect(processed).toEqual(parsed)
@@ -214,22 +207,15 @@ describe('StitchHelper should throw error when', () => {
 	})
 
 	test('includeGenres returns a non-book type', async () => {
-		setPerformanceConfig({
-			USE_PARALLEL_SCHEDULER: false,
-			USE_CONNECTION_POOLING: true,
-			USE_COMPACT_JSON: true,
-			USE_SORTED_KEYS: true,
-			CIRCUIT_BREAKER_ENABLED: true,
-			METRICS_ENABLED: true,
-			MAX_CONCURRENT_REQUESTS: 50,
-			SCHEDULER_CONCURRENCY: 5,
-			SCHEDULER_MAX_PER_REGION: 5,
-			SCHEDULER_BATCH_SIZE: 1000,
-			DEFAULT_REGION: 'us'
-		})
+		setPerformanceConfig(
+			createTestPerformanceConfig({
+				USE_SORTED_KEYS: true,
+				METRICS_ENABLED: true
+			})
+		)
 		helper.apiParsed = parsedBook
-		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockImplementation(() =>
-			genresObject as unknown as ApiBook
+		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockImplementation(
+			() => genresObject as unknown as ApiBook
 		)
 		helper.scraperParsed = genresObject
 		await expect(helper.includeGenres()).rejects.toThrow(

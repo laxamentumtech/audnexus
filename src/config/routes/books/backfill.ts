@@ -1,11 +1,11 @@
 import crypto from 'crypto'
 import { FastifyInstance } from 'fastify'
 
-import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
-
-// In-flight guard: at most one backfill runs per process. Cleared in a
-// finally so a failed backfill never wedges subsequent runs.
-let backfillInFlight = false
+import {
+	countBackfillJobsInFlight,
+	enqueueBackfillRatings,
+	QueueUnavailableError
+} from '#helpers/jobs/bullmq'
 
 async function _backfill(fastify: FastifyInstance) {
 	fastify.post('/books/backfill-ratings', async (request, reply) => {
@@ -22,25 +22,34 @@ async function _backfill(fastify: FastifyInstance) {
 		if (bufRequest.length !== bufAuth.length || !crypto.timingSafeEqual(bufRequest, bufAuth)) {
 			return reply.code(401).send({ error: 'Unauthorized', message: 'Invalid admin token' })
 		}
-		if (backfillInFlight) {
-			return reply.code(409).send({ error: 'Conflict', message: 'Backfill already in progress' })
+		if (!process.env.REDIS_URL) {
+			return reply
+				.code(503)
+				.send({ error: 'Service Unavailable', message: 'Backfill requires REDIS_URL' })
 		}
-		backfillInFlight = true
-		const helper = new BookBackfillHelper(request.log)
-		// The backfill can take a long time to finish; return 202 immediately
-		// and run it in the background. The summary is logged on completion.
-		void helper
-			.process()
-			.then((summary) => {
-				request.log.info({ summary }, 'Ratings backfill complete')
-			})
-			.catch((err) => {
-				request.log.error({ err }, 'Ratings backfill failed')
-			})
-			.finally(() => {
-				backfillInFlight = false
-			})
-		return reply.code(202).send({ message: 'Ratings backfill started' })
+		// Durable in-flight guard (queue-level, survives process restarts):
+		// waiting covers queued duplicates, active a running pass, delayed a
+		// pass between retries. This is the primary guard; the enqueue itself
+		// also passes a deterministic jobId, so BullMQ's atomic add dedupes a
+		// concurrent slip-through (check-then-act TOCTOU) as a no-op.
+		// Redis present but not ready → 503 (same contract as missing REDIS_URL),
+		// not a hang: the shared connection keeps ioredis's null retry policy for
+		// BullMQ, so the queue helpers fail fast on connection status instead.
+		try {
+			if ((await countBackfillJobsInFlight()) > 0) {
+				return reply.code(409).send({ error: 'Conflict', message: 'Backfill already in progress' })
+			}
+			const id = await enqueueBackfillRatings()
+			return reply.code(202).send({ message: 'Ratings backfill started', id })
+		} catch (err) {
+			if (err instanceof QueueUnavailableError) {
+				return reply.code(503).send({
+					error: 'Service Unavailable',
+					message: 'Backfill requires a ready Redis connection'
+				})
+			}
+			throw err
+		}
 	})
 }
 

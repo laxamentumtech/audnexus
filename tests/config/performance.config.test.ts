@@ -2,11 +2,11 @@ import {
 	createPerformanceConfig,
 	DEFAULT_PERFORMANCE_CONFIG,
 	getPerformanceConfig,
-	PerformanceConfig,
 	PerformanceConfigSchema,
 	resetPerformanceConfig,
 	setPerformanceConfig
 } from '#config/performance'
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 describe('PerformanceConfig', () => {
 	const originalEnv = process.env
@@ -450,9 +450,7 @@ describe('PerformanceConfig', () => {
 
 		it('should reject SCHEDULER_BATCH_SIZE above the cap through setPerformanceConfig', () => {
 			const config = createPerformanceConfig()
-			expect(() =>
-				setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 10001 })
-			).toThrow()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 10001 })).toThrow()
 		})
 
 		it('should reject SCHEDULER_BATCH_SIZE of zero through setPerformanceConfig', () => {
@@ -477,9 +475,73 @@ describe('PerformanceConfig', () => {
 
 		it('should accept a valid SCHEDULER_BATCH_SIZE through setPerformanceConfig', () => {
 			const config = createPerformanceConfig()
-			expect(() =>
-				setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 1000 })
-			).not.toThrow()
+			expect(() => setPerformanceConfig({ ...config, SCHEDULER_BATCH_SIZE: 1000 })).not.toThrow()
+		})
+	})
+
+	describe('Jitter Range', () => {
+		it('should use default 0-5000 for JITTER_MS when not set', () => {
+			delete process.env.JITTER_MS
+			const config = createPerformanceConfig()
+			expect(config.JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should parse a min-max range for JITTER_MS', () => {
+			process.env.JITTER_MS = '1000-3000'
+			const config = createPerformanceConfig()
+			expect(config.JITTER_MS).toEqual({ min: 1000, max: 3000 })
+		})
+
+		it('should parse a bare max value as 0-N for JITTER_MS', () => {
+			process.env.JITTER_MS = '750'
+			const config = createPerformanceConfig()
+			expect(config.JITTER_MS).toEqual({ min: 0, max: 750 })
+		})
+
+		it('should fallback to defaults for non-numeric JITTER_MS', () => {
+			process.env.JITTER_MS = 'abc'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for inverted JITTER_MS range', () => {
+			process.env.JITTER_MS = '3000-1000'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for negative JITTER_MS', () => {
+			process.env.JITTER_MS = '-5'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for too many JITTER_MS parts', () => {
+			process.env.JITTER_MS = '1-2-3'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for JITTER_MS with unit suffix', () => {
+			process.env.JITTER_MS = '100-200ms'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for decimal JITTER_MS', () => {
+			process.env.JITTER_MS = '100.5-200'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should parse JITTER_MS range with surrounding whitespace', () => {
+			process.env.JITTER_MS = ' 1000 - 3000 '
+			const config = createPerformanceConfig()
+			expect(config.JITTER_MS).toEqual({ min: 1000, max: 3000 })
+		})
+
+		it('should fallback to defaults for JITTER_MS beyond Number.MAX_SAFE_INTEGER', () => {
+			process.env.JITTER_MS = '9007199254740992'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
+		})
+
+		it('should fallback to defaults for excessively long digit-only JITTER_MS', () => {
+			process.env.JITTER_MS = '99999999999999999999'
+			expect(createPerformanceConfig().JITTER_MS).toEqual({ min: 0, max: 5000 })
 		})
 	})
 
@@ -502,19 +564,19 @@ describe('PerformanceConfig', () => {
 		})
 
 		it('should set custom configuration with setPerformanceConfig', () => {
-			const customConfig: PerformanceConfig = {
+			const customConfig = createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				USE_CONNECTION_POOLING: false,
 				USE_COMPACT_JSON: false,
 				USE_SORTED_KEYS: true,
 				CIRCUIT_BREAKER_ENABLED: false,
-				METRICS_ENABLED: false,
 				MAX_CONCURRENT_REQUESTS: 100,
 				SCHEDULER_CONCURRENCY: 10,
 				SCHEDULER_MAX_PER_REGION: 10,
 				SCHEDULER_BATCH_SIZE: 2000,
+				JITTER_MS: { min: 100, max: 200 },
 				DEFAULT_REGION: 'uk'
-			}
+			})
 
 			setPerformanceConfig(customConfig)
 			const config = getPerformanceConfig()
@@ -528,23 +590,15 @@ describe('PerformanceConfig', () => {
 			expect(config.SCHEDULER_CONCURRENCY).toBe(10)
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(10)
 			expect(config.SCHEDULER_BATCH_SIZE).toBe(2000)
+			expect(config.JITTER_MS).toEqual({ min: 100, max: 200 })
 			expect(config.DEFAULT_REGION).toBe('uk')
 		})
 
 		it('should allow overriding singleton with environment after reset', () => {
-			const customConfig: PerformanceConfig = {
+			const customConfig = createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
-				USE_CONNECTION_POOLING: true,
-				USE_COMPACT_JSON: true,
-				USE_SORTED_KEYS: false,
-				CIRCUIT_BREAKER_ENABLED: true,
-				METRICS_ENABLED: true,
-				MAX_CONCURRENT_REQUESTS: 50,
-				SCHEDULER_CONCURRENCY: 5,
-				SCHEDULER_MAX_PER_REGION: 5,
-				SCHEDULER_BATCH_SIZE: 1000,
-				DEFAULT_REGION: 'us'
-			}
+				METRICS_ENABLED: true
+			})
 
 			setPerformanceConfig(customConfig)
 			resetPerformanceConfig()
@@ -570,6 +624,7 @@ describe('PerformanceConfig', () => {
 			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_CONCURRENCY).toBe(5)
 			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_MAX_PER_REGION).toBe(5)
 			expect(DEFAULT_PERFORMANCE_CONFIG.SCHEDULER_BATCH_SIZE).toBe(1000)
+			expect(DEFAULT_PERFORMANCE_CONFIG.JITTER_MS).toEqual({ min: 0, max: 5000 })
 			expect(DEFAULT_PERFORMANCE_CONFIG.DEFAULT_REGION).toBe('us')
 		})
 
@@ -585,6 +640,7 @@ describe('PerformanceConfig', () => {
 				'SCHEDULER_CONCURRENCY',
 				'SCHEDULER_MAX_PER_REGION',
 				'SCHEDULER_BATCH_SIZE',
+				'JITTER_MS',
 				'DEFAULT_REGION'
 			]
 
@@ -608,6 +664,8 @@ describe('PerformanceConfig', () => {
 			expect(typeof config.SCHEDULER_CONCURRENCY).toBe('number')
 			expect(typeof config.SCHEDULER_MAX_PER_REGION).toBe('number')
 			expect(typeof config.SCHEDULER_BATCH_SIZE).toBe('number')
+			expect(typeof config.JITTER_MS.min).toBe('number')
+			expect(typeof config.JITTER_MS.max).toBe('number')
 			expect(typeof config.DEFAULT_REGION).toBe('string')
 		})
 
@@ -629,6 +687,7 @@ describe('PerformanceConfig', () => {
 			delete process.env.SCHEDULER_CONCURRENCY
 			delete process.env.SCHEDULER_MAX_PER_REGION
 			delete process.env.SCHEDULER_BATCH_SIZE
+			delete process.env.JITTER_MS
 			delete process.env.DEFAULT_REGION
 
 			const config = createPerformanceConfig()
@@ -642,6 +701,7 @@ describe('PerformanceConfig', () => {
 			expect(config.SCHEDULER_CONCURRENCY).toBe(5)
 			expect(config.SCHEDULER_MAX_PER_REGION).toBe(5)
 			expect(config.SCHEDULER_BATCH_SIZE).toBe(1000)
+			expect(config.JITTER_MS).toEqual({ min: 0, max: 5000 })
 			expect(config.DEFAULT_REGION).toBe('us')
 		})
 
