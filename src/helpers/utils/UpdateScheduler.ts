@@ -22,6 +22,7 @@ import {
 	keysetFindAdapter
 } from '#helpers/utils/keyset'
 import { NoticeUpdateScheduled } from '#static/messages'
+import { withDeadline } from '#helpers/utils/withDeadline'
 
 // Maximum per-region concurrency limit
 const MAX_PER_REGION_CONCURRENCY = 5
@@ -80,10 +81,13 @@ class UpdateScheduler {
 		const helper = new AuthorShowHelper(
 			author.asin,
 			{ region: author.region ?? 'us', update: '1' },
-			this.redis as unknown as FastifyRedis | null
+			this.redis as unknown as FastifyRedis | null,
+			this.logger
 		)
 		try {
-			await helper.handler()
+			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
+
+			await withDeadline(helper.handler(), timeoutMs, `author ${author.asin}`)
 		} finally {
 			if (options.withDelay) {
 				await jitteredSleep()
@@ -101,10 +105,12 @@ class UpdateScheduler {
 		const helper = new BookShowHelper(
 			book.asin,
 			{ region: book.region ?? 'us', update: '1' },
-			this.redis as unknown as FastifyRedis | null
+			this.redis as unknown as FastifyRedis | null,
+			this.logger
 		)
 		try {
-			await helper.handler()
+			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
+			await withDeadline(helper.handler(), timeoutMs, `book ${book.asin}`)
 		} finally {
 			if (options.withDelay) {
 				await jitteredSleep()
@@ -122,10 +128,12 @@ class UpdateScheduler {
 		const helper = new ChapterShowHelper(
 			chapter.asin,
 			{ region: chapter.region ?? 'us', update: '1' },
-			this.redis as unknown as FastifyRedis | null
+			this.redis as unknown as FastifyRedis | null,
+			this.logger
 		)
 		try {
-			await helper.handler()
+			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
+			await withDeadline(helper.handler(), timeoutMs, `chapters ${chapter.asin}`)
 		} finally {
 			if (options.withDelay) {
 				await jitteredSleep()
@@ -152,6 +160,7 @@ class UpdateScheduler {
 		if (!config.USE_PARALLEL_SCHEDULER) {
 			const summary = this.createEmptySummary()
 			await this.processAllAsins(model, async (docs) => {
+				this.logger.debug(`${label} batch: ${docs.length} items`)
 				for (const doc of docs) {
 					const region = normalizeRegion(doc.region)
 					summary.total += 1

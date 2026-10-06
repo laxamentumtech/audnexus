@@ -385,6 +385,13 @@ export function createWorker(logger: FastifyBaseLogger): Worker {
 	worker.on('failed', (job, err) =>
 		logger.error(`Job ${job?.id} (${job?.name}) failed: ${err.message}`)
 	)
+	// A stalled job silently lost its lock while the repeat scheduler spawns a
+	// replacement — without this line the churn is invisible (observed live on
+	// the dev stack: updateAll start logs 5 minutes apart with no restart).
+	worker.on('stalled', (jobId) => logger.warn(`Job ${jobId} stalled; will retry`))
+	// BullMQ recommends an error listener; without one worker-level connection
+	// errors surface as unhandled 'error' events and can kill the process.
+	worker.on('error', (err) => logger.error(`Worker error: ${err.message}`))
 	return worker
 }
 

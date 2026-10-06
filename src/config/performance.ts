@@ -70,6 +70,14 @@ export const PerformanceConfigSchema = z.object({
 	/** Documents per batch when paginating over books/authors/chapters */
 	SCHEDULER_BATCH_SIZE: z.number().int().positive().max(MAX_SCHEDULER_BATCH_SIZE).default(1000),
 
+	/**
+	 * Hard deadline for a single scheduler item (env: milliseconds). A hung
+	 * fetch/DB await must surface as an error instead of silently parking the
+	 * only worker slot; the surrounding loop catches it and counts a failure.
+	 * 0 disables the guard.
+	 */
+	SCHEDULER_ITEM_TIMEOUT_MS: z.number().int().min(0).default(120000),
+
 	/** Randomized pacing wait range in ms for batch workers (env: "min-max" or bare "max") */
 	JITTER_MS: z
 		.object({ min: z.number().int().min(0), max: z.number().int().min(0) })
@@ -94,6 +102,15 @@ export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
  */
 export function createPerformanceConfig(): PerformanceConfig {
 	// Parse numeric values with fallbacks
+	const schedulerItemTimeoutRaw = process.env.SCHEDULER_ITEM_TIMEOUT_MS
+		? parseInt(process.env.SCHEDULER_ITEM_TIMEOUT_MS, 10)
+		: 120000
+	const validatedSchedulerItemTimeout =
+		Number.isNaN(schedulerItemTimeoutRaw) ||
+		!Number.isFinite(schedulerItemTimeoutRaw) ||
+		schedulerItemTimeoutRaw < 0
+			? 120000
+			: schedulerItemTimeoutRaw
 	const maxConcurrentRequests = process.env.MAX_CONCURRENT_REQUESTS
 		? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
 		: 50
@@ -161,6 +178,7 @@ export function createPerformanceConfig(): PerformanceConfig {
 		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency,
 		SCHEDULER_MAX_PER_REGION: validatedSchedulerMaxPerRegion,
 		SCHEDULER_BATCH_SIZE: validatedSchedulerBatchSize,
+		SCHEDULER_ITEM_TIMEOUT_MS: validatedSchedulerItemTimeout,
 		JITTER_MS: jitterMs,
 		DEFAULT_REGION: process.env.DEFAULT_REGION?.trim() || 'us'
 	})
@@ -185,6 +203,7 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
 	SCHEDULER_BATCH_SIZE: 1000,
+	SCHEDULER_ITEM_TIMEOUT_MS: 120000,
 	JITTER_MS: { min: 0, max: 5000 },
 	DEFAULT_REGION: 'us'
 }
