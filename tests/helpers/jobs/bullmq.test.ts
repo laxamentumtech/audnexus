@@ -1,4 +1,14 @@
-import { afterAll, afterEach, beforeEach, describe, expect, it, type Mock, mock, vi } from 'bun:test'
+import {
+	afterAll,
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	type Mock,
+	mock,
+	vi
+} from 'bun:test'
 
 import { createMockLogger } from '#tests/setup/mockLogger'
 
@@ -11,6 +21,9 @@ const mockRedisQuit = mock()
 const mockRedisSet = mock()
 const mockRedisGet = mock()
 const mockRedisDel = mock()
+const mockRedisLrange = mock()
+const mockRedisLrem = mock()
+const mockRedisExists = mock()
 const mockWorkerClose = mock()
 const mockWorkerOn = mock()
 const mockSchedulerUpdateAll = mock()
@@ -40,6 +53,9 @@ mock.module('ioredis', () => ({
 		set = mockRedisSet
 		get = mockRedisGet
 		del = mockRedisDel
+		lrange = mockRedisLrange
+		lrem = mockRedisLrem
+		exists = mockRedisExists
 		constructor(url: string, options: Record<string, unknown> = {}) {
 			redisConstructorCalls.push({ url, options, instance: this })
 		}
@@ -110,6 +126,9 @@ beforeEach(() => {
 	mockQueueAdd.mockClear()
 	mockQueueUpsert.mockClear()
 	mockQueueGetJobs.mockReset()
+	// Default: no jobs in any state — ensureUpdateAllWillRun then enqueues a
+	// boot pass, which individual tests override as needed.
+	mockQueueGetJobs.mockResolvedValue([])
 	mockQueueRemove.mockClear()
 	mockJobFromId.mockClear()
 	mockJobFromId.mockImplementation(() => mockJobFromIdSequence.shift() ?? null)
@@ -119,6 +138,13 @@ beforeEach(() => {
 	mockRedisGet.mockResolvedValue(null)
 	mockRedisDel.mockReset()
 	mockRedisDel.mockResolvedValue(1)
+	mockRedisLrange.mockReset()
+	// Default: empty active list — no orphans in the common path.
+	mockRedisLrange.mockResolvedValue([])
+	mockRedisLrem.mockReset()
+	mockRedisLrem.mockResolvedValue(1)
+	mockRedisExists.mockReset()
+	mockRedisExists.mockResolvedValue(1)
 })
 
 afterEach(() => {
@@ -477,6 +503,46 @@ describe('bullmq queue helpers', () => {
 			} finally {
 				vi.useRealTimers()
 			}
+		})
+
+		it('sweeps ghost active-list entries before upserting the scheduler', async () => {
+			// 2026-10-06 incident: restarts mid-job leaked active-list entries
+			// whose job records were gone; the boot `immediately` fire deduped
+			// against the ghost and the boot-only schedule never fired again.
+			const ghostId = 'repeat:update-all-scheduler:123'
+			mockRedisLrange.mockResolvedValue([ghostId, 'real-job'])
+			// First exists call (the ghost) → 0; second (a real job) → 1.
+			mockRedisExists.mockResolvedValueOnce(0).mockResolvedValueOnce(1)
+
+			await upsertUpdateScheduler(30)
+
+			expect(mockRedisLrem).toHaveBeenCalledWith('bull:audnexus:active', 0, ghostId)
+			expect(mockRedisLrem).not.toHaveBeenCalledWith('bull:audnexus:active', 0, 'real-job')
+			expect(mockRedisDel).toHaveBeenCalledWith(`bull:audnexus:${ghostId}:lock`)
+		})
+
+		it('enqueues a boot pass when no update-all occurrence is pending', async () => {
+			// After a ghost sweep (or any dedup loss) the boot-only schedule has
+			// no pending occurrence for potentially years; the boot must not
+			// trust the upsert alone.
+			mockQueueGetJobs.mockResolvedValue([])
+
+			await upsertUpdateScheduler(30)
+
+			expect(mockQueueAdd).toHaveBeenCalledWith(
+				JOB_NAMES.updateAll,
+				{},
+				expect.objectContaining({ jobId: expect.stringMatching(/^boot-\d+$/) })
+			)
+		})
+
+		it('does not enqueue a boot pass when an update-all is already due', async () => {
+			mockQueueGetJobs.mockResolvedValue([{ name: JOB_NAMES.updateAll, delay: 5_000 }])
+			mockQueueAdd.mockClear()
+
+			await upsertUpdateScheduler(30)
+
+			expect(mockQueueAdd).not.toHaveBeenCalled()
 		})
 	})
 

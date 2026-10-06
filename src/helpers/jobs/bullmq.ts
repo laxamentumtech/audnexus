@@ -328,6 +328,7 @@ export async function upsertUpdateScheduler(days: number): Promise<void> {
 	const everyMs = Math.floor(days * 86_400_000)
 	if (everyMs <= 0) return
 	await ensureReadyConnection()
+	await removeOrphanedActiveJobs()
 	// v5.81+ scheduler shape: repeat options take `immediately` (with `every`
 	// it fires once at creation and runs every interval); name/data/opts live
 	// in the job template.
@@ -338,6 +339,76 @@ export async function upsertUpdateScheduler(days: number): Promise<void> {
 			{ name: JOB_NAMES.updateAll, opts: { ...JOB_RETRIES } }
 		)
 	)
+	await ensureUpdateAllWillRun()
+}
+
+/**
+ * At worker boot, any entry in the active list whose job record no longer
+ * exists is an orphan of a killed worker (observed 2026-10-06: two restarts
+ * mid-job leaked ghost entries that sat in `active` while pointing at
+ * nothing). Two consequences made this fatal for a boot-only repeat
+ * schedule: the ghost blocked the repeatable scheduler's `immediately` fire
+ * at the next upsert, and BullMQ's stalled checker has no job record to
+ * reap — so the queue sat silent until the entries were removed by hand.
+ * The sweep runs before the scheduler upsert so the immediate fire is never
+ * deduped against a ghost.
+ */
+export async function removeOrphanedActiveJobs(): Promise<void> {
+	await ensureReadyConnection()
+	const client = getQueueRedis()
+	const orphans = await withCommandTimeout(async () => {
+		const ids = await client.lrange(`bull:${QUEUE_NAME}:active`, 0, -1)
+		const orphaned: string[] = []
+		for (const id of ids) {
+			const exists = await client.exists(`bull:${QUEUE_NAME}:${id}`)
+			if (!exists) orphaned.push(id)
+		}
+		return orphaned
+	})
+	for (const id of orphans) {
+		// Each ghost: drop from the active list and kill its lock so the
+		// stalled checker can never be fooled by a dead owner's TTL.
+		await withCommandTimeout(() => client.lrem(`bull:${QUEUE_NAME}:active`, 0, id))
+		await withCommandTimeout(() => client.del(`bull:${QUEUE_NAME}:${id}:lock`))
+		await withCommandTimeout(() =>
+			client.del(`bull:${QUEUE_NAME}:repeat:update-all-scheduler:${id}:lock`)
+		)
+	}
+	if (orphans.length > 0) {
+		console.warn(`Swept ${orphans.length} orphaned active job(s): ${orphans.join(', ')}`)
+	}
+}
+
+/**
+ * Guarantee the boot actually leads to a running update-all pass. The
+ * repeatable scheduler's `immediately` fire is deduped by BullMQ against any
+ * existing job for the scheduler — including a ghost the boot sweep could
+ * not classify (a hash that reappeared between sweep and upsert) — and the
+ * next scheduled occurrence may be years away (env sets 36500 days on the
+ * dev stack). If nothing update-all-shaped is active, waiting, or due within
+ * a day, enqueue a one-off pass; a duplicate with a genuine occurrence is
+ * harmless (the walk is idempotent — it refreshes whatever is stale).
+ */
+export async function ensureUpdateAllWillRun(): Promise<void> {
+	await ensureReadyConnection()
+	const jobs = await withCommandTimeout(() => getQueue().getJobs(['active', 'wait', 'delayed']))
+	const updateAll = jobs.filter((job) => job.name === JOB_NAMES.updateAll)
+	const nearby = updateAll.some((job) => {
+		const delay = job.delay ?? 0
+		return delay < 86_400_000
+	})
+	if (nearby) return
+	await withCommandTimeout(() =>
+		// jobId must be colon-free (BullMQ validates custom ids) but still
+		// unique per boot; the dedup against repeat-generated ids uses the
+		// boot- prefix.
+		getQueue().add(
+			JOB_NAMES.updateAll,
+			{},
+			{ ...JOB_RETRIES, jobId: `boot-${Date.now()}` }
+		)
+	)
+	console.warn('No update-all occurrence was pending; enqueued a boot pass')
 }
 
 /** Durable in-flight check for the backfill route (replaces the in-process
