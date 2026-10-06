@@ -19,9 +19,14 @@ export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES]
 
 /** Fixed 5-minute retry backoff — jobs are long batch passes; a short retry is pointless. */
 export const RETRY_BACKOFF_MS = 300000
-/** 1h job lock: BullMQ heartbeats the token on every awaited microtask, so this
- * only trips on a truly dead worker. */
-export const LOCK_DURATION_MS = 3600000
+/** 2-minute job lock: BullMQ heartbeats the token while the worker lives, so
+ * this only trips on a truly dead worker. Long enough to cover any single
+ * item (the 120s item deadline caps handler awaits); short enough that a
+ * worker killed mid-job orphans the queue for at most ~2.5 minutes instead
+ * of the hour-long freeze observed on the dev stack (2026-10-06: a restart
+ * mid-job left an active repeatable job with a dead owner; with
+ * every=36500 days nothing re-fired until the lock expired). */
+export const LOCK_DURATION_MS = 120_000
 /** How often the worker checks for stalled jobs (crashed mid-process). */
 export const STALLED_CHECK_INTERVAL_MS = 30000
 /** Retention: last N completed/failed job records kept per queue. */
