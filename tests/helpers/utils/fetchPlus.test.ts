@@ -18,6 +18,11 @@ mock.module('#helpers/utils/sleep', () => {
 
 import type { AxiosResponse } from 'axios'
 
+import {
+	getCooldownMs,
+	getConsecutiveRateLimited,
+	resetCooldown
+} from '#helpers/utils/adaptiveCooldown'
 import pooledAxios from '#helpers/utils/connectionPool'
 import fetchPlus from '#helpers/utils/fetchPlus'
 
@@ -31,6 +36,7 @@ describe('fetchPlus should', () => {
 
 	afterEach(() => {
 		mock.restore()
+		resetCooldown()
 	})
 
 	test('return response', async () => {
@@ -195,7 +201,7 @@ describe('fetchPlus should', () => {
 		}
 	})
 
-	test('not honor Retry-After header on 503', async () => {
+	test('honor Retry-After header on 503', async () => {
 		const mockError = {
 			response: {
 				status: 503,
@@ -206,21 +212,21 @@ describe('fetchPlus should', () => {
 
 		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
 
-		// Mock Math.random to 0.5 → jitter = floor(0.5 * 250) = 125
-		const randomSpy = spyOn(Math, 'random').mockReturnValue(0.5)
+		// Retry-After is honored for all rate-limit statuses (Audible
+		// throttles with 503), clamped to the 8s retry-delay ceiling.
+		// Math.random → 0 zeroes the 503/504 retry jitter.
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
 		try {
-			const response = await fetchPlus('test.com')
-			expect(response).toEqual(successResponse)
-			expect(pooledAxios.get).toHaveBeenCalledTimes(2)
-			// Should use exponential backoff (1000ms + jitter), NOT Retry-After (10000ms)
-			expect(sleepDelays).toEqual([1125])
-			expect(sleepDelays[0]).toBeLessThan(2000)
+			await fetchPlus('test.com')
 		} finally {
 			randomSpy.mockRestore()
 		}
+
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays).toEqual([8_000])
 	})
 
-	test('not honor Retry-After header on 504', async () => {
+	test('honor Retry-After header on 504', async () => {
 		const mockError = {
 			response: {
 				status: 504,
@@ -231,17 +237,32 @@ describe('fetchPlus should', () => {
 
 		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
 
-		const randomSpy = spyOn(Math, 'random').mockReturnValue(0.5)
-		try {
-			const response = await fetchPlus('test.com')
-			expect(response).toEqual(successResponse)
-			expect(pooledAxios.get).toHaveBeenCalledTimes(2)
-			// Should use exponential backoff (1000ms + jitter), NOT Retry-After (10000ms)
-			expect(sleepDelays).toEqual([1125])
-			expect(sleepDelays[0]).toBeLessThan(2000)
-		} finally {
-			randomSpy.mockRestore()
+		// Same ceiling as 503: Retry-After honored up to the 8s cap; jitter
+		// adds up to 250ms, so assert a bounded range instead of an exact hit.
+		await fetchPlus('test.com')
+
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(8_000)
+		expect(sleepDelays[0]).toBeLessThan(8_250)
+	})
+
+	test('raise the adaptive cooldown on 503 and decay it on success', async () => {
+		const mockError = {
+			response: {
+				status: 503,
+				headers: {}
+			}
 		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		// One rate-limited attempt, then a success.
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		await fetchPlus('test.com')
+
+		// The 503 registered pressure; the 200 decayed it but not to zero.
+		expect(getConsecutiveRateLimited()).toBe(0)
+		expect(getCooldownMs()).toBe(15_000)
 	})
 
 	test('not add delay for non-429 errors', async () => {

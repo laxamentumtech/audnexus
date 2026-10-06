@@ -14,6 +14,7 @@ import {
 	normalizeRegion,
 	processBatchByRegion
 } from '#helpers/utils/batchProcessor'
+import { sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import { jitteredSleep } from '#helpers/utils/jitteredSleep'
 import {
 	ASIN_REGION_PROJECTION,
@@ -91,6 +92,10 @@ class UpdateScheduler {
 		} finally {
 			if (options.withDelay) {
 				await jitteredSleep()
+				// Adaptive upstream-pressure cooldown, on top of the pacing
+				// jitter (see adaptiveCooldown.ts). Sits outside the item
+				// deadline on purpose: a 15-minute cooldown must not be cut.
+				await sleepCooldown()
 			}
 		}
 	}
@@ -114,6 +119,10 @@ class UpdateScheduler {
 		} finally {
 			if (options.withDelay) {
 				await jitteredSleep()
+				// Adaptive upstream-pressure cooldown, on top of the pacing
+				// jitter (see adaptiveCooldown.ts). Sits outside the item
+				// deadline on purpose: a 15-minute cooldown must not be cut.
+				await sleepCooldown()
 			}
 		}
 	}
@@ -137,6 +146,10 @@ class UpdateScheduler {
 		} finally {
 			if (options.withDelay) {
 				await jitteredSleep()
+				// Adaptive upstream-pressure cooldown, on top of the pacing
+				// jitter (see adaptiveCooldown.ts). Sits outside the item
+				// deadline on purpose: a 15-minute cooldown must not be cut.
+				await sleepCooldown()
 			}
 		}
 	}

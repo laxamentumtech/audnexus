@@ -9,6 +9,7 @@ import {
 	QUEUE_NAME,
 	upsertUpdateScheduler
 } from '#helpers/jobs/bullmq'
+import { setCooldownLogger } from '#helpers/utils/adaptiveCooldown'
 
 // console satisfies the FastifyBaseLogger subset the batch path uses
 // (info/debug/error); cast matches the existing CLI convention of passing
@@ -35,6 +36,8 @@ export async function startWorker(): Promise<void> {
 	// The worker owns the schedule: it creates/refreshes the repeatable
 	// update-all job, so the schedule survives API restarts.
 	await upsertUpdateScheduler(Number(process.env.UPDATE_INTERVAL) || 30)
+	// Surface adaptive-cooldown growth in worker logs (see adaptiveCooldown.ts).
+	setCooldownLogger((message) => logger.warn(message))
 	createWorker(logger)
 	logger.info(`Worker started on queue ${QUEUE_NAME} (jobs: update-all, backfill-ratings)`)
 }

@@ -1,20 +1,38 @@
 import { AxiosError, AxiosResponse } from 'axios'
 
 import pooledAxios from '#helpers/utils/connectionPool'
+import { registerRateLimited, registerSuccess } from '#helpers/utils/adaptiveCooldown'
 import sleep from '#helpers/utils/sleep'
 
 const MAX_BACKOFF_MS = 8000
 
 // HTTP statuses that warrant retry with exponential backoff + jitter.
-// 429 keeps an exact-delay path (no jitter) to preserve Retry-After semantics;
-// 503/504 add bounded jitter on top of backoff to avoid thundering Audible retry bursts.
-const TRANSIENT_STATUSES = new Set([429, 503, 504])
+// 429/503/504 are upstream rate-limit signals (Audible throttles with 503).
+// Static literal lookup per project style (Record over Set for fixed keys).
+const TRANSIENT_STATUSES: Record<number, true> = { 429: true, 503: true, 504: true }
+
+/** Convert a rate-limit response's Retry-After header to milliseconds, or
+ * undefined when absent/unparseable. Accepts delay-seconds and HTTP-date. */
+function retryAfterToMs(error: AxiosError): number | undefined {
+	const retryAfter = error.response?.headers?.['retry-after']
+	if (!retryAfter || typeof retryAfter !== 'string') return undefined
+	if (/^\d+$/.test(retryAfter)) {
+		const seconds = parseInt(retryAfter, 10)
+		return seconds >= 0 ? seconds * 1000 : undefined
+	}
+	const parsedDate = new Date(retryAfter)
+	if (isNaN(parsedDate.getTime())) return undefined
+	const delay = parsedDate.getTime() - Date.now()
+	return delay > 0 ? delay : undefined
+}
 
 /**
  * Calculates the delay for retry attempts with exponential backoff.
- * For 429 status, honors Retry-After header when present (delay-in-seconds and HTTP-date formats),
- * otherwise uses exponential backoff starting at 1s, doubling each retry (max 8s).
- * For 503/504, always uses exponential backoff (Retry-After is ignored).
+ * 429/503/504 are upstream rate-limit signals (Audible throttles with 503);
+ * Retry-After is honored on all of them when present, else exponential
+ * backoff from 1s doubling per retry (capped at 8s).
+ * Each rate-limit response also raises the process-wide adaptive cooldown
+ * consumed by batch loops between items.
  * @param {number} retries The current retry count
  * @param {AxiosError} error The axios error response
  * @returns {number} The delay in milliseconds
@@ -22,8 +40,9 @@ const TRANSIENT_STATUSES = new Set([429, 503, 504])
 function calculateRetryDelay(retries: number, error: AxiosError): number {
 	const status = error.response?.status
 
-	// Only honor Retry-After for 429; 503/504 always use exponential backoff
-	if (status === 429 && error.response?.headers) {
+	// Honor Retry-After for any rate-limit status; parse delay-in-seconds and
+	// HTTP-date forms.
+	if (error.response?.headers) {
 		const retryAfter = error.response.headers['retry-after']
 		if (retryAfter) {
 			// Retry-After can be a delay in seconds or an HTTP-date
@@ -35,7 +54,7 @@ function calculateRetryDelay(retries: number, error: AxiosError): number {
 				}
 			}
 
-			// Try parsing as HTTP-date (e.g., "Wed, 21 Oct 2015 07:28:00 GMT")
+			// Try parsing as an HTTP-date
 			const parsedDate = new Date(retryAfter)
 			if (!isNaN(parsedDate.getTime())) {
 				const now = Date.now()
@@ -47,7 +66,7 @@ function calculateRetryDelay(retries: number, error: AxiosError): number {
 		}
 	}
 
-	// Exponential backoff (429 without Retry-After, 503, 504, or no response)
+	// Exponential backoff (no Retry-After): 1s, 2s, 4s, capped at 8s
 	return Math.min(1000 * Math.pow(2, retries), MAX_BACKOFF_MS)
 }
 
@@ -67,16 +86,22 @@ function fetchPlus(url: string, options = {}, retries = 0): Promise<AxiosRespons
 			.get(url, options)
 			.then((response: AxiosResponse) => {
 				if (response.status === 200) {
+					registerSuccess()
 					resolve(response)
 				} else {
 					reject(response)
 				}
 			})
 			.catch(async (reason: AxiosError) => {
+				const status = reason.response?.status
+				if (status && TRANSIENT_STATUSES[status]) {
+					// Rate-limit signal: raise the process-wide adaptive cooldown.
+					// Retry-After hints feed both the retry delay and the cooldown.
+					registerRateLimited(retryAfterToMs(reason))
+				}
 				if (retries < 3) {
 					// Transient (429/503/504) responses back off before retrying.
-					const status = reason.response?.status
-					if (status && TRANSIENT_STATUSES.has(status)) {
+					if (status && TRANSIENT_STATUSES[status]) {
 						const delay = calculateRetryDelay(retries, reason)
 						// 429 keeps the exact Retry-After/backoff delay (asserted in tests);
 						// 503/504 add bounded jitter (up to 250ms) to spread retries.
