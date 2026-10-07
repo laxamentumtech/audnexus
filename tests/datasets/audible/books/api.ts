@@ -732,7 +732,7 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 		language: 'english',
 		merchandising_description: '',
 		merchandising_summary:
-			'<p>Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive. Addressed in green ink on yellowish parchment with a purple seal, they are swiftly confiscated by his grisly aunt and uncle....</p>',
+			'<p>Harry Potter lives hidden away in the cupboard under the stairs at Number Four, Privet Drive. When letters start arriving for him, they are swiftly confiscated by his cruel aunt and uncle.</p>',
 		narrators: [
 			{
 				name: 'Jim Dale'
@@ -753,7 +753,7 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 			'Teen_Young_Adult/Science_Fiction_Fantasy/Fantasy/Epic'
 		],
 		product_images: {
-			'1024': 'https://m.media-amazon.com/images/I/91eopoUCjLL._SL1024_.jpg',
+			'1024': 'https://m.media-amazon.com/images/I/91LDfWN4CKL._SL1024_.jpg',
 			'500': 'https://m.media-amazon.com/images/I/51xJbFMRsxL._SL500_.jpg'
 		},
 		product_site_launch_date: '2015-11-13T05:00:00Z',
@@ -761,7 +761,7 @@ export const B017V4IM1G = AudibleProductSchema.parse({
 		publication_name: 'Harry Potter',
 		publisher_name: 'Pottermore Publishing',
 		publisher_summary:
-			"<p>Jim Dale's Grammy Award-winning performance of J.K. Rowling's iconic stories is a listening adventure for the whole family.</p> <p><i>Turning the envelope over, his hand trembling, Harry saw a purple wax seal bearing a coat of arms; a lion, an eagle, a badger and a snake surrounding a large letter 'H'.</i></p> <p>Close your eyes and enter the magical world of Harry Potter. In these editions, Jim Dale's characterful narration is so entertaining, fun, and theatrical you can almost hear the crackle of the fire in the Gryffindor common room.</p> <p>Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive. Addressed in green ink on yellowish parchment with a purple seal, they are swiftly confiscated by his grisly aunt and uncle. Then, on Harry's eleventh birthday, a great beetle-eyed giant of a man called Rubeus Hagrid bursts in with some astonishing news: Harry Potter is a wizard, and he has a place at Hogwarts School of Witchcraft and Wizardry. An incredible adventure is about to begin!</p> <p>Having become classics of our time, the Harry Potter stories never fail to bring comfort and escapism. With their message of hope, belonging and the enduring power of truth and love, the story of the Boy Who Lived continues to delight generations of new listeners.</p>",
+			"<p><b>Hear the story that started it all. From September 1 through October 31, stream this edition of Harry Potter and the Sorcerer’s Stone on us.</b></p> <p><b>A new era of Hogwarts begins. The HBO Original Series </b><b><i>Harry Potter and the Philosopher's Stone</i></b><b> is coming this Christmas.</b></p> <p>---------</p> <p>Harry Potter lives hidden away in the cupboard under the stairs at Number Four, Privet Drive. When letters start arriving for him, they are swiftly confiscated by his cruel aunt and uncle. Then, on Harry’s eleventh birthday, a great giant of a man called Rubeus Hagrid bursts in with some astonishing news: Harry Potter is a <i>wizard</i>, and he has a place at Hogwarts School of Witchcraft and Wizardry. An incredible adventure is about to begin!</p> <p>------------</p> <p>Why start the Harry Potter series?</p> <ul> <li>It's an award-winning classic beloved by countless children and adults</li> <li>Its message of belonging and the power of friendship resonates with everyone</li> <li>Harry Potter, Ron Weasley and Hermione Granger are some of the most memorable figures of modern fiction</li> <li>It has inspired a lifelong love of stories across generations</li> </ul>",
 		rating: {
 			num_reviews: 7606,
 			overall_distribution: {

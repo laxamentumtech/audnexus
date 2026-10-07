@@ -390,6 +390,41 @@ describe('GenericShowHelper pre-order transient handling', () => {
 		expect(createOrUpdateSpy).toHaveBeenCalledTimes(1)
 		expect(setOneSpy).toHaveBeenCalledTimes(1)
 	})
+
+	test('sets fetchedFreshData on the normal persistence path', async () => {
+		const pastBook = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: new Date('2020-01-01')
+		} as ApiBook
+
+		spyOn(helper, 'getNewData').mockResolvedValue(pastBook)
+		spyOn(helper.paprHelper, 'createOrUpdate').mockResolvedValue({ data: pastBook })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(pastBook)
+
+		const result = await helper.createOrUpdateData()
+
+		expect(result).toBe(pastBook)
+		expect(helper.fetchedFreshData).toBe(true)
+	})
+
+	test('sets fetchedFreshData on the pre-order transient path', async () => {
+		const futureDate = new Date()
+		futureDate.setFullYear(futureDate.getFullYear() + 1)
+		const preOrderBook = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: futureDate
+		} as ApiBook
+
+		// Existing record → transient return without persistence
+		helper.originalData = bookWithoutProjection
+
+		spyOn(helper, 'getNewData').mockResolvedValue(preOrderBook)
+
+		const result = await helper.createOrUpdateData()
+
+		expect(result).toBe(preOrderBook)
+		expect(helper.fetchedFreshData).toBe(true)
+	})
 })
 
 afterAll(() => {

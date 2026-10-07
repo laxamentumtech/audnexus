@@ -50,11 +50,7 @@ mock.module('@fastify/redis', () => ({}))
 
 import type { FastifyRedis } from '@fastify/redis'
 
-import {
-	PerformanceConfig,
-	resetPerformanceConfig,
-	setPerformanceConfig
-} from '#config/performance'
+import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import { ApiAuthorProfile } from '#config/types'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import {
@@ -62,21 +58,7 @@ import {
 	authorWithoutProjectionUpdatedNow,
 	parsedAuthor
 } from '#tests/datasets/helpers/authors'
-
-const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: false,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
-	SCHEDULER_MAX_PER_REGION: 5,
-	SCHEDULER_BATCH_SIZE: 1000,
-	DEFAULT_REGION: 'us',
-	...overrides
-})
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 type MockContext = {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -195,8 +177,10 @@ describe('AuthorShowHelper should throw error when', () => {
 	})
 
 	test('getDataWithProjection sorted author is not a author type', async () => {
-		setPerformanceConfig(createTestConfig({ USE_SORTED_KEYS: true }))
-		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(null as unknown as ApiAuthorProfile)
+		setPerformanceConfig(createTestPerformanceConfig({ USE_SORTED_KEYS: true }))
+		spyOn(helper.sharedHelper, 'sortObjectByKeys').mockReturnValue(
+			null as unknown as ApiAuthorProfile
+		)
 		await expect(helper.getDataWithProjection()).rejects.toThrow(
 			`Data type for ${asin} is not ApiAuthorProfile`
 		)
