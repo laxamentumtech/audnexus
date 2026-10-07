@@ -86,7 +86,11 @@ function fetchPlus(url: string, options = {}, retries = 0): Promise<AxiosRespons
 			.get(url, options)
 			.then((response: AxiosResponse) => {
 				if (response.status === 200) {
-					registerSuccess()
+					// No cooldown decay here: a bare 200 is not proof the response
+					// was usable — Audible's region-unavailable refusals are
+					// 200-valued, and decaying on them kept knocking on a closed
+					// window all night (2026-10-06/07 soak). Decay happens at the
+					// item level, where the consumer knows the data was real.
 					resolve(response)
 				} else {
 					reject(response)

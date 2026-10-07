@@ -18,15 +18,19 @@ import sleep from '#helpers/utils/sleep'
  * Registration happens inside fetchPlus (the single choke point for upstream
  * HTTP); batch loops only read getCooldownMs() and sleep it between items.
  */
-const DEFAULT_BASE_MS = 30_000
-const DEFAULT_MAX_MS = 900_000
+const DEFAULT_BASE_MS = 120_000
+const DEFAULT_MAX_MS = 7_200_000
 
-/** Ladder base: first consecutive rate-limit response waits this long. */
+/** Ladder base: first consecutive rate-limit response waits this long.
+ * 2 minutes — the soak of 2026-10-06/07 showed sub-minute waits never
+ * cleared the wall (it stayed closed through 19h of 30s-240s knock cycles). */
 export const RATE_LIMIT_COOLDOWN_BASE_MS = parsePositiveEnv(
 	process.env.RATE_LIMIT_COOLDOWN_BASE_MS,
 	DEFAULT_BASE_MS
 )
-/** Ladder ceiling: measured Audible windows are ~minutes; cap at 15 minutes. */
+/** Ladder ceiling: 2 hours. The dev stack's compose can set this higher via
+ * env; the point of the ceiling is bounding a pathological upstream, not
+ * tuning the sweet spot. */
 export const RATE_LIMIT_COOLDOWN_MAX_MS = parsePositiveEnv(
 	process.env.RATE_LIMIT_COOLDOWN_MAX_MS,
 	DEFAULT_MAX_MS

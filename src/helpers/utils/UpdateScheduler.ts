@@ -14,7 +14,7 @@ import {
 	normalizeRegion,
 	processBatchByRegion
 } from '#helpers/utils/batchProcessor'
-import { sleepCooldown } from '#helpers/utils/adaptiveCooldown'
+import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import { jitteredSleep } from '#helpers/utils/jitteredSleep'
 import {
 	ASIN_REGION_PROJECTION,
@@ -89,6 +89,11 @@ class UpdateScheduler {
 			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
 
 			await withDeadline(helper.handler(), timeoutMs, `author ${author.asin}`)
+			// A completed item means the fetch produced usable data — the only
+			// signal that should relax the upstream cooldown (see
+			// adaptiveCooldown.ts: bare 200s are not proof, region refusals
+			// are 200-valued).
+			registerSuccess()
 		} finally {
 			if (options.withDelay) {
 				await jitteredSleep()
@@ -116,6 +121,8 @@ class UpdateScheduler {
 		try {
 			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
 			await withDeadline(helper.handler(), timeoutMs, `book ${book.asin}`)
+			// Usable item → relax the upstream cooldown (see processAuthor).
+			registerSuccess()
 		} finally {
 			if (options.withDelay) {
 				await jitteredSleep()
@@ -143,6 +150,8 @@ class UpdateScheduler {
 		try {
 			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
 			await withDeadline(helper.handler(), timeoutMs, `chapters ${chapter.asin}`)
+			// Usable item → relax the upstream cooldown (see processAuthor).
+			registerSuccess()
 		} finally {
 			if (options.withDelay) {
 				await jitteredSleep()

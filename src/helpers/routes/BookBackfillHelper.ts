@@ -3,7 +3,7 @@ import type { FastifyBaseLogger } from 'fastify'
 import BookModel from '#config/models/Book'
 import { getPerformanceConfig } from '#config/performance'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
-import { sleepCooldown } from '#helpers/utils/adaptiveCooldown'
+import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
 import { ASIN_REGION_PROJECTION, iterateKeyset, keysetFindAdapter } from '#helpers/utils/keyset'
 import { NoticeUpdateScheduled } from '#static/messages'
@@ -75,6 +75,9 @@ export default class BookBackfillHelper {
 					if ('releaseDate' in updatedBook && updatedBook.releaseDate > new Date()) {
 						skipped += 1
 					}
+					// Got a fully-formed book with ratings: the only usable-success
+					// signal, so this (not a bare 200) relaxes the cooldown.
+					registerSuccess()
 				})
 				total += summary.total
 				updated += summary.success

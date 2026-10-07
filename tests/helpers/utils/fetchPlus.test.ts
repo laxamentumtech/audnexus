@@ -246,7 +246,7 @@ describe('fetchPlus should', () => {
 		expect(sleepDelays[0]).toBeLessThan(8_250)
 	})
 
-	test('raise the adaptive cooldown on 503 and decay it on success', async () => {
+	test('raise the adaptive cooldown on 503; a bare 200 does not decay it', async () => {
 		const mockError = {
 			response: {
 				status: 503,
@@ -260,9 +260,12 @@ describe('fetchPlus should', () => {
 
 		await fetchPlus('test.com')
 
-		// The 503 registered pressure; the 200 decayed it but not to zero.
-		expect(getConsecutiveRateLimited()).toBe(0)
-		expect(getCooldownMs()).toBe(15_000)
+		// fetchPlus registers pressure but NOT decay: a bare 200 is not proof
+		// of a usable response (region refusals are 200-valued — decaying on
+		// them kept knocking on a closed window through the 2026-10-06/07
+		// soak). Decay belongs to item-level consumers.
+		expect(getCooldownMs()).toBe(120_000)
+		expect(getConsecutiveRateLimited()).toBe(1)
 	})
 
 	test('not add delay for non-429 errors', async () => {
