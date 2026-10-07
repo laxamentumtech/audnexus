@@ -21,6 +21,7 @@ const mockRedisQuit = mock()
 const mockRedisSet = mock()
 const mockRedisGet = mock()
 const mockRedisDel = mock()
+const mockRedisEval = mock()
 const mockRedisLrange = mock()
 const mockRedisLrem = mock()
 const mockRedisExists = mock()
@@ -53,6 +54,7 @@ mock.module('ioredis', () => ({
 		set = mockRedisSet
 		get = mockRedisGet
 		del = mockRedisDel
+		eval = mockRedisEval
 		lrange = mockRedisLrange
 		lrem = mockRedisLrem
 		exists = mockRedisExists
@@ -123,13 +125,17 @@ beforeEach(() => {
 	process.env.REDIS_URL = TEST_REDIS_URL
 	mockRedisStatus = 'ready'
 	mockJobFromIdSequence = [null]
-	mockQueueAdd.mockClear()
+	// mockReset (not mockClear) so the per-test once-queues never leak:
+	// a leftover resolved/rejected-once on add/remove would be consumed by a
+	// later test before its own stubbing.
+	mockQueueAdd.mockReset()
+	mockQueueRemove.mockReset()
+	mockQueueRemove.mockResolvedValue(undefined)
 	mockQueueUpsert.mockClear()
 	mockQueueGetJobs.mockReset()
 	// Default: no jobs in any state — ensureUpdateAllWillRun then enqueues a
 	// boot pass, which individual tests override as needed.
 	mockQueueGetJobs.mockResolvedValue([])
-	mockQueueRemove.mockClear()
 	mockJobFromId.mockClear()
 	mockJobFromId.mockImplementation(() => mockJobFromIdSequence.shift() ?? null)
 	mockRedisSet.mockReset()
@@ -138,6 +144,8 @@ beforeEach(() => {
 	mockRedisGet.mockResolvedValue(null)
 	mockRedisDel.mockReset()
 	mockRedisDel.mockResolvedValue(1)
+	mockRedisEval.mockReset()
+	mockRedisEval.mockResolvedValue(1)
 	mockRedisLrange.mockReset()
 	// Default: empty active list — no orphans in the common path.
 	mockRedisLrange.mockResolvedValue([])
@@ -238,25 +246,26 @@ describe('bullmq queue helpers', () => {
 		it('two concurrent enqueues end as a single deduplicated job; the lock is released after', async () => {
 			// The first SET (the winner, started first) acquires the lock →
 			// remove+add → release in finally. Every later SET is contested
-			// (null), so the loser burns its bounded spin (~1s) and falls
-			// back to a plain add. Both adds share the deterministic job id,
-			// which is what collapses them into exactly ONE active/waiting
-			// job in real BullMQ — the lock only serializes the
-			// remove+add critical section, dedup guarantees single-flight.
+			// (null) until the winner releases, so the loser burns its
+			// bounded spin (0ms per attempt here — near-zero retry delay
+			// keeps this off wall-clock timers) and
+			// falls back to a plain add. Both adds share the deterministic
+			// job id, which is what collapses them into exactly ONE
+			// active/waiting job in real BullMQ — the lock only serializes
+			// the remove+add critical section, dedup guarantees single-flight.
 			let setCalls = 0
 			let lockedToken: string | null = null
 			// Simulate SET NX semantics: the first SET acquires (stores its
-			// token), later ones fail; GET returns the stored token so the
-			// winner's ownership-checked release (GET == token → DEL) fires.
+			// token), every later SET is contested — the loser burns its
+			// bounded spin (0ms apart) and falls back to a plain add.
 			mockRedisSet.mockImplementation((_key, token) =>
 				Promise.resolve(setCalls++ === 0 ? ((lockedToken = token as string), 'OK') : null)
 			)
-			mockRedisGet.mockImplementation(() => Promise.resolve(lockedToken))
 			mockJobFromIdSequence = [null, null]
 			mockQueueAdd.mockResolvedValueOnce({ id: 'job-winner' })
 			mockQueueAdd.mockResolvedValueOnce({ id: 'job-loser' })
-			const winner = enqueueBackfillRatings()
-			const loser = enqueueBackfillRatings()
+			const winner = enqueueBackfillRatings({ retryMs: 0 })
+			const loser = enqueueBackfillRatings({ retryMs: 0 })
 			const [winnerId, loserId] = await Promise.all([winner, loser])
 			expect([winnerId, loserId]).toEqual(['job-winner', 'job-loser'])
 			expect(mockQueueRemove).not.toHaveBeenCalled()
@@ -278,41 +287,67 @@ describe('bullmq queue helpers', () => {
 				seenTokens.set(token, (seenTokens.get(token) ?? 0) + 1)
 			}
 			expect([...seenTokens.values()]).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
-			// the winner's finally verified ownership (GET → its token) and
-			// released; the loser never held it
-			expect(mockRedisGet).toHaveBeenCalledTimes(1)
-			expect(mockRedisGet).toHaveBeenCalledWith(BACKFILL_ENQUEUE_LOCK_KEY)
-			expect(mockRedisDel).toHaveBeenCalledTimes(1)
-			expect(mockRedisDel).toHaveBeenCalledWith(BACKFILL_ENQUEUE_LOCK_KEY)
+			// the winner's finally ran the atomic compare-and-del (Lua eval
+			// with key + ownership token); the loser never held it
+			expect(mockRedisEval).toHaveBeenCalledTimes(1)
+			expect(mockRedisEval).toHaveBeenCalledWith(
+				expect.stringContaining('redis.call'),
+				1,
+				BACKFILL_ENQUEUE_LOCK_KEY,
+				lockedToken
+			)
+			expect(mockRedisGet).not.toHaveBeenCalled()
+			expect(mockRedisDel).not.toHaveBeenCalled()
 		})
 
 		it('releases the lock on the normal path and never re-acquires it', async () => {
-			// GET must return the acquired token for the ownership-checked
-			// release to delete; a different (or expired) value is a no-op.
+			// The atomic compare-and-del script carries the acquired token as
+			// ARGV[1]; a different (or expired) stored value is a no-op
+			// inside Redis, so no client-side GET/DEL happens at all.
+			let acquiredToken = ''
 			mockRedisSet.mockImplementation((_key, token) => {
-				mockRedisGet.mockResolvedValue(token)
+				acquiredToken = token as string
 				return Promise.resolve('OK')
 			})
 			mockJobFromIdSequence = [null]
 			mockQueueAdd.mockResolvedValueOnce({ id: 'job-x' })
 			await expect(enqueueBackfillRatings()).resolves.toBe('job-x')
 			expect(mockRedisSet).toHaveBeenCalledTimes(1)
-			expect(mockRedisGet).toHaveBeenCalledTimes(1)
-			expect(mockRedisDel).toHaveBeenCalledTimes(1)
-			expect(mockRedisDel).toHaveBeenCalledWith(BACKFILL_ENQUEUE_LOCK_KEY)
+			expect(mockRedisEval).toHaveBeenCalledTimes(1)
+			expect(mockRedisEval).toHaveBeenCalledWith(
+				expect.stringContaining('redis.call'),
+				1,
+				BACKFILL_ENQUEUE_LOCK_KEY,
+				acquiredToken
+			)
 		})
 
 		it('never deletes a lock it does not own (token mismatch on release)', async () => {
 			// Simulates the holder's lock self-expiring mid-section and a
-			// second holder re-acquiring: the first holder's release GETs a
-			// foreign token, so it must NOT del — otherwise it would free
-			// the second holder's lock (the race the token prevents).
-			mockRedisSet.mockResolvedValue('OK')
-			mockRedisGet.mockResolvedValue('someone-elses-token')
+			// second holder re-acquiring: the first holder's release script
+			// compares against its own token, and Redis performs the
+			// compare-and-del atomically — a stored foreign token makes the
+			// script a no-op, so no separate client-side del exists to
+			// assert against.
+			let acquiredToken = ''
+			mockRedisSet.mockImplementation((_key, token) => {
+				acquiredToken = token as string
+				return Promise.resolve('OK')
+			})
 			mockJobFromIdSequence = [null]
 			mockQueueAdd.mockResolvedValueOnce({ id: 'job-stale' })
 			await expect(enqueueBackfillRatings()).resolves.toBe('job-stale')
-			expect(mockRedisGet).toHaveBeenCalledTimes(1)
+			// the release carried the holder's own token, not the foreign
+			// one that a re-acquiring holder would have stored; the mismatch
+			// is resolved inside the atomic script
+			expect(mockRedisEval).toHaveBeenCalledTimes(1)
+			expect(mockRedisEval).toHaveBeenCalledWith(
+				expect.stringContaining('redis.call'),
+				1,
+				BACKFILL_ENQUEUE_LOCK_KEY,
+				acquiredToken
+			)
+			expect(acquiredToken).not.toContain('someone-elses-token')
 			expect(mockRedisDel).not.toHaveBeenCalled()
 		})
 
@@ -321,12 +356,13 @@ describe('bullmq queue helpers', () => {
 			// first enqueue (the winner) takes the lock, confirms the
 			// re-read as completed, removes the terminal record, and
 			// adds the fresh waiting job. The second enqueue (the loser)
-			// contests the held lock on every spin attempt, exhausts
-			// its bounded spin (~1s), and falls back to a plain add —
-			// which by design skips the remove entirely. So the freshly
-			// added waiting job can never be deleted by the concurrent
-			// enqueue's remove, and the remove fires exactly once.
-			// Both adds share the deterministic jobId, which real
+			// contests the held lock on every spin attempt (0ms apart
+			// here — near-zero retry delay keeps this off wall-clock
+			// timers), exhausts its bounded spin, and falls back to a
+			// plain add — which by design skips the remove entirely. So
+			// the freshly added waiting job can never be deleted by the
+			// concurrent enqueue's remove, and the remove fires exactly
+			// once. Both adds share the deterministic jobId, which real
 			// BullMQ's atomic add script dedups into exactly one job
 			// (the mock records both adds).
 			const completedJob = { getState: () => Promise.resolve('completed') }
@@ -334,8 +370,7 @@ describe('bullmq queue helpers', () => {
 			// (spin exhausts → plain add skips removeTerminatedBackfillJob)
 			mockJobFromIdSequence = [completedJob, completedJob]
 			// first SET acquires (winner), every later SET (the loser's
-			// spin) is contested; the ownership-checked release GETs its
-			// own token, so the DEL fires
+			// spin) is contested
 			let setCalls = 0
 			let acquiredToken = ''
 			mockRedisSet.mockImplementation((_key, token) => {
@@ -343,8 +378,6 @@ describe('bullmq queue helpers', () => {
 				if (acquired) acquiredToken = token as string
 				return Promise.resolve(acquired ? 'OK' : null)
 			})
-			// the winner's ownership check GETs its own token → DEL fires
-			mockRedisGet.mockImplementation(() => Promise.resolve(acquiredToken))
 			const callOrder: string[] = []
 			mockQueueRemove.mockImplementationOnce(() => {
 				callOrder.push('remove')
@@ -359,8 +392,8 @@ describe('bullmq queue helpers', () => {
 				return Promise.resolve({ id: 'job-loser' })
 			})
 			const [winnerId, loserId] = await Promise.all([
-				enqueueBackfillRatings(),
-				enqueueBackfillRatings()
+				enqueueBackfillRatings({ retryMs: 0 }),
+				enqueueBackfillRatings({ retryMs: 0 })
 			])
 			expect([winnerId, loserId]).toEqual(['job-winner', 'job-loser'])
 			// exactly one remove: the winner removed the terminal record;
@@ -393,77 +426,86 @@ describe('bullmq queue helpers', () => {
 			}
 			// winner: 1 acquired attempt; loser: all 10 spin attempts lost
 			expect(mockRedisSet).toHaveBeenCalledTimes(11)
+			// the winner released via the atomic compare-and-del carrying
+			// its own token; the loser never held it
+			expect(mockRedisEval).toHaveBeenCalledTimes(1)
+			expect(mockRedisEval).toHaveBeenCalledWith(
+				expect.stringContaining('redis.call'),
+				1,
+				BACKFILL_ENQUEUE_LOCK_KEY,
+				acquiredToken
+			)
 		})
 
 		it('skips the remove (plain add) and never releases the lock when the lock times out', async () => {
-			// All 10 lock attempts fail → bounded spin exhausts → the add
-			// proceeds WITHOUT removing: BullMQ's atomic jobId dedup still
-			// guarantees single-flight; the lock is not released because we
-			// never acquired it.
+			// All 10 lock attempts fail → bounded spin exhausts (0ms apart
+			// here — near-zero retry delay keeps this off wall-clock
+			// timers) → the add proceeds WITHOUT removing: BullMQ's atomic
+			// jobId dedup still guarantees single-flight; the lock is not
+			// released because we never acquired it.
 			mockRedisSet.mockResolvedValue(null)
 			mockJobFromIdSequence = [null]
 			mockQueueAdd.mockResolvedValueOnce({ id: 'job-timeout' })
-			await expect(enqueueBackfillRatings()).resolves.toBe('job-timeout')
+			await expect(enqueueBackfillRatings({ retryMs: 0 })).resolves.toBe('job-timeout')
 			expect(mockQueueRemove).not.toHaveBeenCalled()
 			expect(mockQueueAdd).toHaveBeenCalledTimes(1)
-			// 10 bounded attempts at ~100ms apart, then give up
+			// 10 bounded attempts, then give up
 			expect(mockRedisSet).toHaveBeenCalledTimes(10)
 			expect(mockRedisDel).not.toHaveBeenCalled()
+			expect(mockRedisEval).not.toHaveBeenCalled()
 		})
 
 		it('still resolves when the release itself fails (TTL is the backstop)', async () => {
-			// The ownership-checked release (GET → DEL) swallows errors by
-			// design: the PX TTL is the backstop, so a release failure must
-			// never fail the enqueue.
+			// The atomic compare-and-del release swallows errors by design:
+			// the PX TTL is the backstop, so a release failure must never
+			// fail the enqueue.
 			let acquiredToken = ''
 			mockRedisSet.mockImplementation((_key, token) => {
 				acquiredToken = token as string
 				return Promise.resolve('OK')
 			})
-			// ownership check passes (GET → own token)...
-			mockRedisGet.mockImplementation(() => Promise.resolve(acquiredToken))
-			// ...then the DEL rejects during release
-			mockRedisDel.mockRejectedValueOnce(new Error('lock release failed'))
+			// the release script rejects during release
+			mockRedisEval.mockRejectedValueOnce(new Error('lock release failed'))
 			mockJobFromIdSequence = [null]
 			mockQueueAdd.mockResolvedValueOnce({ id: 'job-release-fail' })
 			await expect(enqueueBackfillRatings()).resolves.toBe('job-release-fail')
-			// the add fired and the release attempted (GET → own token → DEL),
-			// but the DEL failure did not leak out
-			expect(mockRedisGet).toHaveBeenCalledWith(BACKFILL_ENQUEUE_LOCK_KEY)
-			expect(mockRedisDel).toHaveBeenCalledTimes(1)
-			expect(mockRedisDel).toHaveBeenCalledWith(BACKFILL_ENQUEUE_LOCK_KEY)
+			// the add fired and the release attempted (atomic eval with the
+			// holder's token), but the eval failure did not leak out
+			expect(mockRedisEval).toHaveBeenCalledTimes(1)
+			expect(mockRedisEval).toHaveBeenCalledWith(
+				expect.stringContaining('redis.call'),
+				1,
+				BACKFILL_ENQUEUE_LOCK_KEY,
+				acquiredToken
+			)
 		})
 
 		it('releases the lock on the ownership-checked path when the critical section throws', async () => {
 			// A terminal record exists; the remove rejects, so the whole
 			// enqueue must reject — but the finally must still run the
-			// ownership-checked release (GET → own token → DEL).
+			// atomic compare-and-del release with the holder's token.
 			const completedJob = { getState: () => Promise.resolve('completed') }
 			mockJobFromIdSequence = [completedJob, completedJob]
-			// Reset the remove mock: earlier cases leak unconsumed
-			// mockResolvedValueOnce entries (they queue one but never call
-			// remove), and mockClear() in beforeEach only clears call history,
-			// not the once-queue — a leftover resolved-once would be consumed
-			// before our reject and mask the throw.
-			mockQueueRemove.mockReset()
 			let acquiredToken = ''
 			mockRedisSet.mockImplementation((_key, token) => {
 				acquiredToken = token as string
 				return Promise.resolve('OK')
 			})
-			mockRedisGet.mockImplementation(() => Promise.resolve(acquiredToken))
 			mockQueueRemove.mockRejectedValueOnce(new Error('remove boom'))
 			mockQueueAdd.mockResolvedValueOnce({ id: 'job-never' })
 			await expect(enqueueBackfillRatings()).rejects.toThrow('remove boom')
 			// the critical section threw before the add, so no job was enqueued
 			expect(mockQueueRemove).toHaveBeenCalledTimes(1)
 			expect(mockQueueAdd).not.toHaveBeenCalled()
-			// the finally ran the release: ownership verified (GET → own
-			// token) and the key deleted
-			expect(mockRedisGet).toHaveBeenCalledTimes(1)
-			expect(mockRedisGet).toHaveBeenCalledWith(BACKFILL_ENQUEUE_LOCK_KEY)
-			expect(mockRedisDel).toHaveBeenCalledTimes(1)
-			expect(mockRedisDel).toHaveBeenCalledWith(BACKFILL_ENQUEUE_LOCK_KEY)
+			// the finally ran the release: the atomic eval carried the
+			// holder's own token (ownership check happens inside Redis)
+			expect(mockRedisEval).toHaveBeenCalledTimes(1)
+			expect(mockRedisEval).toHaveBeenCalledWith(
+				expect.stringContaining('redis.call'),
+				1,
+				BACKFILL_ENQUEUE_LOCK_KEY,
+				acquiredToken
+			)
 		})
 	})
 

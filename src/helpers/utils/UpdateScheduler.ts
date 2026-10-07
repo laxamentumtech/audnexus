@@ -9,12 +9,12 @@ import { getPerformanceConfig } from '#config/performance'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
+import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import {
 	type BatchProcessSummary,
 	normalizeRegion,
 	processBatchByRegion
 } from '#helpers/utils/batchProcessor'
-import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import { jitteredSleep } from '#helpers/utils/jitteredSleep'
 import {
 	ASIN_REGION_PROJECTION,
@@ -22,8 +22,8 @@ import {
 	iterateKeyset,
 	keysetFindAdapter
 } from '#helpers/utils/keyset'
-import { NoticeUpdateScheduled } from '#static/messages'
 import { withDeadline } from '#helpers/utils/withDeadline'
+import { NoticeUpdateScheduled } from '#static/messages'
 
 // Maximum per-region concurrency limit
 const MAX_PER_REGION_CONCURRENCY = 5
@@ -89,19 +89,25 @@ class UpdateScheduler {
 			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
 
 			await withDeadline(helper.handler(), timeoutMs, `author ${author.asin}`)
-			// A completed item means the fetch produced usable data — the only
-			// signal that should relax the upstream cooldown (see
-			// adaptiveCooldown.ts: bare 200s are not proof, region refusals
-			// are 200-valued).
-			registerSuccess()
+			// A fresh fetch is the only signal that should relax the upstream
+			// cooldown (see adaptiveCooldown.ts: stored-data returns — the
+			// recency gate and region refusals — must not relax it).
+			if (helper.fetchedFreshData) {
+				registerSuccess()
+			}
 		} finally {
+			// Pacing jitter is a serial-walk concern (items are sequential
+			// there); in parallel mode the per-region concurrency limit is the
+			// pacing.
 			if (options.withDelay) {
 				await jitteredSleep()
-				// Adaptive upstream-pressure cooldown, on top of the pacing
-				// jitter (see adaptiveCooldown.ts). Sits outside the item
-				// deadline on purpose: a 15-minute cooldown must not be cut.
-				await sleepCooldown()
 			}
+			// Adaptive upstream-pressure cooldown (see adaptiveCooldown.ts):
+			// runs in BOTH modes because the whole process shares one upstream
+			// reputation, and in the finally so a rejected item can't skip
+			// it. Sits outside the item deadline on purpose: a 2-hour cooldown
+			// must not be cut.
+			await sleepCooldown()
 		}
 	}
 
@@ -121,16 +127,18 @@ class UpdateScheduler {
 		try {
 			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
 			await withDeadline(helper.handler(), timeoutMs, `book ${book.asin}`)
-			// Usable item → relax the upstream cooldown (see processAuthor).
-			registerSuccess()
+			// Fresh fetch → relax the upstream cooldown (see processAuthor).
+			if (helper.fetchedFreshData) {
+				registerSuccess()
+			}
 		} finally {
+			// Pacing jitter is serial-only (see processAuthor).
 			if (options.withDelay) {
 				await jitteredSleep()
-				// Adaptive upstream-pressure cooldown, on top of the pacing
-				// jitter (see adaptiveCooldown.ts). Sits outside the item
-				// deadline on purpose: a 15-minute cooldown must not be cut.
-				await sleepCooldown()
 			}
+			// Cooldown runs in BOTH modes and after failures (see
+			// processAuthor).
+			await sleepCooldown()
 		}
 	}
 
@@ -150,16 +158,18 @@ class UpdateScheduler {
 		try {
 			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
 			await withDeadline(helper.handler(), timeoutMs, `chapters ${chapter.asin}`)
-			// Usable item → relax the upstream cooldown (see processAuthor).
-			registerSuccess()
+			// Fresh fetch → relax the upstream cooldown (see processAuthor).
+			if (helper.fetchedFreshData) {
+				registerSuccess()
+			}
 		} finally {
+			// Pacing jitter is serial-only (see processAuthor).
 			if (options.withDelay) {
 				await jitteredSleep()
-				// Adaptive upstream-pressure cooldown, on top of the pacing
-				// jitter (see adaptiveCooldown.ts). Sits outside the item
-				// deadline on purpose: a 15-minute cooldown must not be cut.
-				await sleepCooldown()
 			}
+			// Cooldown runs in BOTH modes and after failures (see
+			// processAuthor).
+			await sleepCooldown()
 		}
 	}
 

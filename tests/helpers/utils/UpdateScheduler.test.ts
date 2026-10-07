@@ -22,22 +22,31 @@ mock.module('#config/models/Chapter', () => ({
 const mockAuthorHandler = mock()
 const mockBookHandler = mock()
 const mockChapterHandler = mock()
+// Fresh-fetch signal (GenericShowHelper.fetchedFreshData): the scheduler
+// only registers a usable success (cooldown decay) when the handler
+// actually fetched — stored-data returns must not relax the cooldown.
+const authorFreshData = { fetched: true }
+const bookFreshData = { fetched: true }
+const chapterFreshData = { fetched: true }
 
 mock.module('#helpers/routes/AuthorShowHelper', () => ({
 	default: class AuthorShowHelper {
 		handler = mockAuthorHandler
+		fetchedFreshData = authorFreshData.fetched
 	}
 }))
 
 mock.module('#helpers/routes/BookShowHelper', () => ({
 	default: class BookShowHelper {
 		handler = mockBookHandler
+		fetchedFreshData = bookFreshData.fetched
 	}
 }))
 
 mock.module('#helpers/routes/ChapterShowHelper', () => ({
 	default: class ChapterShowHelper {
 		handler = mockChapterHandler
+		fetchedFreshData = chapterFreshData.fetched
 	}
 }))
 
@@ -45,6 +54,17 @@ const mockProcessBatchByRegion = mock()
 
 mock.module('#helpers/utils/batchProcessor', () => ({
 	processBatchByRegion: mockProcessBatchByRegion
+}))
+
+// Cooldown is process-global and sleeps real time; stub it so scheduler
+// tests assert call order without waiting (see adaptiveCooldown tests for
+// the real state machine).
+const mockSleepCooldown = mock()
+const mockRegisterSuccess = mock()
+
+mock.module('#helpers/utils/adaptiveCooldown', () => ({
+	sleepCooldown: mockSleepCooldown,
+	registerSuccess: mockRegisterSuccess
 }))
 
 import AuthorModel from '#config/models/Author'
@@ -129,6 +149,13 @@ beforeEach(() => {
 	mockBookHandler.mockClear()
 	mockChapterHandler.mockClear()
 	mockProcessBatchByRegion.mockClear()
+	mockSleepCooldown.mockClear()
+	mockSleepCooldown.mockResolvedValue(undefined)
+	mockRegisterSuccess.mockClear()
+	// Default: the handler fetched fresh data (the usable-success signal).
+	authorFreshData.fetched = true
+	bookFreshData.fetched = true
+	chapterFreshData.fetched = true
 })
 
 afterEach(() => {
@@ -476,6 +503,84 @@ describe('UpdateScheduler should', () => {
 		expect(mockLogger.warn).toHaveBeenCalledWith(
 			'Authors batch exceeded configured concurrency (10/5)'
 		)
+	})
+
+	describe('adaptive cooldown integration', () => {
+		test('serial mode sleeps the cooldown after every item, including failures', async () => {
+			setPerformanceConfig(
+				createTestPerformanceConfig({
+					USE_PARALLEL_SCHEDULER: false,
+					JITTER_MS: { min: 0, max: 0 }
+				})
+			)
+			const twoDocs = [authorWithoutProjection, { ...authorWithoutProjection, asin: 'B0000000X2' }]
+			mockAuthorFind.mockResolvedValueOnce(twoDocs).mockResolvedValueOnce([])
+			mockAuthorHandler
+				.mockResolvedValueOnce(undefined)
+				.mockRejectedValueOnce(new Error('upstream 503'))
+
+			await helper.updateAuthors()
+
+			// one cooldown sleep per item — the rejection did not skip it
+			expect(mockSleepCooldown).toHaveBeenCalledTimes(2)
+		})
+
+		test('serial mode registers success only for a fresh fetch, not stored data', async () => {
+			setPerformanceConfig(
+				createTestPerformanceConfig({
+					USE_PARALLEL_SCHEDULER: false,
+					JITTER_MS: { min: 0, max: 0 }
+				})
+			)
+			mockAuthorFind
+				.mockResolvedValueOnce([authorWithoutProjection])
+				.mockResolvedValueOnce([authorWithoutProjection])
+				.mockResolvedValueOnce([])
+			// First item fetched fresh (cooldown decays); the second returned
+			// stored data — the recency gate / region-refusal fallback — and
+			// must NOT relax the cooldown.
+			authorFreshData.fetched = true
+			mockAuthorHandler.mockImplementation(async () => {
+				authorFreshData.fetched = false
+				return undefined
+			})
+
+			await helper.updateAuthors()
+
+			expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
+		})
+
+		test('parallel mode sleeps the cooldown after every item, including failures', async () => {
+			setPerformanceConfig(
+				createTestPerformanceConfig({ USE_PARALLEL_SCHEDULER: true, JITTER_MS: { min: 0, max: 0 } })
+			)
+			const twoDocs = [authorWithoutProjection, { ...authorWithoutProjection, asin: 'B0000000X2' }]
+			mockAuthorFind.mockResolvedValueOnce(twoDocs).mockResolvedValueOnce([])
+			mockAuthorHandler
+				.mockResolvedValueOnce(undefined)
+				.mockRejectedValueOnce(new Error('upstream 503'))
+			mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
+
+			await helper.updateAuthors()
+
+			// parallel mode must pace too (shared upstream reputation) —
+			// once per item, and after the rejection
+			expect(mockSleepCooldown).toHaveBeenCalledTimes(2)
+		})
+
+		test('parallel mode registers success only for a fresh fetch', async () => {
+			setPerformanceConfig(
+				createTestPerformanceConfig({ USE_PARALLEL_SCHEDULER: true, JITTER_MS: { min: 0, max: 0 } })
+			)
+			mockAuthorFind.mockResolvedValueOnce([authorWithoutProjection]).mockResolvedValueOnce([])
+			authorFreshData.fetched = false // stored-data return
+			mockAuthorHandler.mockResolvedValue(undefined)
+			mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
+
+			await helper.updateAuthors()
+
+			expect(mockRegisterSuccess).not.toHaveBeenCalled()
+		})
 	})
 })
 

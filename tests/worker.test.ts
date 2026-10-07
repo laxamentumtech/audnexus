@@ -70,7 +70,10 @@ const startupStartedAtImport = {
 
 const savedEnv: Record<string, string | undefined> = {}
 const originalExit = process.exit
-let exitSpy: Mock<() => void>
+let exitSpy: Mock<(code?: number) => void>
+// Resolved by the process.exit stub so shutdown tests can await the exact
+// moment exit(0) fires instead of guessing microtask turns.
+let exitCalled: Promise.withResolvers<void>
 
 beforeEach(() => {
 	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL']) {
@@ -95,8 +98,10 @@ beforeEach(() => {
 	// The shutdown handler ends with process.exit(0); stub it so the test
 	// process survives.
 	exitSpy = mock()
+	exitCalled = Promise.withResolvers<void>()
 	process.exit = ((code?: number) => {
 		exitSpy(code)
+		exitCalled.resolve()
 	}) as (code?: number) => never
 })
 
@@ -213,7 +218,7 @@ describe('worker shutdown', () => {
 		expect(mockWorkerClose).toHaveBeenCalledTimes(1)
 		await gate.promise
 		expect(mockCloseQueue).toHaveBeenCalledTimes(1)
-		await Promise.resolve() // let the finally block run
+		await exitCalled.promise // the stub resolves when process.exit fires
 		expect(exitSpy).toHaveBeenCalledWith(0)
 		expect(mockWorkerClose.mock.invocationCallOrder[0]).toBeLessThan(
 			mockCloseQueue.mock.invocationCallOrder[0]

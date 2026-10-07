@@ -101,16 +101,18 @@ export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
  * Falls back to sensible defaults when env vars are not set.
  */
 export function createPerformanceConfig(): PerformanceConfig {
-	// Parse numeric values with fallbacks
-	const schedulerItemTimeoutRaw = process.env.SCHEDULER_ITEM_TIMEOUT_MS
-		? parseInt(process.env.SCHEDULER_ITEM_TIMEOUT_MS, 10)
-		: 120000
+	// Parse numeric values with fallbacks. SCHEDULER_ITEM_TIMEOUT_MS uses
+	// strict full-string validation (like JITTER_MS) — '0' is meaningful
+	// (disables the per-item deadline), so only a pure non-negative integer
+	// string is accepted; anything else falls back to the 120s default.
+	const schedulerItemTimeoutRaw = process.env.SCHEDULER_ITEM_TIMEOUT_MS?.trim()
 	const validatedSchedulerItemTimeout =
-		Number.isNaN(schedulerItemTimeoutRaw) ||
-		!Number.isFinite(schedulerItemTimeoutRaw) ||
-		schedulerItemTimeoutRaw < 0
-			? 120000
-			: schedulerItemTimeoutRaw
+		schedulerItemTimeoutRaw && /^\d+$/.test(schedulerItemTimeoutRaw)
+			? (() => {
+					const parsed = Number(schedulerItemTimeoutRaw)
+					return Number.isSafeInteger(parsed) ? parsed : 120000
+				})()
+			: 120000
 	const maxConcurrentRequests = process.env.MAX_CONCURRENT_REQUESTS
 		? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
 		: 50

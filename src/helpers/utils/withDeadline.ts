@@ -27,6 +27,13 @@ export async function withDeadline<T>(
 	timeoutMs: number,
 	label: string
 ): Promise<T> {
+	// 0 disables the guard (documented SCHEDULER_ITEM_TIMEOUT_MS contract):
+	// return the underlying untouched — no timer, no race.
+	if (timeoutMs <= 0) {
+		underlying.catch(() => undefined)
+		return underlying
+	}
+
 	// Observe the underlying so a late rejection cannot become unhandled.
 
 	underlying.catch(() => undefined)

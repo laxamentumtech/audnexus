@@ -21,9 +21,20 @@ describe('withDeadline', () => {
 
 	test('rejects with DeadlineExceededError when the underlying never settles', async () => {
 		const { promise: never } = Promise.withResolvers<string>()
-		await expect(withDeadline(never, 25, 'author B000TEST')).rejects.toThrow(
-			DeadlineExceededError
+		await expect(withDeadline(never, 25, 'author B000TEST')).rejects.toThrow(DeadlineExceededError)
+	})
+
+	test('timeoutMs=0 disables the deadline — a slow promise still resolves', async () => {
+		// Real timer, same deliberate exception as the rest of this file:
+		// the contract is wall-clock deadline semantics.
+		const start = Date.now()
+		const result = await withDeadline(
+			new Promise<string>((resolve) => setTimeout(() => resolve('late-but-allowed'), 30)),
+			0,
+			'label'
 		)
+		expect(result).toBe('late-but-allowed')
+		expect(Date.now() - start).toBeGreaterThanOrEqual(25)
 	})
 
 	test('deadline error names the label and timeout', async () => {

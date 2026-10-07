@@ -62,9 +62,9 @@ export function registerShutdownHandlers(): void {
 // `bun run dist/worker.js`, or a direct `bun src/worker.ts`. Importing this
 // module (e.g. tests) executes only the env guards and context creation;
 // handler registration and startup (registerShutdownHandlers + startWorker)
-// run only under the isWorkerEntrypoint gate, which is false on import.
-const isWorkerEntrypoint = /worker\.(m?[jt]s)$/.test(process.argv[1] ?? '')
-if (isWorkerEntrypoint) {
+// run only under the import.meta.main gate, which is false for any module
+// that is imported (dynamically-imported modules under bun test included).
+if (import.meta.main) {
 	registerShutdownHandlers()
 
 	startWorker().catch((err) => {

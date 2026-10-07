@@ -545,6 +545,48 @@ describe('PerformanceConfig', () => {
 		})
 	})
 
+	describe('SCHEDULER_ITEM_TIMEOUT_MS', () => {
+		it('should default to 120000 when not set', () => {
+			delete process.env.SCHEDULER_ITEM_TIMEOUT_MS
+			expect(createPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS).toBe(120000)
+		})
+
+		it('should parse a valid value', () => {
+			process.env.SCHEDULER_ITEM_TIMEOUT_MS = '60000'
+			expect(createPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS).toBe(60000)
+		})
+
+		it('should parse 0 (disables the deadline guard)', () => {
+			process.env.SCHEDULER_ITEM_TIMEOUT_MS = '0'
+			expect(createPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS).toBe(0)
+		})
+
+		it('should fallback to 120000 for negative values', () => {
+			process.env.SCHEDULER_ITEM_TIMEOUT_MS = '-5'
+			expect(createPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS).toBe(120000)
+		})
+
+		it('should fallback to 120000 for non-numeric values', () => {
+			process.env.SCHEDULER_ITEM_TIMEOUT_MS = 'abc'
+			expect(createPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS).toBe(120000)
+		})
+
+		it('should fallback to 120000 for partially-numeric values', () => {
+			process.env.SCHEDULER_ITEM_TIMEOUT_MS = '120s'
+			expect(createPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS).toBe(120000)
+		})
+
+		it('should fallback to 120000 for decimal values', () => {
+			process.env.SCHEDULER_ITEM_TIMEOUT_MS = '120.5'
+			expect(createPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS).toBe(120000)
+		})
+
+		it('should fallback to 120000 for values beyond Number.MAX_SAFE_INTEGER', () => {
+			process.env.SCHEDULER_ITEM_TIMEOUT_MS = '9007199254740993'
+			expect(createPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS).toBe(120000)
+		})
+	})
+
 	describe('Singleton Pattern', () => {
 		it('should return same instance from getPerformanceConfig', () => {
 			const config1 = getPerformanceConfig()

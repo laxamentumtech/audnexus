@@ -40,7 +40,8 @@ export const JOB_RETRIES = {
 } as const
 
 /** Long-running passes must never lose the lock: BullMQ heartbeats the token on
- * every awaited microtask, so a 1h lockDuration only trips on a truly dead worker. */
+ * every awaited microtask, so the 2m LOCK_DURATION_MS only trips on a truly
+ * dead worker. */
 const WORKER_OPTIONS: Omit<WorkerOptions, 'connection'> = {
 	concurrency: 1,
 	lockDuration: LOCK_DURATION_MS,
@@ -222,16 +223,22 @@ export const BACKFILL_ENQUEUE_LOCK_KEY = `${QUEUE_NAME}:lock:backfill-enqueue`
  * a 5s margin; it doubles as the crash backstop (a dead holder's lock
  * self-expires within ~35s and the next enqueue acquires it cleanly). */
 export const BACKFILL_ENQUEUE_LOCK_TTL_MS = COMMAND_TIMEOUT_MS * 6 + 5000
-const BACKFILL_ENQUEUE_LOCK_ATTEMPTS = 10
-const BACKFILL_ENQUEUE_LOCK_RETRY_MS = 100
+export const BACKFILL_ENQUEUE_LOCK_ATTEMPTS = 10
+export const BACKFILL_ENQUEUE_LOCK_RETRY_MS = 100
 
 /** Acquire BACKFILL_ENQUEUE_LOCK_KEY via a short-lived SET NX PX spin.
  * Stores a unique random token as the lock value (the ownership proof used
  * by releaseBackfillEnqueueLock) and returns it; returns null if the
- * bounded spin (10 attempts, 100ms apart) exhausts — a lock held for the
- * full TTL would outlive the spin anyway. */
-async function acquireBackfillEnqueueLock(): Promise<string | null> {
-	for (let attempt = 0; attempt < BACKFILL_ENQUEUE_LOCK_ATTEMPTS; attempt++) {
+ * bounded spin (10 attempts, 100ms apart by default) exhausts — a lock held
+ * for the full TTL would outlive the spin anyway. `options` exists for tests
+ * (near-zero retry delay keeps contention tests off wall-clock timers). */
+async function acquireBackfillEnqueueLock(options?: {
+	attempts?: number
+	retryMs?: number
+}): Promise<string | null> {
+	const attempts = options?.attempts ?? BACKFILL_ENQUEUE_LOCK_ATTEMPTS
+	const retryMs = options?.retryMs ?? BACKFILL_ENQUEUE_LOCK_RETRY_MS
+	for (let attempt = 0; attempt < attempts; attempt++) {
 		const token = randomUUID()
 		const result = await withCommandTimeout(() =>
 			getQueueRedis().set(
@@ -243,25 +250,25 @@ async function acquireBackfillEnqueueLock(): Promise<string | null> {
 			)
 		)
 		if (result === 'OK') return token
-		await new Promise<void>((resolve) => setTimeout(resolve, BACKFILL_ENQUEUE_LOCK_RETRY_MS))
+		await new Promise<void>((resolve) => setTimeout(resolve, retryMs))
 	}
 	return null
 }
 
-/** Release the backfill-enqueue lock — but only while still owned: the
- * compare-and-del (GET == token then DEL) ensures a lock that expired and
- * was re-acquired by another holder is never deleted out from under them.
- * The GET-then-DEL is two commands, not an atomic Lua compare-and-del, but
- * the window is harmless here: a stale delete (token match read just before
- * expiry) at worst removes the key a moment before a would-be acquirer
- * would set it, and the token makes a delete of a *different* holder's lock
- * a no-op. Errors are non-fatal (the PX TTL is the backstop). */
+/** Release the backfill-enqueue lock — but only while still owned: an atomic
+ * Lua compare-and-del (GET == token && DEL in one script) ensures a lock that
+ * expired and was re-acquired by another holder is never deleted out from
+ * under them. Errors are non-fatal (the PX TTL is the backstop). */
 async function releaseBackfillEnqueueLock(token: string): Promise<void> {
 	try {
-		const current = await withCommandTimeout(() => getQueueRedis().get(BACKFILL_ENQUEUE_LOCK_KEY))
-		if (current === token) {
-			await withCommandTimeout(() => getQueueRedis().del(BACKFILL_ENQUEUE_LOCK_KEY))
-		}
+		await withCommandTimeout(() =>
+			getQueueRedis().eval(
+				"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+				1,
+				BACKFILL_ENQUEUE_LOCK_KEY,
+				token
+			)
+		)
 	} catch {
 		// best effort — the PX TTL is the backstop
 	}
@@ -292,9 +299,12 @@ async function removeTerminatedBackfillJob(): Promise<void> {
 	}
 }
 
-export async function enqueueBackfillRatings(): Promise<string> {
+export async function enqueueBackfillRatings(options?: {
+	attempts?: number
+	retryMs?: number
+}): Promise<string> {
 	await ensureReadyConnection()
-	const lockToken = await acquireBackfillEnqueueLock()
+	const lockToken = await acquireBackfillEnqueueLock(options)
 	const lockHeld = lockToken !== null
 	try {
 		// The remove is only safe under the lock: without it, a concurrent
@@ -391,7 +401,7 @@ export async function removeOrphanedActiveJobs(): Promise<void> {
  */
 export async function ensureUpdateAllWillRun(): Promise<void> {
 	await ensureReadyConnection()
-	const jobs = await withCommandTimeout(() => getQueue().getJobs(['active', 'wait', 'delayed']))
+	const jobs = await withCommandTimeout(() => getQueue().getJobs(['active', 'waiting', 'delayed']))
 	const updateAll = jobs.filter((job) => job.name === JOB_NAMES.updateAll)
 	const nearby = updateAll.some((job) => {
 		const delay = job.delay ?? 0
@@ -402,11 +412,7 @@ export async function ensureUpdateAllWillRun(): Promise<void> {
 		// jobId must be colon-free (BullMQ validates custom ids) but still
 		// unique per boot; the dedup against repeat-generated ids uses the
 		// boot- prefix.
-		getQueue().add(
-			JOB_NAMES.updateAll,
-			{},
-			{ ...JOB_RETRIES, jobId: `boot-${Date.now()}` }
-		)
+		getQueue().add(JOB_NAMES.updateAll, {}, { ...JOB_RETRIES, jobId: `boot-${Date.now()}` })
 	)
 	console.warn('No update-all occurrence was pending; enqueued a boot pass')
 }

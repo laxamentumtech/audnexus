@@ -1,7 +1,7 @@
 import { AxiosError, AxiosResponse } from 'axios'
 
+import { registerRateLimited } from '#helpers/utils/adaptiveCooldown'
 import pooledAxios from '#helpers/utils/connectionPool'
-import { registerRateLimited, registerSuccess } from '#helpers/utils/adaptiveCooldown'
 import sleep from '#helpers/utils/sleep'
 
 const MAX_BACKOFF_MS = 8000
@@ -38,8 +38,6 @@ function retryAfterToMs(error: AxiosError): number | undefined {
  * @returns {number} The delay in milliseconds
  */
 function calculateRetryDelay(retries: number, error: AxiosError): number {
-	const status = error.response?.status
-
 	// Honor Retry-After for any rate-limit status; parse delay-in-seconds and
 	// HTTP-date forms.
 	if (error.response?.headers) {

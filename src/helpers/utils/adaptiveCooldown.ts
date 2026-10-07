@@ -45,6 +45,10 @@ function parsePositiveEnv(raw: string | undefined, fallback: number): number {
 
 let consecutiveRateLimited = 0
 let cooldownMs = 0
+/** Highest ladder/Retry-After value reached in the current consecutive
+ * rate-limit streak (resets on a success). A rate-limit within a streak
+ * never shortens the outstanding cooldown — only a genuine success does. */
+let streakMs = 0
 
 /** Optional logger notified when the cooldown grows, for ops visibility. */
 let notify: ((message: string) => void) | null = null
@@ -57,16 +61,25 @@ export function setCooldownLogger(notifyFn: (message: string) => void): void {
  * Record a rate-limit response (429/503/504). Each consecutive one doubles
  * the inter-item cooldown: base, 2×base, 4×base, … capped at max. A response
  * that carries an explicit Retry-After hints at the server's own window; the
- * cooldown never drops below that hint.
+ * cooldown never drops below that hint. The cooldown is also max-kept within
+ * a streak: a rate-limit that computes a smaller ladder value than the
+ * outstanding one (e.g. a headerless 503 after a long Retry-After) never
+ * shortens the wait — only a genuine success relaxes it (and a success
+ * restarts the ladder from base).
  * @returns the new cooldown in milliseconds
  */
 export function registerRateLimited(retryAfterMs?: number): number {
 	consecutiveRateLimited += 1
 	const grown = RATE_LIMIT_COOLDOWN_BASE_MS * 2 ** (consecutiveRateLimited - 1)
-	cooldownMs = Math.min(grown, RATE_LIMIT_COOLDOWN_MAX_MS)
-	if (retryAfterMs && retryAfterMs > cooldownMs) {
-		cooldownMs = Math.min(retryAfterMs, RATE_LIMIT_COOLDOWN_MAX_MS)
-	}
+	const candidate =
+		retryAfterMs && retryAfterMs > grown
+			? Math.min(retryAfterMs, RATE_LIMIT_COOLDOWN_MAX_MS)
+			: Math.min(grown, RATE_LIMIT_COOLDOWN_MAX_MS)
+	// Within a streak the cooldown only ever grows — it holds the highest
+	// value seen so far in this consecutive run, so a weaker signal cannot
+	// pull it down.
+	streakMs = Math.max(streakMs, candidate)
+	cooldownMs = streakMs
 	notify?.(`Upstream rate limited; adaptive cooldown now ${Math.round(cooldownMs / 1000)}s`)
 	return cooldownMs
 }
@@ -79,6 +92,7 @@ export function registerRateLimited(retryAfterMs?: number): number {
  */
 export function registerSuccess(): number {
 	consecutiveRateLimited = 0
+	streakMs = 0
 	cooldownMs = Math.floor(cooldownMs / 2)
 	return cooldownMs
 }
@@ -111,5 +125,6 @@ export async function sleepCooldown(): Promise<void> {
 export function resetCooldown(): void {
 	consecutiveRateLimited = 0
 	cooldownMs = 0
+	streakMs = 0
 	notify = null
 }

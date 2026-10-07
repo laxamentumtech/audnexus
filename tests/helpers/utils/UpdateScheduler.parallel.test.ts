@@ -13,10 +13,23 @@ mock.module('#config/models/Author', () => ({
 	default: { find: mockAuthorFind }
 }))
 
+const authorFreshData = { fetched: true }
+
 mock.module('#helpers/routes/AuthorShowHelper', () => ({
 	default: class AuthorShowHelper {
 		handler = mockAuthorHandler
+		fetchedFreshData = authorFreshData.fetched
 	}
+}))
+
+// Cooldown is process-global and sleeps real time; stub it so the parallel
+// pacing test asserts calls without waiting.
+const mockSleepCooldown = mock()
+const mockRegisterSuccess = mock()
+
+mock.module('#helpers/utils/adaptiveCooldown', () => ({
+	sleepCooldown: mockSleepCooldown,
+	registerSuccess: mockRegisterSuccess
 }))
 
 mock.module('@fastify/redis', () => ({}))
@@ -45,6 +58,10 @@ describe('UpdateScheduler parallel processing', () => {
 		resetPerformanceConfig()
 		mockAuthorFind.mockReset()
 		mockAuthorHandler.mockReset()
+		mockSleepCooldown.mockReset()
+		mockSleepCooldown.mockResolvedValue(undefined)
+		mockRegisterSuccess.mockReset()
+		authorFreshData.fetched = true
 	})
 
 	afterEach(() => {
@@ -149,5 +166,46 @@ describe('UpdateScheduler parallel processing', () => {
 		randomSpy.mockRestore()
 
 		expect(mockAuthorHandler).toHaveBeenCalledTimes(3)
+	})
+
+	it('sleeps the adaptive cooldown after every item (including failures) and decays only on fresh fetches', async () => {
+		setPerformanceConfig(
+			createTestPerformanceConfig({
+				USE_PARALLEL_SCHEDULER: true,
+				SCHEDULER_CONCURRENCY: 5,
+				JITTER_MS: { min: 0, max: 0 }
+			})
+		)
+
+		const authors = [
+			{ asin: 'A1', region: 'us' },
+			{ asin: 'A2', region: 'us' },
+			{ asin: 'A3', region: 'us' }
+		]
+
+		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
+		// A2 returns stored data (fetchedFreshData stays false on that call);
+		// A3 rejects (e.g. an upstream 503). All three must sleep the
+		// cooldown — the rejection must not skip it — and only the two fresh
+		// fetches register a usable success.
+		mockAuthorHandler.mockImplementation(async () => {
+			authorFreshData.fetched = true
+			const callNumber = mockAuthorHandler.mock.calls.length
+			if (callNumber === 2) {
+				authorFreshData.fetched = false // stored-data return
+				return undefined
+			}
+			if (callNumber === 3) {
+				throw new Error('upstream 503')
+			}
+			return undefined
+		})
+
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
+		await expect(helper.updateAuthors()).resolves.toBeUndefined()
+		randomSpy.mockRestore()
+
+		expect(mockSleepCooldown).toHaveBeenCalledTimes(3)
+		expect(mockRegisterSuccess).toHaveBeenCalledTimes(2)
 	})
 })

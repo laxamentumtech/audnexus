@@ -19,8 +19,8 @@ mock.module('#helpers/utils/sleep', () => {
 import type { AxiosResponse } from 'axios'
 
 import {
-	getCooldownMs,
 	getConsecutiveRateLimited,
+	getCooldownMs,
 	resetCooldown
 } from '#helpers/utils/adaptiveCooldown'
 import pooledAxios from '#helpers/utils/connectionPool'
@@ -266,6 +266,24 @@ describe('fetchPlus should', () => {
 		// soak). Decay belongs to item-level consumers.
 		expect(getCooldownMs()).toBe(120_000)
 		expect(getConsecutiveRateLimited()).toBe(1)
+	})
+
+	test('not register a non-transient 500 failure into the adaptive cooldown', async () => {
+		mockStatus = { status: 500 }
+		mockGet.mockImplementation(() => {
+			const error: Error & { response: typeof mockStatus } = Object.assign(
+				new Error('Request failed'),
+				{ response: mockStatus }
+			)
+			return Promise.reject(error)
+		})
+
+		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
+
+		// 500 is a hard failure, not rate-limit pressure: the cooldown must
+		// stay untouched so a genuine transient window later is not masked.
+		expect(getCooldownMs()).toBe(0)
+		expect(getConsecutiveRateLimited()).toBe(0)
 	})
 
 	test('not add delay for non-429 errors', async () => {

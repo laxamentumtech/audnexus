@@ -1,14 +1,13 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
 import {
-	getCooldownMs,
 	getConsecutiveRateLimited,
+	getCooldownMs,
 	registerRateLimited,
 	registerSuccess,
 	resetCooldown,
-	sleepCooldown,
-	setCooldownLogger
-} from '#helpers/utils/adaptiveCooldown'
+	setCooldownLogger,
+	sleepCooldown} from '#helpers/utils/adaptiveCooldown'
 
 // The singleton is process-global; every test starts from a clean slate.
 afterEach(() => {
@@ -49,6 +48,15 @@ describe('adaptiveCooldown', () => {
 	test('Retry-After hint smaller than the ladder is ignored', () => {
 		const cooldown = registerRateLimited(5_000)
 		expect(cooldown).toBe(120_000)
+	})
+
+	test('a headerless rate-limit never shortens an outstanding Retry-After cooldown', () => {
+		// 10-minute Retry-After sets the floor; a later 503 without a header
+		// computes base (120s) and must NOT drop below the outstanding 600s.
+		expect(registerRateLimited(600_000)).toBe(600_000)
+		expect(registerRateLimited()).toBe(600_000)
+		// ...and only a genuine success relaxes it.
+		expect(registerSuccess()).toBe(300_000)
 	})
 
 	test('success halves the cooldown and resets the ladder position', () => {

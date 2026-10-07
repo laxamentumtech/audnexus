@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from 'fastify'
 
 import BookModel from '#config/models/Book'
 import { getPerformanceConfig } from '#config/performance'
+import type { ApiAuthorProfile, ApiBook, ApiChapter } from '#config/types'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
@@ -60,12 +61,19 @@ export default class BookBackfillHelper {
 						this.logger,
 						true
 					)
-					const updatedBook = await helper.handler()
-					// Adaptive upstream-pressure cooldown (see adaptiveCooldown.ts):
-					// the backfill shares the worker's single upstream reputation,
-					// so it must honor the same growth/decay ladder as the
-					// scheduler walk instead of grinding at full speed.
-					await sleepCooldown()
+					let updatedBook: ApiAuthorProfile | ApiBook | ApiChapter | undefined
+					try {
+						updatedBook = await helper.handler()
+					} finally {
+						// Adaptive upstream-pressure cooldown (see
+						// adaptiveCooldown.ts): the backfill shares the
+						// worker's single upstream reputation, so it must
+						// honor the same growth/decay ladder as the
+						// scheduler walk instead of grinding at full speed.
+						// In the finally so a rejected book still paces the
+						// next one.
+						await sleepCooldown()
+					}
 					if (!updatedBook || !('ratings' in updatedBook && updatedBook.ratings)) {
 						throw new Error(`Ratings were not populated for ${book.asin}`)
 					}
