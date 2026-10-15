@@ -9,6 +9,7 @@ const bookSchema = schema(
 		authors: types.array(
 			types.object({
 				asin: types.string(),
+				authorCandidates: types.array(types.string()),
 				name: types.string({ required: true })
 			}),
 			{ required: true }

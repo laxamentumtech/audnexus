@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from 'fastify'
 
 import { getPerformanceConfig } from '#config/performance'
 import { ApiBook, ApiBookSchema, AudibleProduct, HtmlBook } from '#config/types'
+import { authorNameIndex } from '#helpers/authorNameIndex/AuthorNameIndex'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
@@ -96,6 +97,32 @@ class StitchHelper {
 	}
 
 	/**
+	 * Fills in author ASINs that Audible's API omitted, resolving them from
+	 * the local authors collection by name. Ambiguous matches surface as
+	 * authorCandidates. Enrichment never throws; failures degrade to the
+	 * unmodified author list.
+	 */
+	async enrichAuthorAsins() {
+		try {
+			for (const author of this.apiParsed.authors) {
+				if (author.asin) continue
+				const result = await authorNameIndex.resolve(author.name)
+				if (result.asin) {
+					author.asin = result.asin
+				} else if (result.candidates) {
+					author.authorCandidates = result.candidates
+				}
+			}
+		} catch (error) {
+			this.logger?.error(
+				`[StitchHelper] Failed to enrich author ASINs for ${this.asin}: ${
+					error instanceof Error ? error.message : error
+				}`
+			)
+		}
+	}
+
+	/**
 	 * Sets genres key in returned json if it exists
 	 */
 	async includeGenres(): Promise<ApiBook> {
@@ -125,6 +152,7 @@ class StitchHelper {
 		// First, we want to see if we can get all the data from the API
 		await this.fetchApiBook()
 		await this.parseApiResponse()
+		await this.enrichAuthorAsins()
 
 		// Check if we need to scrape for genres
 		if (!this.apiResponse.product.category_ladders.length) {

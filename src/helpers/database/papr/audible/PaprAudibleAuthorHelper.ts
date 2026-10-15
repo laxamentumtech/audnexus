@@ -9,6 +9,7 @@ import {
 	PaprAuthorSearch,
 	PaprDeleteReturn
 } from '#config/typing/papr'
+import { authorNameIndex } from '#helpers/authorNameIndex/AuthorNameIndex'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -19,6 +20,11 @@ import {
 	MessageNoSearchParams,
 	NoticeUpdateAsin
 } from '#static/messages'
+
+/**
+ * Folds a name for identity comparison: trim, collapse whitespace, lowercase.
+ */
+const foldName = (name: string): string => name.trim().replace(/\s+/g, ' ').toLowerCase()
 
 export default class PaprAudibleAuthorHelper {
 	asin: string
@@ -39,7 +45,9 @@ export default class PaprAudibleAuthorHelper {
 	 */
 	async create(): Promise<PaprAuthorReturn> {
 		try {
+			await this.resolveIdentity()
 			await AuthorModel.insertOne(this.authorData)
+			authorNameIndex.invalidate()
 			return {
 				data: (await this.findOneWithProjection()).data,
 				modified: true
@@ -52,6 +60,43 @@ export default class PaprAudibleAuthorHelper {
 	}
 
 	/**
+	 * Resolves canonical identity before writing an author row.
+	 *
+	 * Canonical rule: first-seen wins — the `name` of the oldest row
+	 * (lowest `createdAt`) across ALL rows for the ASIN is the canonical name
+	 * and is never clobbered.
+	 *
+	 * If the canonical row's name differs from the incoming name (folded
+	 * comparison: trim, collapse whitespace, lowercase), the incoming name is
+	 * appended to the canonical row's `aliases` and the write uses the
+	 * canonical name. The append uses `$addToSet` so concurrent regional
+	 * creates cannot clobber each other (exact-string dedup); folding-level
+	 * dedup is applied at display time.
+	 *
+	 * Mutates `this.authorData` in place; no-op when no prior row exists.
+	 */
+	private async resolveIdentity(): Promise<void> {
+		const rows = ((await AuthorModel.find({ asin: this.asin })) ?? []).filter(isAuthorDocument)
+		if (rows.length === 0) {
+			return
+		}
+		const canonical = rows.reduce((oldest, row) =>
+			(row.createdAt?.getTime() ?? 0) < (oldest.createdAt?.getTime() ?? 0) ? row : oldest
+		)
+		const canonicalName = canonical.name
+		const incoming = this.authorData.name
+		if (foldName(canonicalName) === foldName(incoming)) {
+			return
+		}
+		if (!canonical.aliases?.includes(incoming)) {
+			await AuthorModel.updateOne({ _id: canonical._id }, { $addToSet: { aliases: incoming } })
+			// The alias is now in the DB; an already-built index would miss it.
+			authorNameIndex.invalidate()
+		}
+		this.authorData = { ...this.authorData, name: canonicalName }
+	}
+
+	/**
 	 * Deletes an author from the DB
 	 * using asin from the constructor
 	 */
@@ -61,6 +106,7 @@ export default class PaprAudibleAuthorHelper {
 				asin: this.asin,
 				$or: [{ region: { $exists: false } }, { region: this.options.region }]
 			})
+			authorNameIndex.invalidate()
 			return {
 				data: deletedAuthor,
 				modified: true
@@ -193,6 +239,11 @@ export default class PaprAudibleAuthorHelper {
 	 * using asin from the constructor.
 	 * Always sets createdAt and updatedAt fields.
 	 * Returns altered Document using findOneWithProjection.
+	 *
+	 * Applies the same canonical-identity rules as create (via
+	 * `resolveIdentity`): an incoming spelling that folds-different from the
+	 * canonical row's name is recorded as an alias, never written as the
+	 * row's `name`.
 	 */
 	async update(): Promise<PaprAuthorReturn> {
 		try {
@@ -200,6 +251,7 @@ export default class PaprAudibleAuthorHelper {
 			if (!found.data) {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Author'))
 			}
+			await this.resolveIdentity()
 			await AuthorModel.updateOne(
 				{ asin: this.asin, $or: [{ region: { $exists: false } }, { region: this.options.region }] },
 				{
@@ -208,6 +260,7 @@ export default class PaprAudibleAuthorHelper {
 				}
 			)
 			// After updating, return with specific projection
+			authorNameIndex.invalidate()
 			const updatedAuthor = await this.findOneWithProjection()
 			// Set modified to true to indicate that the data has been updated
 			updatedAuthor.modified = true

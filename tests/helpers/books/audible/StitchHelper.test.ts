@@ -32,6 +32,16 @@ mock.module('#helpers/utils/shared', () => {
 	}
 })
 
+const mockAuthorResolve = mock(() => Promise.resolve({}))
+
+mock.module('#helpers/authorNameIndex/AuthorNameIndex', () => ({
+	authorNameIndex: {
+		resolve: mockAuthorResolve,
+		invalidate: mock(),
+		build: mock()
+	}
+}))
+
 let asin: string
 let helper: StitchHelper
 let mockApiResponse: AudibleProduct
@@ -295,6 +305,81 @@ describe('StitchHelper should throw error when', () => {
 		spyOn(helper.scrapeHelper, 'parseResponse').mockRejectedValue(badRequestError)
 		await expect(helper.parseScraperResponse()).rejects.toBe(badRequestError)
 		expect(badRequestError.statusCode).toBe(400)
+	})
+})
+
+describe('StitchHelper should enrich author ASINs', () => {
+	beforeEach(() => {
+		helper = new StitchHelper(asin, region)
+		mockAuthorResolve.mockReset()
+		mockAuthorResolve.mockImplementation(async (name: string) => {
+			const normalized = name.trim().replace(/\s+/g, ' ').toLowerCase()
+			if (normalized === 'jason anspach') return { asin: 'B012DQ3BCM' }
+			if (normalized === 'ambiguous author') {
+				return { candidates: ['B00000000X', 'B00000000Y'] }
+			}
+			return {}
+		})
+		// mockApiResponse has non-empty category_ladders, so process() skips
+		// the scraper and returns apiParsed directly without a genre merge
+		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() =>
+			Promise.resolve(deepCopy(mockApiResponse))
+		)
+	})
+
+	test('resolves missing ASINs uniquely and never overwrites present ASINs', async () => {
+		const parsed = deepCopy(parsedBook)
+		parsed.authors[0].asin = undefined
+		parsed.authors[0].name = 'Jason  Anspach'
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		// Uniquely-resolved ASIN survives into the returned ApiBook
+		expect(processed.authors[0]).toEqual({ asin: 'B012DQ3BCM', name: 'Jason  Anspach' })
+		// Present ASIN is never overwritten
+		expect(processed.authors[1].asin).toBe('B004W47QXE')
+	})
+
+	test('sets authorCandidates for ambiguous names', async () => {
+		const parsed = deepCopy(parsedBook)
+		parsed.authors = [{ name: 'Ambiguous Author' }]
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		expect(processed.authors[0]).toEqual({
+			name: 'Ambiguous Author',
+			authorCandidates: ['B00000000X', 'B00000000Y']
+		})
+	})
+
+	test('leaves not-found authors unchanged', async () => {
+		const parsed = deepCopy(parsedBook)
+		parsed.authors = [{ name: 'Unknown Person' }]
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		expect(processed.authors[0]).toEqual({ name: 'Unknown Person' })
+	})
+
+	test('enrichment failure never fails the scrape', async () => {
+		mockAuthorResolve.mockRejectedValue(new Error('index exploded'))
+		const parsed = deepCopy(parsedBook)
+		parsed.authors[0].asin = undefined
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		expect(mockAuthorResolve).toHaveBeenCalled()
+		// Author is left unchanged and the book is still returned
+		expect(processed.authors[0].name).toBe('Jason Anspach')
+		expect(processed.authors[0].asin).toBeUndefined()
 	})
 })
 
