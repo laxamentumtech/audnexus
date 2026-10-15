@@ -1,8 +1,22 @@
-import { ApiBook } from '#config/types'
+import type { AxiosResponse } from 'axios'
+import { afterAll, beforeAll, describe, expect, it, mock, spyOn } from 'bun:test'
+
+import { ApiBook, AudibleProduct } from '#config/types'
+
+mock.module('#helpers/utils/fetchPlus', () => {
+	return { default: mock() }
+})
+
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import { NotFoundError } from '#helpers/errors/ApiErrors'
-import { minimalB0036I54I6 } from '#tests/datasets/audible/books/api'
+import * as fetchPlus from '#helpers/utils/fetchPlus'
+import {
+	B08C6YJ1LS,
+	B017V4IM1G,
+	B0036I54I6,
+	minimalB0036I54I6
+} from '#tests/datasets/audible/books/api'
 import { combinedB08C6YJ1LS, combinedB017V4IM1G } from '#tests/datasets/audible/books/stitch'
 
 // Set up environment variables for ChapterHelper
@@ -23,6 +37,28 @@ Y38DyPqP7xT9oQPYwVDuvCE3nmV8owlbI+h7ZuwJ6sEAawTQheG7iYWuadLwJUlB
 t2Nq1+6jFFLll0gYzQUCQQDdosNVYv5LB4hPYbV4yQK90WIQmiFL3GBm0afQVcxy
 wJhvGwWnOXbc/RAmdfeZH4H2XJCEZ/yzCG9d0XOpnyAZ
 -----END RSA PRIVATE KEY-----`
+
+const recordedProductResponses: Record<string, AudibleProduct> = {
+	B0036I54I6,
+	B017V4IM1G,
+	B08C6YJ1LS
+}
+
+// Route mocked fetchPlus calls to recorded fixtures so the standard suite
+// never touches the network. Chapter metadata and product-page scrapes 404
+// for B0036I54I6, matching the real API responses the fixture was built
+// from; anything unrouted fails loudly instead of reaching the network.
+const routeFetch = (url: string): Promise<AxiosResponse> => {
+	const asin = /\/1\.0\/catalog\/products\/(\w+)/.exec(url)?.[1]
+	const recorded = asin === undefined ? undefined : recordedProductResponses[asin]
+	if (recorded !== undefined) {
+		return Promise.resolve({ data: recorded, status: 200 } as AxiosResponse)
+	}
+	if (url.includes('/1.0/content/') || url.includes('/pd/')) {
+		return Promise.reject({ status: 404 })
+	}
+	return Promise.reject(new Error(`Unexpected fetchPlus call in test: ${url}`))
+}
 
 let asin: string
 let helper: StitchHelper
@@ -55,8 +91,15 @@ function expectRatingsConsistent(book: ApiBook) {
 	expect(totalStars).toBe(book.ratings?.numRatings)
 	expect(book.ratings?.numReviews).toBeGreaterThanOrEqual(0)
 }
-
 describe('Audible API and HTML Parsing', () => {
+	beforeAll(() => {
+		spyOn(fetchPlus, 'default').mockImplementation(routeFetch)
+	})
+
+	afterAll(() => {
+		mock.restore()
+	})
+
 	describe('When stitching together Scorcerers Stone', () => {
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'

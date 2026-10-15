@@ -11,16 +11,36 @@ export const B017V4IM1Ggenres: ApiGenre[] = [
 		name: "Children's Audiobooks",
 		type: 'genre'
 	},
-	{ asin: '18572323011', name: 'Growing Up & Facts of Life', type: 'tag' },
-	{ asin: '18572491011', name: 'Literature & Fiction', type: 'tag' },
-	{ asin: '18572505011', name: 'Family Life', type: 'tag' },
+	{
+		asin: '18572323011',
+		name: 'Growing Up & Facts of Life',
+		type: 'tag'
+	},
+	{
+		asin: '18572491011',
+		name: 'Literature & Fiction',
+		type: 'tag'
+	},
+	{
+		asin: '18572505011',
+		name: 'Family Life',
+		type: 'tag'
+	},
 	{
 		asin: '18572586011',
 		name: 'Science Fiction & Fantasy',
 		type: 'tag'
 	},
-	{ asin: '18572587011', name: 'Fantasy & Magic', type: 'tag' },
-	{ asin: '18572588011', name: 'Action & Adventure', type: 'tag' }
+	{
+		asin: '18572587011',
+		name: 'Fantasy & Magic',
+		type: 'tag'
+	},
+	{
+		asin: '18572588011',
+		name: 'Action & Adventure',
+		type: 'tag'
+	}
 ]
 export const B017V4IM1Gimage = 'https://m.media-amazon.com/images/I/91LDfWN4CKL.jpg'
 export const combinedB017V4IM1G: ApiBook = setupMinimalParsed(
