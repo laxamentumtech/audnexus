@@ -99,20 +99,28 @@ class StitchHelper {
 	/**
 	 * Fills in author ASINs that Audible's API omitted, resolving them from
 	 * the local authors collection by name. Ambiguous matches surface as
-	 * authorCandidates. Enrichment never throws; failures degrade to the
-	 * unmodified author list.
+	 * authorCandidates. Resolves for all ASIN-less authors in parallel
+	 * (out-of-order completion is fine; results are applied in the
+	 * original author order). Enrichment never throws; failures degrade
+	 * to the unmodified author list. Skipped silently when the authors
+	 * collection is not initialized (e.g. legacy network tests) so the
+	 * index build does not log noise.
 	 */
 	async enrichAuthorAsins() {
 		try {
-			for (const author of this.apiParsed.authors) {
-				if (author.asin) continue
-				const result = await authorNameIndex.resolve(author.name)
+			if (!authorNameIndex.isReady()) return
+			const missing = this.apiParsed.authors.filter((author) => !author.asin)
+			const results = await Promise.all(
+				missing.map((author) => authorNameIndex.resolve(author.name))
+			)
+			missing.forEach((author, index) => {
+				const result = results[index]
 				if (result.asin) {
 					author.asin = result.asin
 				} else if (result.candidates) {
 					author.authorCandidates = result.candidates
 				}
-			}
+			})
 		} catch (error) {
 			this.logger?.error(
 				`[StitchHelper] Failed to enrich author ASINs for ${this.asin}: ${

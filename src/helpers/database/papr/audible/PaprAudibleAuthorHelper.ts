@@ -10,6 +10,7 @@ import {
 	PaprDeleteReturn
 } from '#config/typing/papr'
 import { authorNameIndex } from '#helpers/authorNameIndex/AuthorNameIndex'
+import { foldName } from '#helpers/utils/foldName'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -22,9 +23,18 @@ import {
 } from '#static/messages'
 
 /**
- * Folds a name for identity comparison: trim, collapse whitespace, lowercase.
+ * Picks the canonical row for an ASIN: oldest by `createdAt`, with ties
+ * broken by `_id` (ObjectId encodes a timestamp + monotonic counter, so
+ * this is deterministic for same-instant rows).
  */
-const foldName = (name: string): string => name.trim().replace(/\s+/g, ' ').toLowerCase()
+const oldestRow = (rows: AuthorDocument[]): AuthorDocument =>
+	rows.reduce((oldest, row) => {
+		const createdAt = row.createdAt?.getTime() ?? 0
+		const oldestCreatedAt = oldest.createdAt?.getTime() ?? 0
+		if (createdAt < oldestCreatedAt) return row
+		if (createdAt === oldestCreatedAt && String(row._id) < String(oldest._id)) return row
+		return oldest
+	})
 
 export default class PaprAudibleAuthorHelper {
 	asin: string
@@ -41,59 +51,154 @@ export default class PaprAudibleAuthorHelper {
 
 	/**
 	 * Inserts a new author into the DB
-	 * using authorData from the constructor
+	 * using authorData from the constructor.
+	 *
+	 * The durable insert is the source of truth: post-insert work (alias
+	 * append, concurrent-create reconciliation, read-back projection,
+	 * index notification) is failure-tolerant. On post-insert failure the
+	 * create still resolves, `markDirty` still runs so the warm index
+	 * refreshes, and the failure is logged without rethrowing. Only a
+	 * failed insert (nothing persisted) rejects.
 	 */
 	async create(): Promise<PaprAuthorReturn> {
+		const incomingName = this.authorData.name
+		let inserted
 		try {
 			await this.resolveIdentity()
-			await AuthorModel.insertOne(this.authorData)
-			authorNameIndex.invalidate()
-			return {
-				data: (await this.findOneWithProjection()).data,
-				modified: true
-			}
+			inserted = await AuthorModel.insertOne(this.authorData)
 		} catch (error) {
 			const message = getErrorMessage(error)
 			this.logger?.error(message)
 			throw new Error(ErrorMessageCreate(this.asin, 'author'), { cause: error })
 		}
+		try {
+			// Alias append only after the main write succeeded: a failed
+			// insert leaves no alias behind (no leaked aliases on failure).
+			await this.appendAliasIfFoldedDifferent(incomingName)
+			// One bounded reconciliation pass for concurrent first-time
+			// creates: if a same-ASIN row raced us in (or is older for any
+			// other reason) and this row is not the oldest, record this
+			// row's spelling on the canonical row's aliases.
+			await this.reconcileConcurrentCreate(inserted)
+			return {
+				data: (await this.findOneWithProjection()).data,
+				modified: true
+			}
+		} catch (error) {
+			// The row is already persisted: the durable insert is the
+			// source of truth, so a post-insert failure must not surface
+			// as a failed create. Log and degrade (matching this module's
+			// silent-degradation convention) rather than rethrow.
+			this.logger?.error(
+				`[PaprAudibleAuthorHelper] Post-insert work failed for author ${this.asin} (row already persisted): ${getErrorMessage(error)}`
+			)
+			let data: ApiAuthorProfile | null = null
+			try {
+				data = (await this.findOneWithProjection()).data
+			} catch (readError) {
+				this.logger?.error(
+					`[PaprAudibleAuthorHelper] Read-back after post-insert failure failed for author ${this.asin}: ${getErrorMessage(readError)}`
+				)
+			}
+			return { data, modified: true }
+		} finally {
+			// The insert (and any alias writes) changed this ASIN's rows;
+			// the index refreshes only these ASINs, never a full reload.
+			// Runs even when the post-insert work above failed, so the
+			// warm index is never left stale.
+			authorNameIndex.markDirty(this.asin)
+		}
 	}
 
 	/**
-	 * Resolves canonical identity before writing an author row.
+	 * Resolves canonical identity before inserting a new author row.
 	 *
 	 * Canonical rule: first-seen wins — the `name` of the oldest row
-	 * (lowest `createdAt`) across ALL rows for the ASIN is the canonical name
-	 * and is never clobbered.
+	 * (lowest `createdAt`, ties broken by `_id` for determinism on
+	 * same-instant rows) across ALL rows for the ASIN is the canonical
+	 * name and is never clobbered.
 	 *
 	 * If the canonical row's name differs from the incoming name (folded
-	 * comparison: trim, collapse whitespace, lowercase), the incoming name is
-	 * appended to the canonical row's `aliases` and the write uses the
-	 * canonical name. The append uses `$addToSet` so concurrent regional
-	 * creates cannot clobber each other (exact-string dedup); folding-level
-	 * dedup is applied at display time.
+	 * comparison: trim, collapse whitespace, lowercase), the incoming name
+	 * is recorded as an alias on the canonical row (see
+	 * `appendAliasIfFoldedDifferent`) and the insert uses the canonical
+	 * name. The alias append uses `$addToSet` so concurrent regional
+	 * creates cannot clobber each other (exact-string dedup);
+	 * folding-level dedup is applied at display time.
 	 *
-	 * Mutates `this.authorData` in place; no-op when no prior row exists.
+	 * Create-path only: updates preserve each regional row's own name
+	 * (see `update`), so this must not run there.
+	 *
+	 * Mutates `this.authorData` in place; no-op when no prior row exists
+	 * or the incoming name folds equal to the canonical name.
 	 */
 	private async resolveIdentity(): Promise<void> {
 		const rows = ((await AuthorModel.find({ asin: this.asin })) ?? []).filter(isAuthorDocument)
 		if (rows.length === 0) {
 			return
 		}
-		const canonical = rows.reduce((oldest, row) =>
-			(row.createdAt?.getTime() ?? 0) < (oldest.createdAt?.getTime() ?? 0) ? row : oldest
-		)
-		const canonicalName = canonical.name
-		const incoming = this.authorData.name
-		if (foldName(canonicalName) === foldName(incoming)) {
+		const canonical = oldestRow(rows)
+		if (foldName(canonical.name) === foldName(this.authorData.name)) {
 			return
 		}
-		if (!canonical.aliases?.includes(incoming)) {
-			await AuthorModel.updateOne({ _id: canonical._id }, { $addToSet: { aliases: incoming } })
-			// The alias is now in the DB; an already-built index would miss it.
-			authorNameIndex.invalidate()
+		this.authorData = { ...this.authorData, name: canonical.name }
+	}
+
+	/**
+	 * Appends `incomingName` to the canonical row's `aliases` when it is
+	 * folded-different from the canonical row's name and not already
+	 * present as an exact string. Runs only in the create path, immediately
+	 * AFTER the main insert succeeds, so a failed insert leaves no alias
+	 * behind (no leaked aliases on failure). Updates keep the regional
+	 * row's own name and never alias.
+	 *
+	 * This write is post-insert work: per `create()`'s failure semantics it
+	 * is failure-tolerant (the durable insert is the source of truth), and
+	 * it marks the ASIN dirty on its own when the alias write lands.
+	 */
+	private async appendAliasIfFoldedDifferent(incomingName: string): Promise<void> {
+		const rows = ((await AuthorModel.find({ asin: this.asin })) ?? []).filter(isAuthorDocument)
+		if (rows.length === 0) {
+			return
 		}
-		this.authorData = { ...this.authorData, name: canonicalName }
+		const canonical = oldestRow(rows)
+		if (foldName(canonical.name) === foldName(incomingName)) {
+			return
+		}
+		if (!canonical.aliases?.includes(incomingName)) {
+			await AuthorModel.updateOne({ _id: canonical._id }, { $addToSet: { aliases: incomingName } })
+			// The alias is in the DB; notify immediately — this write can
+			// succeed even if the subsequent insert fails.
+			authorNameIndex.markDirty(this.asin)
+		}
+	}
+
+	/**
+	 * Reconciles a concurrent first-time create. After our insert, re-read
+	 * all rows for the ASIN: if this row is NOT the oldest, some row won
+	 * the race — and if its canonical name is folded-different from ours,
+	 * record our spelling on the canonical row's aliases atomically
+	 * ($addToSet dedupes concurrent appends of the same spelling).
+	 *
+	 * The alias append before the insert covers the common path (rows
+	 * already existed when we read identity); this pass covers the race
+	 * where our read saw no rows and a same-ASIN row appeared before our
+	 * insert landed. One bounded pass, no lock.
+	 */
+	private async reconcileConcurrentCreate(inserted: AuthorDocument): Promise<void> {
+		const rows = ((await AuthorModel.find({ asin: this.asin })) ?? []).filter(isAuthorDocument)
+		if (rows.length === 0) {
+			return
+		}
+		const canonical = oldestRow(rows)
+		// We are the oldest: our spelling is the canonical one now
+		if (String(canonical._id) === String(inserted._id)) {
+			return
+		}
+		if (foldName(canonical.name) === foldName(inserted.name)) {
+			return
+		}
+		await AuthorModel.updateOne({ _id: canonical._id }, { $addToSet: { aliases: inserted.name } })
 	}
 
 	/**
@@ -106,7 +211,7 @@ export default class PaprAudibleAuthorHelper {
 				asin: this.asin,
 				$or: [{ region: { $exists: false } }, { region: this.options.region }]
 			})
-			authorNameIndex.invalidate()
+			authorNameIndex.markDirty(this.asin)
 			return {
 				data: deletedAuthor,
 				modified: true
@@ -207,8 +312,14 @@ export default class PaprAudibleAuthorHelper {
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
-			// If the objects are the exact same return right away
-			const isEqual = this.sharedHelper.isEqualData(data, this.authorData)
+			// Normalize the name before comparing so a folded-different
+			// spelling (stored canonical vs incoming variant) short-circuits
+			// to no-op instead of running a full update + index invalidation.
+			const normalized =
+				foldName(this.authorData.name) === foldName(data.name)
+					? { ...this.authorData, name: data.name }
+					: this.authorData
+			const isEqual = this.sharedHelper.isEqualData(data, normalized)
 			if (isEqual) {
 				return {
 					data: data,
@@ -240,10 +351,10 @@ export default class PaprAudibleAuthorHelper {
 	 * Always sets createdAt and updatedAt fields.
 	 * Returns altered Document using findOneWithProjection.
 	 *
-	 * Applies the same canonical-identity rules as create (via
-	 * `resolveIdentity`): an incoming spelling that folds-different from the
-	 * canonical row's name is recorded as an alias, never written as the
-	 * row's `name`.
+	 * Preserves the target (region-scoped) row's own `name`: the
+	 * canonical-identity rewrite applies to new rows only (create path),
+	 * so a regional row keeps its regional spelling and
+	 * /authors/{asin}?region= continues to echo the regional name.
 	 */
 	async update(): Promise<PaprAuthorReturn> {
 		try {
@@ -251,7 +362,6 @@ export default class PaprAudibleAuthorHelper {
 			if (!found.data) {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Author'))
 			}
-			await this.resolveIdentity()
 			await AuthorModel.updateOne(
 				{ asin: this.asin, $or: [{ region: { $exists: false } }, { region: this.options.region }] },
 				{
@@ -259,8 +369,7 @@ export default class PaprAudibleAuthorHelper {
 					$currentDate: { updatedAt: true }
 				}
 			)
-			// After updating, return with specific projection
-			authorNameIndex.invalidate()
+			authorNameIndex.markDirty(this.asin)
 			const updatedAuthor = await this.findOneWithProjection()
 			// Set modified to true to indicate that the data has been updated
 			updatedAuthor.modified = true
