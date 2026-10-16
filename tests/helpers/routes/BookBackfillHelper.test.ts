@@ -24,6 +24,16 @@ mock.module('#helpers/routes/BookShowHelper', () => ({
 	}
 }))
 
+// Cooldown is process-global and sleeps real time; stub it so the pacing
+// test asserts calls without waiting.
+const mockSleepCooldown = mock()
+const mockRegisterSuccess = mock()
+
+mock.module('#helpers/utils/adaptiveCooldown', () => ({
+	sleepCooldown: mockSleepCooldown,
+	registerSuccess: mockRegisterSuccess
+}))
+
 import { ObjectId } from 'mongodb'
 
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
@@ -59,6 +69,7 @@ describe('BookBackfillHelper should', () => {
 
 	beforeEach(() => {
 		mock.clearAllMocks()
+		mockSleepCooldown.mockResolvedValue(undefined)
 		showConstructorArgs.length = 0
 		helper = new BookBackfillHelper(createMockLogger())
 		// First call returns the batch, second returns empty to end pagation
@@ -184,6 +195,27 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockResolvedValueOnce([books[2]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => bookPreOrder)
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 1, failed: 0 })
+	})
+
+	test('sleeps the adaptive cooldown even when the handler rejects', async () => {
+		// The rejection path (e.g. an upstream 503) must still pace the next
+		// book — the cooldown sleep runs in a finally around the handler.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockShowHandler.mockImplementation(async () => {
+			throw new Error('upstream 503')
+		})
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
+		expect(mockSleepCooldown).toHaveBeenCalledTimes(1)
+		expect(mockRegisterSuccess).not.toHaveBeenCalled()
+	})
+
+	test('sleeps the adaptive cooldown and registers success for a good book', async () => {
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
+		expect(mockSleepCooldown).toHaveBeenCalledTimes(1)
+		expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
 	})
 })
 

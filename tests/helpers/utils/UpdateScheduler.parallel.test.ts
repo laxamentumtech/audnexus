@@ -1,10 +1,10 @@
 import type { FastifyRedis } from '@fastify/redis'
 import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
 
-import type { PerformanceConfig } from '#config/performance'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 import { createMockLogger } from '#tests/setup/mockLogger'
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 const mockAuthorFind = mock()
 const mockAuthorHandler = mock()
@@ -13,10 +13,23 @@ mock.module('#config/models/Author', () => ({
 	default: { find: mockAuthorFind }
 }))
 
+const authorFreshData = { fetched: true }
+
 mock.module('#helpers/routes/AuthorShowHelper', () => ({
 	default: class AuthorShowHelper {
 		handler = mockAuthorHandler
+		fetchedFreshData = authorFreshData.fetched
 	}
+}))
+
+// Cooldown is process-global and sleeps real time; stub it so the parallel
+// pacing test asserts calls without waiting.
+const mockSleepCooldown = mock()
+const mockRegisterSuccess = mock()
+
+mock.module('#helpers/utils/adaptiveCooldown', () => ({
+	sleepCooldown: mockSleepCooldown,
+	registerSuccess: mockRegisterSuccess
 }))
 
 mock.module('@fastify/redis', () => ({}))
@@ -24,21 +37,6 @@ mock.module('@fastify/redis', () => ({}))
 type MockContext = {
 	client: FastifyRedis
 }
-
-const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: true,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
-	SCHEDULER_MAX_PER_REGION: 5,
-	SCHEDULER_BATCH_SIZE: 1000,
-	DEFAULT_REGION: 'us',
-	...overrides
-})
 
 const createMockContext = (): MockContext => ({
 	client: {
@@ -50,17 +48,20 @@ const createMockContext = (): MockContext => ({
 	}
 })
 
-
 describe('UpdateScheduler parallel processing', () => {
 	let helper: UpdateScheduler
 
 	beforeEach(() => {
 		const ctx = createMockContext()
 		const mockLogger = createMockLogger()
-		helper = new UpdateScheduler(1, ctx.client, mockLogger)
+		helper = new UpdateScheduler(ctx.client, mockLogger)
 		resetPerformanceConfig()
 		mockAuthorFind.mockReset()
 		mockAuthorHandler.mockReset()
+		mockSleepCooldown.mockReset()
+		mockSleepCooldown.mockResolvedValue(undefined)
+		mockRegisterSuccess.mockReset()
+		authorFreshData.fetched = true
 	})
 
 	afterEach(() => {
@@ -74,7 +75,7 @@ describe('UpdateScheduler parallel processing', () => {
 
 	it('caps per-region concurrency at 5', async () => {
 		setPerformanceConfig(
-			createTestConfig({
+			createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				SCHEDULER_CONCURRENCY: 10
 			})
@@ -106,7 +107,7 @@ describe('UpdateScheduler parallel processing', () => {
 
 	it('respects overall concurrency across regions', async () => {
 		setPerformanceConfig(
-			createTestConfig({
+			createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				SCHEDULER_CONCURRENCY: 5
 			})
@@ -142,7 +143,7 @@ describe('UpdateScheduler parallel processing', () => {
 
 	it('continues processing when one item fails', async () => {
 		setPerformanceConfig(
-			createTestConfig({
+			createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				SCHEDULER_CONCURRENCY: 5
 			})
@@ -165,5 +166,46 @@ describe('UpdateScheduler parallel processing', () => {
 		randomSpy.mockRestore()
 
 		expect(mockAuthorHandler).toHaveBeenCalledTimes(3)
+	})
+
+	it('sleeps the adaptive cooldown after every item (including failures) and decays only on fresh fetches', async () => {
+		setPerformanceConfig(
+			createTestPerformanceConfig({
+				USE_PARALLEL_SCHEDULER: true,
+				SCHEDULER_CONCURRENCY: 5,
+				JITTER_MS: { min: 0, max: 0 }
+			})
+		)
+
+		const authors = [
+			{ asin: 'A1', region: 'us' },
+			{ asin: 'A2', region: 'us' },
+			{ asin: 'A3', region: 'us' }
+		]
+
+		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
+		// A2 returns stored data (fetchedFreshData stays false on that call);
+		// A3 rejects (e.g. an upstream 503). All three must sleep the
+		// cooldown — the rejection must not skip it — and only the two fresh
+		// fetches register a usable success.
+		mockAuthorHandler.mockImplementation(async () => {
+			authorFreshData.fetched = true
+			const callNumber = mockAuthorHandler.mock.calls.length
+			if (callNumber === 2) {
+				authorFreshData.fetched = false // stored-data return
+				return undefined
+			}
+			if (callNumber === 3) {
+				throw new Error('upstream 503')
+			}
+			return undefined
+		})
+
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
+		await expect(helper.updateAuthors()).resolves.toBeUndefined()
+		randomSpy.mockRestore()
+
+		expect(mockSleepCooldown).toHaveBeenCalledTimes(3)
+		expect(mockRegisterSuccess).toHaveBeenCalledTimes(2)
 	})
 })
