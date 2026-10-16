@@ -470,10 +470,11 @@ describe('PaprAudibleAuthorHelper should resolve canonical identity', () => {
 		)
 	})
 
-	test('update() preserves the regional row name and never renames it to canonical', async () => {
+	test('update() writes the incoming name and keeps the previous spelling as an alias', async () => {
 		// Distinct canonical, existing regional, and incoming names: the
-		// update must keep the regional row's incoming spelling (the
-		// canonical rewrite is create-path only) and write no alias.
+		// update writes the incoming spelling into the row (the canonical
+		// rewrite is create-path only) and records the previous spelling
+		// as an alias so the old spelling keeps resolving.
 		const regionalUsRow: AuthorDocument = {
 			...authorWithoutProjection,
 			_id: usCanonicalId,
@@ -496,7 +497,8 @@ describe('PaprAudibleAuthorHelper should resolve canonical identity', () => {
 			data: projectedRow,
 			modified: true
 		})
-		// Single write: the row update, carrying the incoming name as-is
+		// Single write: the row update carrying the incoming name, with
+		// the previous spelling atomically added to aliases
 		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
 		expect(mockUpdateOne).toHaveBeenCalledWith(
 			{ asin, $or: [{ region: { $exists: false } }, { region: 'us' }] },
@@ -504,12 +506,88 @@ describe('PaprAudibleAuthorHelper should resolve canonical identity', () => {
 				$set: expect.objectContaining({
 					name: 'Jason Alan Anspach',
 					createdAt: regionalUsRow._id.getTimestamp()
-				})
+				}),
+				$addToSet: { aliases: 'Jason Anspach' }
 			})
 		)
-		// No identity read, no alias write
+		// No identity read, index marked dirty once
 		expect(mockFind).not.toHaveBeenCalled()
 		expect(mockMarkDirty).toHaveBeenCalledTimes(1)
+	})
+
+	test('update() adds the previous spelling as an alias for a legacy row without an aliases field', async () => {
+		// Legacy row: the aliases field is entirely absent (predates the
+		// schema default) — update must not throw and must record the
+		// previous spelling as an alias.
+		const legacyUsRow = {
+			...authorWithoutProjection,
+			_id: usCanonicalId,
+			name: 'Jason Anspach',
+			region: 'us',
+			createdAt: usCanonicalId.getTimestamp(),
+			updatedAt: usCanonicalId.getTimestamp()
+		} as unknown as AuthorDocument
+		mockFindOne
+			.mockResolvedValueOnce(legacyUsRow)
+			.mockResolvedValue(legacyUsRow)
+		helper.setData({ ...parsedAuthor, name: 'Jason Alan Anspach' })
+
+		await expect(helper.update()).resolves.toMatchObject({ modified: true })
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: 'us' }] },
+			expect.objectContaining({
+				$set: expect.objectContaining({ name: 'Jason Alan Anspach' }),
+				$addToSet: { aliases: 'Jason Anspach' }
+			})
+		)
+		expect(mockMarkDirty).toHaveBeenCalledTimes(1)
+	})
+
+	test('update() adds no alias when the incoming name folds equal to the stored one', async () => {
+		const regionalUsRow: AuthorDocument = {
+			...authorWithoutProjection,
+			_id: usCanonicalId,
+			name: 'Jason Anspach',
+			region: 'us',
+			aliases: [],
+			createdAt: usCanonicalId.getTimestamp(),
+			updatedAt: usCanonicalId.getTimestamp()
+		}
+		mockFindOne
+			.mockResolvedValueOnce(regionalUsRow)
+			.mockResolvedValue(regionalUsRow as unknown as AuthorDocument)
+		helper.setData({ ...parsedAuthor, name: '  jason   Anspach ' })
+
+		await expect(helper.update()).resolves.toEqual({ data: parsedAuthor, modified: true })
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: 'us' }] },
+			expect.not.objectContaining({ $addToSet: expect.anything() })
+		)
+	})
+
+	test('update() adds no alias when the previous spelling is already aliased', async () => {
+		const regionalUsRow: AuthorDocument = {
+			...authorWithoutProjection,
+			_id: usCanonicalId,
+			name: 'Jason Anspach',
+			region: 'us',
+			aliases: ['Jason Anspach'],
+			createdAt: usCanonicalId.getTimestamp(),
+			updatedAt: usCanonicalId.getTimestamp()
+		}
+		mockFindOne
+			.mockResolvedValueOnce(regionalUsRow)
+			.mockResolvedValue(regionalUsRow as unknown as AuthorDocument)
+		helper.setData({ ...parsedAuthor, name: 'Jason Alan Anspach' })
+
+		await expect(helper.update()).resolves.toEqual({ data: parsedAuthor, modified: true })
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: 'us' }] },
+			expect.not.objectContaining({ $addToSet: expect.anything() })
+		)
 	})
 
 	test('create() leaves no alias when the insert fails', async () => {

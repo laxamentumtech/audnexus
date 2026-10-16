@@ -351,10 +351,11 @@ export default class PaprAudibleAuthorHelper {
 	 * Always sets createdAt and updatedAt fields.
 	 * Returns altered Document using findOneWithProjection.
 	 *
-	 * Preserves the target (region-scoped) row's own `name`: the
-	 * canonical-identity rewrite applies to new rows only (create path),
-	 * so a regional row keeps its regional spelling and
-	 * /authors/{asin}?region= continues to echo the regional name.
+	 * Writes the incoming regional spelling into the row (the canonical-
+	 * identity rewrite applies to new rows only, create path). The row's
+	 * previous spelling is kept as an alias when it differs (folded
+	 * comparison) and is not already aliased, so books crediting the old
+	 * spelling keep resolving to this ASIN after the name changes.
 	 */
 	async update(): Promise<PaprAuthorReturn> {
 		try {
@@ -362,10 +363,18 @@ export default class PaprAudibleAuthorHelper {
 			if (!found.data) {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Author'))
 			}
+			const previousName = found.data.name
+			const previousAliases = found.data.aliases ?? []
+			const aliasUpdate =
+				foldName(previousName) !== foldName(this.authorData.name) &&
+				!previousAliases.includes(previousName)
+					? { $addToSet: { aliases: previousName } }
+					: undefined
 			await AuthorModel.updateOne(
 				{ asin: this.asin, $or: [{ region: { $exists: false } }, { region: this.options.region }] },
 				{
 					$set: { ...this.authorData, createdAt: found.data._id.getTimestamp() },
+					...(aliasUpdate ?? {}),
 					$currentDate: { updatedAt: true }
 				}
 			)

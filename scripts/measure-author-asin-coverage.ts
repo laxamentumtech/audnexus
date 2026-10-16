@@ -30,6 +30,7 @@ const SAMPLED_REGIONS = ['us', 'uk', 'de', 'au', 'ca'] as const
 const DEFAULT_SAMPLE_SIZE = 500
 const DEFAULT_WINDOW_DAYS = 90
 const RAW_FETCH_CONCURRENCY = 2
+const RAW_FETCH_TIMEOUT_MS = 15_000
 const MS_PER_DAY = 86_400_000
 
 export interface BookAuthorEntry {
@@ -246,27 +247,31 @@ export async function collectData(
 	return { books: sampledBooks, authors: authorRows }
 }
 
-// Shape of the raw Audible catalog contributors (subset)
-interface RawContributor {
-	id?: string
+// Shape of the raw Audible catalog authors (subset)
+interface RawAuthor {
+	asin?: string
 	name?: string
-	role?: string
 }
 interface RawProduct {
-	contributors?: RawContributor[]
+	product?: {
+		authors?: RawAuthor[]
+	}
 }
 
 /**
  * Extracts the raw author entries (name + ASIN exactly as Audible sent
  * them, BEFORE any local enrichment) from a raw catalog response.
- * Author entries come from contributors with role 'author'; the ASIN is the
- * contributor id (the same field the API maps to author.asin).
+ * Audible's catalog API wraps the product: `{ product: { authors: [...] },
+ * response_groups: [...] }` (see AudibleProductSchema); each author entry
+ * carries `asin` (the same field the API maps to author.asin) and `name`.
+ * Entries without an asin are kept as-is — that omission is what the
+ * coverage report measures.
  */
 export function extractRawAuthorEntries(raw: RawProduct): BookAuthorEntry[] {
 	const entries: BookAuthorEntry[] = []
-	for (const contributor of raw.contributors ?? []) {
-		if (contributor.role !== 'author' || !contributor.name) continue
-		entries.push({ asin: contributor.id, name: contributor.name })
+	for (const author of raw.product?.authors ?? []) {
+		if (!author.name) continue
+		entries.push({ asin: author.asin, name: author.name })
 	}
 	return entries
 }
@@ -416,7 +421,11 @@ const main = async () => {
 			sampleSize,
 			windowDays
 		)
-		const raw = await measureRawEntries(books, (url) => fetch(url))
+		const raw = await measureRawEntries(books, (url) =>
+			// A stalled catalog response must not wedge a worker forever:
+			// the timeout rejects and the book is counted as excluded.
+			fetch(url, { signal: AbortSignal.timeout(RAW_FETCH_TIMEOUT_MS) })
+		)
 		const report = assembleCoverageReport({
 			date: new Date().toISOString().slice(0, 10),
 			sampleSize,

@@ -161,22 +161,26 @@ describe('measureCoverage', () => {
 })
 
 describe('extractRawAuthorEntries', () => {
-	test('keeps author-role contributors, drops other roles and unnamed entries', () => {
+	test('reads product.authors (the real Audible response envelope)', () => {
 		const entries = extractRawAuthorEntries({
-			contributors: [
-				{ id: 'B001', name: 'Jane Doe', role: 'author' },
-				{ id: 'B777', name: 'Some Narrator', role: 'narrator' },
-				{ id: 'B002', name: 'Mark Davis', role: 'author' },
-				{ id: 'B778', name: undefined, role: 'author' }
-			]
+			product: {
+				authors: [{ asin: 'B001', name: 'Jane Doe' }, { name: 'Mark Davis' }, { asin: 'B778' }]
+			},
+			response_groups: ['contributors']
 		})
 		expect(entries).toEqual([
 			{ asin: 'B001', name: 'Jane Doe' },
-			{ asin: 'B002', name: 'Mark Davis' }
+			{ asin: undefined, name: 'Mark Davis' }
 		])
 	})
-	test('returns empty for a response without contributors', () => {
+	test('returns empty for a response without a product', () => {
 		expect(extractRawAuthorEntries({})).toEqual([])
+	})
+	test('returns empty when the product envelope is present but authors is absent or empty', () => {
+		// The realistic zero-authors shape: a product with no authors field
+		// at all, and one with an empty authors array
+		expect(extractRawAuthorEntries({ product: {} })).toEqual([])
+		expect(extractRawAuthorEntries({ product: { authors: [] } })).toEqual([])
 	})
 })
 
@@ -189,7 +193,8 @@ describe('fetchRawAuthorEntries', () => {
 				status: 200,
 				ok: true,
 				json: async () => ({
-					contributors: [{ id: 'B001', name: 'Jane Doe', role: 'author' }]
+					product: { authors: [{ asin: 'B001', name: 'Jane Doe' }] },
+					response_groups: ['contributors']
 				})
 			}
 		}
@@ -207,12 +212,10 @@ describe('fetchRawAuthorEntries', () => {
 			status: 404,
 			ok: false,
 			json: async () => ({
-				contributors: [{ id: 'B001', name: 'Jane Doe', role: 'author' }]
+				product: { authors: [{ asin: 'B001', name: 'Jane Doe' }] }
 			})
 		})
-		await expect(fetchRawAuthorEntries(fetchImpl, 'B0K1', 'us')).rejects.toThrow(
-			'status 404'
-		)
+		await expect(fetchRawAuthorEntries(fetchImpl, 'B0K1', 'us')).rejects.toThrow('status 404')
 	})
 
 	test('a 429 rate-limit response is a failed fetch', async () => {
@@ -221,15 +224,14 @@ describe('fetchRawAuthorEntries', () => {
 			ok: false,
 			json: async () => ({})
 		})
-		await expect(fetchRawAuthorEntries(fetchImpl, 'B0K1', 'us')).rejects.toThrow(
-			'status 429'
-		)
+		await expect(fetchRawAuthorEntries(fetchImpl, 'B0K1', 'us')).rejects.toThrow('status 429')
 	})
 })
 
 describe('measureRawEntries', () => {
 	const rawOf = (name: string, asin?: string) => ({
-		contributors: [{ id: asin, name, role: 'author' }]
+		product: { authors: [{ asin, name }] },
+		response_groups: ['contributors']
 	})
 
 	test('replaces stored entries with raw ones and counts fetched', async () => {

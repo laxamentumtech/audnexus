@@ -159,6 +159,81 @@ describe('AuthorNameIndex should', () => {
 		expect(mockFind.mock.calls.length).toBe(callsAfterInvalidate + 1)
 	})
 
+	test('a cold build racing a write publishes its result; the written ASIN stays dirty for a scoped refresh', async () => {
+		const calls = mockFind.mock.calls.length
+		authorNameIndex.invalidate()
+		const deferred = Promise.withResolvers<typeof authorsDb>()
+		mockFind.mockImplementationOnce(() => deferred.promise)
+		// Starts the lazy build and joins it before the write
+		const pending = authorNameIndex.resolve('Jason Anspach')
+		expect(mockFind.mock.calls.length).toBe(calls + 1)
+		// A write lands mid-build: it must NOT discard the build's
+		// full-collection result (only invalidate() discards in-flight
+		// builds)
+		authorNameIndex.markDirty('B00000000E')
+		deferred.resolve([...authorsDb])
+		// The build publishes despite the write
+		expect(await pending).toEqual({ asin: 'B00000000D' })
+		// The ASIN written during the build stays dirty: the next
+		// lookup runs one scoped refresh, never a full reload
+		expect(await authorNameIndex.resolve('Nick Cole')).toEqual({
+			candidates: ['B00000000E', 'B00000000J']
+		})
+		expect(mockFind.mock.calls.length).toBe(calls + 2)
+		expect(mockFind.mock.calls.at(-1)?.[0]).toEqual({ asin: { $in: ['B00000000E'] } })
+	})
+
+	test('a cold build un-dirties ASINs dirtied before it: the next lookup serves with no follow-up scoped refresh', async () => {
+		const calls = mockFind.mock.calls.length
+		authorNameIndex.invalidate()
+		// Dirty BEFORE the cold build starts: the build's full-collection
+		// read covers the write, so the ASIN must NOT stay dirty
+		authorNameIndex.markDirty('B00000000E')
+		const deferred = Promise.withResolvers<typeof authorsDb>()
+		mockFind.mockImplementationOnce(() => deferred.promise)
+		// Starts the lazy build and joins it before the read resolves
+		const pending = authorNameIndex.resolve('Nick Cole')
+		expect(mockFind.mock.calls.length).toBe(calls + 1)
+		deferred.resolve([...authorsDb])
+		expect(await pending).toEqual({
+			candidates: ['B00000000E', 'B00000000J']
+		})
+		// The pre-build write was covered by the full read: the next
+		// lookup serves the built index with no follow-up scoped query
+		expect(await authorNameIndex.resolve('Nick Cole')).toEqual({
+			candidates: ['B00000000E', 'B00000000J']
+		})
+		expect(mockFind.mock.calls.length).toBe(calls + 1)
+	})
+
+	test('an ASIN already dirty before a cold build, written again during it, stays dirty after publish', async () => {
+		const calls = mockFind.mock.calls.length
+		authorNameIndex.invalidate()
+		// Dirtied BEFORE the cold build starts (v1)
+		authorNameIndex.markDirty('B00000000E')
+		const deferred = Promise.withResolvers<typeof authorsDb>()
+		mockFind.mockImplementationOnce(() => deferred.promise)
+		// Starts the lazy build and joins it before the write
+		const pending = authorNameIndex.resolve('Nick Cole')
+		expect(mockFind.mock.calls.length).toBe(calls + 1)
+		// The SAME ASIN is written again mid-build (v2): its version
+		// changes after the read snapshot, so the build's read does not
+		// cover it
+		authorNameIndex.markDirty('B00000000E')
+		deferred.resolve([...authorsDb])
+		// The build publishes despite the mid-build write
+		expect(await pending).toEqual({
+			candidates: ['B00000000E', 'B00000000J']
+		})
+		// E was dirtied after the read snapshot: it stays dirty for a
+		// follow-up scoped refresh, never a full reload
+		expect(await authorNameIndex.resolve('Nick Cole')).toEqual({
+			candidates: ['B00000000E', 'B00000000J']
+		})
+		expect(mockFind.mock.calls.length).toBe(calls + 2)
+		expect(mockFind.mock.calls.at(-1)?.[0]).toEqual({ asin: { $in: ['B00000000E'] } })
+	})
+
 	test('a build failure degrades to not-found and the next resolve retries', async () => {
 		const spy = spyOn(authorNameIndex.logger, 'error').mockImplementation(() => undefined)
 		const calls = mockFind.mock.calls.length
@@ -244,7 +319,9 @@ describe('AuthorNameIndex should', () => {
 			const inFilter = (query as { asin?: { $in?: string[] } }).asin?.$in
 			const rows = authorsDb.filter((row) => inFilter?.includes(row.asin))
 			return Promise.resolve(
-				inFilter?.includes('B00000000K') ? [...rows, { asin: 'B00000000K', name: 'Someone Else' }] : rows
+				inFilter?.includes('B00000000K')
+					? [...rows, { asin: 'B00000000K', name: 'Someone Else' }]
+					: rows
 			)
 		})
 		authorNameIndex.markDirty('B00000000K')
@@ -307,67 +384,122 @@ describe('AuthorNameIndex should', () => {
 		expect(mockFind.mock.calls.length).toBe(callsAfter + 1)
 	})
 
-	test('a write landing during a refresh goes stale: degrades to not-found, next call refreshes both', async () => {
+	test('a write landing during a refresh does not discard it: staged result publishes, other ASIN stays dirty', async () => {
 		const calls = mockFind.mock.calls.length
 		authorNameIndex.markDirty('B00000000D')
 		const deferred = Promise.withResolvers<unknown[]>()
 		mockFind.mockImplementationOnce(() => deferred.promise)
 		const pending = authorNameIndex.resolve('Jason Anspach')
-		// A second write for a different ASIN invalidates this refresh's
-		// generation before it publishes
+		// A write for a different ASIN lands mid-refresh: it must NOT
+		// discard the staged refresh (per-ASIN versions, not a global
+		// generation bump)
 		authorNameIndex.markDirty('B00000000E')
-		// The refresh completes with B00000000D's rows; it must not publish
-		// because its generation is stale (B00000000E is still dirty)
+		// The refresh completes with B00000000D's rows and publishes
 		deferred.resolve(authorsDb.filter((row) => row.asin === 'B00000000D'))
-		// One refresh per call: a dirty index is never served
-		expect(await pending).toEqual({})
+		// The published index serves the refreshed name immediately
+		expect(await pending).toEqual({ asin: 'B00000000D' })
 		expect(mockFind.mock.calls.length).toBe(calls + 1)
-		// Next lookup: one scoped refresh covering both dirty ASINs
-		expect(await authorNameIndex.resolve('Jason Anspach')).toEqual({ asin: 'B00000000D' })
+		expect(liveIndex().get('jason anspach')).toEqual(new Set(['B00000000D']))
+		// B00000000E was dirtied after the refresh's snapshot: it stays
+		// dirty for its own follow-up scoped refresh
+		expect(await authorNameIndex.resolve('Nick Cole')).toEqual({
+			candidates: ['B00000000E', 'B00000000J']
+		})
 		expect(mockFind.mock.calls.length).toBe(calls + 2)
 		const lastQuery = mockFind.mock.calls.at(-1)?.[0] as { asin: { $in: string[] } }
-		expect(lastQuery.asin.$in).toEqual(['B00000000D', 'B00000000E'])
+		expect(lastQuery.asin.$in).toEqual(['B00000000E'])
 	})
 
-	test('a concurrent markDirty + stale refresh leaves the published index unmutated', async () => {
-		// Intermediate DB state: a new row B00000000K takes the folded name
-		// 'nick cole'; final state: that row is deleted again
+	test('a write landing during a refresh for the same ASIN keeps that ASIN dirty for a follow-up scoped refresh', async () => {
+		const calls = mockFind.mock.calls.length
+		authorNameIndex.markDirty('B00000000D')
+		const deferred = Promise.withResolvers<unknown[]>()
+		mockFind.mockImplementationOnce(() => deferred.promise)
+		const pending = authorNameIndex.resolve('Jason Anspach')
+		// The SAME ASIN is written again mid-refresh: its version bumps
+		// past the refresh's snapshot, so the read does not cover it
+		authorNameIndex.markDirty('B00000000D')
+		// The refresh completes with D's rows and publishes
+		deferred.resolve(authorsDb.filter((row) => row.asin === 'B00000000D'))
+		expect(await pending).toEqual({ asin: 'B00000000D' })
+		expect(mockFind.mock.calls.length).toBe(calls + 1)
+		// D was dirtied after the refresh's snapshot: the next lookup
+		// runs ANOTHER D-scoped refresh, never a full reload
+		expect(await authorNameIndex.resolve('Jason Anspach')).toEqual({ asin: 'B00000000D' })
+		expect(mockFind.mock.calls.length).toBe(calls + 2)
+		expect(mockFind.mock.calls.at(-1)?.[0]).toEqual({ asin: { $in: ['B00000000D'] } })
+	})
+
+	test('invalidate() mid-refresh discards the staged refresh; next lookup does a full rebuild', async () => {
 		const kRow = { asin: 'B00000000K', name: 'Nick Cole' }
-		const deferredIntermediate = Promise.withResolvers<typeof authorsDb>()
-		const deferredFinal = Promise.withResolvers<typeof authorsDb>()
+		const deferred = Promise.withResolvers<typeof authorsDb>()
 		mockFind.mockImplementation((query: object) => {
 			if (Object.keys(query).length === 0) return Promise.resolve([...authorsDb])
 			const inFilter = (query as { asin?: { $in?: string[] } }).asin?.$in ?? []
-			// [K]: the first (stale) refresh reads the intermediate state
-			if (inFilter.length === 1 && inFilter[0] === 'B00000000K') {
-				return deferredIntermediate.promise
-			}
-			// [K, E]: the follow-up refresh reads the final state
-			if (inFilter.length === 2) return deferredFinal.promise
+			// [K]: the in-flight refresh reads the intermediate state
+			if (inFilter.length === 1 && inFilter[0] === 'B00000000K') return deferred.promise
 			return Promise.resolve(authorsDb.filter((row) => inFilter.includes(row.asin)))
 		})
 		authorNameIndex.markDirty('B00000000K')
 		// Starts the K refresh; find([K]) is issued synchronously
 		const pending = authorNameIndex.resolve('Nick Cole')
-		// A write landing during the refresh makes its generation stale
-		authorNameIndex.markDirty('B00000000E')
-		// The stale refresh reads K's intermediate row and completes
+		// A full invalidation during the refresh discards the staged
+		// result (the global generation check is kept for invalidate only)
+		authorNameIndex.invalidate()
+		// The refresh reads K's intermediate row and completes
 		// without publishing (generation mismatch)
-		deferredIntermediate.resolve([...authorsDb, kRow])
-		// Settles once the stale refresh has fully completed; the dirty
-		// state is retained, so the call degrades to not-found
+		deferred.resolve([...authorsDb, kRow])
+		// The invalidated index is never served
 		expect(await pending).toEqual({})
-		// The published index is untouched: the stale refresh's staged
-		// mutation of the shared 'nick cole' Set left no trace (a
-		// shared-Set mutation would have added B00000000K)
-		expect(liveIndex().get('nick cole')).toEqual(new Set(['B00000000E', 'B00000000J']))
-		// The subsequent refresh covers both dirty ASINs and reads the
-		// final state: the intermediate name is gone with no residue
-		deferredFinal.resolve(authorsDb)
+		// The index was dropped by the invalidation, not left stale
+		expect(liveIndex()).toBeUndefined()
+		// The next lookup is a full rebuild, not an ASIN-scoped refresh
+		const callsAfterInvalidate = mockFind.mock.calls.length
 		expect(await authorNameIndex.resolve('Nick Cole')).toEqual({
 			candidates: ['B00000000E', 'B00000000J']
 		})
+		expect(mockFind.mock.calls.length).toBe(callsAfterInvalidate + 1)
+		expect(mockFind.mock.calls.at(-1)?.[0]).toEqual({})
+	})
+
+	test('a stale refresh resuming after a rebuild does not mutate the rebuilt index', async () => {
+		const calls = mockFind.mock.calls.length
+		const kRow = { asin: 'B00000000K', name: 'Nick Cole' }
+		const deferred = Promise.withResolvers<typeof authorsDb>()
+		mockFind.mockImplementation((query: object) => {
+			if (Object.keys(query).length === 0) return Promise.resolve([...authorsDb])
+			const inFilter = (query as { asin?: { $in?: string[] } }).asin?.$in ?? []
+			// [K]: the in-flight refresh reads the intermediate state
+			if (inFilter.length === 1 && inFilter[0] === 'B00000000K') return deferred.promise
+			return Promise.resolve(authorsDb.filter((row) => inFilter.includes(row.asin)))
+		})
+		authorNameIndex.markDirty('B00000000K')
+		// Starts the K refresh; find([K]) is issued synchronously
+		const pending = authorNameIndex.resolve('Nick Cole')
+		// A full invalidation drops the index while the refresh is in
+		// flight (dirty state cleared, generation bumped)
+		authorNameIndex.invalidate()
+		// The index is repopulated BEFORE the stale refresh resumes: the
+		// refresh's staged structure must not mutate this rebuilt index
+		await authorNameIndex.build()
+		expect(mockFind.mock.calls.length).toBe(calls + 2)
+		// The stale refresh reads K's intermediate row, completes, and
+		// discards without publishing (generation mismatch)
+		deferred.resolve([...authorsDb, kRow])
+		// The discarded refresh is never served
+		expect(await pending).toEqual({})
+		// The rebuilt index has no residue from the discarded refresh: its
+		// staged re-add of K lands on the rebuilt 'nick cole' Set, which it
+		// must clone before mutating (a shared-Set mutation would have left
+		// B00000000K in the live Set)
 		expect(liveIndex().get('nick cole')).toEqual(new Set(['B00000000E', 'B00000000J']))
+		// Invalidation cleared the dirty state: the next lookup serves the
+		// rebuilt index with no scoped refresh
+		const callsAfterRebuild = mockFind.mock.calls.length
+		expect(await authorNameIndex.resolve('Nick Cole')).toEqual({
+			candidates: ['B00000000E', 'B00000000J']
+		})
+		expect(mockFind.mock.calls.length).toBe(callsAfterRebuild)
 	})
 
 	test('a failed refresh degrades to not-found, keeps dirty state, and retries scoped (no full load)', async () => {

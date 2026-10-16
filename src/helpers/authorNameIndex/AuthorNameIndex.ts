@@ -22,19 +22,22 @@ class AuthorNameIndex {
 	// (pruning the key when its last ASIN is gone) before re-adding them.
 	private asinToNames: Map<string, Set<string>>
 	private buildPromise: Promise<void> | undefined
-	private refreshPromise: Promise<void> | undefined
-	// Bumped on every invalidate()/markDirty(); a build or refresh that
-	// started under an older generation must not publish stale data after
-	// it completes.
+	private refreshPromise: Promise<boolean> | undefined
+	// Bumped on invalidate(); a build or refresh that started before a
+	// full invalidation must not publish stale data after it completes.
+	// Per-ASIN writes do NOT advance this — they are tracked per ASIN in
+	// dirtyVersions.
 	private generation = 0
-	// ASINs with a known DB change since last publication. A warm index
-	// refreshes only these (ASIN-scoped query, never a full reload) before
-	// serving a lookup.
-	private dirtyAsins: Set<string>
+	// Version per ASIN with a known DB change since last publication (a
+	// warm index refreshes only these — an ASIN-scoped query, never a
+	// full reload — before serving a lookup). Bumped on every markDirty;
+	// cleared per ASIN when a build/refresh's read covers that ASIN's
+	// write (its version unchanged since the load started).
+	private dirtyVersions: Map<string, number>
 
 	constructor() {
 		this.asinToNames = new Map<string, Set<string>>()
-		this.dirtyAsins = new Set<string>()
+		this.dirtyVersions = new Map<string, number>()
 	}
 
 	/**
@@ -83,20 +86,26 @@ class AuthorNameIndex {
 	 * invalidated mid-flight (or failed) so nothing was published, starts a
 	 * fresh build. A warm-but-dirty index is refreshed with an
 	 * ASIN-scoped query (single-flight) before being served: one refresh
-	 * attempt per call, and a dirty index is never served — a failed or
-	 * stale refresh degrades to not-found, with the dirty state retained so
-	 * the next call retries the ASIN-scoped refresh (never a full
-	 * collection load).
+	 * attempt per call. A successful refresh publishes its staged index and
+	 * serves it even if other ASINs were dirtied mid-flight (those stay
+	 * dirty for the next lookup); a failed refresh degrades to not-found,
+	 * with the dirty state retained so the next call retries the
+	 * ASIN-scoped refresh (never a full collection load); an invalidated
+	 * refresh is discarded, and with the index dropped and the dirty state
+	 * cleared, the next call does a full rebuild.
 	 */
 	private async ensureIndex(): Promise<Map<string, Set<string>> | undefined> {
 		for (let attempt = 0; ; attempt++) {
 			const index = this.index
 			if (index) {
-				if (this.dirtyAsins.size === 0) return index
-				// Warm but dirty: one ASIN-scoped refresh, then serve only
-				// if it cleared the dirty set.
-				await (this.refreshPromise ?? this.startRefresh())
-				return this.dirtyAsins.size === 0 ? this.index : undefined
+				if (this.dirtyVersions.size > 0) {
+					// Warm but dirty: one ASIN-scoped refresh, then serve
+					// only if it published (a failed/invalidated refresh
+					// leaves the dirty set intact: not-found, retry next).
+					const published = await (this.refreshPromise ?? this.startRefresh())
+					return published ? this.index : undefined
+				}
+				return index
 			}
 			// Cold: attempt 0 builds; a failed build (nothing published) is
 			// retried once (bounded) before degrading to not-found.
@@ -115,26 +124,27 @@ class AuthorNameIndex {
 	}
 
 	/**
-	 * Records that the given ASIN's DB rows changed. Advances the
-	 * publication generation so in-flight builds/refreshes go stale, but
-	 * does NOT discard a warm index: the next resolve refreshes only this
-	 * ASIN's contributions instead of reloading the collection.
+	 * Records that the given ASIN's DB rows changed. Bumps the per-ASIN
+	 * dirty version (a later scoped refresh that reads this ASIN after this
+	 * write will cover it), but does NOT advance the global generation:
+	 * concurrent writes must not discard an in-flight refresh or build.
+	 * Does NOT discard a warm index: the next resolve refreshes only the
+	 * dirty ASINs' contributions instead of reloading the collection.
 	 */
 	markDirty(asin: string): void {
-		this.dirtyAsins.add(asin)
-		this.generation += 1
+		this.dirtyVersions.set(asin, (this.dirtyVersions.get(asin) ?? 0) + 1)
 	}
 
 	/**
-	 * Drops the built index so the next resolve rebuilds it. Also marks any
-	 * in-flight build/refresh stale so it cannot republish data read before
-	 * the invalidation, and clears the dirty set (a full rebuild re-reads
-	 * everything).
+	 * Drops the built index so the next resolve rebuilds it. Also bumps the
+	 * global generation so any in-flight build/refresh cannot republish
+	 * data read before the invalidation, and clears the per-ASIN dirty
+	 * state (a full rebuild re-reads everything).
 	 */
 	invalidate(): void {
 		this.index = undefined
 		this.asinToNames = new Map<string, Set<string>>()
-		this.dirtyAsins.clear()
+		this.dirtyVersions.clear()
 		this.generation += 1
 	}
 
@@ -158,6 +168,10 @@ class AuthorNameIndex {
 		const build = (async () => {
 			const index = new Map<string, Set<string>>()
 			const asinToNames = new Map<string, Set<string>>()
+			// Per-ASIN versions at the start of the read; a markDirty for a
+			// covered ASIN that bumps its version after this snapshot is NOT
+			// covered by the read and must stay dirty.
+			const versionsAtStart = new Map(this.dirtyVersions)
 			const authors = (await AuthorModel.find(
 				{},
 				{
@@ -170,13 +184,20 @@ class AuthorNameIndex {
 					this.addName(index, asinToNames, alias, author.asin)
 				}
 			}
-			// Publish only after a successful build, and only if no
-			// invalidation happened while this build was in flight.
-			if (generation === this.generation) {
-				this.index = index
-				this.asinToNames = asinToNames
-				this.dirtyAsins.clear()
+			// A full invalidation while the build was in flight means the
+			// read data is stale: do not publish.
+			if (generation !== this.generation) return
+			// Publish even when ASINs were markDirty()'d mid-flight: the
+			// build is a full-collection read, so it covers every ASIN as
+			// of its read; only ASINs dirtied after the read started stay
+			// dirty for a follow-up scoped refresh.
+			this.index = index
+			this.asinToNames = asinToNames
+			const remaining = new Map<string, number>()
+			for (const [asin, version] of this.dirtyVersions) {
+				if (version !== versionsAtStart.get(asin)) remaining.set(asin, version)
 			}
+			this.dirtyVersions = remaining
 		})().catch((error) => {
 			this.logger.error(
 				`[AuthorNameIndex] Failed to build index: ${error instanceof Error ? error.message : error}`
@@ -200,17 +221,27 @@ class AuthorNameIndex {
 	 * for those ASINs (one projected query), replaces each ASIN's
 	 * name/alias contributions (dropping removed ones and pruning empty
 	 * name sets), and publishes synchronously — no intervening awaits —
-	 * only when the generation is still valid. The refresh stages in an
-	 * isolated index copy (affected name Sets are cloned before mutation)
-	 * so a stale refresh leaves the published index untouched. On failure
-	 * the dirty state
+	 * unless a full invalidation landed mid-flight (only a global
+	 * generation bump discards the staged result). Writes (markDirty) do
+	 * NOT discard the refresh: the staged index is built from an isolated
+	 * copy of the read rows, and is always published when the generation
+	 * is still valid. After publishing, an ASIN is un-dirtied only if its
+	 * version is unchanged since the refresh started — ASINs dirtied later
+	 * stay dirty for the next scoped refresh. On failure the dirty state
 	 * is retained for the next lookup; the index keeps serving and the
 	 * next attempt is another ASIN-scoped refresh, not a full load.
+	 * @returns true if the staged index was published (even if other
+	 * ASINs stayed dirty), false if it was discarded (invalidated/failed).
 	 */
-	private startRefresh(): Promise<void> {
+	private startRefresh(): Promise<boolean> {
 		const generation = this.generation
 		const refresh = (async () => {
-			const dirtyAsins = [...this.dirtyAsins]
+			const dirtyAsins = [...this.dirtyVersions.keys()]
+			// Per-ASIN versions at the start of the read: an ASIN whose
+			// version is unchanged after the read was covered by it; a
+			// version bumped during the read (or the appearance of a new
+			// dirty ASIN) is not and must stay dirty.
+			const versionsAtStart = new Map(this.dirtyVersions)
 			const authors = (await AuthorModel.find(
 				{ asin: { $in: dirtyAsins } },
 				{
@@ -219,11 +250,11 @@ class AuthorNameIndex {
 			)) as AuthorRow[]
 			const index = this.index
 			const asinToNames = this.asinToNames
-			if (!index || !asinToNames) return
+			if (!index || !asinToNames) return false
 			const nextIndex = new Map(index)
 			const nextAsinToNames = new Map(asinToNames)
 			// Stage the refresh in an isolated copy: clone each affected
-			// name's ASIN Set before the first mutation, so a stale
+			// name's ASIN Set before the first mutation, so a discarded
 			// refresh (generation bumped mid-flight) never leaves the
 			// published index mutated.
 			const affectedKeys = new Set<string>()
@@ -251,7 +282,7 @@ class AuthorNameIndex {
 			// Add the ASINs' current contributions from their regional rows
 			// (ASINs with no remaining rows simply keep no reverse entry).
 			// Clone-on-write: a Set still shared with the published index
-			// is cloned before its first staged mutation, so a stale
+			// is cloned before its first staged mutation, so a discarded
 			// refresh never mutates the live index through the re-add
 			// path either.
 			const addStaged = (name: string, asin: string) => {
@@ -276,14 +307,20 @@ class AuthorNameIndex {
 					addStaged(alias, author.asin)
 				}
 			}
-			// Publish synchronously, only if no write landed mid-flight.
-			if (generation === this.generation) {
-				this.index = nextIndex
-				this.asinToNames = nextAsinToNames
-				for (const asin of dirtyAsins) {
-					this.dirtyAsins.delete(asin)
-				}
+			// A full invalidation while the refresh was in flight means the
+			// read data is stale: discard the staged index.
+			if (generation !== this.generation) return false
+			// Publish synchronously, and un-dirty only the ASINs whose
+			// versions the read covered; ASINs dirtied after the snapshot
+			// stay dirty for the next scoped refresh.
+			this.index = nextIndex
+			this.asinToNames = nextAsinToNames
+			const remaining = new Map<string, number>()
+			for (const [asin, version] of this.dirtyVersions) {
+				if (version !== versionsAtStart.get(asin)) remaining.set(asin, version)
 			}
+			this.dirtyVersions = remaining
+			return true
 		})().catch((error) => {
 			this.logger.error(
 				`[AuthorNameIndex] Failed to refresh author index: ${
@@ -292,6 +329,7 @@ class AuthorNameIndex {
 			)
 			// Keep the warm index and the dirty state: the next lookup
 			// retries the ASIN-scoped refresh (never a full collection load).
+			return false
 		})
 		this.refreshPromise = refresh
 		refresh.finally(() => {

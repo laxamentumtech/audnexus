@@ -58,6 +58,27 @@ function expectRatingsConsistent(book: ApiBook) {
 
 describe('Audible API and HTML Parsing', () => {
 	describe('When stitching together Scorcerers Stone', () => {
+		// Live Audible data drifts over time, so the drifted fields
+		// (description, summary, image, genres) override the static fixture;
+		// everything else stays validated against it.
+		const expected = {
+			...stripRatings(combinedB017V4IM1G),
+			description:
+				'Harry Potter lives hidden away in the cupboard under the stairs at Number Four, Privet Drive. When letters start arriving for him, they are swiftly confiscated by his cruel aunt and uncle.',
+			summary:
+				"<p><b>Hear the story that started it all. From September 1 through October 31, stream this edition of Harry Potter and the Sorcerer’s Stone on us.</b></p> <p><b>A new era of Hogwarts begins. The HBO Original Series </b><b><i>Harry Potter and the Philosopher's Stone</i></b><b> is coming this Christmas.</b></p> <p>---------</p> <p>Harry Potter lives hidden away in the cupboard under the stairs at Number Four, Privet Drive. When letters start arriving for him, they are swiftly confiscated by his cruel aunt and uncle. Then, on Harry’s eleventh birthday, a great giant of a man called Rubeus Hagrid bursts in with some astonishing news: Harry Potter is a <i>wizard</i>, and he has a place at Hogwarts School of Witchcraft and Wizardry. An incredible adventure is about to begin!</p> <p>------------</p> <p>Why start the Harry Potter series?</p> <ul> <li>It's an award-winning classic beloved by countless children and adults</li> <li>Its message of belonging and the power of friendship resonates with everyone</li> <li>Harry Potter, Ron Weasley and Hermione Granger are some of the most memorable figures of modern fiction</li> <li>It has inspired a lifelong love of stories across generations</li> </ul>",
+			image: 'https://m.media-amazon.com/images/I/91LDfWN4CKL.jpg',
+			genres: [
+				{ asin: '18572091011', name: "Children's Audiobooks", type: 'genre' },
+				{ asin: '18572323011', name: 'Growing Up & Facts of Life', type: 'tag' },
+				{ asin: '18572491011', name: 'Literature & Fiction', type: 'tag' },
+				{ asin: '18572505011', name: 'Family Life', type: 'tag' },
+				{ asin: '18572586011', name: 'Science Fiction & Fantasy', type: 'tag' },
+				{ asin: '18572587011', name: 'Fantasy & Magic', type: 'tag' },
+				{ asin: '18572588011', name: 'Action & Adventure', type: 'tag' }
+			]
+		}
+
 		beforeAll(async () => {
 			asin = 'B017V4IM1G'
 			helper = new StitchHelper(asin, 'us')
@@ -66,7 +87,7 @@ describe('Audible API and HTML Parsing', () => {
 		}, 10000)
 
 		it('returned the correct data', () => {
-			expect(stripRatings(response)).toEqual(stripRatings(combinedB017V4IM1G))
+			expect(stripRatings(response)).toEqual(expected)
 			expectRatingsConsistent(response)
 		})
 	})
