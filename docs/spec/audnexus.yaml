@@ -1356,6 +1356,12 @@ components:
           type: string
         name:
           type: string
+        # Populated when the author name resolves to more than one known
+        # ASIN (homonyms); the book's author entry has no single asin then.
+        authorCandidates:
+          type: array
+          items:
+            type: string
       required:
         - name
     RatingDistribution:

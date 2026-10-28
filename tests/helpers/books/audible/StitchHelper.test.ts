@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio'
 
 import { setPerformanceConfig } from '#config/performance'
 import { ApiBook, AudibleProduct } from '#config/types'
+import { authorNameIndex } from '#helpers/authorNameIndex/AuthorNameIndex'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import { BadRequestError, NotFoundError } from '#helpers/errors/ApiErrors'
@@ -38,6 +39,17 @@ mock.module('#helpers/utils/shared', () => {
 		}
 	}
 })
+
+const mockAuthorResolve = mock(() => Promise.resolve({}))
+
+mock.module('#helpers/authorNameIndex/AuthorNameIndex', () => ({
+	authorNameIndex: {
+		resolve: mockAuthorResolve,
+		invalidate: mock(),
+		build: mock(),
+		isReady: () => true
+	}
+}))
 
 let asin: string
 let helper: StitchHelper
@@ -281,6 +293,208 @@ describe('StitchHelper should throw error when', () => {
 		spyOn(helper.scrapeHelper, 'parseResponse').mockRejectedValue(badRequestError)
 		await expect(helper.parseScraperResponse()).rejects.toBe(badRequestError)
 		expect(badRequestError.statusCode).toBe(400)
+	})
+})
+
+describe('StitchHelper should enrich author ASINs', () => {
+	beforeEach(() => {
+		helper = new StitchHelper(asin, region)
+		mockAuthorResolve.mockReset()
+		mockAuthorResolve.mockImplementation(async (name: string) => {
+			const normalized = name.trim().replace(/\s+/g, ' ').toLowerCase()
+			if (normalized === 'jason anspach') return { asin: 'B012DQ3BCM' }
+			if (normalized === 'ambiguous author') {
+				return { candidates: ['B00000000X', 'B00000000Y'] }
+			}
+			return {}
+		})
+		// mockApiResponse has non-empty category_ladders, so process() skips
+		// the scraper and returns apiParsed directly without a genre merge
+		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() =>
+			Promise.resolve(deepCopy(mockApiResponse))
+		)
+	})
+
+	test('resolves missing ASINs uniquely and never overwrites present ASINs', async () => {
+		const parsed = deepCopy(parsedBook)
+		parsed.authors[0].asin = undefined
+		parsed.authors[0].name = 'Jason  Anspach'
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		// Uniquely-resolved ASIN survives into the returned ApiBook
+		expect(processed.authors[0]).toEqual({ asin: 'B012DQ3BCM', name: 'Jason  Anspach' })
+		// Present ASIN is never overwritten
+		expect(processed.authors[1].asin).toBe('B004W47QXE')
+	})
+
+	test('sets authorCandidates for ambiguous names', async () => {
+		const parsed = deepCopy(parsedBook)
+		parsed.authors = [{ name: 'Ambiguous Author' }]
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		expect(processed.authors[0]).toEqual({
+			name: 'Ambiguous Author',
+			authorCandidates: ['B00000000X', 'B00000000Y']
+		})
+	})
+
+	test('leaves not-found authors unchanged', async () => {
+		const parsed = deepCopy(parsedBook)
+		parsed.authors = [{ name: 'Unknown Person' }]
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		expect(processed.authors[0]).toEqual({ name: 'Unknown Person' })
+	})
+
+	test('enrichment failure never fails the scrape', async () => {
+		mockAuthorResolve.mockRejectedValue(new Error('index exploded'))
+		const parsed = deepCopy(parsedBook)
+		parsed.authors[0].asin = undefined
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		expect(mockAuthorResolve).toHaveBeenCalled()
+		// Author is left unchanged and the book is still returned
+		expect(processed.authors[0].name).toBe('Jason Anspach')
+		expect(processed.authors[0].asin).toBeUndefined()
+	})
+
+	test('applies out-of-order resolutions in the original author order', async () => {
+		// Resolutions are gated so they complete in reverse request
+		// order: results must be applied by original author index, not
+		// by completion order.
+		const results = new Map<string, unknown>([
+			['alpha author', { asin: 'B0ALPHA' }],
+			['beta author', { asin: 'B0BETA' }]
+		])
+		const resolvers = new Map<string, (value: unknown) => void>()
+		const allStarted = Promise.withResolvers<void>()
+		let startedCount = 0
+		mockAuthorResolve.mockImplementation((name: string) => {
+			startedCount += 1
+			if (startedCount === results.size) {
+				allStarted.resolve()
+			}
+			const { promise, resolve } = Promise.withResolvers<unknown>()
+			resolvers.set(name, resolve)
+			return promise
+		})
+		const parsed = deepCopy(parsedBook)
+		parsed.authors = [{ name: 'alpha author' }, { name: 'beta author' }]
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processPromise = helper.process()
+		// Both resolve() calls have started; complete in reverse order
+		await allStarted.promise
+		resolvers.get('beta author')!(results.get('beta author'))
+		resolvers.get('alpha author')!(results.get('alpha author'))
+		const processed = await processPromise
+		expect(processed.authors[0]).toEqual({ asin: 'B0ALPHA', name: 'alpha author' })
+		expect(processed.authors[1]).toEqual({ asin: 'B0BETA', name: 'beta author' })
+	})
+
+	test('only resolves authors missing an ASIN', async () => {
+		const parsed = deepCopy(parsedBook)
+		parsed.authors = [
+			{ asin: 'B04W47QXE', name: 'Present Author' },
+			{ name: 'Jason  Anspach' }
+		]
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		expect(mockAuthorResolve).toHaveBeenCalledTimes(1)
+		expect(mockAuthorResolve).toHaveBeenCalledWith('Jason  Anspach')
+		expect(processed.authors[0]).toEqual({ asin: 'B04W47QXE', name: 'Present Author' })
+		expect(processed.authors[1]).toEqual({ asin: 'B012DQ3BCM', name: 'Jason  Anspach' })
+	})
+
+	test('a rejected resolution leaves later authors unmodified', async () => {
+		mockAuthorResolve.mockImplementation(async (name: string) => {
+			if (name === 'exploding author') {
+				throw new Error('index exploded')
+			}
+			return { asin: 'B0FINE' }
+		})
+		const parsed = deepCopy(parsedBook)
+		parsed.authors = [{ name: 'exploding author' }, { name: 'fine author' }]
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+
+		const processed = await helper.process()
+		// The entire enrichment step is skipped on rejection: neither
+		// author is mutated and the book is still returned
+		expect(processed.authors[0]).toEqual({ name: 'exploding author' })
+		expect(processed.authors[1]).toEqual({ name: 'fine author' })
+	})
+
+	test('skips enrichment entirely when the index is not ready', async () => {
+		const parsed = deepCopy(parsedBook)
+		parsed.authors[0].asin = undefined
+		parsed.authors[0].name = 'Jason  Anspach'
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+		// The mocked module object is shared: swap the predicate and restore
+		const realIsReady = authorNameIndex.isReady
+		authorNameIndex.isReady = () => false
+		let processed: ApiBook
+		try {
+			processed = await helper.process()
+		} finally {
+			authorNameIndex.isReady = realIsReady
+		}
+		expect(mockAuthorResolve).not.toHaveBeenCalled()
+		// Book returned unchanged: the missing ASIN was never filled in
+		expect(processed.authors[0]).toEqual({ name: 'Jason  Anspach' })
+		expect(processed.authors[1].asin).toBe('B004W47QXE')
+	})
+
+	test('preserves authorCandidates when merging scraper genres', async () => {
+		const parsed = deepCopy(parsedBook)
+		// JSON round-trip degrades the Date; restore it so the merged book's
+		// ApiBookSchema revalidation succeeds
+		parsed.releaseDate = parsedBook.releaseDate
+		parsed.authors = [{ name: 'Ambiguous Author' }]
+		spyOn(helper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsed)
+		)
+		// Empty category_ladders forces the scraper path and the genre merge
+		const apiResponseWithoutLadders = deepCopy(mockApiResponse)
+		apiResponseWithoutLadders.product.category_ladders = []
+		spyOn(helper.apiHelper, 'fetchBook').mockImplementation(() =>
+			Promise.resolve(apiResponseWithoutLadders)
+		)
+		spyOn(helper.scrapeHelper, 'fetchBook').mockImplementation(() =>
+			Promise.resolve(mockHTMLResponse)
+		)
+		spyOn(helper.scrapeHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(genresObject)
+		)
+
+		const processed = await helper.process()
+		// Both the enrichment (authorCandidates) and the genre merge survive
+		// ApiBookSchema's revalidation of the merged book
+		expect(processed.authors[0]).toEqual({
+			name: 'Ambiguous Author',
+			authorCandidates: ['B00000000X', 'B00000000Y']
+		})
+		expect(processed.genres).toEqual(genresObject.genres)
 	})
 })
 

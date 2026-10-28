@@ -39,6 +39,8 @@ import {
 	parsedBookWithoutGenres
 } from '#tests/datasets/helpers/books'
 
+const deepCopy = (obj: unknown) => JSON.parse(JSON.stringify(obj))
+
 
 let asin: string
 let helper: PaprAudibleBookHelper
@@ -83,6 +85,35 @@ describe('PaprAudibleBookHelper should', () => {
 
 		await expect(helper.create()).resolves.toEqual(obj)
 		expect(mockInsertOne).toHaveBeenCalledWith(parsedBook)
+		expect(mockFindOne).toHaveBeenCalledWith({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
+	})
+	test('create round-trips authorCandidates through book persistence', async () => {
+		const book = deepCopy(parsedBook)
+		// JSON round-trip degrades the Date; restore it so the read-back
+		// projection's Zod revalidation succeeds
+		book.releaseDate = parsedBook.releaseDate
+		book.authors = [{ name: 'Ambiguous Author', authorCandidates: ['B0CAND0001', 'B0CAND0002'] }]
+		// In-memory stand-in for the collection: the insert stores the
+		// document as-is and the read-back returns exactly what was stored
+		const store = new Map<string, unknown>([[asin, book]])
+		mockInsertOne.mockImplementation((doc: unknown) => {
+			store.set(asin, doc)
+			return Promise.resolve(doc)
+		})
+		mockFindOne.mockImplementation(async () => store.get(asin) ?? null)
+		helper.setData(book)
+
+		const result = await helper.create()
+		// The candidate array survives persistence and the projection's
+		// Zod revalidation of the read-back
+		expect(result.data?.authors[0]).toEqual({
+			name: 'Ambiguous Author',
+			authorCandidates: ['B0CAND0001', 'B0CAND0002']
+		})
+		expect(mockInsertOne).toHaveBeenCalledTimes(1)
 		expect(mockFindOne).toHaveBeenCalledWith({
 			asin: asin,
 			$or: [{ region: { $exists: false } }, { region: options.region }]
