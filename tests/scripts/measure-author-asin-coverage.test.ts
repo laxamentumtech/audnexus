@@ -182,6 +182,58 @@ describe('extractRawAuthorEntries', () => {
 		expect(extractRawAuthorEntries({ product: {} })).toEqual([])
 		expect(extractRawAuthorEntries({ product: { authors: [] } })).toEqual([])
 	})
+	test('skips malformed authors values and elements instead of throwing', () => {
+		// Malformed shapes (non-array authors, null/undefined elements) are
+		// not representable as RawProduct, so the rows are built loosely and
+		// cast; the loop mirrors the inline multi-shape assertions above
+		type RawProduct = Parameters<typeof extractRawAuthorEntries>[0]
+		const cases: Array<{ raw: RawProduct; expected: BookAuthorEntry[] }> = [
+			// authors as a non-array object: return [] early, no TypeError
+			{
+				raw: { product: { authors: { asin: 'B001', name: 'Jane Doe' } } } as unknown as RawProduct,
+				expected: []
+			},
+			// authors as a string: no character-iteration garbage
+			{
+				raw: { product: { authors: 'Jane Doe' } } as unknown as RawProduct,
+				expected: []
+			},
+			// null/undefined/non-object elements: skipped, and a valid entry kept
+			{
+				raw: {
+					product: { authors: [null, undefined, 42, 'nope', { asin: 'B001', name: 'Jane Doe' }] }
+				} as unknown as RawProduct,
+				expected: [{ asin: 'B001', name: 'Jane Doe' }]
+			},
+			// elements with empty or non-string names: skipped, valid ones kept
+			{
+				raw: {
+					product: { authors: [{ name: '' }, { name: 7 }, { asin: 'B001', name: 'Jane Doe' }] }
+				} as unknown as RawProduct,
+				expected: [{ asin: 'B001', name: 'Jane Doe' }]
+			},
+			// existing valid entries unchanged
+			{
+				raw: {
+					product: {
+						authors: [
+							{ asin: 'B001', name: 'Jane Doe' },
+							{ name: 'Mark Davis' },
+							{ asin: 'B778' },
+							null
+						]
+					}
+				} as unknown as RawProduct,
+				expected: [
+					{ asin: 'B001', name: 'Jane Doe' },
+					{ asin: undefined, name: 'Mark Davis' }
+				]
+			}
+		]
+		for (const { raw, expected } of cases) {
+			expect(extractRawAuthorEntries(raw)).toEqual(expected)
+		}
+	})
 })
 
 describe('fetchRawAuthorEntries', () => {
@@ -257,6 +309,26 @@ describe('measureRawEntries', () => {
 			'https://api.audible.com/1.0/catalog/products/B0K1?response_groups=contributors',
 			'https://api.audible.co.uk/1.0/catalog/products/B0K2?response_groups=contributors'
 		])
+	})
+
+	test('keeps a book with empty authors when the raw response has a malformed authors payload', async () => {
+		// A successful fetch whose authors value is a non-array object must not
+		// fall into the catch path: the book stays counted as fetched with []
+		const books: BookRow[] = [
+			{ asin: 'B0K1', region: 'us', authors: [{ asin: 'B001', name: 'Jane Doe' }] }
+		]
+		const fetchImpl = async () => ({
+			status: 200,
+			ok: true,
+			json: async () => ({
+				product: { authors: { asin: 'B001', name: 'Jane Doe' } },
+				response_groups: ['contributors']
+			})
+		})
+		const result = await measureRawEntries(books, fetchImpl)
+		expect(result.fetched).toBe(1)
+		expect(result.excluded).toBe(0)
+		expect(result.books).toEqual([{ asin: 'B0K1', region: 'us', authors: [] }])
 	})
 
 	test('excludes books whose raw fetch fails and measures the rest', async () => {

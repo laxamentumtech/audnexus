@@ -269,8 +269,13 @@ interface RawProduct {
  */
 export function extractRawAuthorEntries(raw: RawProduct): BookAuthorEntry[] {
 	const entries: BookAuthorEntry[] = []
-	for (const author of raw.product?.authors ?? []) {
-		if (!author.name) continue
+	const authors = raw.product?.authors
+	if (!Array.isArray(authors)) return entries
+	for (const author of authors) {
+		// Malformed elements (null/undefined/non-object) must be skipped, not
+		// throw — a throw here would surface as a silent exclusion upstream
+		if (typeof author !== 'object' || author === null) continue
+		if (typeof author.name !== 'string' || !author.name) continue
 		entries.push({ asin: author.asin, name: author.name })
 	}
 	return entries
