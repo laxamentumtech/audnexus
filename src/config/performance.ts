@@ -70,6 +70,22 @@ export const PerformanceConfigSchema = z.object({
 	/** Documents per batch when paginating over books/authors/chapters */
 	SCHEDULER_BATCH_SIZE: z.number().int().positive().max(MAX_SCHEDULER_BATCH_SIZE).default(1000),
 
+	/**
+	 * Hard deadline for a single scheduler item (env: milliseconds). A hung
+	 * fetch/DB await must surface as an error instead of silently parking the
+	 * only worker slot; the surrounding loop catches it and counts a failure.
+	 * 0 disables the guard.
+	 */
+	SCHEDULER_ITEM_TIMEOUT_MS: z.number().int().min(0).default(120000),
+
+	/** Randomized pacing wait range in ms for batch workers (env: "min-max" or bare "max") */
+	JITTER_MS: z
+		.object({ min: z.number().int().min(0), max: z.number().int().min(0) })
+		.refine((range) => range.min <= range.max, {
+			message: 'JITTER_MS.min must be <= JITTER_MS.max'
+		})
+		.default({ min: 0, max: 5000 }),
+
 	/** Default region for batch processing when none specified */
 	DEFAULT_REGION: z.string().default('us')
 })
@@ -85,7 +101,18 @@ export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
  * Falls back to sensible defaults when env vars are not set.
  */
 export function createPerformanceConfig(): PerformanceConfig {
-	// Parse numeric values with fallbacks
+	// Parse numeric values with fallbacks. SCHEDULER_ITEM_TIMEOUT_MS uses
+	// strict full-string validation (like JITTER_MS) — '0' is meaningful
+	// (disables the per-item deadline), so only a pure non-negative integer
+	// string is accepted; anything else falls back to the 120s default.
+	const schedulerItemTimeoutRaw = process.env.SCHEDULER_ITEM_TIMEOUT_MS?.trim()
+	const validatedSchedulerItemTimeout =
+		schedulerItemTimeoutRaw && /^\d+$/.test(schedulerItemTimeoutRaw)
+			? (() => {
+					const parsed = Number(schedulerItemTimeoutRaw)
+					return Number.isSafeInteger(parsed) ? parsed : 120000
+				})()
+			: 120000
 	const maxConcurrentRequests = process.env.MAX_CONCURRENT_REQUESTS
 		? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
 		: 50
@@ -125,6 +152,23 @@ export function createPerformanceConfig(): PerformanceConfig {
 			? 1000
 			: Math.min(schedulerBatchSize, MAX_SCHEDULER_BATCH_SIZE)
 
+	const defaultJitter = { min: 0, max: 5000 }
+	const jitterRaw = process.env.JITTER_MS?.trim()
+	const jitterMs = (() => {
+		if (!jitterRaw) return defaultJitter
+		const parts = jitterRaw.split('-').map((part) => part.trim())
+		if (parts.length > 2 || !parts.every((part) => /^\d+$/.test(part))) {
+			return defaultJitter
+		}
+		const numbers = parts.map((part) => Number(part))
+		if (numbers.some((n) => !Number.isSafeInteger(n))) {
+			return defaultJitter
+		}
+		const min = parts.length === 2 ? numbers[0] : 0
+		const max = numbers[numbers.length - 1]
+		return min > max ? defaultJitter : { min, max }
+	})()
+
 	return PerformanceConfigSchema.parse({
 		USE_PARALLEL_SCHEDULER: parseBoolean(process.env.USE_PARALLEL_SCHEDULER) ?? false,
 		USE_CONNECTION_POOLING: parseBoolean(process.env.USE_CONNECTION_POOLING) ?? true,
@@ -136,6 +180,8 @@ export function createPerformanceConfig(): PerformanceConfig {
 		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency,
 		SCHEDULER_MAX_PER_REGION: validatedSchedulerMaxPerRegion,
 		SCHEDULER_BATCH_SIZE: validatedSchedulerBatchSize,
+		SCHEDULER_ITEM_TIMEOUT_MS: validatedSchedulerItemTimeout,
+		JITTER_MS: jitterMs,
 		DEFAULT_REGION: process.env.DEFAULT_REGION?.trim() || 'us'
 	})
 }
@@ -159,6 +205,8 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
 	SCHEDULER_BATCH_SIZE: 1000,
+	SCHEDULER_ITEM_TIMEOUT_MS: 120000,
+	JITTER_MS: { min: 0, max: 5000 },
 	DEFAULT_REGION: 'us'
 }
 

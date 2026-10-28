@@ -40,6 +40,14 @@ export default class GenericShowHelper {
 	type: 'author' | 'book' | 'chapter'
 	logger?: FastifyBaseLogger
 	forceUpdate?: boolean
+	/** True after handler() resolved with data that came from a fresh upstream
+	 * fetch (including the pre-order transient path). False when the handler
+	 * returned stored/projection data without hitting upstream — the recency
+	 * gate and the REGION_UNAVAILABLE/PRODUCT_DELISTED fallback. Consumers
+	 * like the scheduler's adaptive cooldown use this to decide whether a
+	 * resolved item was a genuinely usable fetch (registerSuccess) or a no-op
+	 * that must not relax the cooldown. */
+	fetchedFreshData = false
 	constructor(
 		asin: string,
 		options: ApiQueryString,
@@ -169,6 +177,11 @@ export default class GenericShowHelper {
 		const newData = await this.getNewData()
 		// Special handling for chapter undefined
 		if (this.type == 'chapter' && !newData) return undefined
+
+		// From here on the returned data came from a fresh upstream fetch
+		// (persistence below only stores it) — the usable-fetch signal for
+		// the adaptive cooldown.
+		this.fetchedFreshData = true
 
 		// Pre-order books carry provisional metadata that can change before release;
 		// skip persistence only when we already have a cached/stored record to serve

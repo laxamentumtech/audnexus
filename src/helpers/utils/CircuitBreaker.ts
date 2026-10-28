@@ -210,24 +210,4 @@ export class CircuitBreaker {
 	}
 }
 
-/**
- * Global circuit breaker instance for Audible API
- * Shared across all API calls
- */
-let audibleCircuitBreaker: CircuitBreaker | null = null
-
-export function getAudibleCircuitBreaker(): CircuitBreaker {
-	if (!audibleCircuitBreaker) {
-		audibleCircuitBreaker = new CircuitBreaker(DEFAULT_CIRCUIT_BREAKER_OPTIONS)
-	}
-	return audibleCircuitBreaker
-}
-
-/**
- * Reset the global circuit breaker (for testing)
- */
-export function resetAudibleCircuitBreaker(): void {
-	audibleCircuitBreaker = null
-}
-
 export default CircuitBreaker
