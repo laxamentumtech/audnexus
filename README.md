@@ -228,6 +228,43 @@ HTML can be re-generated from the spec, using:
 bun run build-docs
 ```
 
+### History operations
+
+The book history feature (stored metadata/artwork change tracking) is gated
+off by default. When enabled, the database needs one preparation step and a
+one-time legacy artwork seed. The DB-only operational CLI runs directly
+against `MONGODB_URI` — it starts no server, Redis, or queue:
+
+```bash
+# Create the named history indexes (idempotent; a same-name conflicting
+# definition fails and is never replaced)
+bun src/history.ts prepare
+
+# Report current-book readiness issues: exact-region duplicate rows,
+# region-less rows, exact+region-less identity conflicts, and state coverage
+bun src/history.ts audit
+
+# One-time per-row legacy artwork seed. Each row runs in its own majority
+# transaction; the singleton checkpoint's row watermark advances in the same
+# transaction, so an interrupted run resumes where it stopped. Re-running a
+# completed seed is a no-op.
+bun src/history.ts seed
+
+# Supersede an in-flight seed run: atomically starts a new run (new run
+# id) and restarts the scan from the top. History data is never touched;
+# only scan progress and the captured row bound reset.
+bun src/history.ts seed --restart
+
+# Report the seed state, in-flight run position, and current retained
+# history coverage (baselined states, gallery assets, identity exceptions)
+bun src/history.ts status
+```
+
+Index creation is CLI-only. With `BOOK_HISTORY_ENABLED=true`, the server and
+worker fail closed at startup if the required history indexes (and a
+transaction-capable replica set) are not present — `prepare` is therefore a
+prerequisite of enabling history in any deployment.
+
 ## 🚀 Deployment <a name = "deployment"></a>
 
 ### Coolify Deployment

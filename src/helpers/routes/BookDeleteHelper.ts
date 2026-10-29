@@ -1,13 +1,16 @@
 import { FastifyRedis } from '@fastify/redis'
 import type { FastifyBaseLogger } from 'fastify'
 
+import { isBookHistoryEnabled } from '#config/bookHistory'
 import { BookDocument } from '#config/models/Book'
+import { bookHistoryStore } from '#config/papr'
 import { ApiQueryString } from '#config/types'
 import PaprAudibleBookHelper from '#helpers/database/papr/audible/PaprAudibleBookHelper'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 
 export default class BookDeleteHelper {
 	asin: string
+	options: ApiQueryString
 	paprHelper: PaprAudibleBookHelper
 	redisHelper: RedisHelper
 	originalBook: BookDocument | null = null
@@ -18,8 +21,9 @@ export default class BookDeleteHelper {
 		logger?: FastifyBaseLogger
 	) {
 		this.asin = asin
-		this.paprHelper = new PaprAudibleBookHelper(this.asin, options, logger)
-		this.redisHelper = new RedisHelper(redis, 'book', this.asin, options.region, logger)
+		this.options = options
+		this.paprHelper = new PaprAudibleBookHelper(asin, options, logger)
+		this.redisHelper = new RedisHelper(redis, 'book', asin, options.region, logger)
 	}
 
 	async getBookFromPapr(): Promise<BookDocument | null> {
@@ -42,6 +46,16 @@ export default class BookDeleteHelper {
 	 */
 	async handler() {
 		this.originalBook = await this.getBookFromPapr()
+
+		if (isBookHistoryEnabled()) {
+			// Transactional delete: identity resolution, legacy artwork
+			// capture, delete by verified _id, and delete fence — history
+			// state, baselines, revisions, and assets all survive.
+			const result = await bookHistoryStore.deleteCurrent(this.asin, this.options.region)
+			if (result.data.deletedCount === 0) return false
+			await this.redisHelper.deleteOne()
+			return true
+		}
 
 		// If the book is already present
 		if (this.originalBook) {

@@ -4,6 +4,7 @@ services:
     restart: always
     environment:
       ADP_TOKEN: ${ADP_TOKEN}
+      BOOK_HISTORY_ENABLED: ${BOOK_HISTORY_ENABLED:-false}
       MAX_REQUESTS: ${MAX_REQUESTS:-300}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/audnexus}
       PRIVATE_KEY: ${PRIVATE_KEY}
@@ -32,6 +33,7 @@ services:
     command: ['bun', 'run', 'worker']
     environment:
       ADP_TOKEN: ${ADP_TOKEN}
+      BOOK_HISTORY_ENABLED: ${BOOK_HISTORY_ENABLED:-false}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/audnexus}
       PRIVATE_KEY: ${PRIVATE_KEY}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
