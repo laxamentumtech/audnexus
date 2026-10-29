@@ -93,3 +93,25 @@ export class ValidationError extends Error {
 		}
 	}
 }
+
+/**
+ * Error thrown when a concurrent or contradictory state makes the operation
+ * unsafe to continue (HTTP 409). The client can re-read and retry.
+ */
+export class ConflictError extends Error {
+	readonly statusCode: number
+	readonly details?: ErrorDetails
+
+	constructor(message: string, details?: ErrorDetails) {
+		super(message)
+		this.name = 'ConflictError'
+		this.statusCode = 409
+		this.details = details
+		// Maintains proper stack trace for where error was thrown
+		if (Error.captureStackTrace) {
+			Error.captureStackTrace(this, ConflictError)
+		} else {
+			this.stack = new Error(message).stack
+		}
+	}
+}

@@ -2,17 +2,14 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
-import { fastify, FastifyBaseLogger, FastifyError, FastifyReply, FastifyRequest } from 'fastify'
+import { fastify, type FastifyBaseLogger } from 'fastify'
 import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
 
+import { isBookHistoryEnabled } from '#config/bookHistory'
 import { Context, createDefaultContext } from '#config/context'
-import {
-	BadRequestError,
-	ContentTypeMismatchError,
-	NotFoundError,
-	ValidationError
-} from '#helpers/errors/ApiErrors'
+import { registerApiErrorHandler } from '#config/errorHandler'
+import { bookHistoryStore, initialize } from '#config/papr'
 
 // Extend FastifyInstance to include mongoClient for health check
 declare module 'fastify' {
@@ -20,15 +17,17 @@ declare module 'fastify' {
 		mongoClient?: MongoClient
 	}
 }
-import { initialize } from '#config/papr'
 import { registerPerformanceHooks } from '#config/performance/hooks'
 import deleteAuthor from '#config/routes/authors/delete'
 import searchAuthor from '#config/routes/authors/search/show'
 import showAuthor from '#config/routes/authors/show'
+import bookArtwork from '#config/routes/books/artwork'
 import backfillBookRatings from '#config/routes/books/backfill'
 import deleteChapter from '#config/routes/books/chapters/delete'
 import showChapter from '#config/routes/books/chapters/show'
 import deleteBook from '#config/routes/books/delete'
+import bookHistory from '#config/routes/books/history'
+import bookHistoryDetail from '#config/routes/books/historyDetail'
 import searchBook from '#config/routes/books/search/show'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
@@ -132,72 +131,7 @@ async function registerPlugins() {
 		timeWindow: '1 minute'
 	})
 	// Send 429 if rate limit is reached
-	// Check for custom error status codes (404, 400, etc.)
-	server.setErrorHandler(function (
-		error: FastifyError,
-		request: FastifyRequest,
-		reply: FastifyReply
-	) {
-		const errorCodeMap: Record<string, string> = {
-			ContentTypeMismatchError: 'CONTENT_TYPE_MISMATCH',
-			ValidationError: 'VALIDATION_ERROR',
-			NotFoundError: 'NOT_FOUND',
-			BadRequestError: 'BAD_REQUEST'
-		}
-
-		if (
-			error instanceof ContentTypeMismatchError ||
-			error instanceof ValidationError ||
-			error instanceof NotFoundError ||
-			error instanceof BadRequestError
-		) {
-			const statusCode = error.statusCode
-			const errorCode = error.details?.code || errorCodeMap[error.name] || 'UNKNOWN_ERROR'
-
-			reply.status(statusCode)
-			reply.send({
-				error: {
-					code: errorCode,
-					message: error.message,
-					details: error.details
-				}
-			})
-			return
-		}
-
-		// Check for 429 rate limit errors first
-		if (reply.statusCode === 429) {
-			if (error instanceof Error) {
-				reply.status(429)
-				reply.send({
-					error: {
-						code: 'RATE_LIMIT_EXCEEDED',
-						message: 'Rate limit reached. Please try again later.',
-						details: null
-					}
-				})
-				return
-			} else {
-				server.log.error('Non-error object in error handler: %s', String(error))
-			}
-		}
-
-		// Check if error has a custom statusCode property
-		if (error instanceof Error && 'statusCode' in error) {
-			const statusCode = (error as Error & { statusCode: number }).statusCode
-			const errorCode = String(statusCode || 'UNKNOWN_ERROR')
-			reply.status(statusCode)
-			reply.send({
-				error: {
-					code: errorCode,
-					message: error.message || 'An error occurred',
-					details: null
-				}
-			})
-			return
-		}
-		reply.send(error)
-	})
+	registerApiErrorHandler(server)
 }
 
 /**
@@ -209,6 +143,9 @@ async function registerRoutes() {
 		.register(searchBook)
 		.register(showBook)
 		.register(deleteBook)
+		.register(bookHistory)
+		.register(bookHistoryDetail)
+		.register(bookArtwork)
 		.register(backfillBookRatings)
 		.register(showChapter)
 		.register(deleteChapter)
@@ -243,8 +180,24 @@ async function startServer() {
 
 	server.log.info(`Trusted proxies configured: ${trustedProxies.length} ranges`)
 
-	// Register plugins
+	// Register plugins (rate limiting and the shared structured error
+	// handler) before any route can be reached.
 	await registerPlugins().then(() => server.log.info('Plugins registered'))
+
+	// Connect/initialize before routes, scheduler registration, and the
+	// HTTP listener. An activation-gate or initialization failure must
+	// leave no open listener and no scheduled work.
+	try {
+		await initialize({ client: await ctx.client.connect() })
+		// Activation gate: enabled mode refuses to start without a
+		// transaction-capable replica set and prepared history indexes.
+		if (isBookHistoryEnabled()) await bookHistoryStore.assertHistoryPrerequisites()
+		server.log.info('Connected to DB')
+	} catch (err) {
+		server.log.error(err)
+		process.exit(1)
+	}
+	server.mongoClient = ctx.client
 
 	// Register routes
 	await registerRoutes().then(() => server.log.info('Routes registered'))
@@ -257,9 +210,6 @@ async function startServer() {
 	// Start main server
 	try {
 		const address = await server.listen({ port, host })
-		await initialize({ client: await ctx.client.connect() })
-		server.log.info('Connected to DB')
-		server.mongoClient = ctx.client
 		server.log.info(`Server listening at ${address}`)
 	} catch (err) {
 		server.log.error(err)

@@ -48,11 +48,18 @@ export async function iterateKeyset<T extends { _id: ObjectId }, P extends Recor
 	options: KeysetOptions<P>,
 	onBatch: (batch: T[]) => Promise<boolean | void>
 ): Promise<number> {
-	const { baseFilter = {}, batchSize, projection } = options
+	const { baseFilter, batchSize, projection } = options
 	let lastId: ObjectId | null = null
 	let batches = 0
 	while (true) {
-		const filter = lastId ? { ...baseFilter, _id: { $gt: lastId } } : { ...baseFilter }
+		const continuation = lastId ? { _id: { $gt: lastId } } : {}
+		// The base filter is `$and`-composed with the continuation so a
+		// baseFilter carrying its own `_id` bound (explicit upper watermark)
+		// is never overwritten by the walk's own continuation.
+		const filter =
+			baseFilter === undefined
+				? continuation
+				: { $and: [baseFilter, ...(Object.keys(continuation).length ? [continuation] : [])] }
 		const batch = await find(filter, { projection, sort: { _id: 1 }, limit: batchSize })
 		if (batch.length === 0) break
 		batches += 1

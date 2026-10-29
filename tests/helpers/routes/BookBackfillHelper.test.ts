@@ -109,13 +109,13 @@ describe('BookBackfillHelper should', () => {
 		expect(mockBookFind).toHaveBeenCalledTimes(2)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			1,
-			{ ratings: { $exists: false } },
+			{ $and: [{ ratings: { $exists: false } }] },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-			{ ratings: { $exists: false }, _id: { $gt: books[books.length - 1]._id } },
-			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
+		{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
+		{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
 
@@ -166,12 +166,12 @@ describe('BookBackfillHelper should', () => {
 		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, failed: 0 })
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-			{ ratings: { $exists: false }, _id: { $gt: books[books.length - 1]._id } },
+			{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			3,
-			{ ratings: { $exists: false }, _id: { $gt: secondPage[secondPage.length - 1]._id } },
+			{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: secondPage[secondPage.length - 1]._id } }] },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})

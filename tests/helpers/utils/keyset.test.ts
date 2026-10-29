@@ -17,15 +17,27 @@ const docs = ids.map((_id) => ({ _id, asin: `A${_id.toString()}`, region: 'us' a
 const projection = { asin: 1, region: 1 } as const
 const findOptions = { projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 2 }
 
+/** Resolve the walk's `_id $gt` boundary from a flat or `$and`-composed filter. */
+function boundaryId(filter: object): ObjectId | null {
+	const f = filter as Record<string, unknown>
+	const direct = f._id as { $gt?: ObjectId } | undefined
+	if (direct?.$gt) return direct.$gt
+	const and = f.$and as Array<Record<string, unknown>> | undefined
+	for (const clause of and ?? []) {
+		const nested = clause._id as { $gt?: ObjectId } | undefined
+		if (nested?.$gt) return nested.$gt
+	}
+	return null
+}
+
 // Simulate an `_id $gt`-paginated collection with batchSize 2: the page
 // starts at the index after the $gt boundary id (or 0 on the first page).
 const findPaged =
 	(batchSize: number) =>
 	async (filter: object) => {
 		// Offset after the $gt boundary id (or 0 on the first page).
-		const offset = filter._id
-			? ids.findIndex((id) => id.equals((filter._id as { $gt: ObjectId }).$gt)) + 1
-			: 0
+		const boundary = boundaryId(filter)
+		const offset = boundary ? ids.findIndex((id) => id.equals(boundary)) + 1 : 0
 		return docs.slice(offset, offset + batchSize)
 	}
 
@@ -52,8 +64,12 @@ describe('iterateKeyset should', () => {
 			{ projection, baseFilter: { ratings: { $exists: false } }, batchSize: 2 },
 			mock()
 		)
-		expect(find).toHaveBeenNthCalledWith(1, { ratings: { $exists: false } }, findOptions)
-		expect(find).toHaveBeenNthCalledWith(2, { ratings: { $exists: false }, _id: { $gt: ids[1] } }, findOptions)
+		expect(find).toHaveBeenNthCalledWith(1, { $and: [{ ratings: { $exists: false } }] }, findOptions)
+		expect(find).toHaveBeenNthCalledWith(
+			2,
+			{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: ids[1] } }] },
+			findOptions
+		)
 	})
 
 	it('returns zero batches when the first page is empty', async () => {

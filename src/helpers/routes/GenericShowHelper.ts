@@ -1,9 +1,11 @@
 import { FastifyRedis } from '@fastify/redis'
 import type { FastifyBaseLogger } from 'fastify'
 
+import { isBookHistoryEnabled } from '#config/bookHistory'
 import type { AuthorDocument } from '#config/models/Author'
 import type { BookDocument } from '#config/models/Book'
 import type { ChapterDocument } from '#config/models/Chapter'
+import { bookHistoryStore } from '#config/papr'
 import { getPerformanceConfig } from '#config/performance'
 import {
 	ApiAuthorProfile,
@@ -173,8 +175,18 @@ export default class GenericShowHelper {
 	 * @throws {Error} Data is null or not the correct type
 	 */
 	async createOrUpdateData(): Promise<ApiAuthorProfile | ApiBook | ApiChapter | undefined> {
-		// 1. Place the new data into the paprHelper
-		const newData = await this.getNewData()
+		// 1. Place the new data into the paprHelper. History-enabled book
+		// fetches run through the same StitchHelper instance that is the
+		// final consumer of the fetch session: its generation is reserved
+		// before the fetch (a failed fetch consumes it, establishing no
+		// resources) and its evidence is read after a success.
+		let stitchHelper: StitchHelper | null = null
+		let generation: number | undefined
+		if (this.type === 'book' && isBookHistoryEnabled()) {
+			stitchHelper = new StitchHelper(this.asin, this.options.region, this.logger, true)
+			generation = await bookHistoryStore.reserveGeneration(this.asin, this.options.region)
+		}
+		const newData = stitchHelper ? await stitchHelper.process() : await this.getNewData()
 		// Special handling for chapter undefined
 		if (this.type == 'chapter' && !newData) return undefined
 
@@ -194,6 +206,10 @@ export default class GenericShowHelper {
 			return newData
 		}
 
+		if (this.type === 'book' && stitchHelper && generation !== undefined) {
+			return await this.persistBookWithHistory(stitchHelper, generation, newData as ApiBook)
+		}
+
 		this.paprHelper.setData(newData as never)
 
 		// 2. Create or update the data
@@ -207,6 +223,57 @@ export default class GenericShowHelper {
 		this.redisHelper.setOne(data)
 
 		return data
+	}
+
+	/**
+	 * History-enabled book persistence: transactional persist of the current
+	 * book + baselines + optional revision under the reserved generation,
+	 * then the redis cache.
+	 */
+	private async persistBookWithHistory(
+		stitchHelper: StitchHelper,
+		generation: number,
+		newData: ApiBook
+	): Promise<ApiBook> {
+		const region = this.options.region
+		const observation = stitchHelper.getHistoryObservation()
+		if (!observation) {
+			// Failed to produce evidence on a resolved fetch (e.g. response
+			// without parsed product evidence). The reserved generation is
+			// consumed without establishing resources; the update proceeds
+			// through the ordinary papr path, which retains the legacy
+			// write behavior for this run.
+			this.logger?.warn(`History evidence missing for ${this.asin}; persisting via legacy path.`)
+			this.paprHelper.setData(newData as never)
+			const dataToReturn = await this.paprHelper.createOrUpdate()
+			if (dataToReturn.data === null) throw this.errorMessageDataType()
+			const data = (await this.getDataWithProjection()) as ApiBook
+			this.redisHelper.setOne(data)
+			return data
+		}
+		const result = await bookHistoryStore.persistObservation({
+			asin: this.asin,
+			region,
+			generation,
+			book: newData,
+			observation,
+			updateRequested: this.originalData !== null
+		})
+		if (result.disposition === 'rejected') {
+			// Same outcome class as the disabled-mode genre safeguard: the
+			// update is refused and the stored projection stands with 200.
+			const stored = (await this.getDataWithProjection()) as ApiBook
+			this.redisHelper.setOne(stored)
+			return stored
+		}
+		if (result.disposition === 'stale' && result.data === null) {
+			// A concurrent delete left the generation stale with no current
+			// row: the book is gone.
+			throw new NotFoundError(`Book ${this.asin} not found in region ${region}`)
+		}
+		if (result.data === null) throw this.errorMessageDataType()
+		if (result.disposition === 'accepted') this.redisHelper.setOne(result.data)
+		return result.data
 	}
 
 	/**

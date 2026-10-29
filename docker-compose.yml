@@ -6,6 +6,7 @@ services:
     restart: always
     environment:
       ADP_TOKEN: ${ADP_TOKEN}
+      BOOK_HISTORY_ENABLED: ${BOOK_HISTORY_ENABLED:-false}
       MAX_REQUESTS: ${MAX_REQUESTS:-300}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/audnexus}
       PRIVATE_KEY: ${PRIVATE_KEY}

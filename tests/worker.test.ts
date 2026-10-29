@@ -29,7 +29,10 @@ const mockWorkerClose = mock()
 // file in its own worker process, so the mocks never escape this file. Do not
 // run this file under default parallel `bun test` alongside other suites.
 mock.module('#config/papr', () => ({
-	initialize: mockPaprInitialize
+	initialize: mockPaprInitialize,
+	// The worker's activation gate calls this only when BOOK_HISTORY_ENABLED
+	// is true; tests run disabled, so a stub object is sufficient.
+	bookHistoryStore: { assertHistoryPrerequisites: mock() }
 }))
 mock.module('#config/context', () => ({
 	// matches the real Context shape: { client: MongoClient }
