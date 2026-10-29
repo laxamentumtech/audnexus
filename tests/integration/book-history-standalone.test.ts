@@ -299,7 +299,163 @@ run('BookHistoryStore against a replica set', () => {
 		expect(revisions).toBe(revisionsBefore + 1)
 	})
 
-	test('unparsed artwork references are retained without an image ID', async () => {
+test('legacy capture on first touch does not collide with the next asset sequence', async () => {
+	// F1 regression: an established legacy row (no state) has its image
+	// archived at sequence 1 on first touch; the new observation's
+	// assets must continue at sequence 2, not reuse 1.
+	const legacyAsin = 'B0LEGACY01'
+	const db2 = collections()
+	await db2.collection('books').insertOne({
+		asin: legacyAsin,
+		region: REGION,
+		title: 'Legacy Row',
+		image: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
+	} as never)
+	const result = await bookHistoryStore.persistObservation({
+		asin: legacyAsin,
+		region: REGION,
+		generation: 1,
+		book: book({ asin: legacyAsin, title: 'Legacy Row' }),
+		observation: observation({
+			title: 'Legacy Row',
+			imageId: IMG2,
+			imageUrl: `https://m.media-amazon.com/images/I/${IMG2}.jpg`
+		}),
+		updateRequested: true
+	})
+	expect(result.disposition).toBe('accepted')
+	const sequences = (
+		await db2
+			.collection('book_artwork')
+			.find({ asin: legacyAsin, region: REGION })
+			.project({ sequence: 1 })
+			.sort({ sequence: 1 })
+			.toArray()
+	).map((doc) => doc.sequence)
+	expect(sequences).toEqual([1, 2])
+	const state = await db2.collection('book_history_states').findOne({
+		_id: `${REGION}:${legacyAsin}`
+	})
+	expect(state?.assetSequence).toBe(2)
+}, 30000)
+
+test('an equal observation on a seeded empty-baseline book initializes baselines', async () => {
+	// F2 regression: an established state with no baselines (seed
+	// outcome) must be initialized from the next accepted — equal —
+	// observation, and a restricted rendition transition on an equal
+	// public projection still produces a revision.
+	const seedAsin = 'B0SEEDEQ01'
+	const db2 = collections()
+	await db2.collection('books').insertOne({
+		asin: seedAsin,
+		region: REGION,
+		title: 'Seeded Book',
+		image: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
+	} as never)
+	// Seed-like established state with empty baselines.
+	await db2.collection('book_history_states').insertOne({
+		_id: `${REGION}:${seedAsin}`,
+		asin: seedAsin,
+		region: REGION,
+		allocatedGeneration: 0,
+		acceptedGeneration: 0,
+		deleteFence: 0,
+		revision: 0,
+		assetSequence: 1,
+		stateVersion: 1,
+		established: true,
+		legacyCaptured: true,
+		fields: [],
+		renditions: []
+	} as never)
+	await db2.collection('book_artwork').insertOne({
+		asin: seedAsin,
+		region: REGION,
+		sequence: 1,
+		imageId: IMG1,
+		legacy: {
+			sourceBookId: new ObjectId(),
+			storedUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`,
+			importedAt: new Date('2026-01-01T00:00:00.000Z')
+		},
+		renditions: []
+	} as never)
+	const result = await bookHistoryStore.persistObservation({
+		asin: seedAsin,
+		region: REGION,
+		generation: 1,
+		book: book({ asin: seedAsin, title: 'Seeded Book' }),
+		observation: observation({
+			title: 'Seeded Book',
+			imageId: IMG2,
+			imageUrl: `https://m.media-amazon.com/images/I/${IMG2}.jpg`
+		}),
+		updateRequested: true
+	})
+	expect(result.disposition).toBe('accepted')
+	const state = await db2.collection('book_history_states').findOne({
+		_id: `${REGION}:${seedAsin}`
+	})
+	expect(state?.fields.length).toBe(1)
+	expect((state?.renditions as Array<{ imageId: string }>)?.[0]?.imageId).toBe(IMG2)
+	// The seeded state had no baselines, so the equal observation
+	// initializes them quietly — no revision document.
+	expect(state?.revision).toBe(0)
+	expect(
+		await db2.collection('book_history_revisions').countDocuments({
+			asin: seedAsin,
+			region: REGION
+		})
+	).toBe(0)
+	// The initialization stamp is recorded.
+	expect(state?.startedAt).toBeInstanceOf(Date)
+}, 30000)
+
+test('a non-trusted current row produces a conflict, not an acceptance', async () => {
+	// F6 regression: a row whose region is null/unsupported is a
+	// competitor; the exact row is not trusted while it exists.
+	const conflictAsin = 'B0CONFLICT1'
+	const db2 = collections()
+	const seeded = (await db2.collection('book_history_states').findOne({
+		_id: `${REGION}:${conflictAsin}`
+	})) as { acceptedGeneration: number } | null
+	expect(seeded).toBeNull()
+	const stateId = `${REGION}:${conflictAsin}`
+	await expect(
+		bookHistoryStore.persistObservation({
+			asin: conflictAsin,
+			region: REGION,
+			generation: 1,
+			book: book({ asin: conflictAsin }),
+			observation: observation(),
+			updateRequested: true
+		})
+	).resolves.toMatchObject({ disposition: 'accepted' })
+	// Now add a null-region competitor for the same identity.
+	const rows = await db2.collection('books').find({ asin: conflictAsin }).toArray()
+	expect(rows).toHaveLength(1)
+	await db2.collection('books').updateOne(
+		{ _id: rows[0]._id },
+		{ $set: { region: null } }
+	)
+	await expect(
+		bookHistoryStore.persistObservation({
+			asin: conflictAsin,
+			region: REGION,
+			generation: 2,
+			book: book({ asin: conflictAsin }),
+			observation: observation(),
+			updateRequested: true
+		})
+	).rejects.toThrow('identity conflict')
+	// The first (pre-competitor) acceptance stands; the rejected run
+	// consumed no generation.
+	await expect(
+		db2.collection('book_history_states').findOne({ _id: stateId })
+	).resolves.toMatchObject({ acceptedGeneration: 1 })
+	}, 30000)
+
+test('unparsed artwork references are retained without an image ID', async () => {
 		const result = await bookHistoryStore.persistObservation(
 			persistInput({
 				generation: 20,

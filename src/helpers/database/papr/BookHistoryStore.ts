@@ -145,31 +145,6 @@ function sha256Hex(value: string): string {
 	return createHash('sha256').update(value).digest('hex')
 }
 
-/** Baselines initialized from the observation itself, no change events. */
-function firstTouchComparison(observation: BookObservation): ComparisonResult {
-	const now = observation.observedAt
-	return {
-		fields: observation.fields.map((f) => ({
-			field: f.field,
-			policy: f.policy,
-			value: f.value,
-			baselineAt: now
-		})),
-		renditions: observation.artwork
-			.filter((ref) => ref.imageId !== null)
-			.map((ref) => ({
-				rendition: ref.rendition,
-				policy: 'artwork:amazon-id:v1',
-				imageId: ref.imageId as string,
-				sourceUrl: ref.sourceUrl,
-				baselineAt: now
-			})),
-		changedFields: [],
-		changes: {},
-		policies: { fields: {}, artwork: {} }
-	}
-}
-
 function emptyState(asin: string, region: string): StateDoc {
 	return {
 		_id: bookKey(asin, region),
@@ -231,8 +206,14 @@ export class BookHistoryStore {
 		asin: string,
 		region: string
 	): Promise<CurrentResolution> {
+		// Non-exact competitors include region-less, null, and
+		// non-supported-region rows — every row that is not the exact
+		// region for this identity.
 		const rows = (await this.collection<Document>(COLLECTIONS.books)
-			.find({ asin, $or: [{ region }, { region: { $exists: false } }] }, { session })
+			.find(
+				{ asin, $or: [{ region }, { region: { $nin: Array.from(supportedRegionSet) } }] },
+				{ session }
+			)
 			.sort({ _id: 1 })
 			.toArray()) as Document[]
 		const exact = rows.filter((row) => row.region === region)
@@ -264,10 +245,10 @@ export class BookHistoryStore {
 		asin: string,
 		region: string,
 		sourceBook: Document
-	): Promise<void> {
+	): Promise<number> {
 		const storedUrl =
 			typeof sourceBook.image === 'string' && sourceBook.image ? sourceBook.image : undefined
-		if (!storedUrl) return
+		if (!storedUrl) return 0
 		const imageId = parseArtworkReference(storedUrl)
 		const artwork = this.collection<Document>(COLLECTIONS.artwork)
 		const legacy = {
@@ -290,7 +271,7 @@ export class BookHistoryStore {
 			if (!existing.legacy) {
 				await artwork.updateOne({ _id: existing._id }, { $set: { legacy } }, { session })
 			}
-			return
+			return 0
 		}
 		const state = (await this.collection<StateDoc>(COLLECTIONS.state).findOne(
 			{ _id: bookKey(asin, region) },
@@ -308,6 +289,7 @@ export class BookHistoryStore {
 				{ session }
 			)
 		}
+		return sequence
 	}
 
 	/**
@@ -432,12 +414,15 @@ export class BookHistoryStore {
 
 			// 3. First-touch legacy capture: archive the still-stored image
 			// for every accepted run against an existing row, including the
-			// equal short-circuit below.
+			// equal short-circuit below. May insert an asset and advance
+			// assetSequence, which downstream upserts must account for.
 			let legacyCaptured = state?.legacyCaptured ?? false
+			let newAssetSequence = 0
 			if (currentBook && !legacyCaptured) {
-				await this.captureLegacy(session, asin, region, currentBook)
+				newAssetSequence = await this.captureLegacy(session, asin, region, currentBook)
 				legacyCaptured = true
 			}
+			const baseSequence = Math.max(state?.assetSequence ?? 0, newAssetSequence)
 
 			// 4. Equality/genre guard re-evaluated against the transaction
 			//    book. Both sides normalize through the same constrained
@@ -448,9 +433,41 @@ export class BookHistoryStore {
 			const oldApi = toApiBook(currentBook)
 			if (currentBook && oldApi) {
 				if (deepEqualBook(oldApi, normBook)) {
-					// Equal: advance the watermark only. Baselines retain
-					// (existing state) or initialize from this observation
-					// (first-ever acceptance of a pre-history current row).
+					// Equal public projection is still an accepted
+					// observation: rendition transitions can change without
+					// touching any public field, and an established state
+					// with empty baselines (seeded pre-history row) must be
+					// initialised from this observation.
+					const equalBaselines: HistoryBaselines = {
+						fields: (state?.fields ?? []) as FieldBaseline[],
+						renditions: (state?.renditions ?? []) as RenditionBaseline[]
+					}
+					const equalComparison = compareBookObservation(equalBaselines, observation)
+					const equalSequence = await this.upsertArtworkRefs(
+						session,
+						asin,
+						region,
+						observation,
+						baseSequence
+					)
+					const revisionAdvance =
+						equalComparison.changedFields.length > 0 ? (state?.revision ?? 0) + 1 : 0
+					if (revisionAdvance > 0) {
+						// Rendition-only transition: one revision document.
+						await this.collection<Document>(COLLECTIONS.revision).insertOne(
+							{
+								asin,
+								region,
+								revision: revisionAdvance,
+								generation,
+								observedAt: observation.observedAt,
+								changedFields: [...equalComparison.changedFields],
+								policies: equalComparison.policies,
+								changes: equalComparison.changes
+							},
+							{ session }
+						)
+					}
 					await this.applyWatermark(
 						session,
 						asin,
@@ -458,8 +475,10 @@ export class BookHistoryStore {
 						state,
 						generation,
 						observation.observedAt,
-						state ? null : firstTouchComparison(observation),
-						legacyCaptured
+						equalComparison,
+						legacyCaptured,
+						revisionAdvance > 0 ? revisionAdvance : undefined,
+						equalSequence
 					)
 					return { data: oldApi, modified: false, disposition: 'accepted' }
 				}
@@ -478,8 +497,16 @@ export class BookHistoryStore {
 			const nextRevision = (state?.revision ?? 0) + (changed ? 1 : 0)
 
 			// 6. Gallery asset upserts for every returned rendition,
-			//    including unparsed references.
-			await this.upsertArtworkRefs(session, asin, region, observation, state?.assetSequence ?? 0)
+			//    including unparsed references. `baseSequence` already
+			//    accounts for step 3's legacy asset; the result is the
+			//    final in-transaction counter.
+			const finalSequence = await this.upsertArtworkRefs(
+				session,
+				asin,
+				region,
+				observation,
+				baseSequence
+			)
 
 			// 7. At most one revision document for this observation's
 			//    changed fields.
@@ -518,7 +545,9 @@ export class BookHistoryStore {
 				)
 			}
 
-			// 9. Watermark.
+			// 9. Watermark. A fresh state must retain the counter the
+			// in-transaction asset inserts (legacy capture, gallery
+			// upserts) already advanced.
 			await this.applyWatermark(
 				session,
 				asin,
@@ -528,7 +557,8 @@ export class BookHistoryStore {
 				observation.observedAt,
 				comparison,
 				legacyCaptured,
-				nextRevision
+				nextRevision,
+				finalSequence
 			)
 
 			return { data: toApiBook(book) ?? book, modified: true, disposition: 'accepted' }
@@ -544,7 +574,8 @@ export class BookHistoryStore {
 		observedAt: Date,
 		comparison: ComparisonResult | null,
 		legacyCaptured: boolean,
-		nextRevision?: number
+		nextRevision?: number,
+		startSequence = 0
 	): Promise<void> {
 		const stateCol = this.collection<StateDoc>(COLLECTIONS.state)
 		const hadBaselines = (state?.fields?.length ?? 0) > 0 || (state?.renditions?.length ?? 0) > 0
@@ -561,6 +592,7 @@ export class BookHistoryStore {
 			fresh.acceptedGeneration = generation
 			fresh.established = true
 			fresh.legacyCaptured = legacyCaptured
+			fresh.assetSequence = Math.max(startSequence, 0)
 			fresh.stateVersion = 1
 			if (startsCoverage) fresh.startedAt = observedAt
 			if (comparison) {
@@ -623,7 +655,7 @@ export class BookHistoryStore {
 			if (!resolution.trustedBook) this.conflictError(asin)
 			const trusted = resolution.trustedBook
 
-			await this.captureLegacy(session, asin, region, trusted)
+			const deleteLegacySequence = await this.captureLegacy(session, asin, region, trusted)
 			const del = (await booksCol.deleteOne({ _id: trusted._id }, { session })) as DeleteResult
 
 			const stateCol = this.collection<StateDoc>(COLLECTIONS.state)
@@ -637,6 +669,7 @@ export class BookHistoryStore {
 							deleteFence: state.allocatedGeneration,
 							established: true,
 							legacyCaptured: true,
+							assetSequence: Math.max(state.assetSequence, deleteLegacySequence),
 							stateVersion: state.stateVersion + 1
 						}
 					},
@@ -646,6 +679,7 @@ export class BookHistoryStore {
 				const fresh = emptyState(asin, region)
 				fresh.established = true
 				fresh.legacyCaptured = true
+				fresh.assetSequence = deleteLegacySequence
 				fresh.stateVersion = 1
 				await stateCol.insertOne(fresh, { session })
 			}
@@ -662,7 +696,7 @@ export class BookHistoryStore {
 		region: string,
 		observation: BookObservation,
 		startSequence: number
-	): Promise<void> {
+	): Promise<number> {
 		const observedAt = observation.observedAt
 		let nextSequence = startSequence
 		const artwork = this.collection<Document>(COLLECTIONS.artwork)
@@ -736,6 +770,7 @@ export class BookHistoryStore {
 				{ session }
 			)
 		}
+		return nextSequence
 	}
 
 	// ───────────────────── activation gate ─────────────────────
@@ -866,9 +901,9 @@ export class BookHistoryStore {
 					: { trustedBook: null, exactCount: 0, competitorCount: 1 }
 				if (resolution.trustedBook) {
 					const image = typeof row.image === 'string' && row.image ? row.image : undefined
-					if (image) {
-						await this.captureLegacy(session, asin, row.region as string, row)
-					}
+					const legacySequence = image
+						? await this.captureLegacy(session, asin, row.region as string, row)
+						: 0
 					const key = bookKey(asin, row.region as string)
 					const stateCol = this.collection<StateDoc>(COLLECTIONS.state)
 					const state = (await stateCol.findOne({ _id: key }, { session })) as StateDoc | null
@@ -881,6 +916,7 @@ export class BookHistoryStore {
 								$set: {
 									established: true,
 									legacyCaptured: true,
+									assetSequence: Math.max(state.assetSequence, legacySequence),
 									stateVersion: state.stateVersion + 1
 								}
 							},
@@ -890,6 +926,7 @@ export class BookHistoryStore {
 						const fresh = emptyState(asin, row.region as string)
 						fresh.established = true
 						fresh.legacyCaptured = true
+						fresh.assetSequence = legacySequence
 						fresh.stateVersion = 1
 						await stateCol.insertOne(fresh, { session })
 					}

@@ -451,13 +451,14 @@ paths:
         Returns the retained artwork gallery for one exact asin+region pair,
         newest immutable sequence first. Parsed (Amazon image ID) and unparsed
         references are both listed; unparsed entries carry a null imageId and
-        no exact URL (retained server-side as a stable key only). Legacy
-        references keep the exact stored URL plus their import time.
-        Read-only; served from retained data and may answer even when the
-        current book is deleted. 200 for a pending (no state yet) trusted
-        current book, returning empty items; 409 for an unresolved identity
-        conflict; 404 for a wholly unknown resource; 400 for invalid
-        path/query input.
+        expose the exact URL through their rendition entries (live-observed
+        references return the URL verbatim; legacy references are retained
+        keyed server-side and carry the exact stored URL plus their import
+        time in the `legacy` field). Read-only; served from retained data and
+        may answer even when the current book is deleted. 200 for a pending
+        (no state yet) trusted current book, returning empty items; 409 for
+        an unresolved identity conflict; 404 for a wholly unknown resource;
+        400 for invalid path/query input.
       operationId: getBookArtwork
       tags:
         - Books

@@ -260,6 +260,9 @@ bun src/history.ts seed --restart
 bun src/history.ts status
 ```
 
+In the deployed container image (which ships `dist/`, not the source tree)
+run the same commands as `node dist/history.js <command>`.
+
 Index creation is CLI-only. With `BOOK_HISTORY_ENABLED=true`, the server and
 worker fail closed at startup if the required history indexes (and a
 transaction-capable replica set) are not present — `prepare` is therefore a

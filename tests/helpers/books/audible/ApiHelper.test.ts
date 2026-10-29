@@ -11,6 +11,7 @@ import {
 	recognizedContentTypes
 } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
+import { canonicalGenres } from '#helpers/books/audible/BookObservation'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
@@ -239,6 +240,29 @@ describe('ApiHelper edge cases should', () => {
 		const parsed = helper.getFinalData()
 		expect(parsed.rating).toBe('4.5')
 		expect(parsed.ratings).toEqual(ratings)
+	})
+
+	test('getFinalData and the observation share the first mapping pass', async () => {
+		// getGenres() shifts the live ladders in place, so a second
+		// mapping pass would classify literatureType from the already
+		// shifted ladders and drop parent genres. The observation must
+		// carry the exact evidence the first pass produced.
+		const captureHelper = new ApiHelper(asin, region, undefined, true)
+		const data = await captureHelper.fetchBook()
+		const parsed = await captureHelper.parseResponse(data)
+		expect(captureHelper.getFinalData()).toBe(parsed)
+		const observed = captureHelper.getHistoryObservation()
+		expect(observed).toBeDefined()
+		const literatureTypeField = observed!.fields.find((f) => f.field === 'literatureType')
+		expect(literatureTypeField?.value).toEqual({
+			state: parsed.literatureType ? 'value' : 'absent',
+			...(parsed.literatureType ? { value: parsed.literatureType } : {})
+		})
+		expect(observed!.fields.find((f) => f.field === 'genres')?.value).toEqual(
+			parsed.genres && parsed.genres.length > 0
+				? { state: 'value', value: canonicalGenres(parsed.genres) }
+				: { state: 'absent' }
+		)
 	})
 
 	test('getRatings omits absent performance/story distributions', () => {

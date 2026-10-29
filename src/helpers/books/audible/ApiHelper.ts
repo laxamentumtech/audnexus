@@ -77,6 +77,7 @@ class ApiHelper {
 	private apiReceivedAt: Date | undefined
 	private historyEvidence: HistoryEvidence | undefined
 	private observation: BookObservation | undefined
+	private finalData: ApiBook | undefined
 	logger?: FastifyBaseLogger
 	constructor(
 		asin: string,
@@ -469,6 +470,11 @@ class ApiHelper {
 	 * This is run after all other data has been parsed.
 	 */
 	getFinalData(): ApiBook {
+		// Memoized per fetch: getGenres() shifts category ladders in place,
+		// and getHistoryObservation() needs the exact public book the first
+		// call produced — re-running the mapping would classify
+		// literatureType from already-shifted ladders and drop genres.
+		if (this.finalData) return this.finalData
 		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		// Classify literature type BEFORE getGenres() which mutates category_ladders
 		const literatureType = literatureTypeFromProduct(
@@ -492,7 +498,7 @@ class ApiHelper {
 		}
 		const ratings = this.getRatings()
 		// Parse final data
-		return ApiBookSchema.parse({
+		const data = ApiBookSchema.parse({
 			asin: this.audibleResponse.asin,
 			authors: this.audibleResponse.authors.map((person: ApiAuthorOnBook) => {
 				const authorJson: ApiAuthorOnBook = {
@@ -546,6 +552,8 @@ class ApiHelper {
 			summary: this.audibleResponse.publisher_summary ?? '',
 			title: this.audibleResponse.title
 		})
+		this.finalData = data
+		return data
 	}
 
 	/**
