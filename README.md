@@ -228,6 +228,16 @@ HTML can be re-generated from the spec, using:
 bun run build-docs
 ```
 
+### Release identity
+
+One normal `develop` → `main` merge-commit promotion runs **Release** automatically. For a deliberate run, use **Actions → Release → Run workflow** on main; leave version/bump empty for automatic selection, or choose a version/bump override. The same body freezes the event source, creates one immutable version reservation, tests the native build, publishes a source/version-checked image, and explicitly dispatches the docs build at that exact tag. No package.json version commit, preparation PR, or merge-back is needed.
+
+The release image consumes VERSION and GIT_COMMIT as OCI metadata. The package.json version remains package metadata, not the running application's release label. Published OpenAPI docs retain this project's release-label semantics: explicit/tagged builds use the selected release version; untagged builds use `dev-<SHA>` and an unconfigured local build uses `dev`. The docs workflow never copies package.json's frozen version. Release dispatches verify the matching source, wait for the identified docs run, and verify the immutable release HTML asset before publishing; develop/stale runs build artifacts without replacing production Pages. A release-dispatched docs build also stores the actual generated `docs/index.html` as an immutable `index.html` release asset labeled with its source, version, and SHA-256. That named-version HTML remains the authoritative documentation for the release even after production Pages moves on to a newer main source. Standalone tag/dev docs builds still derive their own tag or `dev-<SHA>` identity and never write release assets.
+
+Retries reuse the exact source's reservation and validate immutable image identity/digest instead of overwriting existing bytes. An existing `index.html` asset is accepted only when its recorded source/version and actual byte digest match the build being retried; an unlabeled asset is accepted only when its bytes exactly equal that build and is then labeled; a conflicting asset fails closed and nothing is overwritten. An existing tag is not completion. The source-bound release stays a draft until image/docs outputs finish, and the existing Annalist App fills notes; deploy its shared previous-published-ancestor fix before cutover. Because production Pages admits only the current main source, an old-source retry completes its immutable named docs and image outputs without claiming or performing a Pages rollback; Pages may intentionally remain on the newer source. CI retains branch/PR/SHA previews only; production consumers use the release tag/digest rather than a mutable latest alias. The example production compose image is already digest-pinned.
+
+Main branch protection is unchanged; develop retains required checks/conflict detection without requiring an update after every unrelated merge. Native GitHub `queue: max` retains waiting manual runs across later automatic events. Current actionlint v1.7.12 rejects that documented key ([upstream parser gap](https://github.com/rhysd/actionlint/issues/657)); do not remove queue retention or hide unrelated findings to accommodate it.
+
 ## 🚀 Deployment <a name = "deployment"></a>
 
 ### Coolify Deployment
@@ -297,9 +307,9 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - Add `COOLIFY_WEBHOOK` to your GitHub repository secrets with this URL
    - In Coolify, create an API token from "Keys & Tokens" > "API Tokens" (enable "Deploy" permission)
    - Add `COOLIFY_TOKEN` to your GitHub repository secrets with the API token
-   - The workflow `.github/workflows/deploy-coolify.yml` will trigger deployments automatically on pushes to `main` or `develop`
+   - The workflow `.github/workflows/deploy-coolify.yml` runs on `workflow_run` when a `main`-branch CI run in the same repository completes successfully; if that run shipped a fresh image (successful `docker-build` job), it calls the Coolify webhook over HTTP with the API token
 
-**Note:** The `.github/workflows/docker-publish.yml` workflow builds and pushes Docker images to GitHub Container Registry (ghcr.io) but does not deploy them. The Coolify workflow builds, pushes, and deploys the Docker image using the Coolify API.
+**Note:** The webhook simply notifies Coolify, which then performs its own documented build from the connected Git repository/branch (Dockerfile). The workflow never moves image tags. Versioned images are published to GitHub Container Registry (ghcr.io) by the Release workflow.
 
 5. **Optional: Configure persistent volumes for MongoDB/Redis:**
    - For production, consider using external MongoDB and Redis services
@@ -319,6 +329,8 @@ Do not proceed with Coolify deployment until you have the `MONGODB_URI` and `RED
 Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, and use it to start the stack. Using something like Portainer for a Swarm GUI will make this much easier.
 
 The stack defaults to 15 replicas for the node-server container. Customize this as needed.
+
+The app image is supplied by the required `AUDNEXUS_IMAGE` variable — set it to an immutable release version tag (e.g., `v1.15.0`) or a digest (e.g., `ghcr.io/laxamentumtech/audnexus@sha256:...`); never use `:latest`.
 
 **Core Environment Variables:**
 
