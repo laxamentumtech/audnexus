@@ -39,6 +39,11 @@ jobs:
       contents: write
     outputs:
       publish: ${{ steps.publish.outputs.allowed }}
+      # A stale main build (docs change followed by a non-docs commit) deploys
+      # nothing, and no push trigger follows the non-docs commit, so a separate
+      # reconcile job dispatches a current-main run for it. Develop previews
+      # and current-main sources never need reconciliation.
+      reconcile: ${{ steps.publish.outputs.reconcile }}
     steps:
       - name: Checkout frozen source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -94,6 +99,13 @@ jobs:
             echo 'allowed=false' >> "$GITHUB_OUTPUT"
             echo 'Docs artifact built; a stale release/develop preview does not replace production Pages.'
           fi
+          # Only a stale main build needs reconciliation: a develop preview
+          # deploys nothing by design and a current-main source just deployed.
+          if [[ "$SOURCE_REF" == refs/heads/main && "$SOURCE" != "$current" ]]; then
+            echo 'reconcile=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'reconcile=false' >> "$GITHUB_OUTPUT"
+          fi
 
   deploy:
     runs-on: ubuntu-latest
@@ -136,28 +148,9 @@ jobs:
         if: steps.freshness.outputs.allowed == 'true'
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.0
 
-      # If the pre-deploy boundary found a stale source, main's docs tree
-      # never gets deployed: a docs change followed by a non-docs commit
-      # leaves this run skipped and no push trigger follows the non-docs
-      # commit. Dispatch a current-main docs build before exiting so the pair
-      # reconciles. The dispatched run freezes its own SHA and repeats these
-      # same boundary checks, so it re-dispatches only when main advances
-      # again — never a loop. Fire-and-forget: dispatching inside the shared
-      # pages concurrency group would deadlock, so use the Present workflow
-      # dispatch API, never waiting for the reconciliation here.
-      - name: Reconcile stale source against current main
-        if: steps.freshness.outputs.allowed == 'false'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          echo "Source is stale relative to current main; dispatching a fresh current-main docs build."
-          gh workflow run deploy-docs.yml --ref main --repo "$GH_REPO"
-
       # If main advanced while this run built/deployed, trigger a fresh
-      # current-main reconciliation run (fire-and-forget, same contract as
-      # above: the dispatched run re-checks main itself and cannot loop).
+      # current-main reconciliation run (fire-and-forget; the dispatched run
+      # re-checks main itself and cannot loop).
       - name: Reconcile if main advanced during this deployment
         if: ${{ steps.freshness.outputs.allowed == 'true' && steps.deployment.outcome == 'success' }}
         env:
@@ -171,3 +164,28 @@ jobs:
             echo "Main advanced to ${current}; dispatching a fresh current-main docs reconciliation."
             gh workflow run deploy-docs.yml --ref main --repo "$GH_REPO"
           fi
+
+  # A stale main build (docs change followed by a non-docs commit) reaches the
+  # deploy job's freshness gate with allowed=false, so it cannot reconcile
+  # itself. This job dispatches a current-main docs run instead: the
+  # dispatched run freezes its own SHA and re-evaluates the same boundary, so
+  # it re-dispatches only when main advances again — never a loop.
+  # Fire-and-forget, and outside the pages concurrency group and the
+  # github-pages environment: blocking on the dispatched run would inherit the
+  # shared concurrency group and deadlock against it.
+  reconcile:
+    runs-on: ubuntu-latest
+    needs: build-docs
+    if: needs.build-docs.outputs.reconcile == 'true'
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Dispatch a current-main docs build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "Source is stale relative to current main; dispatching a fresh current-main docs build."
+          gh workflow run deploy-docs.yml --ref main --repo "$GH_REPO"
