@@ -1,22 +1,52 @@
 """Real git-history release reservations plus draft lifecycle, image, docs-asset
 and dispatch regressions against a documented GitHub-faithful local store."""
+import contextlib
 import hashlib
 import json
 import os
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import unittest.mock
 from pathlib import Path
 
 import release
 
-# The publish/dispatch polling loops sleep between store polls; the fake store
-# resolves immediately, so elide the waits.
-release.time.sleep = lambda seconds: None
-
 DOCS_NAME = 'index.html'
+
+
+class ControlledClock:
+    """Fake monotonic clock for the release polling loops: `sleep` advances
+    the clock, and a bounded budget guarantees that a never-satisfied poll
+    reaches its deadline promptly in fake time. `release` imports the shared
+    `time` module, so its `monotonic`/`sleep` attributes are patched per test
+    and restored afterwards — the patch never leaks beyond the test scope
+    (the deadline case verifies the module is restored)."""
+
+    SLEEP_BUDGET = 1200
+
+    def __init__(self):
+        self.now = 1000.0
+        self.total = 0.0
+        self.sleeps = []
+
+    def monotonic(self):
+        return self.now
+
+    def sleep(self, seconds):
+        if self.total + seconds > self.SLEEP_BUDGET:
+            raise AssertionError(f'Fake clock sleep budget exceeded: {self.total} + {seconds}')
+        self.total += seconds
+        self.now += seconds
+        self.sleeps.append(seconds)
+
+    @contextlib.contextmanager
+    def bound(self):
+        with unittest.mock.patch.object(release.time, 'monotonic', self.monotonic), \
+                unittest.mock.patch.object(release.time, 'sleep', self.sleep):
+            yield self
 
 
 class LocalGitHub(release.Repository):
@@ -515,9 +545,9 @@ class ReleaseBehavior(unittest.TestCase):
         with unittest.mock.patch.object(release, 'registry_run', registry_run), \
                 self.assertRaisesRegex(release.ReleaseError, 'conflicting bytes'):
             release.publish_image('example/m4b-merge', self.source, 'v1.1.0')
-            # Reads happened; the create write never did.
-            self.assertNotIn('create', [op for op, *_ in ops])
-            self.assertNotIn('build', [op for op, *_ in ops])
+        # Reads happened; the create write never did.
+        self.assertNotIn('create', [op for op, *_ in ops])
+        self.assertNotIn('build', [op for op, *_ in ops])
 
     def test_image_provenance_mismatch_fails_closed_without_writes(self):
         digest = 'sha256:' + 'a' * 64
@@ -527,8 +557,9 @@ class ReleaseBehavior(unittest.TestCase):
         with unittest.mock.patch.object(release, 'registry_run', registry_run), \
                 self.assertRaisesRegex(ValueError, 'provenance mismatch'):
             release.publish_image('example/m4b-merge', self.source, 'v1.1.0')
-            self.assertNotIn('create', [op for op, *_ in ops])
-            self.assertNotIn('build', [op for op, *_ in ops])
+        # Reads happened; the create write never did.
+        self.assertNotIn('create', [op for op, *_ in ops])
+        self.assertNotIn('build', [op for op, *_ in ops])
 
     def test_image_unauthorized_registry_failure_propagates(self):
         def fail():
@@ -659,6 +690,66 @@ class DocsAssetProvenance(unittest.TestCase):
         repo = self.repo_with([self.asset(label=f'source={DocsAssetRepository.source} version=v1.2.0 sha256={built} ')])
         with self.assertRaisesRegex(release.ReleaseError, 'provenance'):
             release.publish_docs_asset(repo, repo.source, 'v1.2.0')
+
+
+class DocsAssetPollingDeadline(unittest.TestCase):
+    """The post-upload visibility poll must exit via its deadline in fake time
+    when the asset never appears, and the clock patch must not leak."""
+
+    payload = b'<!doctype html><title>Audnexus release docs</title>'
+
+    def run_deferred(self, temp):
+        """Upload succeeds, but the store keeps the asset list empty so the
+        post-upload visibility poll never finds it."""
+        clock = ControlledClock()
+        repo = DocsAssetRepository(temp.name)
+        uploads = {'count': 0}
+
+        def upload_once(*args, ok=(0,)):
+            # The upload itself succeeds once; the store then never makes
+            # the asset visible, so the poll runs to its deadline.
+            if args[:3] == ('gh', 'release', 'upload'):
+                uploads['count'] += 1
+                return ''
+            raise AssertionError(f'Unexpected release write: {args}')
+
+        repo.run = upload_once
+        # Bound the REAL monotonic before patching: inside the scope the
+        # shared time module's `monotonic` is the fake, and a wall-clock
+        # reading must prove the fake clock did the advance.
+        real_now = time.monotonic
+        with clock.bound():
+            started = real_now()
+            try:
+                release.publish_docs_asset(repo, repo.source, 'v1.2.0')
+            except release.ReleaseError as error:
+                elapsed = real_now() - started
+                self.assertLess(elapsed, 2, f'Fake clock did not bound the deadline: {elapsed}s real time')
+                self.assertIn('not visible', str(error))
+                self.assertEqual(uploads['count'], 1)
+                self.assertEqual(release.time.monotonic, time.monotonic)
+                self.assertEqual(release.time.sleep, time.sleep)
+                return clock
+        raise AssertionError('publish_docs_asset did not fail at the deadline')
+
+    def test_never_satisfied_poll_reaches_deadline_and_patch_does_not_leak(self):
+        temp = tempfile.TemporaryDirectory(prefix='docs-deadline-')
+        self.addCleanup(temp.cleanup)
+        docs = Path(temp.name) / 'docs'
+        docs.mkdir()
+        (docs / DOCS_NAME).write_bytes(self.payload)
+        clock = self.run_deferred(temp)
+        # 120 s of fake time divided into the 2 s poll interval: bounded, no
+        # budget exhaustion, no real-time spin.
+        self.assertLess(clock.total, 125)
+        self.assertGreaterEqual(clock.total, 120)
+        self.assertEqual(clock.sleeps, [2] * len(clock.sleeps))
+        # Outside the test scope the clock patch is gone: release's shared
+        # time module is identical to the real one (identity proves the
+        # function values are restored too).
+        self.assertIs(release.time, time)
+        self.assertIs(release.time.monotonic, time.monotonic)
+        self.assertIs(release.time.sleep, time.sleep)
 
 
 
@@ -1062,7 +1153,14 @@ class LocalLifecycleSubprocessSmoke(unittest.TestCase):
         (self.checkout / 'docs' / 'index.html').write_bytes(self.payload)
         result = self.run_cli('docs-asset', '--source', featured, '--version', 'v1.1.0')
         self.assertIn('Verified immutable release docs', result.stdout)
-        self.assertEqual(len(draft['assets']), 1)
+        # Re-read the release from the store: the idempotent run left exactly
+        # one asset, and the whole lifecycle performed exactly one upload.
+        reread = next(r for r in self.store()['releases'] if r['tag_name'] == 'v1.1.0')
+        self.assertEqual(len(reread['assets']), 1)
+        uploads = [entry for entry in self.log() if entry[:2] == ['release', 'upload']]
+        self.assertEqual(len(uploads), 1)
+        # Log entry: ['release', 'upload', tag, 'docs/index.html#label', ...]
+        self.assertIn(f'source={featured}', uploads[0][3])
         # Publish: no higher published stable -> GitHub Latest advances.
         self.run_cli('release', '--tag', 'v1.1.0', '--source', featured, '--publish')
         published = next(r for r in self.store()['releases'] if r['tag_name'] == 'v1.1.0')

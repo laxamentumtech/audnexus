@@ -102,6 +102,9 @@ jobs:
     permissions:
       contents: read
       pages: write
+      # The reconciliation step triggers a fresh current-main run via the
+      # workflow dispatch API; every other job stays least-privilege.
+      actions: write
       id-token: write
     environment:
       name: github-pages
@@ -133,11 +136,28 @@ jobs:
         if: steps.freshness.outputs.allowed == 'true'
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.0
 
+      # If the pre-deploy boundary found a stale source, main's docs tree
+      # never gets deployed: a docs change followed by a non-docs commit
+      # leaves this run skipped and no push trigger follows the non-docs
+      # commit. Dispatch a current-main docs build before exiting so the pair
+      # reconciles. The dispatched run freezes its own SHA and repeats these
+      # same boundary checks, so it re-dispatches only when main advances
+      # again — never a loop. Fire-and-forget: dispatching inside the shared
+      # pages concurrency group would deadlock, so use the Present workflow
+      # dispatch API, never waiting for the reconciliation here.
+      - name: Reconcile stale source against current main
+        if: steps.freshness.outputs.allowed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "Source is stale relative to current main; dispatching a fresh current-main docs build."
+          gh workflow run deploy-docs.yml --ref main --repo "$GH_REPO"
+
       # If main advanced while this run built/deployed, trigger a fresh
-      # current-main reconciliation run. The new run freezes its own SHA on
-      # dispatch and repeats these same boundary checks; dispatching inside
-      # the shared pages concurrency group would deadlock, so use the Present
-      # workflow dispatch API, never waiting for the reconciliation here.
+      # current-main reconciliation run (fire-and-forget, same contract as
+      # above: the dispatched run re-checks main itself and cannot loop).
       - name: Reconcile if main advanced during this deployment
         if: ${{ steps.freshness.outputs.allowed == 'true' && steps.deployment.outcome == 'success' }}
         env:
