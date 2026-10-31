@@ -307,9 +307,9 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - Add `COOLIFY_WEBHOOK` to your GitHub repository secrets with this URL
    - In Coolify, create an API token from "Keys & Tokens" > "API Tokens" (enable "Deploy" permission)
    - Add `COOLIFY_TOKEN` to your GitHub repository secrets with the API token
-   - The workflow `.github/workflows/deploy-coolify.yml` will trigger deployments automatically on pushes to `main` or `develop`
+   - The workflow `.github/workflows/deploy-coolify.yml` runs on `workflow_run` when a `main`-branch CI run in the same repository completes successfully; if that run shipped a fresh image (successful `docker-build` job), it calls the Coolify webhook over HTTP with the API token
 
-**Note:** The `.github/workflows/docker-publish.yml` workflow builds and pushes Docker images to GitHub Container Registry (ghcr.io) but does not deploy them. The Coolify workflow builds, pushes, and deploys the Docker image using the Coolify API.
+**Note:** The webhook simply notifies Coolify, which then performs its own documented build from the connected Git repository/branch (Dockerfile). The workflow never moves image tags. Versioned images are published to GitHub Container Registry (ghcr.io) by the Release workflow.
 
 5. **Optional: Configure persistent volumes for MongoDB/Redis:**
    - For production, consider using external MongoDB and Redis services
@@ -329,6 +329,8 @@ Do not proceed with Coolify deployment until you have the `MONGODB_URI` and `RED
 Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, and use it to start the stack. Using something like Portainer for a Swarm GUI will make this much easier.
 
 The stack defaults to 15 replicas for the node-server container. Customize this as needed.
+
+The app image is supplied by the required `AUDNEXUS_IMAGE` variable — set it to an immutable release version tag (e.g., `v1.15.0`) or a digest (e.g., `ghcr.io/laxamentumtech/audnexus@sha256:...`); never use `:latest`.
 
 **Core Environment Variables:**
 

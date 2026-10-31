@@ -71,6 +71,14 @@ class Repository:
         value = self.run(*args)
         return json.loads(value) if value else None
 
+    def api_asset_download(self, repository, asset_id):
+        result = subprocess.run(
+            ["gh", "api", "--hostname", "github.com", f"repos/{repository}/releases/assets/{asset_id}",
+             "--header", "Accept: application/octet-stream"], capture_output=True)
+        require(result.returncode == 0,
+                f"gh api release asset download failed: {result.stderr.decode(errors='replace').strip()}")
+        return result.stdout
+
     def oid(self, ref):
         require(isinstance(ref, str) and not ref.startswith("-"), "Invalid git reference")
         value = self.git("rev-parse", "--verify", f"{ref}^{{commit}}")
@@ -183,21 +191,51 @@ class Repository:
                     "Concurrent reservation points at a different source")
         return tag
 
+    def release_records(self, repository):
+        """Complete authenticated release listing; drafts included, errors propagate.
+
+        GET releases/tags/{tag} is a published-release lookup only, so every
+        draft lifecycle caller must use the paginated listing instead."""
+        records, page = [], 1
+        while True:
+            batch = self.api(f"repos/{repository}/releases?per_page=100&page={page}")
+            require(isinstance(batch, list), f"Unexpected release listing response on page {page}")
+            records.extend(batch)
+            if len(batch) < 100:
+                return records
+            page += 1
+
+    def release_tag_record(self, repository, tag):
+        """Exact-tag draft-aware release lookup; duplicates and listing failures fail closed."""
+        matches = [record for record in self.release_records(repository) if record.get("tag_name") == tag]
+        require(len(matches) <= 1, f"Multiple release records share tag {tag}; failing closed")
+        return matches[0] if matches else None
+
     def release(self, tag, source, publish=False):
         semver(tag.removeprefix("v"))
         require(isinstance(source, str) and OID.fullmatch(source), "Expected a full commit object ID")
         repository = self.repository()
         require(self.api_tag_target(tag) == source, f"Tag {tag} does not point at the frozen source")
-        try:
-            existing = self.api(f"repos/{repository}/releases/tags/{tag}")
-        except ReleaseError as error:
-            require("HTTP 404" in str(error), str(error))
+        existing = self.release_tag_record(repository, tag)
+        if existing is None:
             require(not publish, "Cannot finalize a missing draft release")
             self.run("gh", "release", "create", tag, "--repo", repository, "--verify-tag", "--draft", "--title", f"Release {tag}", "--notes", "")
             return
-        require(existing["tag_name"] == tag, "Release identity mismatch")
         if publish and existing.get("draft"):
-            self.run("gh", "release", "edit", tag, "--repo", repository, "--draft=false", "--latest=false")
+            target = semver(tag.removeprefix("v"))
+            stable = []
+            for record in self.release_records(repository):
+                if record.get("draft") or record.get("prerelease"):
+                    continue
+                match = VERSION.fullmatch(str(record.get("tag_name", "")).removeprefix("v"))
+                if match:
+                    stable.append(tuple(map(int, match.groups())))
+            # GitHub "Latest" tracks the highest published stable release, not
+            # this publish call: a delayed lower completion must not roll it
+            # back, so publish with --latest=false when a higher stable exists.
+            higher_published = any(version > target for version in stable)
+            self.run("gh", "release", "edit", tag, "--repo", repository, "--draft=false",
+                     f"--latest={'true' if not higher_published else 'false'}")
 
 
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
@@ -208,16 +246,27 @@ DOCS_LABEL = re.compile(
     r"sha256=(?P<sha256>[0-9a-f]{64})\Z")
 
 
+class RegistryCommandError(ReleaseError):
+    def __init__(self, error):
+        self.streams = " ".join(part for part in (
+            (getattr(error, "stderr", b"") or b"").decode(errors="replace").strip(),
+            (getattr(error, "stdout", b"") or b"").decode(errors="replace").strip()) if part)
+        super().__init__(f"registry command failed (exit {getattr(error, 'returncode', 1)}): {self.streams}")
+
+
 def registry_run(*args):
-    return subprocess.run(args, check=True, capture_output=True).stdout
+    try:
+        return subprocess.run(args, check=True, capture_output=True).stdout
+    except subprocess.CalledProcessError as error:
+        raise RegistryCommandError(error) from None
 
 
 def inspect(ref, field="Manifest", missing=False):
     try:
         return json.loads(registry_run("docker", "buildx", "imagetools", "inspect", ref,
                               "--format", "{{json ." + field + "}}"))
-    except subprocess.CalledProcessError as error:
-        message = error.stderr.decode(errors="replace").lower()
+    except RegistryCommandError as error:
+        message = error.streams.lower()
         # Only an explicit registry manifest-not-found response permits creation.
         # Authentication, transport, throttling and malformed responses fail closed.
         absent = "manifest unknown" in message or f"{ref.lower()}: not found" in message
@@ -281,36 +330,28 @@ def docs_label(source, version, sha256):
 
 
 def release_assets(repo, tag):
-    repository = repo.repository()
-    try:
-        release = repo.api(f"repos/{repository}/releases/tags/{tag}")
-    except ReleaseError as error:
-        require("HTTP 404" in str(error), str(error))
-        raise ReleaseError(f"Release {tag} has no source-bound release record") from None
-    require(release.get("tag_name") == tag, "Release identity mismatch")
-    assets = [asset for asset in release.get("assets") or [] if asset.get("name") == DOCS_ASSET]
+    """Release asset lookup by the draft-aware exact-tag listing; no uploads bypass it."""
+    record = repo.release_tag_record(repo.repository(), tag)
+    if record is None:
+        raise ReleaseError(f"Release {tag} has no source-bound release record")
+    assets = [asset for asset in record.get("assets") or [] if asset.get("name") == DOCS_ASSET]
     require(len(assets) <= 1, f"Ambiguous {DOCS_ASSET} release assets")
     return assets[0] if assets else None
 
 
-def asset_sha256(repository, asset):
+def asset_sha256(repo, asset):
     remote = asset.get("digest")
     if remote:
         require(isinstance(remote, str) and DIGEST.fullmatch(remote),
                 f"Invalid release asset digest: {remote!r}")
         return remote.removeprefix("sha256:")
-    result = subprocess.run(
-        ["gh", "api", "--hostname", "github.com", f"repos/{repository}/releases/assets/{asset['id']}",
-         "--header", "Accept: application/octet-stream"], capture_output=True)
-    require(result.returncode == 0,
-            f"gh api release asset download failed: {result.stderr.decode(errors='replace').strip()}")
-    return hashlib.sha256(result.stdout).hexdigest()
+    return hashlib.sha256(repo.api_asset_download(repo.repository(), asset["id"])).hexdigest()
 
 
 def verify_docs_asset(repo, asset, source, version, built):
     repository = repo.repository()
     require(asset.get("name") == DOCS_ASSET, "Docs asset identity mismatch")
-    actual = asset_sha256(repository, asset)
+    actual = asset_sha256(repo, asset)
     label = asset.get("label") or ""
     if label:
         match = DOCS_LABEL.fullmatch(label)
@@ -370,7 +411,7 @@ def verify_release_docs(repo, tag, source):
     require(match, "Release docs asset provenance is missing or unrecognized")
     require(match["source"] == source, "Release docs asset is bound to another source")
     require(match["version"] == tag, "Release docs asset is bound to another version")
-    require(match["sha256"] == asset_sha256(repo.repository(), asset),
+    require(match["sha256"] == asset_sha256(repo, asset),
             "Release docs asset bytes differ from the recorded digest")
     return asset
 
@@ -395,8 +436,21 @@ def dispatch_docs(repo, source, version, correlation):
             jobs = repo.api(f"repos/{repo.repository()}/actions/runs/{matches[0]['id']}/jobs?per_page=100")["jobs"]
             deploy = [job for job in jobs if job.get("name") == "deploy"]
             require(len(deploy) <= 1, "Ambiguous docs deploy job")
-            if deploy and deploy[0].get("conclusion") == "success":
-                print("Verified Pages deployment job for the exact source")
+            # The job-level conclusion also covers the in-deploy-job freshness
+            # guard, so a successfully skipped result must not count as deployed:
+            # inspect the actual deploy-pages step conclusion instead.
+            step_conclusion = None
+            if deploy:
+                steps = repo.api(f"repos/{repo.repository()}/actions/jobs/{deploy[0]['id']}")["steps"]
+                page_steps = [step for step in steps
+                              if str(step.get("name", "")).startswith("Deploy to GitHub Pages")]
+                require(len(page_steps) <= 1, "Ambiguous Pages deployment step")
+                if page_steps:
+                    step_conclusion = page_steps[0].get("conclusion")
+            if step_conclusion == "success":
+                print("Verified Pages deployment for the exact source")
+            elif step_conclusion == "skipped":
+                print("Pages intentionally retained its newer main source; immutable release docs remain authoritative")
             elif deploy and deploy[0].get("conclusion") == "skipped":
                 print("Pages intentionally retained its newer main source; immutable release docs remain authoritative")
             else:

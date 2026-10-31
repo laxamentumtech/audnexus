@@ -2,9 +2,11 @@ name: Deploy Docs
 run-name: ${{ inputs.release_run && format('Release docs {0}', inputs.release_run) || format('Docs {0}', github.ref_name) }}
 
 on:
+  # No tag-push trigger: tag pushes bypass the paths filter, so an unverified
+  # tag could deploy unverified docs. Exact-tag release builds arrive through
+  # the explicit workflow_dispatch release path with release_run correlation.
   push:
     branches: [main, develop]
-    tags: ['v*']
     paths: ['docs/**']
   workflow_dispatch:
     inputs:
@@ -32,6 +34,7 @@ concurrency:
 jobs:
   build-docs:
     runs-on: ubuntu-latest
+    # contents:write covers the immutable release docs-asset publication.
     permissions:
       contents: write
     outputs:
@@ -97,12 +100,54 @@ jobs:
     needs: build-docs
     if: needs.build-docs.outputs.publish == 'true'
     permissions:
+      contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Re-read the actual current main immediately before deploying. A newer
+      # main (or a develop source) means a fresher build is already in flight
+      # or owned by main, so this run intentionally deploys nothing; the
+      # deploy-pages step stays skipped and is never counted as deployed.
+      - name: Verify the source is current main before deploying
+        id: freshness
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE: ${{ github.sha }}
+          SOURCE_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          current=$(gh api "repos/${GH_REPO}/branches/main" --jq '.commit.sha')
+          if [[ "$SOURCE" == "$current" && "$SOURCE_REF" != refs/heads/develop ]]; then
+            echo 'allowed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'allowed=false' >> "$GITHUB_OUTPUT"
+            echo 'Source stale relative to main at the deploy boundary; skipping Pages deployment.'
+          fi
+
       - name: Deploy to GitHub Pages
         id: deployment
+        if: steps.freshness.outputs.allowed == 'true'
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.0
+
+      # If main advanced while this run built/deployed, trigger a fresh
+      # current-main reconciliation run. The new run freezes its own SHA on
+      # dispatch and repeats these same boundary checks; dispatching inside
+      # the shared pages concurrency group would deadlock, so use the Present
+      # workflow dispatch API, never waiting for the reconciliation here.
+      - name: Reconcile if main advanced during this deployment
+        if: ${{ steps.freshness.outputs.allowed == 'true' && steps.deployment.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SOURCE: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          current=$(gh api "repos/${GH_REPO}/branches/main" --jq '.commit.sha')
+          if [[ "$current" != "$SOURCE" ]]; then
+            echo "Main advanced to ${current}; dispatching a fresh current-main docs reconciliation."
+            gh workflow run deploy-docs.yml --ref main --repo "$GH_REPO"
+          fi

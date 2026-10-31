@@ -1,4 +1,6 @@
-# Deploy to Coolify after CI builds and pushes :latest.
+# Trigger the Coolify Git resource's native Dockerfile build when a successful
+# main CI run ships a fresh docker-build job. The webhook targets the documented
+# Git-repository/branch deployment; it never moves image tags.
 
 name: Coolify Deploy
 

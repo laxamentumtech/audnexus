@@ -101,8 +101,8 @@ jobs:
                   bunfig.toml) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
                   tsconfig.json) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
                   eslint.config.mjs|.prettierrc|.prettierignore) LINT=true ;;
-                  scripts/release.py|scripts/test_release.py) TEST=true ;;
-                  scripts/*) TEST=true; DOCKER=true ;;
+                  scripts/release.py|scripts/test_release.py|scripts/stamp-docs-version.ts|tests/scripts/*) TEST=true ;;
+                  scripts/*|Dockerfile|.dockerignore) TEST=true; DOCKER=true ;;
                   *) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
                 esac
               done < "$DIFF_FILE"
