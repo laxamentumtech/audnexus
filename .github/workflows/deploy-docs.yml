@@ -165,6 +165,26 @@ jobs:
             gh workflow run deploy-docs.yml --ref main --repo "$GH_REPO"
           fi
 
+      # Two staleness windows require reconciliation: build-stage staleness
+      # (source stale when the build ran) is covered by the separate
+      # reconcile job, and deploy-gate staleness (main advanced between the
+      # build-stage check and the freshness gate above) is covered by this
+      # step, because a skipped deployment leaves no post-deploy step to fire.
+      # Mutually exclusive with that step: allowed=false here versus
+      # allowed=true with deployment success there. allowed=false would also
+      # match a develop source, but this job only runs for publish=true runs,
+      # which are current-main builds, so dispatch targets main only, never
+      # develop. Fire-and-forget; the dispatched run re-checks main itself.
+      - name: Reconcile stale source at the deploy gate
+        if: ${{ steps.freshness.outputs.allowed == 'false' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          echo "Source is stale relative to main at the deploy gate; dispatching a fresh current-main docs run."
+          gh workflow run deploy-docs.yml --ref main --repo "$GH_REPO"
+
   # A stale main build (docs change followed by a non-docs commit) reaches the
   # deploy job's freshness gate with allowed=false, so it cannot reconcile
   # itself. This job dispatches a current-main docs run instead: the
