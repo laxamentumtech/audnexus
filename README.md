@@ -330,7 +330,7 @@ Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, 
 
 The stack defaults to 15 replicas for the node-server container. Customize this as needed.
 
-The app image is supplied by the required `AUDNEXUS_IMAGE` variable — set it to an immutable release version tag (e.g., `v1.15.0`) or a digest (e.g., `ghcr.io/laxamentumtech/audnexus@sha256:...`); never use `:latest`. Compose enforces this with `${AUDNEXUS_IMAGE:?...}`, which refuses to render the file when the variable is unset; before deploying, prove the value is immutable with the preflight validator (it rejects unset/empty values, `:latest`, and untagged repos, and accepts version tags and digest pins):
+The app image is supplied by the required `AUDNEXUS_IMAGE` variable — set it to an immutable release version tag (e.g., `ghcr.io/laxamentumtech/audnexus:v1.15.0`) or a digest (e.g., `ghcr.io/laxamentumtech/audnexus@sha256:...`); never use `:latest`. Bare versions like `v1.15.0` are rejected: Docker would resolve them as mutable Docker Hub library names. Compose enforces this with `${AUDNEXUS_IMAGE:?...}`, which refuses to render the file when the variable is unset; before deploying, prove the value is immutable with the preflight validator (it rejects unset/empty values, `:latest`, and untagged repos, and accepts version tags and digest pins):
 
 ```sh
 bun scripts/validate-image-reference.ts "$AUDNEXUS_IMAGE"

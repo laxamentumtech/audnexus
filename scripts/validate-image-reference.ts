@@ -1,13 +1,14 @@
-// Preflight validator for AUDNEXUS_IMAGE: accepts only version tags and
-// digest pins, and rejects mutable references (unset/empty, :latest,
-// untagged repos). Compose keeps ${AUDNEXUS_IMAGE:?...} as the hard
-// requirement; this adds deploy-time proof the value is immutable.
+// Preflight validator for AUDNEXUS_IMAGE: accepts only fully qualified
+// version tags and digest pins, and rejects mutable references
+// (unset/empty, :latest, bare versions, untagged repos). Compose keeps
+// ${AUDNEXUS_IMAGE:?...} as the hard requirement; this adds deploy-time
+// proof the value is immutable.
 //
 // Usage:
 //   bun scripts/validate-image-reference.ts [reference]
 // Uses AUDNEXUS_IMAGE when no reference argument is given.
 
-const COMPONENT = "[a-z0-9]+(?:(?:[._]|__)[-a-z0-9]+)*"
+const COMPONENT = "[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*"
 const REGISTRY = `(?:${COMPONENT}(?:\\.${COMPONENT})*(?::[0-9]+)?/)`
 const NAME = `(?:${REGISTRY})?${COMPONENT}(?:/${COMPONENT})*`
 const NAME_RE = new RegExp(`^${NAME}$`)
@@ -40,15 +41,16 @@ export function immutableImageReferenceReason(value: string | null | undefined):
 		if (tag === "latest") {
 			return ":latest is a mutable alias"
 		}
-		if (VERSION_RE.test(tag)) {
-			return null
+		if (!VERSION_RE.test(tag)) {
+			return `Image tag ${tag} is not an immutable version tag; use vX.Y.Z or a sha256 digest pin`
 		}
-		return `Image tag ${tag} is not an immutable version tag; use vX.Y.Z or a sha256 digest pin`
-	}
-	if (VERSION_RE.test(reference)) {
+		const repo = reference.slice(0, colon)
+		if (!repo.includes("/") || !NAME_RE.test(repo)) {
+			return "Version tags must identify a full repository path"
+		}
 		return null
 	}
-	return "Untagged image references resolve to mutable :latest; use a version tag or digest pin"
+	return "Untagged image references (including bare versions like vX.Y.Z) resolve to mutable Docker Hub library names; use a <repository>:vX.Y.Z tag or a sha256 digest pin"
 }
 
 function main(): void {

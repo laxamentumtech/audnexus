@@ -6,11 +6,15 @@ const digest = `@sha256:${'a1b2c3d4e5'.repeat(7).slice(0, 64)}`
 const fullDigest = `@sha256:8bb4442761a63a8dda452744082cdac9644b429807eb977b42324a63cef59ca4`
 
 describe('immutableImageReferenceReason should', () => {
-	test('accept version tags with or without a registry path', () => {
-		expect(immutableImageReferenceReason('v1.15.0')).toBeNull()
-		expect(immutableImageReferenceReason('v0.1.0')).toBeNull()
+	test('accept version tags on full repository paths', () => {
 		expect(immutableImageReferenceReason('ghcr.io/laxamentumtech/audnexus:v1.15.2')).toBeNull()
+		expect(immutableImageReferenceReason('laxamentumtech/audnexus:v0.1.0')).toBeNull()
+		expect(immutableImageReferenceReason('ghcr.io/my-team/audnexus:v1.15.0')).toBeNull()
 		expect(immutableImageReferenceReason('localhost:5000/audnexus:v1.15.0')).toBeNull()
+	})
+
+	test('accept digest pins on hyphenated repository paths', () => {
+		expect(immutableImageReferenceReason(`ghcr.io/my-team/audnexus${fullDigest}`)).toBeNull()
 	})
 
 	test('accept digest pins on full repository paths', () => {
@@ -37,6 +41,16 @@ describe('immutableImageReferenceReason should', () => {
 	test('reject non-version tags', () => {
 		expect(immutableImageReferenceReason('ghcr.io/laxamentumtech/audnexus:main')).toMatch(/not an immutable version tag/)
 		expect(immutableImageReferenceReason('audnexus:dev')).toMatch(/not an immutable version tag/)
+	})
+
+	test('reject bare version references', () => {
+		expect(immutableImageReferenceReason('v1.2.3')).toMatch(/bare versions/)
+		expect(immutableImageReferenceReason('v1.2.3:latest')).toMatch(/:latest/)
+	})
+
+	test('reject malformed repository paths with a valid tag', () => {
+		expect(immutableImageReferenceReason('ghcr.io/team//app:v1.2.3')).toMatch(/full repository path/)
+		expect(immutableImageReferenceReason('Team/audnexus:v1.2.3')).toMatch(/full repository path/)
 	})
 
 	test('reject malformed digests', () => {

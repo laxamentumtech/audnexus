@@ -2,8 +2,8 @@ version: '3.7'
 
 services:
   node-server:
-    # Explicit immutable version tag (preferred, e.g. v1.15.0) or digest.
-    image: ${AUDNEXUS_IMAGE:?Set AUDNEXUS_IMAGE to an immutable release tag like v1.15.0 or ghcr.io/laxamentumtech/audnexus@sha256:...}
+    # Explicit immutable version tag (preferred, e.g. ghcr.io/laxamentumtech/audnexus:v1.15.0) or digest.
+    image: ${AUDNEXUS_IMAGE:?Set AUDNEXUS_IMAGE to an immutable release tag like ghcr.io/laxamentumtech/audnexus:v1.15.0 or ghcr.io/laxamentumtech/audnexus@sha256:...}
     restart: always
     environment:
       ADP_TOKEN: ${ADP_TOKEN}
