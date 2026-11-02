@@ -101,7 +101,8 @@ jobs:
                   bunfig.toml) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
                   tsconfig.json) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
                   eslint.config.mjs|.prettierrc|.prettierignore) LINT=true ;;
-                  scripts/*) DOCKER=true ;;
+                  scripts/release.py|scripts/test_release.py|scripts/stamp-docs-version.ts|tests/scripts/*) TEST=true ;;
+                  scripts/*|Dockerfile|.dockerignore) TEST=true; DOCKER=true ;;
                   *) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
                 esac
               done < "$DIFF_FILE"
@@ -173,7 +174,9 @@ jobs:
               | grep -E '^\.github/workflows/.*\.ya?ml$' || true)
           fi
           if [ "${#PATHS[@]}" -gt 0 ]; then
-            go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 "${PATHS[@]}"
+            # GitHub supports queue:max; actionlint 1.7.12 lacks only this key (#657).
+            go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 \
+              -ignore '^unexpected key "queue" for "concurrency" section' "${PATHS[@]}"
           else
             echo "No resolvable base with changed workflow files (first push or dispatch) — skipping workflow lint"
           fi
@@ -229,6 +232,9 @@ jobs:
 
       - run: bun run test
 
+      - name: Verify immutable release reservation boundaries
+        run: python3 -m unittest discover -s scripts -p test_release.py
+
   docker-build:
     needs: [changes, workflow-lint, lint-format, build, test]
     if: ${{ !cancelled() && needs['changes'].outputs.docker == 'true' && (needs['workflow-lint'].result == 'success' || needs['workflow-lint'].result == 'skipped') && (needs['lint-format'].result == 'success' || needs['lint-format'].result == 'skipped') && (needs['build'].result == 'success' || needs['build'].result == 'skipped') && (needs['test'].result == 'success' || needs['test'].result == 'skipped') }}
@@ -262,11 +268,10 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
             type=sha,enable=${{ github.event_name != 'pull_request' }}
+          labels: |
+            org.opencontainers.image.version=dev-${{ github.sha }}
+            org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -275,6 +280,9 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
+          build-args: |
+            VERSION=dev-${{ github.sha }}
+            GIT_COMMIT=${{ github.sha }}
           push: ${{ github.event_name != 'pull_request' || env.PR_IS_SAME_REPO == 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
