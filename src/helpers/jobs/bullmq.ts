@@ -62,11 +62,16 @@ export const JOB_RETRIES = {
  * every awaited microtask, so the 2m LOCK_DURATION_MS only trips on a truly
  * dead worker. */
 const WORKER_OPTIONS: Omit<WorkerOptions, 'connection'> = {
-	// global simultaneous-job limit (not per job name); the per-collection
-	// single-flight guard in handleJob is what keeps a collection from
-	// overlapping itself, and each pass is internally serial, so concurrent
-	// upstream requests stay bounded at 3.
-	concurrency: 3,
+	// One job at a time (not per job name). The three update passes share one
+	// rate-limited upstream (one IP) and one process-wide adaptive cooldown:
+	// running them concurrently (the old concurrency: 3) saturated the upstream
+	// rate window, so every request 503s and the cooldown climbed to its
+	// ceiling — a 503 storm that throttled every pass to ~1 item/min. At
+	// concurrency: 1 the passes queue and run one at a time (each internally
+	// serial and bounded by SCHEDULER_MAX_ITEMS), so the shared cooldown/pace
+	// is the only throttle. handleJob's same-name guard still prevents a
+	// repeat from overlapping its own previous run.
+	concurrency: 1,
 	lockDuration: LOCK_DURATION_MS,
 	stalledInterval: STALLED_CHECK_INTERVAL_MS,
 	removeOnComplete: { count: RETENTION_COMPLETED },
@@ -488,13 +493,23 @@ export async function countBackfillJobsInFlight(): Promise<number> {
 /** Module scope — must outlive a single handleJob invocation. Same-name mutual
  * exclusion: a repeat occurrence that comes due while that job's previous run is
  * still going is dropped instead of being picked up by a slot another job freed.
- * Same-name only — the three update passes run concurrently with each other (the
- * point of the split), and the ratings backfill is *not* excluded from update
- * passes: an accepted backfill has no scheduled re-run to pick up dropped work
- * (its own double-start is already prevented by countBackfillJobsInFlight plus
- * the in-process flag, and overlap with a books pass is bounded by the same
- * adaptive cooldown that paces everything else). */
+ * The worker runs a single job at a time (see WORKER_OPTIONS.concurrency) so the
+ * three update passes never run concurrently — they queue and run one at a time.
+ * That serialization is what keeps the shared upstream rate window and the
+ * process-wide adaptive cooldown from being saturated by three passes at once
+ * (the 503 storm that throttled every pass to near-zero). The ratings backfill
+ * is not excluded from update passes by any other guard; under concurrency 1 it
+ * simply queues behind the running pass, which is acceptable for an operator-
+ * triggered bulk job. */
 const runningJobs = new Set<string>()
+
+/** Job result for a skipped (same-name) update occurrence: zeros plus
+ * `passSkipped: 1`, so it resolves successfully and consumes none of
+ * JOB_RETRIES.attempts. */
+const updateJobSummary = (name: string, passSkipped: number): Record<string, number> =>
+	name === JOB_NAMES.backfillRatings
+		? { total: 0, updated: 0, skipped: 0, failed: 0 }
+		: { total: 0, updated: 0, unchanged: 0, gone: 0, failures: 0, passSkipped }
 
 /** Single dispatch for all job types — the shared job runner. Each processor
  * returns a summary stored as the BullMQ job result; a thrown error marks the
@@ -505,13 +520,7 @@ export async function handleJob(
 ): Promise<Record<string, number>> {
 	if (runningJobs.has(job.name)) {
 		logger.warn(`${job.name} still running; skipping this occurrence`)
-		// A skipped update occurrence resolves successfully with zeros, so it
-		// consumes none of JOB_RETRIES.attempts. The backfill is never in this
-		// set concurrently (see the guard note), so the shape-correct fallback
-		// below only describes the update path.
-		return job.name === JOB_NAMES.backfillRatings
-			? { total: 0, updated: 0, skipped: 0, failed: 0 }
-			: { total: 0, updated: 0, unchanged: 0, gone: 0, failures: 0, passSkipped: 1 }
+		return updateJobSummary(job.name, 1)
 	}
 	runningJobs.add(job.name)
 	try {
