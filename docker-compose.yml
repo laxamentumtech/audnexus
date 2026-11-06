@@ -68,7 +68,7 @@ services:
       start_period: 10s
 
   traefik:
-    image: traefik:v3.7.8@sha256:4299bbed850421258fc5448c2e0e6ad350981d4d335a68de11b92448aedbefe5
+    image: traefik:v3.7.17@sha256:f4bb143d1135a579b630ed491e17ec50f6f7c9c6a30585ff3d385471d2a86f5a
     restart: always
     command:
       - '--providers.docker=true'
