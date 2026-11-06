@@ -5,6 +5,7 @@ import { initialize } from '#config/papr'
 import {
 	closeQueue,
 	createWorker,
+	getUpdateSchedulerIntervals,
 	getWorker,
 	QUEUE_NAME,
 	upsertUpdateSchedulers
@@ -35,7 +36,7 @@ export async function startWorker(): Promise<void> {
 	await initialize({ client: await ctx.client.connect() })
 	// The worker owns the schedule: it creates/refreshes the repeatable
 	// per-collection update jobs, so the schedule survives API restarts.
-	await upsertUpdateSchedulers(Number(process.env.UPDATE_INTERVAL) || 30)
+	await upsertUpdateSchedulers(getUpdateSchedulerIntervals())
 	// Surface adaptive-cooldown growth in worker logs (see adaptiveCooldown.ts).
 	setCooldownLogger((message) => logger.warn(message))
 	createWorker(logger)

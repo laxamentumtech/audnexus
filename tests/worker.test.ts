@@ -9,6 +9,12 @@ const mockCreateWorker = mock()
 const mockGetWorker = mock()
 const mockCloseQueue = mock()
 const mockUpsertUpdateSchedulers = mock()
+// Mirrors the real helper so the worker test can assert on the derived object.
+const mockGetUpdateSchedulerIntervals = mock(() => {
+	const base = Number(process.env.UPDATE_INTERVAL) || 30
+	const chapters = Number(process.env.UPDATE_INTERVAL_CHAPTERS) || 30
+	return { authors: base, books: base, chapters }
+})
 const mockWorkerClose = mock()
 
 // No real MongoDB/Redis/papr clients: CI has no services, and the worker
@@ -39,6 +45,7 @@ mock.module('#helpers/jobs/bullmq', () => ({
 	QUEUE_NAME: 'audnexus',
 	closeQueue: mockCloseQueue,
 	createWorker: mockCreateWorker,
+	getUpdateSchedulerIntervals: mockGetUpdateSchedulerIntervals,
 	getWorker: mockGetWorker,
 	upsertUpdateSchedulers: mockUpsertUpdateSchedulers
 }))
@@ -76,7 +83,7 @@ let exitSpy: Mock<(code?: number) => void>
 let exitCalled: Promise.withResolvers<void>
 
 beforeEach(() => {
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL']) {
+	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS']) {
 		savedEnv[key] = process.env[key]
 	}
 	process.env.MONGODB_URI = 'mongodb://localhost:27017'
@@ -107,7 +114,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	process.exit = originalExit
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL']) {
+	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS']) {
 		if (savedEnv[key] === undefined) {
 			delete process.env[key]
 		} else {
@@ -158,20 +165,34 @@ describe('worker startup', () => {
 		)
 	})
 
-	it('upserts the update scheduler with the UPDATE_INTERVAL env value', async () => {
+	it('upserts the update scheduler with the derived per-collection intervals', async () => {
 		process.env.UPDATE_INTERVAL = '12'
+		process.env.UPDATE_INTERVAL_CHAPTERS = '45'
 		await worker.startWorker()
-		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledWith(12)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledWith({
+			authors: 12,
+			books: 12,
+			chapters: 45
+		})
 	})
 
 	it('falls back to 30 when UPDATE_INTERVAL is unset or non-numeric', async () => {
 		delete process.env.UPDATE_INTERVAL
+		delete process.env.UPDATE_INTERVAL_CHAPTERS
 		await worker.startWorker()
-		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith(30)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith({
+			authors: 30,
+			books: 30,
+			chapters: 30
+		})
 
 		process.env.UPDATE_INTERVAL = 'not-a-number'
 		await worker.startWorker()
-		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith(30)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith({
+			authors: 30,
+			books: 30,
+			chapters: 30
+		})
 	})
 })
 

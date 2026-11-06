@@ -27,9 +27,11 @@ afterEach(() => {
 })
 
 describe('registerUpdateScheduler should', () => {
+	const intervals = { authors: 7, books: 7, chapters: 30 }
+
 	it('disable scheduling with a warning when REDIS_URL is missing', async () => {
 		const log = createMockLogger()
-		await registerUpdateScheduler(30, log)
+		await registerUpdateScheduler(intervals, log)
 		expect(log.warn).toHaveBeenCalledWith(
 			'REDIS_URL not set; scheduled updates and backfill enqueue disabled'
 		)
@@ -40,10 +42,10 @@ describe('registerUpdateScheduler should', () => {
 		const log = createMockLogger()
 		process.env.REDIS_URL = TEST_REDIS_URL
 		mockUpsert.mockResolvedValueOnce(undefined)
-		await registerUpdateScheduler(30, log)
-		expect(mockUpsert).toHaveBeenCalledWith(30)
+		await registerUpdateScheduler(intervals, log)
+		expect(mockUpsert).toHaveBeenCalledWith(intervals)
 		expect(log.info).toHaveBeenCalledWith(
-			'Update schedulers enqueued: authors/books/chapters every 30 days'
+			'Update schedulers enqueued: authors/books every 7 days, chapters every 30 days'
 		)
 	})
 
@@ -51,7 +53,7 @@ describe('registerUpdateScheduler should', () => {
 		const log = createMockLogger()
 		process.env.REDIS_URL = TEST_REDIS_URL
 		mockUpsert.mockRejectedValueOnce(new Error('redis down'))
-		await expect(registerUpdateScheduler(30, log)).resolves.toBeUndefined()
+		await expect(registerUpdateScheduler(intervals, log)).resolves.toBeUndefined()
 		expect(log.error).toHaveBeenCalledWith(
 			new Error('redis down'),
 			'Failed to register update schedulers; scheduled updates disabled'

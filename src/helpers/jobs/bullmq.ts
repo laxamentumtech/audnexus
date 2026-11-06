@@ -21,10 +21,16 @@ export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES]
 
 /** One repeatable scheduler per collection: a books pass over 4.99M rows must
  * never starve authors/chapters. Ids are stable — they are the BullMQ upsert keys. */
+export const UPDATE_SCHEDULER_IDS = {
+	authors: 'update-authors-scheduler',
+	books: 'update-books-scheduler',
+	chapters: 'update-chapters-scheduler'
+} as const
+/** Stable map of scheduler id → job name (the BullMQ upsert key → job name). */
 export const UPDATE_SCHEDULERS: Record<string, (typeof JOB_NAMES)[keyof typeof JOB_NAMES]> = {
-	'update-authors-scheduler': JOB_NAMES.updateAuthors,
-	'update-books-scheduler': JOB_NAMES.updateBooks,
-	'update-chapters-scheduler': JOB_NAMES.updateChapters
+	[UPDATE_SCHEDULER_IDS.authors]: JOB_NAMES.updateAuthors,
+	[UPDATE_SCHEDULER_IDS.books]: JOB_NAMES.updateBooks,
+	[UPDATE_SCHEDULER_IDS.chapters]: JOB_NAMES.updateChapters
 }
 /** Pre-split scheduler id; removed at every boot so its delayed job cannot keep
  * firing the deleted `update-all` job name. */
@@ -346,14 +352,33 @@ export async function enqueueBackfillRatings(options?: {
 	}
 }
 
+/** Per-collection refresh interval in days: authors/books share the hot
+ * `UPDATE_INTERVAL` cadence; chapters run on the slow `UPDATE_INTERVAL_CHAPTERS`
+ * cadence (chapter lists rarely change, and a full 943k-row sweep is the
+ * biggest contributor to upstream rate-limiting). */
+export interface UpdateSchedulerIntervals {
+	authors: number
+	books: number
+	chapters: number
+}
+
+/** Derive the per-collection refresh intervals (days) from the environment:
+ * authors/books share `UPDATE_INTERVAL` (default 30); chapters run on
+ * `UPDATE_INTERVAL_CHAPTERS` (default 30). A non-positive value disables that
+ * collection's scheduler (see upsertUpdateSchedulers). */
+export function getUpdateSchedulerIntervals(): UpdateSchedulerIntervals {
+	const base = Number(process.env.UPDATE_INTERVAL) || 30
+	const chapters = Number(process.env.UPDATE_INTERVAL_CHAPTERS) || 30
+	return { authors: base, books: base, chapters }
+}
+
 /** Replace the toad-scheduler LongIntervalJob: one BullMQ repeatable job per
- * collection firing every `days` (converted to milliseconds — BullMQ repeat has
- * no day unit). `immediately: true` preserves the old runImmediately behavior.
- * days <= 0 is a no-op (no scheduler created) so local/smoke setups can run
- * the worker without a schedule. */
-export async function upsertUpdateSchedulers(days: number): Promise<void> {
-	const everyMs = Math.floor(days * 86_400_000)
-	if (everyMs <= 0) return
+ * collection firing every `intervals.<collection>` days (converted to
+ * milliseconds — BullMQ repeat has no day unit). `immediately: true` preserves
+ * the old runImmediately behavior. An interval <= 0 skips that collection's
+ * scheduler (no scheduler created) so local/smoke setups can run the worker
+ * without a schedule. */
+export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals): Promise<void> {
 	await ensureReadyConnection()
 	await removeOrphanedActiveJobs()
 	// Reap the pre-split scheduler first: its delayed occurrence would keep
@@ -362,7 +387,11 @@ export async function upsertUpdateSchedulers(days: number): Promise<void> {
 	// v5.81+ scheduler shape: repeat options take `immediately` (with `every`
 	// it fires once at creation and runs every interval); name/data/opts live
 	// in the job template.
-	for (const [schedulerId, name] of Object.entries(UPDATE_SCHEDULERS)) {
+	for (const [collection, days] of Object.entries(intervals)) {
+		const everyMs = Math.floor(days * 86_400_000)
+		if (everyMs <= 0) continue
+		const schedulerId = UPDATE_SCHEDULER_IDS[collection as keyof typeof UPDATE_SCHEDULER_IDS]
+		const name = UPDATE_SCHEDULERS[schedulerId]
 		await withCommandTimeout(() =>
 			getQueue().upsertJobScheduler(
 				schedulerId,

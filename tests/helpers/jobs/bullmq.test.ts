@@ -114,12 +114,14 @@ import {
 	enqueueBackfillRatings,
 	getCacheRedis,
 	getQueueRedis,
+	getUpdateSchedulerIntervals,
 	handleJob,
 	JOB_NAMES,
 	JOB_RETRIES,
 	LEGACY_UPDATE_SCHEDULER_ID,
 	QUEUE_NAME,
 	QueueUnavailableError,
+	UPDATE_SCHEDULER_IDS,
 	UPDATE_SCHEDULERS,
 	upsertUpdateSchedulers,
 	withCommandTimeout
@@ -529,7 +531,7 @@ describe('bullmq queue helpers', () => {
 		]
 		for (const { days, everyMs } of cases) {
 			it(`upserts one scheduler per collection for ${days} day(s) as a ms interval`, async () => {
-				await upsertUpdateSchedulers(days)
+				await upsertUpdateSchedulers({ authors: days, books: days, chapters: days })
 				expect(mockQueueRemoveJobScheduler).toHaveBeenCalledWith(LEGACY_UPDATE_SCHEDULER_ID)
 				for (const [schedulerId, name] of Object.entries(UPDATE_SCHEDULERS)) {
 					expect(mockQueueUpsert).toHaveBeenCalledWith(
@@ -551,7 +553,7 @@ describe('bullmq queue helpers', () => {
 			vi.useFakeTimers()
 			try {
 				mockRedisStatus = 'connecting'
-				const pending = upsertUpdateSchedulers(30)
+				const pending = upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
 				vi.advanceTimersByTime(50)
 				mockRedisStatus = 'ready'
 				vi.advanceTimersByTime(50)
@@ -572,7 +574,7 @@ describe('bullmq queue helpers', () => {
 			// First exists call (the ghost) → 0; second (a real job) → 1.
 			mockRedisExists.mockResolvedValueOnce(0).mockResolvedValueOnce(1)
 
-			await upsertUpdateSchedulers(30)
+			await upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
 
 			expect(mockRedisLrem).toHaveBeenCalledWith('bull:audnexus:active', 0, ghostId)
 			expect(mockRedisLrem).not.toHaveBeenCalledWith('bull:audnexus:active', 0, 'real-job')
@@ -585,7 +587,7 @@ describe('bullmq queue helpers', () => {
 			// trust the upsert alone.
 			mockQueueGetJobs.mockResolvedValue([])
 
-			await upsertUpdateSchedulers(30)
+			await upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
 
 			for (const name of Object.values(UPDATE_SCHEDULERS)) {
 				expect(mockQueueAdd).toHaveBeenCalledWith(
@@ -604,18 +606,71 @@ describe('bullmq queue helpers', () => {
 			mockQueueGetJobs.mockResolvedValue([{ name: JOB_NAMES.updateBooks }])
 			mockQueueAdd.mockClear()
 
-			await upsertUpdateSchedulers(30)
+			await upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
 
 			expect(mockQueueAdd).not.toHaveBeenCalledWith(JOB_NAMES.updateBooks, {}, expect.anything())
 			expect(mockQueueAdd).toHaveBeenCalledTimes(Object.keys(UPDATE_SCHEDULERS).length - 1)
 		})
 	})
 
+	describe('getUpdateSchedulerIntervals', () => {
+		it('defaults chapters to 30 days and mirrors UPDATE_INTERVAL for authors/books', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedChapters = process.env.UPDATE_INTERVAL_CHAPTERS
+			delete process.env.UPDATE_INTERVAL
+			delete process.env.UPDATE_INTERVAL_CHAPTERS
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 30,
+					books: 30,
+					chapters: 30
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedChapters === undefined) delete process.env.UPDATE_INTERVAL_CHAPTERS
+				else process.env.UPDATE_INTERVAL_CHAPTERS = savedChapters
+			}
+		})
+
+		it('reads UPDATE_INTERVAL and UPDATE_INTERVAL_CHAPTERS independently', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedChapters = process.env.UPDATE_INTERVAL_CHAPTERS
+			process.env.UPDATE_INTERVAL = '7'
+			process.env.UPDATE_INTERVAL_CHAPTERS = '30'
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 7,
+					books: 7,
+					chapters: 30
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedChapters === undefined) delete process.env.UPDATE_INTERVAL_CHAPTERS
+				else process.env.UPDATE_INTERVAL_CHAPTERS = savedChapters
+			}
+		})
+	})
+
 	it('does not create a scheduler for non-positive day intervals', async () => {
 		mockQueueUpsert.mockClear()
-		await upsertUpdateSchedulers(0)
-		await upsertUpdateSchedulers(-1)
+		await upsertUpdateSchedulers({ authors: 0, books: 0, chapters: -1 })
 		expect(mockQueueUpsert).not.toHaveBeenCalled()
+	})
+
+	it('skips only the collections whose interval is non-positive', async () => {
+		mockQueueUpsert.mockClear()
+		await upsertUpdateSchedulers({ authors: 30, books: 0, chapters: 0 })
+		expect(mockQueueUpsert).toHaveBeenCalledTimes(1)
+		expect(mockQueueUpsert).toHaveBeenCalledWith(
+			UPDATE_SCHEDULER_IDS.authors,
+			{ every: 2_592_000_000, immediately: true },
+			{
+				name: JOB_NAMES.updateAuthors,
+				opts: expect.objectContaining(JOB_RETRIES)
+			}
+		)
 	})
 
 	it('counts only backfill jobs across waiting, active, delayed, and paused', async () => {
@@ -642,7 +697,7 @@ describe('bullmq queue helpers', () => {
 			const results = Promise.allSettled([
 				enqueueBackfillRatings(),
 				countBackfillJobsInFlight(),
-				upsertUpdateSchedulers(30)
+				upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
 			])
 			vi.advanceTimersByTime(COMMAND_TIMEOUT_MS + 100)
 			for (const result of await results) {
