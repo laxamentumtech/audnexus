@@ -7,6 +7,7 @@ import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
+import { UpstreamGoneError } from '#helpers/utils/upstreamGone'
 import { ErrorMessageContentTypeMismatch, ErrorMessageNotFound } from '#static/messages'
 import { regions } from '#static/regions'
 import { htmlResponseMinified, htmlResponseNameOnly } from '#tests/datasets/audible/authors/scrape'
@@ -23,15 +24,31 @@ mock.module('#helpers/utils/fetchPlus', () => {
 mock.module('#helpers/utils/shared', () => {
 	return {
 		default: class SharedHelper {
-			buildUrl() { return '' }
-			getAsinFromUrl(url: string) { return url.match(baseAsin10Regex)?.[0] }
-			collectGenres() { return [] }
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			sortObjectByKeys(obj: any) { return obj }
-			isEqualData() { return false }
-			isRecentlyUpdated() { return false }
-			getParamString() { return '' }
-			getGenreAsinFromUrl() { return undefined }
+			buildUrl() {
+				return ''
+			}
+			getAsinFromUrl(url: string) {
+				return url.match(baseAsin10Regex)?.[0]
+			}
+			collectGenres() {
+				return []
+			}
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			sortObjectByKeys(obj: any) {
+				return obj
+			}
+			isEqualData() {
+				return false
+			}
+			isRecentlyUpdated() {
+				return false
+			}
+			getParamString() {
+				return ''
+			}
+			getGenreAsinFromUrl() {
+				return undefined
+			}
 		}
 	}
 })
@@ -173,6 +190,23 @@ describe('ScrapeHelper should', () => {
 })
 
 describe('ScrapeHelper should throw error when', () => {
+	test('rethrows UpstreamGoneError unchanged (no ErrorMessageHTTPFetch wrapping)', async () => {
+		const goneError = new UpstreamGoneError('https://www.audible.com/search?advsearchKeywords=')
+		spyOn(fetchPlus, 'default').mockImplementation(() => Promise.reject(goneError))
+		expect.assertions(3)
+		try {
+			await helper.fetchAuthor()
+			throw new Error('Expected UpstreamGoneError to be thrown')
+		} catch (error) {
+			// instance identity preserved — the class is rethrown, not re-wrapped
+			expect(error).toBe(goneError)
+			expect(error).toBeInstanceOf(UpstreamGoneError)
+			expect((error as Error).message).toBe(
+				'Upstream page gone (redirected to search): https://www.audible.com/search?advsearchKeywords='
+			)
+		}
+	})
+
 	test('no author', async () => {
 		asin = asin.slice(0, -1)
 		helper = new ScrapeHelper(asin, region)

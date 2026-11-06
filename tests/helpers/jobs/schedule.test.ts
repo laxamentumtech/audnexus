@@ -5,7 +5,7 @@ import { createMockLogger } from '#tests/setup/mockLogger'
 const mockUpsert = mock()
 
 mock.module('#helpers/jobs/bullmq', () => ({
-	upsertUpdateScheduler: mockUpsert
+	upsertUpdateSchedulers: mockUpsert
 }))
 
 import { registerUpdateScheduler } from '#helpers/jobs/schedule'
@@ -42,7 +42,9 @@ describe('registerUpdateScheduler should', () => {
 		mockUpsert.mockResolvedValueOnce(undefined)
 		await registerUpdateScheduler(30, log)
 		expect(mockUpsert).toHaveBeenCalledWith(30)
-		expect(log.info).toHaveBeenCalledWith('Update scheduler enqueued: every 30 days')
+		expect(log.info).toHaveBeenCalledWith(
+			'Update schedulers enqueued: authors/books/chapters every 30 days'
+		)
 	})
 
 	it('log and swallow scheduler registration failures', async () => {
@@ -52,7 +54,7 @@ describe('registerUpdateScheduler should', () => {
 		await expect(registerUpdateScheduler(30, log)).resolves.toBeUndefined()
 		expect(log.error).toHaveBeenCalledWith(
 			new Error('redis down'),
-			'Failed to register update scheduler; scheduled updates disabled'
+			'Failed to register update schedulers; scheduled updates disabled'
 		)
 	})
 })

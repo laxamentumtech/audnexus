@@ -24,6 +24,9 @@ export const ErrorMessageRegion = (asin: string, region: string) =>
 	`Item not available in region '${region}' for ASIN: ${asin}`
 export const ErrorMessageProductDelisted = (asin: string, productState: string, region: string) =>
 	`Item is '${productState}' in region '${region}' for ASIN: ${asin}`
+// Upstream page no longer exists (301 to the search page)
+export const ErrorMessageUpstreamGone = (url: string) =>
+	`Upstream page gone (redirected to search): ${url}`
 // Content type mismatch
 export const ErrorMessageContentTypeMismatch = (
 	asin: string,

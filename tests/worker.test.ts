@@ -8,7 +8,7 @@ const mockClient = { connect: mockClientConnect, close: mockClientClose }
 const mockCreateWorker = mock()
 const mockGetWorker = mock()
 const mockCloseQueue = mock()
-const mockUpsertUpdateScheduler = mock()
+const mockUpsertUpdateSchedulers = mock()
 const mockWorkerClose = mock()
 
 // No real MongoDB/Redis/papr clients: CI has no services, and the worker
@@ -40,7 +40,7 @@ mock.module('#helpers/jobs/bullmq', () => ({
 	closeQueue: mockCloseQueue,
 	createWorker: mockCreateWorker,
 	getWorker: mockGetWorker,
-	upsertUpdateScheduler: mockUpsertUpdateScheduler
+	upsertUpdateSchedulers: mockUpsertUpdateSchedulers
 }))
 
 // src/worker.ts runs its env guards at module load, so the required env must
@@ -65,7 +65,7 @@ const startupStartedAtImport = {
 	paprInitialize: mockPaprInitialize.mock.calls.length > 0,
 	clientConnect: mockClientConnect.mock.calls.length > 0,
 	createWorker: mockCreateWorker.mock.calls.length > 0,
-	upsertUpdateScheduler: mockUpsertUpdateScheduler.mock.calls.length > 0
+	upsertUpdateSchedulers: mockUpsertUpdateSchedulers.mock.calls.length > 0
 }
 
 const savedEnv: Record<string, string | undefined> = {}
@@ -91,7 +91,7 @@ beforeEach(() => {
 	mockGetWorker.mockReturnValue({ close: mockWorkerClose })
 	mockCloseQueue.mockClear()
 	mockCloseQueue.mockResolvedValue(undefined)
-	mockUpsertUpdateScheduler.mockClear()
+	mockUpsertUpdateSchedulers.mockClear()
 	mockWorkerClose.mockClear()
 	mockWorkerClose.mockResolvedValue(undefined)
 
@@ -145,15 +145,15 @@ describe('worker startup', () => {
 		expect(mockClientConnect).toHaveBeenCalledTimes(1)
 		expect(mockPaprInitialize).toHaveBeenCalledTimes(1)
 		expect(mockPaprInitialize).toHaveBeenCalledWith({ client: connectedClient })
-		expect(mockUpsertUpdateScheduler).toHaveBeenCalledTimes(1)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledTimes(1)
 		expect(mockCreateWorker).toHaveBeenCalledTimes(1)
 		expect(mockClientConnect.mock.invocationCallOrder[0]).toBeLessThan(
 			mockPaprInitialize.mock.invocationCallOrder[0]
 		)
 		expect(mockPaprInitialize.mock.invocationCallOrder[0]).toBeLessThan(
-			mockUpsertUpdateScheduler.mock.invocationCallOrder[0]
+			mockUpsertUpdateSchedulers.mock.invocationCallOrder[0]
 		)
-		expect(mockUpsertUpdateScheduler.mock.invocationCallOrder[0]).toBeLessThan(
+		expect(mockUpsertUpdateSchedulers.mock.invocationCallOrder[0]).toBeLessThan(
 			mockCreateWorker.mock.invocationCallOrder[0]
 		)
 	})
@@ -161,17 +161,17 @@ describe('worker startup', () => {
 	it('upserts the update scheduler with the UPDATE_INTERVAL env value', async () => {
 		process.env.UPDATE_INTERVAL = '12'
 		await worker.startWorker()
-		expect(mockUpsertUpdateScheduler).toHaveBeenCalledWith(12)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledWith(12)
 	})
 
 	it('falls back to 30 when UPDATE_INTERVAL is unset or non-numeric', async () => {
 		delete process.env.UPDATE_INTERVAL
 		await worker.startWorker()
-		expect(mockUpsertUpdateScheduler).toHaveBeenLastCalledWith(30)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith(30)
 
 		process.env.UPDATE_INTERVAL = 'not-a-number'
 		await worker.startWorker()
-		expect(mockUpsertUpdateScheduler).toHaveBeenLastCalledWith(30)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith(30)
 	})
 })
 
@@ -255,6 +255,6 @@ describe('worker import side effects', () => {
 		expect(startupStartedAtImport.paprInitialize).toBe(false)
 		expect(startupStartedAtImport.clientConnect).toBe(false)
 		expect(startupStartedAtImport.createWorker).toBe(false)
-		expect(startupStartedAtImport.upsertUpdateScheduler).toBe(false)
+		expect(startupStartedAtImport.upsertUpdateSchedulers).toBe(false)
 	})
 })

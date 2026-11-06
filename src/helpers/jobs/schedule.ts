@@ -1,6 +1,6 @@
 import type { FastifyBaseLogger } from 'fastify'
 
-import { upsertUpdateScheduler } from '#helpers/jobs/bullmq'
+import { upsertUpdateSchedulers } from '#helpers/jobs/bullmq'
 
 /** The API side of the schedule: (re)create the BullMQ repeatable job.
  * No REDIS_URL → scheduling disabled with a warning (local dev without Redis
@@ -16,9 +16,9 @@ export async function registerUpdateScheduler(
 		return
 	}
 	try {
-		await upsertUpdateScheduler(days)
-		logger.info(`Update scheduler enqueued: every ${days} days`)
+		await upsertUpdateSchedulers(days)
+		logger.info(`Update schedulers enqueued: authors/books/chapters every ${days} days`)
 	} catch (err) {
-		logger.error(err, 'Failed to register update scheduler; scheduled updates disabled')
+		logger.error(err, 'Failed to register update schedulers; scheduled updates disabled')
 	}
 }
