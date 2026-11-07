@@ -537,7 +537,8 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 	const dispositions: [string, PersistResult][] = [
 		['rejected', { data: null, modified: false, disposition: 'rejected' }],
 		['stale', { data: null, modified: false, disposition: 'stale' }],
-		['accepted', { data: storedBook, modified: true, disposition: 'accepted' }]
+		['accepted', { data: storedBook, modified: true, disposition: 'accepted' }],
+		['accepted-unchanged', { data: storedBook, modified: false, disposition: 'accepted' }]
 	]
 
 	test.each(dispositions)('persistObservation disposition %s', async (disposition, persistResult) => {
@@ -583,6 +584,10 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			expect(result).toBe(storedBook)
 			expect(setOneSpy).toHaveBeenCalledTimes(1)
 			expect(setOneSpy).toHaveBeenCalledWith(storedBook)
+			// `persisted` tracks the write, not the acceptance: a modified
+			// acceptance is a real write; the equal short-circuit
+			// (accepted but unchanged) is not.
+			expect(helper.persisted).toBe(persistResult.modified === true)
 		}
 	})
 

@@ -290,6 +290,10 @@ export default class GenericShowHelper {
 		}
 		if (result.data === null) throw this.errorMessageDataType()
 		if (result.disposition === 'accepted') this.redisHelper.setOne(result.data)
+		// Track the write, not the acceptance: an accepted-but-unmodified
+		// observation (the equal short-circuit) still needs `markChecked` and
+		// must not be reported as an update.
+		this.persisted = result.modified === true
 		return result.data
 	}
 

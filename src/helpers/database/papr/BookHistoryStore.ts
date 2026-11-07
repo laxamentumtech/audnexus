@@ -236,7 +236,10 @@ export class BookHistoryStore {
 	 * Preserves the exact stored string, recognized ID or unparsed key, null
 	 * upstream time, unknown rendition; the import time is separate. Never
 	 * invents a first-observation date from the import time. Idempotent when
-	 * the same stored string already exists.
+	 * the same stored string already exists. A non-ObjectId source row
+	 * cannot satisfy the ObjectId-typed `legacy.sourceBookId`; the typed
+	 * capture is skipped after the stored URL is retained as an identity
+	 * exception, so a caller that deletes the row loses no image.
 	 */
 	async captureLegacy(
 		session: ClientSession,
@@ -247,9 +250,10 @@ export class BookHistoryStore {
 		const storedUrl =
 			typeof sourceBook.image === 'string' && sourceBook.image ? sourceBook.image : undefined
 		if (!storedUrl) return 0
-		// Non-ObjectId rows (audit/seed: `unsupported_id`) cannot satisfy the
-		// ObjectId-typed `legacy.sourceBookId`; skip the typed capture.
-		if (!(sourceBook._id instanceof ObjectId)) return 0
+		if (!(sourceBook._id instanceof ObjectId)) {
+			await this.recordIdentityException(session, sourceBook)
+			return 0
+		}
 		const imageId = parseArtworkReference(storedUrl)
 		const artwork = this.collection<Document>(COLLECTIONS.artwork)
 		const legacy = {
@@ -325,8 +329,17 @@ export class BookHistoryStore {
 		else if (!isSupportedRegionValue(sourceBook.region)) reasons.push('invalid_region')
 		if (reasons.length === 0) reasons.push('ambiguous_identity')
 		// Non-ObjectId source rows (audit/seed: `unsupported_id`) cannot be the
-		// collection's `_id`; use a deterministic string-safe key instead.
-		const exceptionId = idValid ? sourceBook._id : `unsupported_id:${asin}:${regionState}`
+		// collection's `_id`; use a deterministic string key that includes the
+		// region value and the source row's own `_id` so distinct rows never
+		// share one exception document.
+		const exceptionId = idValid
+			? sourceBook._id
+			: [
+					asin,
+					regionState,
+					regionState === 'value' ? String(sourceBook.region) : '',
+					`${typeof sourceBook._id}:${String(sourceBook._id)}`
+				].join('::')
 		const doc: Document = {
 			_id: exceptionId,
 			asin,
@@ -489,31 +502,21 @@ export class BookHistoryStore {
 					return { data: oldApi, modified: false, disposition: 'accepted' }
 				}
 				if (!genreSafeguardPasses(currentBook, book)) {
-					// Step 3's first-touch legacy capture may have inserted an
-					// asset and advanced assetSequence; persist that advance
-					// (and the legacyCaptured watermark) in the same
-					// transaction, or a later accepted observation would
+					// Step 3's first-touch legacy capture already persisted
+					// its assetSequence advance to the state row in this
+					// transaction, so a later accepted observation cannot
 					// re-insert at the same sequence and trip the unique
-					// artwork_order index permanently.
-					if (state) {
-						await stateCol.updateOne(
-							{ _id: state._id },
-							{
-								$set: {
-									assetSequence: baseSequence,
-									legacyCaptured,
-									stateVersion: state.stateVersion + 1
-								}
-							},
-							{ session }
-						)
-					} else {
-						const fresh = emptyState(asin, region)
-						fresh.legacyCaptured = legacyCaptured
-						fresh.assetSequence = baseSequence
-						fresh.stateVersion = 1
-						await stateCol.insertOne(fresh, { session })
-					}
+					// artwork_order index; only the legacyCaptured watermark
+					// and the stateVersion bump are non-redundant here.
+					// reserveGeneration (the sole caller's precondition)
+					// inserts the state doc and state docs are never deleted,
+					// so `state` is always present.
+					if (!state) throw new Error(`History state missing for ${key}`)
+					await stateCol.updateOne(
+						{ _id: state._id },
+						{ $set: { legacyCaptured, stateVersion: state.stateVersion + 1 } },
+						{ session }
+					)
 					return { data: oldApi, modified: false, disposition: 'rejected' }
 				}
 			}

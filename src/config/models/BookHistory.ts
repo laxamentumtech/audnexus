@@ -159,7 +159,14 @@ export const ExceptionRegionSchema: z.ZodType<ExceptionRegionValue> = z.discrimi
 	]
 )
 
+// `_id` is explicit: valid source rows keep their ObjectId, non-ObjectId
+// rows (audit/seed: `unsupported_id`) use a deterministic string key, so
+// the collection validator must accept both (Papr's injected ObjectId
+// default would reject the string keys).
 const bookHistoryIdentityExceptionSchema = schema({
+	_id: types.oneOf([types.objectId({ required: true }), types.string({ required: true })], {
+		required: true
+	}),
 	asin: types.string({ required: true }),
 	region: types.object({
 		state: types.string({ enum: ['missing', 'null', 'value'], required: true }),

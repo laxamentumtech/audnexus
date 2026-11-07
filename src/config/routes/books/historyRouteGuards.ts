@@ -9,13 +9,16 @@ import { MessageBadAsin } from '#static/messages'
 
 /**
  * Validate the `:asin` path parameter; throws a 400 `BadRequestError` when
- * it is not a well-formed ASIN. Returns the parsed value unchanged.
+ * it is not a well-formed ASIN. Returns the parsed (trimmed) value —
+ * `AsinSchema` normalizes surrounding whitespace, and downstream filters
+ * and state keys use the value verbatim.
  */
 export function requireValidAsin(asinParam: string): string {
-	if (!AsinSchema.safeParse(asinParam).success) {
+	const parsed = AsinSchema.safeParse(asinParam)
+	if (!parsed.success) {
 		throw new BadRequestError(MessageBadAsin)
 	}
-	return asinParam
+	return parsed.data
 }
 
 /**

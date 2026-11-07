@@ -527,11 +527,11 @@ paths:
                             observedAt:
                               type: string
                               nullable: true
-                              enum: [null]
+                              description: Always null for legacy imports.
                             rendition:
                               type: string
                               nullable: true
-                              enum: [null]
+                              description: Always null for legacy imports.
                         renditions:
                           type: array
                           items:

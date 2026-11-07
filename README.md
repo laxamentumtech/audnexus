@@ -241,10 +241,11 @@ against `MONGODB_URI` — it starts no server, Redis, or queue:
 bun src/history.ts prepare
 
 # Report current-book readiness issues: one NDJSON row per book with an
-# identity exception (invalid ASIN, missing/invalid region, non-ObjectId _id,
-# unparsed image reference), closed by a summary row with the identity
-# outcome counts (trusted / duplicate / ambiguous) and the truncated-walk
-# count when a bounded `_id` walk stopped early
+# identity exception (non-ObjectId _id, invalid ASIN, missing/invalid
+# region), closed by a summary row with the identity outcome counts
+# (trusted / duplicate / ambiguous), the image counts (recognized,
+# unparsed, none), and the truncated-walk count when a bounded `_id` walk
+# stopped early
 bun src/history.ts audit
 
 # One-time per-row legacy artwork seed. Each row commits in its own
