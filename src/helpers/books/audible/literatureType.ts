@@ -2,6 +2,15 @@ import type { AudibleProduct } from '#config/types'
 
 type LiteratureType = 'fiction' | 'nonfiction'
 
+/**
+ * History comparison policy for the derived literature type. The derived
+ * value is only a function of this classifier's input and region, so
+ * classifier changes bump this policy: the affected baseline is silently
+ * replaced on the next comparable observation, and the change itself is not
+ * recorded as an upstream event.
+ */
+export const LITERATURE_TYPE_POLICY = 'literatureType:v1'
+
 interface RegionTable {
 	fictionRoots: readonly string[]
 	mixedChildren: Readonly<Record<string, readonly string[]>>

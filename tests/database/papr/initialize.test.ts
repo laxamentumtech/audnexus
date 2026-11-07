@@ -1,14 +1,24 @@
-mock.module('mongodb', () => {
-	return {
-		MongoClient: mock().mockImplementation(() => ({
-			connect: mock().mockResolvedValue(undefined),
-			db: mock().mockReturnValue({ collection: mock() }),
-			close: mock().mockResolvedValue(undefined)
-		}))
-	}
-})
+// The mongodb driver is mocked so `initialize()` never connects. `initialize`
+// registers the book-history models, so papr's `updateSchemas()` runs its real
+// per-model collection check: `db.collections()`, then `db.createCollection()`
+// (collection absent) or `db.command({ collMod })` (collection present). The
+// stub db must expose that surface; it reports no existing collections, so the
+// create path is taken. `collection` returns one shared instance: papr builds
+// each model collection through it during `initialize(db)`, so a fresh stub per
+// call would leave the model's collection uninitialized.
+mock.module('mongodb', () => ({
+	MongoClient: mock().mockImplementation(() => ({
+		connect: mock().mockResolvedValue(undefined),
+		db: mock().mockReturnValue({
+			collection: mock().mockReturnValue({}),
+			collections: mock().mockResolvedValue([]),
+			createCollection: mock().mockResolvedValue(undefined),
+			command: mock().mockResolvedValue({})
+		}),
+		close: mock().mockResolvedValue(undefined)
+	}))
+}))
 import { beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
-import { Db } from 'mongodb'
 
 import { Context, createDefaultContext } from '#config/context'
 import { initialize } from '#config/papr'
@@ -20,10 +30,13 @@ let ctx: Context
 beforeEach(() => {
 	mockCtx = createMockContext()
 	ctx = mockCtx as unknown as Context
-	const mockDbInstance = {
-		collection: mock()
-	} as unknown as Db
-	spyOn(ctx.client, 'db').mockReturnValue(mockDbInstance)
+	const stub = {
+		collection: mock().mockReturnValue({}),
+		collections: mock().mockResolvedValue([]),
+		createCollection: mock().mockResolvedValue(undefined),
+		command: mock().mockResolvedValue({})
+	}
+	spyOn(ctx.client, 'db').mockReturnValue(stub as never)
 	spyOn(ctx.client, 'connect').mockResolvedValue(ctx.client)
 })
 

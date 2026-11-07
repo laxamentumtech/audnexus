@@ -1,6 +1,7 @@
 import type { FastifyBaseLogger } from 'fastify'
 import { htmlToText } from 'html-to-text'
 
+import type { BookObservation } from '#config/bookHistory'
 import {
 	ApiAuthorOnBook,
 	ApiBook,
@@ -22,6 +23,15 @@ import {
 	FallbackAudibleProduct,
 	fallbackShape
 } from '#config/types'
+import {
+	buildArtworkReferences,
+	buildFieldObservations,
+	composeObservation,
+	composeTimestamps,
+	isLiteratureTypeJustified,
+	RawProduct,
+	seriesEvidence
+} from '#helpers/books/audible/BookObservation'
 import literatureTypeFromProduct from '#helpers/books/audible/literatureType'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
@@ -41,17 +51,44 @@ import { regions } from '#static/regions'
 /** Known product_state values that indicate a delisted/unavailable product. */
 const DELISTED_STATES: readonly string[] = ['NOT_AVAILABLE_FOR_PURCHASE']
 
+interface HistoryEvidence {
+	apiReceivedAt: Date
+	responseGroups: string[]
+	requestedRenditions: string[]
+	captured: {
+		product: RawProduct
+		contentType: string | undefined
+		seriesPresent: boolean
+		ladders: AudibleCategory[][]
+		thesaurusKeywords: string[] | undefined
+		copyrightYear: number | undefined
+		apiGenres: ApiGenre[]
+		seriesSelected: boolean
+	}
+}
+
 class ApiHelper {
 	asin: string
 	categories: AudibleCategory[][] | undefined
 	audibleResponse: AudibleProduct['product'] | FallbackAudibleProduct | undefined
 	region: string
 	requestUrl: string
+	private captureHistory: boolean
+	private apiReceivedAt: Date | undefined
+	private historyEvidence: HistoryEvidence | undefined
+	private observation: BookObservation | undefined
+	private finalData: ApiBook | undefined
 	logger?: FastifyBaseLogger
-	constructor(asin: string, region: string, logger?: FastifyBaseLogger) {
+	constructor(
+		asin: string,
+		region: string,
+		logger?: FastifyBaseLogger,
+		captureHistory: boolean = false
+	) {
 		this.asin = asin
 		this.region = region
 		this.logger = logger
+		this.captureHistory = captureHistory
 		const helper = new SharedHelper()
 		const baseDomain = 'https://api.audible'
 		const regionTLD = regions[region].tld
@@ -117,6 +154,31 @@ class ApiHelper {
 				return undefined
 			}
 		}
+	}
+
+	/**
+	 * Snapshot the full public genre mapping (parents as `genre`, remaining
+	 * categories as `tag`) from an uncopied ladder structure, without
+	 * mutating it. Replicates getGenres()+getTags() on a copy: each ladder's
+	 * parent is taken by position, names deduplicated, mapping applied.
+	 * @param {AudibleCategory[][]} ladders category ladders
+	 * @returns {ApiGenre[]} mapped genres and tags
+	 */
+	snapshotApiGenres(ladders: AudibleCategory[][]): ApiGenre[] {
+		const toApiGenres = (categories: AudibleCategory[], type: string): ApiGenre[] =>
+			categories
+				.map((category) => {
+					return this.categoryToApiGenre(category, type)
+				})
+				.filter(this.isGenre)
+
+		// Parents are the first item of each ladder; tags are the remainder
+		const parentNames = ladders.map((ladder) => ladder[0])
+		const rawGenres = parentNames.filter(this.isCategory)
+		const genres = [...new Map(rawGenres.map((item) => [item.name, item])).values()]
+		const rawTags = ladders.map((ladder) => ladder.slice(1)).flat()
+		const tags = [...new Map(rawTags.map((item) => [item.name, item])).values()]
+		return [...toApiGenres(genres, 'genre'), ...toApiGenres(tags, 'tag')]
 	}
 
 	/**
@@ -325,10 +387,94 @@ class ApiHelper {
 	}
 
 	/**
+	 * Capture own-key evidence and all exact product_images entries for
+	 * history. Called before getFinalData() in every successful parse
+	 * branch; category/keyword evidence is collected before getGenres()
+	 * mutates the ladders. No second complete product response is cloned —
+	 * category ladders are shallow-copied per branch, never the wrapper.
+	 */
+	private captureHistoryEvidence(jsonResponse: AudibleProduct | undefined): void {
+		if (!this.captureHistory || !this.audibleResponse || !this.apiReceivedAt) return
+		const product = this.audibleResponse
+		const ladders: AudibleCategory[][] = product.category_ladders.map(({ ladder }) =>
+			ladder.map((c) => ({ ...c }))
+		)
+		this.historyEvidence = {
+			apiReceivedAt: this.apiReceivedAt,
+			responseGroups:
+				jsonResponse && Array.isArray(jsonResponse.response_groups)
+					? jsonResponse.response_groups.filter((g): g is string => typeof g === 'string')
+					: [],
+			// The constructor always requests exactly these renditions
+			requestedRenditions: ['500', '1024'],
+			captured: {
+				product,
+				contentType: 'content_delivery_type' in product ? product.content_delivery_type : undefined,
+				seriesPresent: seriesEvidence(
+					product,
+					'content_delivery_type' in product ? product.content_delivery_type : undefined,
+					false
+				).present,
+				ladders,
+				thesaurusKeywords: product.thesaurus_subject_keywords?.map((k) => String(k)),
+				copyrightYear: this.getCopyrightYear(),
+				apiGenres: this.snapshotApiGenres(ladders),
+				seriesSelected: false
+			}
+		}
+	}
+
+	/**
+	 * Get the captured history observation for this fetch, or undefined when
+	 * collection is disabled or no successful fetch timestamp/evidence
+	 * exists. Lazily builds the observation from the final validated book.
+	 */
+	getHistoryObservation(): BookObservation | undefined {
+		if (!this.captureHistory || !this.historyEvidence || this.observation) return this.observation
+		if (!this.audibleResponse) return undefined
+		const evidence = this.historyEvidence.captured
+		const book = this.getFinalData()
+		const seriesEvidence1 = seriesEvidence(
+			evidence.product,
+			evidence.contentType,
+			book.seriesPrimary !== undefined
+		)
+		const fields = buildFieldObservations({
+			book,
+			product: evidence.product,
+			copyrightYear: evidence.copyrightYear,
+			apiGenres: evidence.apiGenres,
+			literatureTypeJustified: isLiteratureTypeJustified(
+				evidence.ladders.length > 0
+					? evidence.ladders.map((ladder) => ({ ladder, root: '' }))
+					: undefined,
+				evidence.thesaurusKeywords
+			),
+			seriesKeyPresent: seriesEvidence1.present,
+			seriesOutcome: seriesEvidence1.outcome
+		})
+		this.observation = composeObservation(
+			{
+				...composeTimestamps(this.historyEvidence.apiReceivedAt),
+				responseGroups: this.historyEvidence.responseGroups,
+				requestedRenditions: this.historyEvidence.requestedRenditions
+			},
+			fields,
+			buildArtworkReferences(evidence.product.product_images)
+		)
+		return this.observation
+	}
+
+	/**
 	 * Compile the final data object.
 	 * This is run after all other data has been parsed.
 	 */
 	getFinalData(): ApiBook {
+		// Memoized per fetch: getGenres() shifts category ladders in place,
+		// and getHistoryObservation() needs the exact public book the first
+		// call produced — re-running the mapping would classify
+		// literatureType from already-shifted ladders and drop genres.
+		if (this.finalData) return this.finalData
 		if (!this.audibleResponse) throw new Error(ErrorMessageNoData(this.asin, 'ApiHelper'))
 		// Classify literature type BEFORE getGenres() which mutates category_ladders
 		const literatureType = literatureTypeFromProduct(
@@ -352,7 +498,7 @@ class ApiHelper {
 		}
 		const ratings = this.getRatings()
 		// Parse final data
-		return ApiBookSchema.parse({
+		const data = ApiBookSchema.parse({
 			asin: this.audibleResponse.asin,
 			authors: this.audibleResponse.authors.map((person: ApiAuthorOnBook) => {
 				const authorJson: ApiAuthorOnBook = {
@@ -406,6 +552,8 @@ class ApiHelper {
 			summary: this.audibleResponse.publisher_summary ?? '',
 			title: this.audibleResponse.title
 		})
+		this.finalData = data
+		return data
 	}
 
 	/**
@@ -417,6 +565,10 @@ class ApiHelper {
 		return fetch(this.requestUrl)
 			.then(async (response) => {
 				const json: AudibleProduct = response.data
+				// Receipt time recorded immediately after the successful
+				// product response, before any parsing or fallback rights
+				// requests. Collection-only: disabled paths allocate nothing.
+				if (this.captureHistory) this.apiReceivedAt = new Date()
 				return json
 			})
 			.catch((error) => {
@@ -512,6 +664,10 @@ class ApiHelper {
 					...baseResult.data,
 					content_delivery_type: 'Unknown'
 				})
+				// The fallback wrapper's response_groups is not validated:
+				// captured as [] (unavailable provenance) while the own keys
+				// remain independently valid evidence.
+				this.captureHistoryEvidence(undefined)
 				return this.getFinalData()
 			}
 			// baseShape also failed - fetch product_state for a specific error
@@ -544,6 +700,8 @@ class ApiHelper {
 
 		// Set response to class variable on success
 		this.audibleResponse = response.data.product
+
+		this.captureHistoryEvidence(jsonResponse)
 
 		// Return final data
 		return this.getFinalData()
