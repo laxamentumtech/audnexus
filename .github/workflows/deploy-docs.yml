@@ -110,7 +110,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build-docs
-    if: needs.build-docs.outputs.publish == 'true'
+    # Release dispatches run at the release tag, which the github-pages
+    # environment's branch policy rejects before any step executes. They only
+    # need the immutable release asset (already published in build-docs), so
+    # they must never reach Pages and must never be treated as a failed deploy.
+    if: needs.build-docs.outputs.publish == 'true' && inputs.release_run == ''
     permissions:
       contents: read
       pages: write
