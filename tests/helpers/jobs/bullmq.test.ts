@@ -633,6 +633,25 @@ describe('bullmq queue helpers', () => {
 			}
 		})
 
+		it('preserves an explicit zero interval instead of defaulting it', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedChapters = process.env.UPDATE_INTERVAL_CHAPTERS
+			process.env.UPDATE_INTERVAL = '36500'
+			process.env.UPDATE_INTERVAL_CHAPTERS = '0'
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 36500,
+					books: 36500,
+					chapters: 0
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedChapters === undefined) delete process.env.UPDATE_INTERVAL_CHAPTERS
+				else process.env.UPDATE_INTERVAL_CHAPTERS = savedChapters
+			}
+		})
+
 		it('reads UPDATE_INTERVAL and UPDATE_INTERVAL_CHAPTERS independently', () => {
 			const savedInterval = process.env.UPDATE_INTERVAL
 			const savedChapters = process.env.UPDATE_INTERVAL_CHAPTERS
@@ -661,8 +680,14 @@ describe('bullmq queue helpers', () => {
 
 	it('skips only the collections whose interval is non-positive', async () => {
 		mockQueueUpsert.mockClear()
+		mockQueueRemoveJobScheduler.mockClear()
 		await upsertUpdateSchedulers({ authors: 30, books: 0, chapters: 0 })
 		expect(mockQueueUpsert).toHaveBeenCalledTimes(1)
+		// Disabling a collection removes its existing scheduler, not just skips
+		// the upsert — otherwise a prior occurrence keeps firing.
+		expect(mockQueueRemoveJobScheduler).toHaveBeenCalledWith(UPDATE_SCHEDULER_IDS.books)
+		expect(mockQueueRemoveJobScheduler).toHaveBeenCalledWith(UPDATE_SCHEDULER_IDS.chapters)
+		expect(mockQueueRemoveJobScheduler).not.toHaveBeenCalledWith(UPDATE_SCHEDULER_IDS.authors)
 		expect(mockQueueUpsert).toHaveBeenCalledWith(
 			UPDATE_SCHEDULER_IDS.authors,
 			{ every: 2_592_000_000, immediately: true },

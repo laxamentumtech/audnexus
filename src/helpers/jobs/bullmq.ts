@@ -372,8 +372,16 @@ export interface UpdateSchedulerIntervals {
  * `UPDATE_INTERVAL_CHAPTERS` (default 30). A non-positive value disables that
  * collection's scheduler (see upsertUpdateSchedulers). */
 export function getUpdateSchedulerIntervals(): UpdateSchedulerIntervals {
-	const base = Number(process.env.UPDATE_INTERVAL) || 30
-	const chapters = Number(process.env.UPDATE_INTERVAL_CHAPTERS) || 30
+	// An explicit 0 disables the collection (see upsertUpdateSchedulers), so
+	// fall back to the 30-day default only for unset/non-numeric values —
+	// `Number('')` and `Number(undef) || 30` would both resurrect a schedule
+	// the operator explicitly turned off.
+	const interval = (raw: string | undefined, fallback: number): number => {
+		const value = Number(raw)
+		return raw === undefined || raw === '' || Number.isNaN(value) ? fallback : value
+	}
+	const base = interval(process.env.UPDATE_INTERVAL, 30)
+	const chapters = interval(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
 	return { authors: base, books: base, chapters }
 }
 
@@ -394,8 +402,13 @@ export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals
 	// in the job template.
 	for (const [collection, days] of Object.entries(intervals)) {
 		const everyMs = Math.floor(days * 86_400_000)
-		if (everyMs <= 0) continue
 		const schedulerId = UPDATE_SCHEDULER_IDS[collection as keyof typeof UPDATE_SCHEDULER_IDS]
+		// Disabling a collection must remove its existing scheduler, not just
+		// skip the upsert — otherwise a previous occurrence keeps firing.
+		if (everyMs <= 0) {
+			await withCommandTimeout(() => getQueue().removeJobScheduler(schedulerId))
+			continue
+		}
 		const name = UPDATE_SCHEDULERS[schedulerId]
 		await withCommandTimeout(() =>
 			getQueue().upsertJobScheduler(
@@ -408,7 +421,11 @@ export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals
 			)
 		)
 	}
-	await ensureUpdateSchedulesWillRun()
+	await ensureUpdateSchedulesWillRun(
+		Object.entries(intervals)
+			.filter(([, days]) => days <= 0)
+			.map(([c]) => c)
+	)
 }
 
 /**
@@ -460,10 +477,13 @@ export async function removeOrphanedActiveJobs(): Promise<void> {
  * is harmless (the single-flight guard drops it; the walk is idempotent — it
  * refreshes whatever is stale).
  */
-export async function ensureUpdateSchedulesWillRun(): Promise<void> {
+export async function ensureUpdateSchedulesWillRun(disabled: string[] = []): Promise<void> {
 	await ensureReadyConnection()
 	const jobs = await withCommandTimeout(() => getQueue().getJobs(['active', 'waiting']))
-	for (const name of Object.values(UPDATE_SCHEDULERS)) {
+	for (const [collection, name] of Object.entries(UPDATE_SCHEDULERS)) {
+		// Disabled collections get no boot pass: a pass here would be work the
+		// operator explicitly turned off for the interval.
+		if (disabled.includes(collection)) continue
 		const inFlight = jobs.some((job) => job.name === name)
 		if (inFlight) continue
 		await withCommandTimeout(() =>
