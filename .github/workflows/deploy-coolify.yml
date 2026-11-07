@@ -55,11 +55,21 @@ jobs:
             echo "deploy=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # Prove the exact immutable image reference CI built (the sha tag,
-          # `type=sha` in ci.yml docker-build) is immutable before we trigger
-          # Coolify to deploy it. Fail-closed: set -euo pipefail aborts the
-          # step, so deploy stays unset and the webhook step never runs.
-          bun scripts/validate-image-reference.ts "ghcr.io/${GITHUB_REPOSITORY}:${MAIN_HEAD_SHA}"
+          # Prove the CI-built image (the sha tag, `type=sha` in
+          # ci.yml docker-build) exists in GHCR and is immutable before we
+          # trigger Coolify. The sha tag is content-addressed, so its digest
+          # is the immutable pin for this CI build: resolve it from GHCR (a
+          # public registry, readable without auth) and validate the digest
+          # pin. This does not constrain Coolify's own build — per the
+          # README it rebuilds from the connected Git source — it proves the
+          # CI artifact exists and cannot change under that digest.
+          # Fail-closed: set -euo pipefail aborts the step, so deploy stays
+          # unset and the webhook step never runs.
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY}"
+          IMAGE_DIGEST=$(docker buildx imagetools inspect \
+            "${IMAGE_NAME}:sha-${MAIN_HEAD_SHA:0:7}" \
+            --format '{{json .Manifest}}' | jq -er '.digest')
+          bun scripts/validate-image-reference.ts "${IMAGE_NAME}@${IMAGE_DIGEST}"
           echo "deploy=true" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Coolify

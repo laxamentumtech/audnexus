@@ -135,6 +135,23 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		expect(await readStampedVersion(path)).toBe('0.0.0')
 	})
 
+	test('reject a mismatched expected source on a main ref even with an explicit version', async () => {
+		// The relaxation admits an explicit version on a main ref, but only
+		// when the expected source equals the reserved source. With
+		// expectedSource set but DIFFERING, the source-mismatch guard must
+		// fire first (fail-closed ordering), never the tag-mismatch error.
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/heads/main',
+			DOCS_SOURCE: sha,
+			DOCS_EXPECTED_SOURCE: otherSha,
+			DOCS_VERSION: 'v1.2.0'
+		})
+		expect(result.code).toBe(1)
+		expect(result.stderr).toContain('does not match the reserved release source')
+		expect(await readStampedVersion(path)).toBe('0.0.0')
+	})
+
 	test('reject an explicit version that does not match the immutable release tag', async () => {
 		const path = join(root, 'spec.yaml')
 		const result = await stampFixture(path, {
@@ -145,6 +162,24 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		expect(result.code).toBe(1)
 		expect(result.stderr).toContain('matching immutable release tag')
 		expect(await readStampedVersion(path)).toBe('0.0.0')
+	})
+
+	test('accept an explicit version on a release dispatch from main', async () => {
+		// A release dispatch freezes the reserved release source in the
+		// dispatch (DOCS_EXPECTED_SOURCE) and dispatches from main (the
+		// github-pages environment policy admits only main). The identity is
+		// proven by the reserved source, so an explicit version is admissible
+		// even when the ref is not the immutable tag.
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/heads/main',
+			DOCS_SOURCE: sha,
+			DOCS_EXPECTED_SOURCE: sha,
+			DOCS_VERSION: 'v1.2.0'
+		})
+		expect(result.code).toBe(0)
+		expect(result.stdout).toBe(`Docs version: 1.2.0; source: ${sha}`)
+		expect(await readStampedVersion(path)).toBe('1.2.0')
 	})
 
 	test('reject a spec without an OpenAPI info section', async () => {

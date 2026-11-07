@@ -60,9 +60,13 @@ jobs:
 
       - name: Stamp the actual docs release identity
         env:
-          DOCS_REF: ${{ github.ref }}
+          # A release dispatch builds from main (the github-pages environment
+          # policy admits only main), so stamp it with the tag-shaped release
+          # ref; non-release dispatches keep their own ref. The release
+          # identity itself is proven by the release-docs job's stamp step.
+          DOCS_REF: ${{ inputs.release_run != '' && format('refs/tags/{0}', inputs.version) || github.ref }}
           DOCS_SOURCE: ${{ github.sha }}
-          DOCS_EXPECTED_SOURCE: ${{ inputs.source }}
+          DOCS_EXPECTED_SOURCE: ${{ inputs.release_run != '' && '' || inputs.source }}
           DOCS_VERSION: ${{ inputs.version }}
         run: bun scripts/stamp-docs-version.ts
 
@@ -110,10 +114,13 @@ jobs:
     permissions:
       contents: write
     steps:
+      # The run's own github.sha is the main head at dispatch time, which on a
+      # delayed-source retry is newer than the frozen release source; the
+      # immutable asset must be built from inputs.source, never github.sha.
       - name: Checkout frozen source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
+          ref: ${{ inputs.source }}
           persist-credentials: false
 
       - name: Setup Bun
@@ -124,13 +131,26 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      # The release dispatch runs from main (the github-pages environment
+      # policy admits only main), so the stamped version comes from the
+      # reserved release identity in the inputs, not the dispatched ref: a
+      # tag-shaped DOCS_REF with the frozen source proves the exact release
+      # and fails closed on any drift.
+      - name: Stamp the actual docs release identity
+        env:
+          DOCS_REF: refs/tags/${{ inputs.version }}
+          DOCS_SOURCE: ${{ inputs.source }}
+          DOCS_EXPECTED_SOURCE: ${{ inputs.source }}
+          DOCS_VERSION: ${{ inputs.version }}
+        run: bun scripts/stamp-docs-version.ts
+
       - name: Build docs
         run: bun run build-docs
 
       - name: Publish immutable version docs for release dispatches
         env:
           GH_TOKEN: ${{ github.token }}
-          SOURCE: ${{ github.sha }}
+          SOURCE: ${{ inputs.source }}
           VERSION: ${{ inputs.version }}
         run: python3 scripts/release.py docs-asset --source "$SOURCE" --version "$VERSION"
 

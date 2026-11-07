@@ -11,7 +11,16 @@ if (source && !/^[a-f0-9]{40}$/.test(source)) {
 if (expectedSource && expectedSource !== source) {
 	throw new Error('Docs dispatch does not match the reserved release source')
 }
-if (requested && (!semver.test(requested) || ref !== `refs/tags/${requested}`)) {
+// A release dispatch is one where the dispatch carries the reserved release
+// source and it matches the built source: the release identity (version) is
+// proven by the reserved source, so an explicit version is admissible even
+// when the ref is not the immutable tag (the main-dispatch ref).
+// Trust surface: trusts the dispatcher for source equality only — a manual
+// dispatch can stamp any self-consistent version label (bounded: docs label
+// only); tag→source pointing is proven later by release.py (docs-asset) for
+// release dispatches, and manual dispatches are operator-trusted.
+const releaseDispatch = Boolean(expectedSource) && expectedSource === source
+if (requested && (!semver.test(requested) || (!releaseDispatch && ref !== `refs/tags/${requested}`))) {
 	throw new Error('Explicit docs versions require the matching immutable release tag')
 }
 const tag = ref.startsWith('refs/tags/') ? ref.slice('refs/tags/'.length) : ''

@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 import re
 import subprocess
@@ -32,6 +33,15 @@ def semver(value):
 def require(condition, message):
     if not condition:
         raise ReleaseError(message)
+
+
+def parse_github_time(value):
+    """Parse a GitHub ISO 8601 timestamp (runs API emits a `+00:00` suffix)
+    into an aware UTC datetime for created_at comparisons."""
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def isolated_git_environment():
@@ -425,13 +435,22 @@ def dispatch_docs(repo, source, version, correlation):
     # github-pages environment, whose deployment-branch-policy admits only the
     # main branch, so a tag ref would be blocked. The exact release identity
     # comes from the inputs (version/source/release_run), not the ref — the
-    # stamp step re-verifies source and the run is correlated by release_run.
+    # stamp step re-verifies source. Correlating the dispatched run: the
+    # runs API does not return the dispatch inputs, and the run's head_sha
+    # is main's head at dispatch time — a newer commit than the frozen
+    # source on a delayed-source retry — so neither field identifies it.
+    # display_title is unique per release (it embeds the correlation ID),
+    # so match display_title plus created_at at/after the dispatch.
+    dispatch_time = parse_github_time(
+        repo.run("gh", "api", f"repos/{repo.repository()}/actions", "--jq", ".created_at").strip())
     repo.run("gh", "workflow", "run", "deploy-docs.yml", "--repo", repo.repository(), "--ref", "main", "-f", f"version={tag}", "-f", f"source={source}", "-f", f"release_run={correlation}")
     expected_title = f"Release docs {correlation}"
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         runs = repo.api(f"repos/{repo.repository()}/actions/workflows/deploy-docs.yml/runs?event=workflow_dispatch&per_page=100")["workflow_runs"]
-        matches = [run for run in runs if run.get("display_title") == expected_title and run.get("head_sha") == source]
+        matches = [run for run in runs
+                   if run.get("display_title") == expected_title
+                   and parse_github_time(run["created_at"]) >= dispatch_time]
         require(len(matches) <= 1, "Ambiguous docs dispatch run")
         if matches:
             repo.run("gh", "run", "watch", str(matches[0]["id"]), "--repo", repo.repository(), "--exit-status", "--interval", "10")
