@@ -4,15 +4,29 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 const mockPaprInitialize = mock()
 const mockClientConnect = mock()
 const mockClientClose = mock()
-const mockClient = { connect: mockClientConnect, close: mockClientClose }
+const mockCreateIndex = mock(() => Promise.resolve())
+const mockClientDb = mock(() => ({
+	collection: mock(() => ({ createIndex: mockCreateIndex }))
+}))
+const mockClient = { connect: mockClientConnect, close: mockClientClose, db: mockClientDb }
 const mockCreateWorker = mock()
 const mockGetWorker = mock()
 const mockCloseQueue = mock()
 const mockUpsertUpdateSchedulers = mock()
-// Mirrors the real helper so the worker test can assert on the derived object.
+// Mirrors the real helper (strict `\d+` parse: explicit 0 disables, anything
+// non-numeric falls back to 30) so the worker test can assert on the derived
+// object.
+const parseNonNegativeInt = (raw: string | undefined, fallback: number): number => {
+	const trimmed = raw?.trim()
+	if (trimmed && /^\d+$/.test(trimmed)) {
+		const parsed = Number(trimmed)
+		if (Number.isSafeInteger(parsed)) return parsed
+	}
+	return fallback
+}
 const mockGetUpdateSchedulerIntervals = mock(() => {
-	const base = Number(process.env.UPDATE_INTERVAL) || 30
-	const chapters = Number(process.env.UPDATE_INTERVAL_CHAPTERS) || 30
+	const base = parseNonNegativeInt(process.env.UPDATE_INTERVAL, 30)
+	const chapters = parseNonNegativeInt(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
 	return { authors: base, books: base, chapters }
 })
 const mockWorkerClose = mock()
@@ -152,6 +166,14 @@ describe('worker startup', () => {
 		expect(mockClientConnect).toHaveBeenCalledTimes(1)
 		expect(mockPaprInitialize).toHaveBeenCalledTimes(1)
 		expect(mockPaprInitialize).toHaveBeenCalledWith({ client: connectedClient })
+		// The stale-walk index must target papr's explicit database, not the
+		// URI default.
+		expect(mockClientDb).toHaveBeenCalledWith('audnexus')
+		expect(mockCreateIndex).toHaveBeenCalledTimes(3)
+		expect(mockCreateIndex).toHaveBeenCalledWith(
+			{ updatedAt: 1, _id: 1 },
+			{ name: 'updatedAt_1__id_1' }
+		)
 		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledTimes(1)
 		expect(mockCreateWorker).toHaveBeenCalledTimes(1)
 		expect(mockClientConnect.mock.invocationCallOrder[0]).toBeLessThan(

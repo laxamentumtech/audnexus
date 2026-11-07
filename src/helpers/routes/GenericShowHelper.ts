@@ -204,10 +204,12 @@ export default class GenericShowHelper {
 		// 2. Create or update the data
 		const dataToReturn = await this.paprHelper.createOrUpdate()
 		if (dataToReturn.data === null) throw this.errorMessageDataType()
-		// After this point the fresh data is in MongoDB; the pre-order transient
-		// path above returned before the persistence call, so this flag is false
-		// for it by construction.
-		this.persisted = true
+		// `createOrUpdate()` resolves without writing when the fetched data is
+		// identical to what is stored (the papr helpers return
+		// `modified: false`), so `persisted` must track the write, not the
+		// resolution. The pre-order transient path above returned before the
+		// persistence call, so the flag is false for it by construction.
+		this.persisted = dataToReturn.modified === true
 
 		// 3. Get the data with projections
 		const data = await this.getDataWithProjection()

@@ -6,6 +6,7 @@ import type { FastifyBaseLogger } from 'fastify'
 import { Redis } from 'ioredis'
 import { randomUUID } from 'node:crypto'
 
+import { parseNonNegativeInt } from '#config/performance'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
@@ -372,8 +373,12 @@ export interface UpdateSchedulerIntervals {
  * `UPDATE_INTERVAL_CHAPTERS` (default 30). A non-positive value disables that
  * collection's scheduler (see upsertUpdateSchedulers). */
 export function getUpdateSchedulerIntervals(): UpdateSchedulerIntervals {
-	const base = Number(process.env.UPDATE_INTERVAL) || 30
-	const chapters = Number(process.env.UPDATE_INTERVAL_CHAPTERS) || 30
+	// Strict `\d+` parse (shared with the performance config): an explicit 0
+	// disables the collection (see upsertUpdateSchedulers), while garbage like
+	// ' ', '0x1E' or 'Infinity' falls back to the 30-day default instead of
+	// silently disabling or producing a non-finite interval.
+	const base = parseNonNegativeInt(process.env.UPDATE_INTERVAL, 30)
+	const chapters = parseNonNegativeInt(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
 	return { authors: base, books: base, chapters }
 }
 
@@ -394,8 +399,13 @@ export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals
 	// in the job template.
 	for (const [collection, days] of Object.entries(intervals)) {
 		const everyMs = Math.floor(days * 86_400_000)
-		if (everyMs <= 0) continue
 		const schedulerId = UPDATE_SCHEDULER_IDS[collection as keyof typeof UPDATE_SCHEDULER_IDS]
+		// Disabling a collection must remove its existing scheduler, not just
+		// skip the upsert — otherwise a previous occurrence keeps firing.
+		if (everyMs <= 0) {
+			await withCommandTimeout(() => getQueue().removeJobScheduler(schedulerId))
+			continue
+		}
 		const name = UPDATE_SCHEDULERS[schedulerId]
 		await withCommandTimeout(() =>
 			getQueue().upsertJobScheduler(
@@ -408,7 +418,13 @@ export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals
 			)
 		)
 	}
-	await ensureUpdateSchedulesWillRun()
+	// ensureUpdateSchedulesWillRun matches against UPDATE_SCHEDULERS keys
+	// (scheduler ids), so translate the interval keys before passing them.
+	await ensureUpdateSchedulesWillRun(
+		Object.entries(intervals)
+			.filter(([, days]) => days <= 0)
+			.map(([c]) => UPDATE_SCHEDULER_IDS[c as keyof typeof UPDATE_SCHEDULER_IDS])
+	)
 }
 
 /**
@@ -460,10 +476,13 @@ export async function removeOrphanedActiveJobs(): Promise<void> {
  * is harmless (the single-flight guard drops it; the walk is idempotent — it
  * refreshes whatever is stale).
  */
-export async function ensureUpdateSchedulesWillRun(): Promise<void> {
+export async function ensureUpdateSchedulesWillRun(disabled: string[] = []): Promise<void> {
 	await ensureReadyConnection()
 	const jobs = await withCommandTimeout(() => getQueue().getJobs(['active', 'waiting']))
-	for (const name of Object.values(UPDATE_SCHEDULERS)) {
+	for (const [collection, name] of Object.entries(UPDATE_SCHEDULERS)) {
+		// Disabled collections get no boot pass: a pass here would be work the
+		// operator explicitly turned off for the interval.
+		if (disabled.includes(collection)) continue
 		const inFlight = jobs.some((job) => job.name === name)
 		if (inFlight) continue
 		await withCommandTimeout(() =>
