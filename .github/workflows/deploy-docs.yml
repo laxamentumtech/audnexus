@@ -60,19 +60,24 @@ jobs:
 
       - name: Stamp the actual docs release identity
         env:
-          # A release dispatch builds from main (the github-pages environment
-          # policy admits only main), so stamp it with the tag-shaped release
-          # ref; non-release dispatches keep their own ref. The release
-          # identity itself is proven by the release-docs job's stamp step.
-          DOCS_REF: ${{ inputs.release_run != '' && format('refs/tags/{0}', inputs.version) || github.ref }}
+          # Stamp the release identity only when this build IS the frozen
+          # release source. A release dispatch builds from main (the
+          # github-pages environment policy admits only main), so on a
+          # current-source release dispatch github.sha equals inputs.source
+          # and this build is stamped with the tag-shaped release ref; the
+          # release-docs job re-proves the identity from the frozen source
+          # for the immutable asset. On a delayed retry main has advanced
+          # past inputs.source: this build is then just current main, so it
+          # keeps its own ref and a dev identity — publishing it to Pages as
+          # the older release version would mislabel newer content. The
+          # expected source is set only for source-matching release
+          # dispatches (proving source equality); non-release dispatches
+          # keep inputs.source. `case()` is used because `&& '' || x` can
+          # never yield '' (an empty middle operand is falsey).
+          DOCS_REF: ${{ case(inputs.release_run != '' && github.sha == inputs.source, format('refs/tags/{0}', inputs.version), github.ref) }}
           DOCS_SOURCE: ${{ github.sha }}
-          # `&& '' || x` can never yield '' (an empty middle operand is falsey,
-          # so `||` takes x). This build is not the frozen release source — it
-          # is main at dispatch time — so clear the expectation for release
-          # dispatches instead of comparing against inputs.source, which would
-          # fail the stamp on a delayed retry and skip release-docs.
-          DOCS_EXPECTED_SOURCE: ${{ inputs.release_run == '' && inputs.source || '' }}
-          DOCS_VERSION: ${{ inputs.version }}
+          DOCS_EXPECTED_SOURCE: ${{ case(inputs.release_run == '', inputs.source, inputs.release_run != '' && github.sha == inputs.source, inputs.source, '') }}
+          DOCS_VERSION: ${{ case(inputs.release_run == '', inputs.version, inputs.release_run != '' && github.sha == inputs.source, inputs.version, '') }}
         run: bun scripts/stamp-docs-version.ts
 
       - name: Build docs
