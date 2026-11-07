@@ -98,8 +98,12 @@ mock.module('#helpers/utils/UpdateScheduler', () => ({
 	}
 }))
 
+const backfillConstructorArgs: unknown[][] = []
 mock.module('#helpers/routes/BookBackfillHelper', () => ({
 	default: class BookBackfillHelper {
+		constructor(...args: unknown[]) {
+			backfillConstructorArgs.push(args)
+		}
 		process = mockBackfillProcess
 	}
 }))
@@ -135,6 +139,7 @@ beforeEach(() => {
 	process.env.REDIS_URL = TEST_REDIS_URL
 	mockRedisStatus = 'ready'
 	mockJobFromIdSequence = [null]
+	backfillConstructorArgs.length = 0
 	// mockReset (not mockClear) so the per-test once-queues never leak:
 	// a leftover resolved/rejected-once on add/remove would be consumed by a
 	// later test before its own stubbing.
@@ -534,9 +539,11 @@ describe('bullmq queue helpers', () => {
 				await upsertUpdateSchedulers({ authors: days, books: days, chapters: days })
 				expect(mockQueueRemoveJobScheduler).toHaveBeenCalledWith(LEGACY_UPDATE_SCHEDULER_ID)
 				for (const [schedulerId, name] of Object.entries(UPDATE_SCHEDULERS)) {
+					// `immediately` is deliberately absent: with `every` it is a
+					// documented no-op that console.warns per scheduler per boot.
 					expect(mockQueueUpsert).toHaveBeenCalledWith(
 						schedulerId,
-						{ every: everyMs, immediately: true },
+						{ every: everyMs },
 						{
 							name,
 							opts: expect.objectContaining(JOB_RETRIES)
@@ -567,7 +574,7 @@ describe('bullmq queue helpers', () => {
 
 		it('sweeps ghost active-list entries before upserting the schedulers', async () => {
 			// 2026-10-06 incident: restarts mid-job leaked active-list entries
-			// whose job records were gone; the boot `immediately` fire deduped
+			// whose job records were gone; the boot first occurrence deduped
 			// against the ghost and the boot-only schedule never fired again.
 			const ghostId = 'repeat:update-all-scheduler:123'
 			mockRedisLrange.mockResolvedValue([ghostId, 'real-job'])
@@ -631,6 +638,33 @@ describe('bullmq queue helpers', () => {
 
 			expect(mockQueueAdd).not.toHaveBeenCalledWith(JOB_NAMES.updateBooks, {}, expect.anything())
 			expect(mockQueueAdd).toHaveBeenCalledTimes(Object.keys(UPDATE_SCHEDULERS).length - 1)
+		})
+
+		it('skips the boot pass while still upserting schedulers (API-side registration)', async () => {
+			// The API (re)creates the repeatable jobs on every boot; with
+			// `skipBootPass` it must NOT enqueue the boot passes — the worker
+			// owns those, and each API replica fanning out a full boot pass
+			// would multiply the staleness walk per replica.
+			mockQueueGetJobs.mockResolvedValue([])
+			mockQueueAdd.mockClear()
+
+			await upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 }, { skipBootPass: true })
+
+			expect(mockQueueUpsert).toHaveBeenCalledTimes(Object.keys(UPDATE_SCHEDULERS).length)
+			expect(mockQueueRemoveJobScheduler).toHaveBeenCalledWith(LEGACY_UPDATE_SCHEDULER_ID)
+			expect(mockQueueAdd).not.toHaveBeenCalled()
+		})
+
+		it('skips boot passes for disabled collections only under the default option', async () => {
+			// A disabled collection must get neither a scheduler nor a boot
+			// pass; `skipBootPass` must not change the disabled handling.
+			mockQueueGetJobs.mockResolvedValue([])
+			mockQueueAdd.mockClear()
+
+			await upsertUpdateSchedulers({ authors: 30, books: 0, chapters: 0 }, { skipBootPass: true })
+
+			expect(mockQueueUpsert).toHaveBeenCalledTimes(1)
+			expect(mockQueueAdd).not.toHaveBeenCalled()
 		})
 	})
 
@@ -711,7 +745,7 @@ describe('bullmq queue helpers', () => {
 		expect(mockQueueRemoveJobScheduler).not.toHaveBeenCalledWith(UPDATE_SCHEDULER_IDS.authors)
 		expect(mockQueueUpsert).toHaveBeenCalledWith(
 			UPDATE_SCHEDULER_IDS.authors,
-			{ every: 2_592_000_000, immediately: true },
+			{ every: 2_592_000_000 },
 			{
 				name: JOB_NAMES.updateAuthors,
 				opts: expect.objectContaining(JOB_RETRIES)
@@ -922,12 +956,17 @@ describe('bullmq queue helpers', () => {
 	it('runs backfill-ratings jobs through BookBackfillHelper and logs the summary', async () => {
 		const logger = createMockLogger()
 		mockBackfillProcess.mockResolvedValueOnce({ total: 5, updated: 4, skipped: 1, failed: 0 })
+		// getCacheRedis() is a singleton, so identity-checks the injected
+		// client proves the handler wired it in (not null).
+		const cache = getCacheRedis()
 		await expect(handleJob({ name: 'backfill-ratings' }, logger)).resolves.toEqual({
 			total: 5,
 			updated: 4,
 			skipped: 1,
 			failed: 0
 		})
+		expect(backfillConstructorArgs).toHaveLength(1)
+		expect(backfillConstructorArgs[0][1]).toBe(cache)
 		expect(logger.info).toHaveBeenCalledTimes(1)
 		expect(String(logger.info.mock.calls[0][0])).toContain('Ratings backfill complete')
 	})
@@ -965,6 +1004,18 @@ describe('bullmq queue helpers', () => {
 			commandTimeout: 10000,
 			retryStrategy: expect.any(Function)
 		})
+	})
+
+	it('attaches an error listener to the cache connection', () => {
+		// The cache client's retryStrategy never gives up, so a dropped link
+		// keeps firing ioredis 'error' events; without a listener those
+		// surface as unhandled errors that can kill the process.
+		redisConstructorCalls.length = 0
+		mockRedisStatus = 'end' // force a fresh creation (a prior test may hold a singleton)
+		const a = getCacheRedis()
+		mockRedisStatus = 'ready'
+		const on = a.on as unknown as Mock
+		expect(on).toHaveBeenCalledWith('error', expect.any(Function))
 	})
 
 	it('re-creates a dead (end) cache connection', () => {

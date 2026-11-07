@@ -73,6 +73,9 @@
 		"prettier-plugin-yaml": "^1.2.0",
 		"typescript": "^5.9.3"
 	},
+	"overrides": {
+		"ioredis": "5.11.1"
+	},
 	"imports": {
 		"#config/*": "./dist/config/*.js",
 		"#helpers/*": "./dist/helpers/*.js",

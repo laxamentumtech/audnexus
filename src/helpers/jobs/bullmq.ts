@@ -153,6 +153,12 @@ export function getCacheRedis(): Redis {
 			// because the update pass holds this instance for hours.
 			retryStrategy: (times) => Math.min(times * CACHE_RETRY_BASE_MS, CACHE_RETRY_CAP_MS)
 		})
+		// Swallow connection-error events: the unbounded retryStrategy keeps
+		// reconnecting forever, and with no listener ioredis emits one 'error'
+		// event per failed attempt that Node raises as unhandled and kills the
+		// worker. Bounded retries and the command timeout already make offline
+		// commands fail fast; this listener only prevents the event crash.
+		cacheRedis.on('error', (err) => console.warn('cache Redis connection error:', err.message))
 	}
 	return cacheRedis
 }
@@ -384,19 +390,28 @@ export function getUpdateSchedulerIntervals(): UpdateSchedulerIntervals {
 
 /** Replace the toad-scheduler LongIntervalJob: one BullMQ repeatable job per
  * collection firing every `intervals.<collection>` days (converted to
- * milliseconds — BullMQ repeat has no day unit). `immediately: true` preserves
- * the old runImmediately behavior. An interval <= 0 skips that collection's
- * scheduler (no scheduler created) so local/smoke setups can run the worker
- * without a schedule. */
-export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals): Promise<void> {
+ * milliseconds — BullMQ repeat has no day unit). An interval <= 0 skips that
+ * collection's scheduler (no scheduler created) so local/smoke setups can run
+ * the worker without a schedule.
+ *
+ * `skipBootPass` (API-side registration): (re)create the repeatable jobs
+ * without enqueuing the boot passes. The worker owns the boot passes — the API
+ * serves reads and may run many replicas, and each replica enqueuing a full
+ * boot pass would fan the entire staleness walk out per replica.
+ */
+export async function upsertUpdateSchedulers(
+	intervals: UpdateSchedulerIntervals,
+	options: { skipBootPass?: boolean } = {}
+): Promise<void> {
 	await ensureReadyConnection()
 	await removeOrphanedActiveJobs()
 	// Reap the pre-split scheduler first: its delayed occurrence would keep
 	// firing the deleted `update-all` job name.
 	await withCommandTimeout(() => getQueue().removeJobScheduler(LEGACY_UPDATE_SCHEDULER_ID))
-	// v5.81+ scheduler shape: repeat options take `immediately` (with `every`
-	// it fires once at creation and runs every interval); name/data/opts live
-	// in the job template.
+	// v5.81+ scheduler shape: `every` schedules fire their first occurrence
+	// immediately anyway (a boot-time upsert lands at/after now), so the
+	// `immediately` flag would be a documented no-op that console.warns per
+	// scheduler per boot; name/data/opts live in the job template.
 	for (const [collection, days] of Object.entries(intervals)) {
 		const everyMs = Math.floor(days * 86_400_000)
 		const schedulerId = UPDATE_SCHEDULER_IDS[collection as keyof typeof UPDATE_SCHEDULER_IDS]
@@ -410,7 +425,7 @@ export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals
 		await withCommandTimeout(() =>
 			getQueue().upsertJobScheduler(
 				schedulerId,
-				{ every: everyMs, immediately: true },
+				{ every: everyMs },
 				{
 					name,
 					opts: { ...JOB_RETRIES }
@@ -418,6 +433,7 @@ export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals
 			)
 		)
 	}
+	if (options.skipBootPass) return
 	// ensureUpdateSchedulesWillRun matches against UPDATE_SCHEDULERS keys
 	// (scheduler ids), so translate the interval keys before passing them.
 	await ensureUpdateSchedulesWillRun(
@@ -432,11 +448,11 @@ export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals
  * exists is an orphan of a killed worker (observed 2026-10-06: two restarts
  * mid-job leaked ghost entries that sat in `active` while pointing at
  * nothing). Two consequences made this fatal for a boot-only repeat
- * schedule: the ghost blocked the repeatable scheduler's `immediately` fire
- * at the next upsert, and BullMQ's stalled checker has no job record to
- * reap — so the queue sat silent until the entries were removed by hand.
- * The sweep runs before the scheduler upsert so the immediate fire is never
- * deduped against a ghost.
+ * schedule: the ghost blocked the first occurrence of the repeatable
+ * scheduler at the next upsert, and BullMQ's stalled checker has no job
+ * record to reap — so the queue sat silent until the entries were removed by
+ * hand. The sweep runs before the scheduler upsert and the boot-pass enqueue
+ * so neither is deduped against a ghost.
  */
 export async function removeOrphanedActiveJobs(): Promise<void> {
 	await ensureReadyConnection()
@@ -455,9 +471,6 @@ export async function removeOrphanedActiveJobs(): Promise<void> {
 		// stalled checker can never be fooled by a dead owner's TTL.
 		await withCommandTimeout(() => client.lrem(`bull:${QUEUE_NAME}:active`, 0, id))
 		await withCommandTimeout(() => client.del(`bull:${QUEUE_NAME}:${id}:lock`))
-		await withCommandTimeout(() =>
-			client.del(`bull:${QUEUE_NAME}:repeat:update-all-scheduler:${id}:lock`)
-		)
 	}
 	if (orphans.length > 0) {
 		console.warn(`Swept ${orphans.length} orphaned active job(s): ${orphans.join(', ')}`)
@@ -466,15 +479,15 @@ export async function removeOrphanedActiveJobs(): Promise<void> {
 
 /**
  * Guarantee the boot actually leads to a running pass for every collection.
- * The repeatable scheduler's `immediately` fire is deduped by BullMQ against any
- * existing job for the scheduler — including a ghost the boot sweep could not
- * classify (a hash that reappeared between sweep and upsert) — and the next
- * scheduled occurrence may be a full interval away. A *delayed* occurrence up
- * to a full interval away means nothing is running now, so a fresh boot must
- * start a pass: for each collection with no same-name job in `active` or
- * `waiting`, enqueue a one-off boot pass. A duplicate with a genuine occurrence
- * is harmless (the single-flight guard drops it; the walk is idempotent — it
- * refreshes whatever is stale).
+ * The first occurrence of the repeatable scheduler is deduped by BullMQ
+ * against any existing job for the scheduler — including a ghost the boot
+ * sweep could not classify (a hash that reappeared between sweep and upsert) —
+ * and the next scheduled occurrence may be a full interval away. A *delayed*
+ * occurrence up to a full interval away means nothing is running now, so a
+ * fresh boot must start a pass: for each collection with no same-name job in
+ * `active` or `waiting`, enqueue a one-off boot pass. A duplicate with a
+ * genuine occurrence is harmless (the single-flight guard drops it; the walk
+ * is idempotent — it refreshes whatever is stale).
  */
 export async function ensureUpdateSchedulesWillRun(disabled: string[] = []): Promise<void> {
 	await ensureReadyConnection()
@@ -565,7 +578,11 @@ export async function handleJob(
 			}
 		}
 		if (job.name === JOB_NAMES.backfillRatings) {
-			const summary = await new BookBackfillHelper(logger).process()
+			// The cache client is injected (not null): refreshed books must
+			// reach the Redis cache the same way the scheduler path populates
+			// it, or the backfill re-fetches what it just wrote on the next
+			// read.
+			const summary = await new BookBackfillHelper(logger, getCacheRedis()).process()
 			logger.info(
 				`Ratings backfill complete: total=${summary.total} updated=${summary.updated} skipped=${summary.skipped} failed=${summary.failed}`
 			)

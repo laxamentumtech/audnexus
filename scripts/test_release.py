@@ -10,6 +10,7 @@ import tempfile
 import time
 import unittest
 import unittest.mock
+from datetime import datetime, timezone
 from pathlib import Path
 
 import release
@@ -118,7 +119,7 @@ class LocalGitHub(release.Repository):
             return dict(asset)
         if path.startswith('actions/workflows/'):
             return {'workflow_runs': [dict(run) for run in self.runs]}
-        if path.startswith('actions/runs/') and path.endswith('/jobs'):
+        if path.startswith('actions/runs/') and path.endswith('/jobs?per_page=100'):
             run_id = int(path.split('/')[2])
             return {'jobs': [dict(job) for job in self.jobs.get(run_id, [])]}
         if path.startswith('actions/jobs/'):
@@ -134,6 +135,13 @@ class LocalGitHub(release.Repository):
         return self.download_bytes
 
     def run(self, *args, ok=(0,)):
+        if args[0] == 'gh' and args[1] == 'api' and args[2] == f'repos/{self.repository()}' and '-i' in args:
+            # release.py's dispatch-time probe (gh api repos/{repo} -i): the
+            # server Date header is the live dispatch instant (the runs API
+            # has no "now", and the repo-level /actions root 404s). server_date
+            # scans the returned header block for the Date: line.
+            date_line = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime())
+            return 'HTTP/2 200 OK\nDate: ' + date_line + '\nServer: example\n'
         if len(args) >= 4 and args[0] == 'gh' and args[1] == 'release' and args[2] in ('create', 'edit'):
             tag = args[3]
             existing = [record for record in self.releases if record['tag_name'] == tag]
@@ -165,23 +173,35 @@ class LocalGitHub(release.Repository):
             self.assets.append({'id': len(self.assets) + 1, 'name': name, 'payload': payload,
                                 'label': label})
             return ''
-        if len(args) >= 3 and args[:3] == ('gh', 'workflow', 'run', 'deploy-docs.yml'):
-            inputs = {}
-            for part in args[4:]:
-                if part.startswith('-f'):
-                    key, _, value = part[2:].partition('=')
-                    inputs[key] = value
+        if len(args) >= 4 and args[:4] == ('gh', 'workflow', 'run', 'deploy-docs.yml'):
+            fields = {}
+            for index, part in enumerate(args[4:], start=4):
+                if part == '-f':
+                    key, _, value = args[index + 1].partition('=')
+                    fields[key] = value
+            # A dispatched run freezes the dispatched ref's head as its
+            # head_sha (GitHub semantics). release.py dispatches from main,
+            # so the in-process fake resolves the remote main head. On a
+            # delayed-source retry that head is newer than the frozen release
+            # source, so head_sha cannot correlate the run, and the real runs
+            # API returns no dispatch inputs — the stored run therefore
+            # carries only display_title (correlation-unique) and created_at.
+            head_sha = self.remote_git('rev-parse', 'refs/heads/main')
             run_id = len(self.runs) + 1
             self.dispatches.append(args)
             self.runs.append({'id': run_id,
                               'html_url': f'https://example.invalid/runs/{run_id}',
-                              'display_title': f"Release docs {inputs.get('release_run')}",
-                              'head_sha': inputs.get('source'),
+                              'display_title': f"Release docs {fields.get('release_run')}",
+                              'head_sha': head_sha,
+                              'created_at': time.strftime('%Y-%m-%dT%H:%M:%S+00:00', time.gmtime()),
                               'event': 'workflow_dispatch',
                               'status': 'completed'})
+            # release-docs runs its own stamp step (the release identity) and
+            # the docs-asset publication; the real workflow has three jobs.
             self.jobs[run_id] = [{'id': run_id * 10 + 1, 'name': 'build-docs', 'conclusion': 'success'},
-                                 {'id': run_id * 10 + 2, 'name': 'deploy', 'conclusion': 'success'}]
-            self.steps[run_id * 10 + 2] = [
+                                 {'id': run_id * 10 + 2, 'name': 'release-docs', 'conclusion': 'success'},
+                                 {'id': run_id * 10 + 3, 'name': 'deploy', 'conclusion': 'success'}]
+            self.steps[run_id * 10 + 3] = [
                 {'name': 'Re-read the actual current main immediately before deploying',
                  'conclusion': 'success'},
                 {'name': 'Verify the source is current main before deploying', 'conclusion': 'success'},
@@ -201,6 +221,63 @@ class LocalGitHub(release.Repository):
                 raise release.ReleaseError(f'gh run watch: run {run_id} ended {conclusion}')
             return ''
         return super().run(*args, ok=ok)
+
+
+class ParseGithubTime(unittest.TestCase):
+    """parse_github_time is only reached incidentally through dispatch_docs,
+    where every fake emits `+00:00`; the three non-trivial branches (Z
+    normalization, naive coercion to UTC, non-UTC offset normalization)
+    need direct coverage."""
+
+    def test_z_suffix_normalizes_to_utc(self):
+        parsed = release.parse_github_time('2026-11-07T19:28:37Z')
+        self.assertEqual(parsed.tzinfo, timezone.utc)
+        self.assertEqual(parsed, datetime(2026, 11, 7, 19, 28, 37, tzinfo=timezone.utc))
+
+    def test_plus_zero_offset_equals_z_form(self):
+        self.assertEqual(release.parse_github_time('2026-11-07T19:28:37+00:00'),
+                         release.parse_github_time('2026-11-07T19:28:37Z'))
+
+    def test_non_utc_offset_normalizes_to_same_utc_instant(self):
+        self.assertEqual(release.parse_github_time('2026-11-07T21:28:37+02:00'),
+                         release.parse_github_time('2026-11-07T19:28:37Z'))
+
+    def test_naive_timestamp_is_treated_as_utc(self):
+        parsed = release.parse_github_time('2026-11-07T19:28:37')
+        self.assertEqual(parsed.tzinfo, timezone.utc)
+        self.assertEqual(parsed, release.parse_github_time('2026-11-07T19:28:37Z'))
+
+    def test_invalid_input_raises_value_error(self):
+        with self.assertRaises(ValueError):
+            release.parse_github_time('not-a-timestamp')
+
+
+class ParseServerDate(unittest.TestCase):
+    """parse_server_date parses the RFC 1123 HTTP Date header the dispatch
+    time is captured from (the runs API has no "now"; the repo-level
+    /actions root 404s, so the documented repo endpoint's Date header is
+    the live server instant)."""
+
+    def test_rfc1123_gmt_parses_to_aware_utc(self):
+        parsed = release.parse_server_date('Sat, 07 Nov 2026 19:28:37 GMT')
+        self.assertEqual(parsed, datetime(2026, 11, 7, 19, 28, 37, tzinfo=timezone.utc))
+        self.assertEqual(parsed.tzinfo, timezone.utc)
+
+    def test_offset_zone_normalizes_to_same_utc_instant(self):
+        self.assertEqual(release.parse_server_date('Sat, 07 Nov 2026 21:28:37 +0200'),
+                         release.parse_server_date('Sat, 07 Nov 2026 19:28:37 GMT'))
+
+    def test_surrounding_whitespace_is_ignored(self):
+        self.assertEqual(release.parse_server_date('  Sat, 07 Nov 2026 19:28:37 GMT  '),
+                         datetime(2026, 11, 7, 19, 28, 37, tzinfo=timezone.utc))
+
+    def test_empty_header_raises_release_error(self):
+        with self.assertRaises(release.ReleaseError):
+            release.parse_server_date('')
+
+    def test_garbage_header_raises_release_error(self):
+        with self.assertRaises(release.ReleaseError):
+            release.parse_server_date('not-a-date')
 
 
 class ReleaseBehavior(unittest.TestCase):
@@ -566,11 +643,91 @@ class ReleaseBehavior(unittest.TestCase):
             raise release.RegistryCommandError(
                 subprocess.CalledProcessError(1, ['docker'],
                                               stderr=b'unauthorized: authentication required'))
-        registry_run, ops, _, _ = self.fake_registry(staging_digest='sha256:' + 'a' * 64, fail=fail)
+        registry_run, ops, _, _ = self.fake_registry(staging_digest='sha256' + 'a' * 64, fail=fail)
         with unittest.mock.patch.object(release, 'registry_run', registry_run), \
                 self.assertRaisesRegex(release.ReleaseError, 'unauthorized'):
             release.publish_image('example/m4b-merge', self.source, 'v1.1.0')
         self.assertEqual(ops, [('inspect', f"{self.repo.GHCR}:v1.1.0")])
+
+    def seed_docs_dispatch_fixture(self, version, source):
+        """Publish the release (tag -> source) and its docs asset so a
+        dispatch_docs call has a verified immutable source to correlate to.
+        The dispatched run's jobs/steps are registered by the fake's own
+        dispatch branch (mirroring the real workflow's three jobs)."""
+        self.git('tag', version, source)
+        self.git('push', 'origin', 'main', '--tags')
+        self.repo.releases.append({'tag_name': version, 'draft': False, 'prerelease': False,
+                                   'assets': []})
+        built = hashlib.sha256((self.checkout / 'source.txt').read_bytes()).hexdigest()
+        self.repo.assets.append({'id': 1, 'name': DOCS_NAME,
+                                 'payload': (self.checkout / 'source.txt').read_bytes(),
+                                 'browser_download_url': f'https://example.invalid/{version}/{DOCS_NAME}',
+                                 'label': release.docs_label(source, version, built)})
+
+    def test_docs_dispatch_ignores_stale_run_with_same_title(self):
+        """Stale-run guard: a run carrying the same display_title (the
+        correlation ID is unique per release) but created BEFORE the dispatch
+        call must not match. With the stale run present, the correlation
+        still succeeds — a single match, the dispatched run; if the stale run
+        counted, the ambiguity guard would have raised."""
+        source = self.git('rev-parse', 'HEAD')
+        self.seed_docs_dispatch_fixture('v1.1.0', source)
+        self.repo.runs.append({'id': 900,
+                               'html_url': 'https://example.invalid/runs/900',
+                               'display_title': 'Release docs 777-1',
+                               'head_sha': source,
+                               'created_at': time.strftime('%Y-%m-%dT%H:%M:%S+00:00',
+                                                           time.gmtime(time.time() - 3600))})
+        with ControlledClock().bound():
+            release.dispatch_docs(self.repo, source, 'v1.1.0', '777-1')
+        self.assertEqual(len(self.repo.dispatches), 1)
+        # The correlation matched the dispatched run (created at/after the
+        # dispatch), not the stale run that predates it.
+        self.assertEqual(len(self.repo.runs), 2)
+
+    def test_docs_dispatch_correlates_delayed_source_after_main_advanced(self):
+        """Delayed-source retry: the release source is an older commit than
+        main's head, so the dispatched run's head_sha (main's head) can never
+        equal the frozen source. Correlation comes from the correlation-unique
+        display_title plus a created_at at/after the dispatch."""
+        source = self.source
+        self.seed_docs_dispatch_fixture('v1.1.0', source)
+        newer = self.promote('chore: unrelated main advance', 'three')
+        self.assertNotEqual(newer, source)
+        with ControlledClock().bound():
+            release.dispatch_docs(self.repo, source, 'v1.1.0', '778-1')
+        self.assertEqual(len(self.repo.dispatches), 1)
+        run = self.repo.runs[-1]
+        self.assertEqual(run['display_title'], 'Release docs 778-1')
+        self.assertEqual(run['head_sha'], newer)
+        self.assertNotEqual(run['head_sha'], source)
+        self.assertNotIn('inputs', run)
+
+    def test_docs_dispatch_correlates_run_created_same_second_as_dispatch(self):
+        """Boundary: a run whose created_at is EXACTLY the probed dispatch
+        time (byte-identical strings, one-second resolution) must correlate.
+        A refactor of the matcher from >= to > would find no match and the
+        120s observation would fail, so success pins the >= boundary. The
+        fake's probe and run both emit wall-clock timestamps, so the test
+        overrides both with one fixed timestamp — no clock dependence."""
+        source = self.source
+        self.seed_docs_dispatch_fixture('v1.1.0', source)
+        fixed = '2026-11-07T19:28:37+00:00'
+        fixed_date = 'Sat, 07 Nov 2026 19:28:37 GMT'
+        original_run = self.repo.run
+
+        def run(*args, ok=(0,)):
+            result = original_run(*args, ok=ok)
+            if args[0] == 'gh' and args[1] == 'api' and args[2] == f'repos/{self.repo.repository()}' and '-i' in args:
+                return 'HTTP/2 200 OK\nDate: ' + fixed_date + '\nServer: example\n'
+            if args[:4] == ('gh', 'workflow', 'run', 'deploy-docs.yml'):
+                self.repo.runs[-1]['created_at'] = fixed
+            return result
+
+        with unittest.mock.patch.object(self.repo, 'run', run), ControlledClock().bound():
+            release.dispatch_docs(self.repo, source, 'v1.1.0', '779-1')
+        self.assertEqual(len(self.repo.dispatches), 1)
+        self.assertEqual(self.repo.runs[-1]['created_at'], fixed)
 
 
 class DocsAssetRepository(release.Repository):
@@ -793,6 +950,7 @@ SMOKE_GH_SHIM = r"""#!/usr/bin/env python3
 #
 # Serves the documented GitHub API surface from a JSON state file so no
 # network write can occur. Endpoints handled (matching scripts/release.py):
+#   api repos/{owner}/{repo}                              GET -i (Date header)
 #   api repos/{owner}/{repo}/git/refs                     POST (fields ref, sha)
 #   api repos/{owner}/{repo}/git/ref/tags/{tag}           GET  (404 on absence)
 #   api repos/{owner}/{repo}/releases?per_page=100&page=N GET  (paginated listing)
@@ -807,6 +965,7 @@ import hashlib
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 store_path = Path(os.environ["FAKE_STORE"])
@@ -837,6 +996,7 @@ def parse_api(args):
     method = "GET"
     fields = {}
     header = ""
+    include_headers = False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -853,6 +1013,10 @@ def parse_api(args):
             header = args[i + 1]
             i += 2
             continue
+        if arg == "-i":
+            include_headers = True
+            i += 1
+            continue
         if arg in ("--hostname",):
             i += 2
             continue
@@ -862,16 +1026,26 @@ def parse_api(args):
         if endpoint is None and not arg.startswith("-"):
             endpoint = arg
         i += 1
-    return endpoint, method, fields, header
+    return endpoint, method, fields, header, include_headers
 
 
 def main():
     if not argv:
         fatal("fake-gh: no args")
     if argv[0] == "api":
-        endpoint, method, fields, header = parse_api(argv[1:])
+        endpoint, method, fields, header, include_headers = parse_api(argv[1:])
         if endpoint is None:
             fatal("fake-gh: no endpoint")
+        if include_headers:
+            # release.py's dispatch-time probe (gh api repos/{repo} -i): the
+            # server Date header is the live dispatch instant (the runs API
+            # has no "now", and the repo-level /actions root 404s). The bare
+            # repo endpoint has no trailing-slash path, so serve it before
+            # the repos/{repo}/ prefix guard below.
+            sys.stdout.write("HTTP/2 200 OK\nDate: "
+                             + time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
+                             + "\nServer: example\n")
+            return
         prefix = "repos/%s/" % repo
         if not endpoint.startswith(prefix):
             fatal("fake-gh: unhandled api %s" % endpoint, 3)
@@ -996,14 +1170,29 @@ def main():
                 i += 1
         store["dispatches"].append({"workflow": workflow, "ref": ref, "fields": fields})
         correlation = fields.get("release_run", "")
+        # A dispatched run freezes the dispatched ref's head as its head_sha
+        # (GitHub semantics). release.py dispatches from main, so resolve the
+        # checked-out main head from the local git repository.
+        import subprocess as _subprocess
+        main_head = _subprocess.run(["git", "-C", os.environ.get("FAKE_GIT", "."),
+                                     "rev-parse", "refs/heads/main"],
+                                    text=True, capture_output=True, check=True).stdout.strip()
         run_id = store["next_run"]
         store["next_run"] += 1
+        # The real runs API returns no dispatch inputs, and head_sha is the
+        # main head (newer than the frozen source on a delayed-source retry),
+        # so the stored run carries only the correlation-unique display_title
+        # and the created_at release.py compares against the dispatch time.
         store["runs"].append({"id": run_id,
                               "html_url": "https://github.com/%s/actions/runs/%d" % (repo, run_id),
                               "display_title": "Release docs %s" % correlation,
-                              "head_sha": fields.get("source", "")})
-        deploy_job = {"id": run_id * 10 + 2, "name": "deploy"}
+                              "head_sha": main_head,
+                              "created_at": time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime())})
+        # The real workflow has three jobs; release-docs stamps the release
+        # identity and publishes the docs asset.
+        deploy_job = {"id": run_id * 10 + 3, "name": "deploy"}
         store["jobs"][str(run_id)] = [{"id": run_id * 10 + 1, "name": "build-docs"},
+                                      {"id": run_id * 10 + 2, "name": "release-docs"},
                                       deploy_job]
         store["steps"][str(deploy_job["id"])] = [
             {"name": "Verify the source is current main before deploying",
@@ -1205,8 +1394,12 @@ class LocalLifecycleSubprocessSmoke(unittest.TestCase):
         self.assertIn('Published immutable release docs', result.stdout)
         result = self.run_cli('docs', '--source', sha, '--version', 'v1.1.0', '--correlation', '111-1')
         self.assertIn('Verified Pages deployment', result.stdout)
+        # The dispatch ref is main (the github-pages environment policy admits
+        # only main); the exact source stays in the inputs and the run is
+        # correlated by its display_title plus created_at at/after the
+        # dispatch (the runs API returns no dispatch inputs).
         dispatch = self.store()['dispatches'][0]
-        self.assertEqual(dispatch, {'workflow': 'deploy-docs.yml', 'ref': 'v1.1.0',
+        self.assertEqual(dispatch, {'workflow': 'deploy-docs.yml', 'ref': 'main',
                                     'fields': {'version': 'v1.1.0', 'source': sha,
                                                'release_run': '111-1'}})
         # A successful deploy job whose Pages step was skipped is retained,
@@ -1224,6 +1417,51 @@ class LocalLifecycleSubprocessSmoke(unittest.TestCase):
                               expect=1)
         self.assertIn('run watch', result.stderr)
         self.assertEqual(len(self.store()['dispatches']), 4)
+
+    def test_docs_dispatch_correlates_an_old_source_after_main_advanced(self):
+        """The documented retry path: the release source is an older commit
+        than the current main head, so the dispatched run's head_sha is a
+        newer commit and can never equal the frozen source. Correlation must
+        therefore come from the correlation-unique display_title plus the
+        created_at at/after the dispatch, not head_sha."""
+        sha = self.seed()
+        self.commit('feat: release target')
+        source = self.git('rev-parse', 'HEAD')
+        self.git('tag', 'v1.1.0', source)
+        self.git('push', 'origin', 'main', '--tags')
+        state = self.store()
+        state['refs'][f'refs/tags/v1.1.0'] = source
+        state['releases'].append({'id': state['next_id'], 'tag_name': 'v1.1.0',
+                                  'draft': False, 'prerelease': False, 'latest': True,
+                                  'name': 'Release v1.1.0', 'assets': []})
+        state['next_id'] += 1
+        self.STORE.write_text(json.dumps(state))
+        result = self.run_cli('docs-asset', '--source', source, '--version', 'v1.1.0')
+        self.assertIn('Published immutable release docs', result.stdout)
+        # Advance main after the release so the tag source is now older than
+        # the dispatched run's head_sha — the stale-source retry.
+        newer = self.commit('chore: unrelated main advance')
+        self.assertNotEqual(newer, source)
+        result = self.run_cli('docs', '--source', source, '--version', 'v1.1.0',
+                              '--correlation', '222-1')
+        # Correlated and verified despite head_sha != source (the run froze
+        # main's head, which is newer than the frozen release source).
+        self.assertIn('Verified docs run', result.stdout)
+        self.assertIn('Verified Pages deployment', result.stdout)
+        dispatch = self.store()['dispatches'][-1]
+        self.assertEqual(dispatch, {'workflow': 'deploy-docs.yml', 'ref': 'main',
+                                    'fields': {'version': 'v1.1.0', 'source': source,
+                                               'release_run': '222-1'}})
+        # The run object's head_sha is main's head, not the frozen source:
+        # proof that head_sha-based correlation would have missed it. The run
+        # carries no dispatch inputs (the runs API does not return them); the
+        # correlation identity is the display_title, created at/after the
+        # dispatch.
+        run = self.store()['runs'][-1]
+        self.assertEqual(run['head_sha'], newer)
+        self.assertNotEqual(run['head_sha'], source)
+        self.assertEqual(run['display_title'], 'Release docs 222-1')
+        self.assertNotIn('inputs', run)
 
     def test_listing_failures_and_duplicates_fail_closed_without_writes(self):
         sha = self.seed()

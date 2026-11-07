@@ -21,20 +21,56 @@ jobs:
       actions: read
 
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
       - name: Decide whether a fresh Docker image shipped
         id: image-check
         env:
           GH_TOKEN: ${{ github.token }}
           CI_RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
+          set -euo pipefail
           CONCLUSION=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}/jobs" --paginate \
             --jq '.jobs[] | select(.name == "docker-build") | .conclusion' | tail -n1)
-          if [ "${CONCLUSION:-}" = "success" ]; then
-            echo "deploy=true"  >> "$GITHUB_OUTPUT"
-          else
+          if [ "${CONCLUSION:-}" != "success" ]; then
             echo "CI run ${CI_RUN_ID}: docker-build=${CONCLUSION:-absent} — not deploying"
             echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          # The docker-build job only proves an image shipped; it does not say
+          # WHICH commit the run built. A stale main CI run (e.g. re-triggered
+          # by a cancelled/newer push) can complete after main advanced, and
+          # deploying it would roll the stack back. Gate on the run's head
+          # matching the current main head before triggering Coolify.
+          CI_HEAD_SHA=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}" --jq '.head_sha')
+          MAIN_HEAD_SHA=$(gh api "/repos/${GITHUB_REPOSITORY}/branches/main" --jq '.commit.sha')
+          if [ "${CI_HEAD_SHA}" != "${MAIN_HEAD_SHA}" ]; then
+            echo "CI run ${CI_RUN_ID} built ${CI_HEAD_SHA} but main is ${MAIN_HEAD_SHA} — not deploying"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Prove the CI-built image (the sha tag, `type=sha` in
+          # ci.yml docker-build) exists in GHCR and is immutable before we
+          # trigger Coolify. The sha tag is content-addressed, so its digest
+          # is the immutable pin for this CI build: resolve it from GHCR (a
+          # public registry, readable without auth) and validate the digest
+          # pin. This does not constrain Coolify's own build — per the
+          # README it rebuilds from the connected Git source — it proves the
+          # CI artifact exists and cannot change under that digest.
+          # Fail-closed: set -euo pipefail aborts the step, so deploy stays
+          # unset and the webhook step never runs.
+          IMAGE_NAME="ghcr.io/${GITHUB_REPOSITORY}"
+          IMAGE_DIGEST=$(docker buildx imagetools inspect \
+            "${IMAGE_NAME}:sha-${MAIN_HEAD_SHA:0:7}" \
+            --format '{{json .Manifest}}' | jq -er '.digest')
+          bun scripts/validate-image-reference.ts "${IMAGE_NAME}@${IMAGE_DIGEST}"
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
 
       - name: Deploy to Coolify
         if: steps.image-check.outputs.deploy == 'true'

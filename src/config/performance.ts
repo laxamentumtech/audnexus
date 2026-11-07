@@ -122,18 +122,11 @@ export const parseNonNegativeInt = (raw: string | undefined, fallback: number): 
  * Falls back to sensible defaults when env vars are not set.
  */
 export function createPerformanceConfig(): PerformanceConfig {
-	// Parse numeric values with fallbacks. SCHEDULER_ITEM_TIMEOUT_MS uses
-	// strict full-string validation (like JITTER_MS) — '0' is meaningful
-	// (disables the per-item deadline), so only a pure non-negative integer
-	// string is accepted; anything else falls back to the 120s default.
-	const schedulerItemTimeoutRaw = process.env.SCHEDULER_ITEM_TIMEOUT_MS?.trim()
-	const validatedSchedulerItemTimeout =
-		schedulerItemTimeoutRaw && /^\d+$/.test(schedulerItemTimeoutRaw)
-			? (() => {
-					const parsed = Number(schedulerItemTimeoutRaw)
-					return Number.isSafeInteger(parsed) ? parsed : 120000
-				})()
-			: 120000
+	// SCHEDULER_ITEM_TIMEOUT_MS shares the strict `parseNonNegativeInt`
+	// contract: '0' is meaningful (disables the per-item deadline), so only a
+	// pure non-negative integer string is accepted; anything else falls back
+	// to the 120s default.
+	const schedulerItemTimeoutMs = parseNonNegativeInt(process.env.SCHEDULER_ITEM_TIMEOUT_MS, 120000)
 	const maxConcurrentRequests = process.env.MAX_CONCURRENT_REQUESTS
 		? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
 		: 50
@@ -208,7 +201,7 @@ export function createPerformanceConfig(): PerformanceConfig {
 		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency,
 		SCHEDULER_MAX_PER_REGION: validatedSchedulerMaxPerRegion,
 		SCHEDULER_BATCH_SIZE: validatedSchedulerBatchSize,
-		SCHEDULER_ITEM_TIMEOUT_MS: validatedSchedulerItemTimeout,
+		SCHEDULER_ITEM_TIMEOUT_MS: schedulerItemTimeoutMs,
 		UPDATE_THRESHOLD_DAYS: updateThresholdDays,
 		SCHEDULER_MAX_ITEMS: schedulerMaxItems,
 		JITTER_MS: jitterMs,
