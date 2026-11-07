@@ -135,9 +135,13 @@ class LocalGitHub(release.Repository):
         return self.download_bytes
 
     def run(self, *args, ok=(0,)):
-        if args[0] == 'gh' and args[1] == 'api' and args[2] == f'repos/{self.repository()}/actions':
-            # release.py's dispatch-time probe (gh api .../actions --jq .created_at).
-            return time.strftime('%Y-%m-%dT%H:%M:%S+00:00', time.gmtime())
+        if args[0] == 'gh' and args[1] == 'api' and args[2] == f'repos/{self.repository()}' and '-i' in args:
+            # release.py's dispatch-time probe (gh api repos/{repo} -i): the
+            # server Date header is the live dispatch instant (the runs API
+            # has no "now", and the repo-level /actions root 404s). server_date
+            # scans the returned header block for the Date: line.
+            date_line = time.strftime('%a, %d %b %Y %H:%M:%S GMT', time.gmtime())
+            return 'HTTP/2 200 OK\nDate: ' + date_line + '\nServer: example\n'
         if len(args) >= 4 and args[0] == 'gh' and args[1] == 'release' and args[2] in ('create', 'edit'):
             tag = args[3]
             existing = [record for record in self.releases if record['tag_name'] == tag]
@@ -246,6 +250,34 @@ class ParseGithubTime(unittest.TestCase):
     def test_invalid_input_raises_value_error(self):
         with self.assertRaises(ValueError):
             release.parse_github_time('not-a-timestamp')
+
+
+class ParseServerDate(unittest.TestCase):
+    """parse_server_date parses the RFC 1123 HTTP Date header the dispatch
+    time is captured from (the runs API has no "now"; the repo-level
+    /actions root 404s, so the documented repo endpoint's Date header is
+    the live server instant)."""
+
+    def test_rfc1123_gmt_parses_to_aware_utc(self):
+        parsed = release.parse_server_date('Sat, 07 Nov 2026 19:28:37 GMT')
+        self.assertEqual(parsed, datetime(2026, 11, 7, 19, 28, 37, tzinfo=timezone.utc))
+        self.assertEqual(parsed.tzinfo, timezone.utc)
+
+    def test_offset_zone_normalizes_to_same_utc_instant(self):
+        self.assertEqual(release.parse_server_date('Sat, 07 Nov 2026 21:28:37 +0200'),
+                         release.parse_server_date('Sat, 07 Nov 2026 19:28:37 GMT'))
+
+    def test_surrounding_whitespace_is_ignored(self):
+        self.assertEqual(release.parse_server_date('  Sat, 07 Nov 2026 19:28:37 GMT  '),
+                         datetime(2026, 11, 7, 19, 28, 37, tzinfo=timezone.utc))
+
+    def test_empty_header_raises_release_error(self):
+        with self.assertRaises(release.ReleaseError):
+            release.parse_server_date('')
+
+    def test_garbage_header_raises_release_error(self):
+        with self.assertRaises(release.ReleaseError):
+            release.parse_server_date('not-a-date')
 
 
 class ReleaseBehavior(unittest.TestCase):
@@ -681,12 +713,13 @@ class ReleaseBehavior(unittest.TestCase):
         source = self.source
         self.seed_docs_dispatch_fixture('v1.1.0', source)
         fixed = '2026-11-07T19:28:37+00:00'
+        fixed_date = 'Sat, 07 Nov 2026 19:28:37 GMT'
         original_run = self.repo.run
 
         def run(*args, ok=(0,)):
             result = original_run(*args, ok=ok)
-            if args[0] == 'gh' and args[1] == 'api' and args[2] == f'repos/{self.repo.repository()}/actions':
-                return fixed
+            if args[0] == 'gh' and args[1] == 'api' and args[2] == f'repos/{self.repo.repository()}' and '-i' in args:
+                return 'HTTP/2 200 OK\nDate: ' + fixed_date + '\nServer: example\n'
             if args[:4] == ('gh', 'workflow', 'run', 'deploy-docs.yml'):
                 self.repo.runs[-1]['created_at'] = fixed
             return result
@@ -917,6 +950,7 @@ SMOKE_GH_SHIM = r"""#!/usr/bin/env python3
 #
 # Serves the documented GitHub API surface from a JSON state file so no
 # network write can occur. Endpoints handled (matching scripts/release.py):
+#   api repos/{owner}/{repo}                              GET -i (Date header)
 #   api repos/{owner}/{repo}/git/refs                     POST (fields ref, sha)
 #   api repos/{owner}/{repo}/git/ref/tags/{tag}           GET  (404 on absence)
 #   api repos/{owner}/{repo}/releases?per_page=100&page=N GET  (paginated listing)
@@ -962,6 +996,7 @@ def parse_api(args):
     method = "GET"
     fields = {}
     header = ""
+    include_headers = False
     i = 0
     while i < len(args):
         arg = args[i]
@@ -978,6 +1013,10 @@ def parse_api(args):
             header = args[i + 1]
             i += 2
             continue
+        if arg == "-i":
+            include_headers = True
+            i += 1
+            continue
         if arg in ("--hostname",):
             i += 2
             continue
@@ -987,26 +1026,30 @@ def parse_api(args):
         if endpoint is None and not arg.startswith("-"):
             endpoint = arg
         i += 1
-    return endpoint, method, fields, header
+    return endpoint, method, fields, header, include_headers
 
 
 def main():
     if not argv:
         fatal("fake-gh: no args")
     if argv[0] == "api":
-        endpoint, method, fields, header = parse_api(argv[1:])
+        endpoint, method, fields, header, include_headers = parse_api(argv[1:])
         if endpoint is None:
             fatal("fake-gh: no endpoint")
+        if include_headers:
+            # release.py's dispatch-time probe (gh api repos/{repo} -i): the
+            # server Date header is the live dispatch instant (the runs API
+            # has no "now", and the repo-level /actions root 404s). The bare
+            # repo endpoint has no trailing-slash path, so serve it before
+            # the repos/{repo}/ prefix guard below.
+            sys.stdout.write("HTTP/2 200 OK\nDate: "
+                             + time.strftime("%a, %d %b %Y %H:%M:%S GMT", time.gmtime())
+                             + "\nServer: example\n")
+            return
         prefix = "repos/%s/" % repo
         if not endpoint.startswith(prefix):
             fatal("fake-gh: unhandled api %s" % endpoint, 3)
         path = endpoint[len(prefix):]
-        if path == "actions":
-            # release.py's dispatch-time probe (gh api .../actions --jq
-            # .created_at): the runs listing omits created_at, so the
-            # dispatch instant is captured from the repo-level actions view.
-            output(time.strftime("%Y-%m-%dT%H:%M:%S+00:00", time.gmtime()))
-            return
         if path == "git/refs" and method == "POST":
             ref, sha = fields["ref"], fields["sha"]
             store["refs"][ref] = sha
