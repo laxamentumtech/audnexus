@@ -35,7 +35,7 @@
 		"@fastify/cors": "^11.2.0",
 		"@fastify/helmet": "^13.0.0",
 		"@fastify/rate-limit": "^11.0.0",
-		"@fastify/redis": "^8.0.0",
+		"@fastify/redis": "^9.0.0",
 		"axios": "^1.13.5",
 		"bullmq": "^5",
 		"cheerio": "^1.0.0",
