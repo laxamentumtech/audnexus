@@ -40,8 +40,8 @@ jobs:
         if: steps.image-check.outputs.deploy == 'true'
         run: |
           response_body=$(mktemp)
-          response=$(curl -s -o "$response_body" -w "%{http_code}" --max-time 30 --request GET '${{ secrets.COOLIFY_WEBHOOK }}' \
-            --header 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}')
+          response=$(curl -s -o "$response_body" -w "%{http_code}" --max-time 30 --request POST '${{ secrets.COOLIFY_WEBHOOK }}' \
+            -H 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}')
           if [ "$response" -ne 200 ] && [ "$response" -ne 202 ]; then
             echo "Coolify deployment failed with status: $response"
             echo "Response body:"
