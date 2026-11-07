@@ -18,8 +18,14 @@ mock.module('#helpers/utils/sleep', () => {
 
 import type { AxiosResponse } from 'axios'
 
+import {
+	getConsecutiveRateLimited,
+	getCooldownMs,
+	resetCooldown
+} from '#helpers/utils/adaptiveCooldown'
 import pooledAxios from '#helpers/utils/connectionPool'
 import fetchPlus from '#helpers/utils/fetchPlus'
+import { UpstreamGoneError } from '#helpers/utils/upstreamGone'
 
 let mockStatus: { status: number; headers?: Record<string, string> }
 
@@ -31,6 +37,7 @@ describe('fetchPlus should', () => {
 
 	afterEach(() => {
 		mock.restore()
+		resetCooldown()
 	})
 
 	test('return response', async () => {
@@ -195,7 +202,7 @@ describe('fetchPlus should', () => {
 		}
 	})
 
-	test('not honor Retry-After header on 503', async () => {
+	test('honor Retry-After header on 503', async () => {
 		const mockError = {
 			response: {
 				status: 503,
@@ -206,21 +213,21 @@ describe('fetchPlus should', () => {
 
 		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
 
-		// Mock Math.random to 0.5 → jitter = floor(0.5 * 250) = 125
-		const randomSpy = spyOn(Math, 'random').mockReturnValue(0.5)
+		// Retry-After is honored for all rate-limit statuses (Audible
+		// throttles with 503), clamped to the 8s retry-delay ceiling.
+		// Math.random → 0 zeroes the 503/504 retry jitter.
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
 		try {
-			const response = await fetchPlus('test.com')
-			expect(response).toEqual(successResponse)
-			expect(pooledAxios.get).toHaveBeenCalledTimes(2)
-			// Should use exponential backoff (1000ms + jitter), NOT Retry-After (10000ms)
-			expect(sleepDelays).toEqual([1125])
-			expect(sleepDelays[0]).toBeLessThan(2000)
+			await fetchPlus('test.com')
 		} finally {
 			randomSpy.mockRestore()
 		}
+
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays).toEqual([8_000])
 	})
 
-	test('not honor Retry-After header on 504', async () => {
+	test('honor Retry-After header on 504', async () => {
 		const mockError = {
 			response: {
 				status: 504,
@@ -231,17 +238,53 @@ describe('fetchPlus should', () => {
 
 		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
 
-		const randomSpy = spyOn(Math, 'random').mockReturnValue(0.5)
-		try {
-			const response = await fetchPlus('test.com')
-			expect(response).toEqual(successResponse)
-			expect(pooledAxios.get).toHaveBeenCalledTimes(2)
-			// Should use exponential backoff (1000ms + jitter), NOT Retry-After (10000ms)
-			expect(sleepDelays).toEqual([1125])
-			expect(sleepDelays[0]).toBeLessThan(2000)
-		} finally {
-			randomSpy.mockRestore()
+		// Same ceiling as 503: Retry-After honored up to the 8s cap; jitter
+		// adds up to 250ms, so assert a bounded range instead of an exact hit.
+		await fetchPlus('test.com')
+
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(8_000)
+		expect(sleepDelays[0]).toBeLessThan(8_250)
+	})
+
+	test('raise the adaptive cooldown on 503; a bare 200 does not decay it', async () => {
+		const mockError = {
+			response: {
+				status: 503,
+				headers: {}
+			}
 		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		// One rate-limited attempt, then a success.
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		await fetchPlus('test.com')
+
+		// fetchPlus registers pressure but NOT decay: a bare 200 is not proof
+		// of a usable response (region refusals are 200-valued — decaying on
+		// them kept knocking on a closed window through the 2026-10-06/07
+		// soak). Decay belongs to item-level consumers.
+		expect(getCooldownMs()).toBe(120_000)
+		expect(getConsecutiveRateLimited()).toBe(1)
+	})
+
+	test('not register a non-transient 500 failure into the adaptive cooldown', async () => {
+		mockStatus = { status: 500 }
+		mockGet.mockImplementation(() => {
+			const error: Error & { response: typeof mockStatus } = Object.assign(
+				new Error('Request failed'),
+				{ response: mockStatus }
+			)
+			return Promise.reject(error)
+		})
+
+		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
+
+		// 500 is a hard failure, not rate-limit pressure: the cooldown must
+		// stay untouched so a genuine transient window later is not masked.
+		expect(getCooldownMs()).toBe(0)
+		expect(getConsecutiveRateLimited()).toBe(0)
 	})
 
 	test('not add delay for non-429 errors', async () => {
@@ -257,6 +300,46 @@ describe('fetchPlus should', () => {
 		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(4)
 		expect(sleepDelays).toEqual([])
+	})
+
+	test('rejects with UpstreamGoneError on the search-page redirect — one attempt, no cooldown', async () => {
+		// Audible 301s a dead deep link to the search page (→ 503); axios
+		// surfaces the post-redirect URL on error.response.request.res.
+		const goneResponseUrl = 'https://www.audible.com/search?advsearchKeywords='
+		const error: Error & {
+			response: { status: number; request: { res: { responseUrl: string } } }
+		} = Object.assign(new Error('Request failed'), {
+			response: { status: 503, request: { res: { responseUrl: goneResponseUrl } } }
+		})
+		mockGet.mockImplementation(() => Promise.reject(error))
+
+		let caught: unknown
+		try {
+			await fetchPlus('test.com')
+		} catch (e) {
+			caught = e
+		}
+		// Terminal: one Axios attempt (Axios's internal follow of the 301 is
+		// not a second call), no sleep delay, cooldown untouched.
+		expect(caught).toBeInstanceOf(UpstreamGoneError)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(1)
+		expect(sleepDelays).toEqual([])
+		expect(getCooldownMs()).toBe(0)
+	})
+
+	test('control: a plain 503 without a redirect URL still retries 3x and raises the cooldown', async () => {
+		mockStatus = { status: 503 }
+		mockGet.mockImplementation(() => {
+			const error: Error & { response: typeof mockStatus } = Object.assign(
+				new Error('Request failed'),
+				{ response: mockStatus }
+			)
+			return Promise.reject(error)
+		})
+
+		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(4)
+		expect(getCooldownMs()).toBeGreaterThan(0)
 	})
 })
 

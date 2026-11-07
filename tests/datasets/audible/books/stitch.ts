@@ -4,7 +4,7 @@ import { B08C6YJ1LS, B017V4IM1G, setupMinimalParsed } from '#tests/datasets/audi
 // Scorcerers Stone
 export const B017V4IM1Gcopyright = 1997
 export const B017V4IM1Gdescription =
-	'Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive. Addressed in green ink on yellowish parchment with a purple seal, they are swiftly confiscated by his grisly aunt and uncle....'
+	'Harry Potter lives hidden away in the cupboard under the stairs at Number Four, Privet Drive. When letters start arriving for him, they are swiftly confiscated by his cruel aunt and uncle.'
 export const B017V4IM1Ggenres: ApiGenre[] = [
 	{
 		asin: '18572091011',
@@ -12,14 +12,37 @@ export const B017V4IM1Ggenres: ApiGenre[] = [
 		type: 'genre'
 	},
 	{
+		asin: '18572323011',
+		name: 'Growing Up & Facts of Life',
+		type: 'tag'
+	},
+	{
+		asin: '18572491011',
+		name: 'Literature & Fiction',
+		type: 'tag'
+	},
+	{
+		asin: '18572505011',
+		name: 'Family Life',
+		type: 'tag'
+	},
+	{
 		asin: '18572586011',
 		name: 'Science Fiction & Fantasy',
 		type: 'tag'
 	},
-	{ asin: '18572587011', name: 'Fantasy & Magic', type: 'tag' },
-	{ asin: '18572588011', name: 'Action & Adventure', type: 'tag' }
+	{
+		asin: '18572587011',
+		name: 'Fantasy & Magic',
+		type: 'tag'
+	},
+	{
+		asin: '18572588011',
+		name: 'Action & Adventure',
+		type: 'tag'
+	}
 ]
-export const B017V4IM1Gimage = 'https://m.media-amazon.com/images/I/91eopoUCjLL.jpg'
+export const B017V4IM1Gimage = 'https://m.media-amazon.com/images/I/91LDfWN4CKL.jpg'
 export const combinedB017V4IM1G: ApiBook = setupMinimalParsed(
 	B017V4IM1G.product,
 	B017V4IM1Gcopyright,

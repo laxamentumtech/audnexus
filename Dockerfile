@@ -17,6 +17,11 @@ RUN bun install --frozen-lockfile --production
 
 # prod
 FROM base AS prod
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+LABEL org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${GIT_COMMIT}" \
+      org.opencontainers.image.source="https://github.com/laxamentumtech/audnexus"
 
 # copy built app to /app
 COPY --from=build /app/dist ./dist

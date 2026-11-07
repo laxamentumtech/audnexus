@@ -25,6 +25,17 @@ function parseBoolean(value: string | undefined): boolean | undefined {
 }
 
 // ============================================================================
+// Scheduler Batch Size
+// ============================================================================
+
+/**
+ * Hard upper bound for SCHEDULER_BATCH_SIZE. Keeps memory bounded even when
+ * an operator configures an extreme value, and stays within Zod 4's safe
+ * integer range so config creation never throws.
+ */
+const MAX_SCHEDULER_BATCH_SIZE = 10000
+
+// ============================================================================
 // Feature Flag Schemas
 // ============================================================================
 
@@ -56,6 +67,33 @@ export const PerformanceConfigSchema = z.object({
 	/** Hard cap for max per-region concurrency in batch processing */
 	SCHEDULER_MAX_PER_REGION: z.number().int().positive().default(5),
 
+	/** Documents per batch when paginating over books/authors/chapters */
+	SCHEDULER_BATCH_SIZE: z.number().int().positive().max(MAX_SCHEDULER_BATCH_SIZE).default(1000),
+
+	/**
+	 * Hard deadline for a single scheduler item (env: milliseconds). A hung
+	 * fetch/DB await must surface as an error instead of silently parking the
+	 * only worker slot; the surrounding loop catches it and counts a failure.
+	 * 0 disables the guard.
+	 */
+	SCHEDULER_ITEM_TIMEOUT_MS: z.number().int().min(0).default(120000),
+
+	/** Days since updatedAt after which a document counts as stale for the update passes
+	 * (env: UPDATE_THRESHOLD, default 7 — the same knob SharedHelper.isRecentlyUpdated uses). */
+	UPDATE_THRESHOLD_DAYS: z.number().int().min(0).default(7),
+
+	/** Hard cap on documents one pass visits; 0 = unlimited (env: SCHEDULER_MAX_ITEMS).
+	 * Exists so a deploy can be proven bounded (see Verification). */
+	SCHEDULER_MAX_ITEMS: z.number().int().min(0).default(0),
+
+	/** Randomized pacing wait range in ms for batch workers (env: "min-max" or bare "max") */
+	JITTER_MS: z
+		.object({ min: z.number().int().min(0), max: z.number().int().min(0) })
+		.refine((range) => range.min <= range.max, {
+			message: 'JITTER_MS.min must be <= JITTER_MS.max'
+		})
+		.default({ min: 0, max: 5000 }),
+
 	/** Default region for batch processing when none specified */
 	DEFAULT_REGION: z.string().default('us')
 })
@@ -66,12 +104,36 @@ export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
 // Configuration Factory
 // ============================================================================
 
+/** Strict non-negative-integer env parse: a pure `\d+` string (trimmed) is
+ * accepted, anything else (empty, whitespace, `'0x1E'`, `'Infinity'`, …)
+ * falls back. `'0'` is meaningful for the callers (disable / unlimited), so
+ * a plain `Number() || fallback` would corrupt it. */
+export const parseNonNegativeInt = (raw: string | undefined, fallback: number): number => {
+	const trimmed = raw?.trim()
+	if (trimmed && /^\d+$/.test(trimmed)) {
+		const parsed = Number(trimmed)
+		if (Number.isSafeInteger(parsed)) return parsed
+	}
+	return fallback
+}
+
 /**
  * Create performance configuration from environment variables.
  * Falls back to sensible defaults when env vars are not set.
  */
 export function createPerformanceConfig(): PerformanceConfig {
-	// Parse numeric values with fallbacks
+	// Parse numeric values with fallbacks. SCHEDULER_ITEM_TIMEOUT_MS uses
+	// strict full-string validation (like JITTER_MS) — '0' is meaningful
+	// (disables the per-item deadline), so only a pure non-negative integer
+	// string is accepted; anything else falls back to the 120s default.
+	const schedulerItemTimeoutRaw = process.env.SCHEDULER_ITEM_TIMEOUT_MS?.trim()
+	const validatedSchedulerItemTimeout =
+		schedulerItemTimeoutRaw && /^\d+$/.test(schedulerItemTimeoutRaw)
+			? (() => {
+					const parsed = Number(schedulerItemTimeoutRaw)
+					return Number.isSafeInteger(parsed) ? parsed : 120000
+				})()
+			: 120000
 	const maxConcurrentRequests = process.env.MAX_CONCURRENT_REQUESTS
 		? parseInt(process.env.MAX_CONCURRENT_REQUESTS, 10)
 		: 50
@@ -81,6 +143,16 @@ export function createPerformanceConfig(): PerformanceConfig {
 	const schedulerMaxPerRegion = process.env.SCHEDULER_MAX_PER_REGION
 		? parseInt(process.env.SCHEDULER_MAX_PER_REGION, 10)
 		: 5
+	const schedulerBatchSize = process.env.SCHEDULER_BATCH_SIZE
+		? parseInt(process.env.SCHEDULER_BATCH_SIZE, 10)
+		: 1000
+
+	// UPDATE_THRESHOLD_DAYS / SCHEDULER_MAX_ITEMS use the strict
+	// `parseNonNegativeInt` (module scope above) — '0' is meaningful for the
+	// cap (unbounded), so only a pure non-negative integer string is accepted;
+	// anything else falls back to the default (7 days / 0 = unlimited).
+	const updateThresholdDays = parseNonNegativeInt(process.env.UPDATE_THRESHOLD, 7)
+	const schedulerMaxItems = parseNonNegativeInt(process.env.SCHEDULER_MAX_ITEMS, 0)
 
 	// Handle invalid values before passing to Zod
 	const validatedMaxConcurrent =
@@ -101,6 +173,29 @@ export function createPerformanceConfig(): PerformanceConfig {
 		schedulerMaxPerRegion <= 0
 			? 5
 			: schedulerMaxPerRegion
+	const validatedSchedulerBatchSize =
+		Number.isNaN(schedulerBatchSize) ||
+		!Number.isFinite(schedulerBatchSize) ||
+		schedulerBatchSize <= 0
+			? 1000
+			: Math.min(schedulerBatchSize, MAX_SCHEDULER_BATCH_SIZE)
+
+	const defaultJitter = { min: 0, max: 5000 }
+	const jitterRaw = process.env.JITTER_MS?.trim()
+	const jitterMs = (() => {
+		if (!jitterRaw) return defaultJitter
+		const parts = jitterRaw.split('-').map((part) => part.trim())
+		if (parts.length > 2 || !parts.every((part) => /^\d+$/.test(part))) {
+			return defaultJitter
+		}
+		const numbers = parts.map((part) => Number(part))
+		if (numbers.some((n) => !Number.isSafeInteger(n))) {
+			return defaultJitter
+		}
+		const min = parts.length === 2 ? numbers[0] : 0
+		const max = numbers[numbers.length - 1]
+		return min > max ? defaultJitter : { min, max }
+	})()
 
 	return PerformanceConfigSchema.parse({
 		USE_PARALLEL_SCHEDULER: parseBoolean(process.env.USE_PARALLEL_SCHEDULER) ?? false,
@@ -112,6 +207,11 @@ export function createPerformanceConfig(): PerformanceConfig {
 		MAX_CONCURRENT_REQUESTS: validatedMaxConcurrent,
 		SCHEDULER_CONCURRENCY: validatedSchedulerConcurrency,
 		SCHEDULER_MAX_PER_REGION: validatedSchedulerMaxPerRegion,
+		SCHEDULER_BATCH_SIZE: validatedSchedulerBatchSize,
+		SCHEDULER_ITEM_TIMEOUT_MS: validatedSchedulerItemTimeout,
+		UPDATE_THRESHOLD_DAYS: updateThresholdDays,
+		SCHEDULER_MAX_ITEMS: schedulerMaxItems,
+		JITTER_MS: jitterMs,
 		DEFAULT_REGION: process.env.DEFAULT_REGION?.trim() || 'us'
 	})
 }
@@ -134,6 +234,11 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	MAX_CONCURRENT_REQUESTS: 50,
 	SCHEDULER_CONCURRENCY: 5,
 	SCHEDULER_MAX_PER_REGION: 5,
+	SCHEDULER_BATCH_SIZE: 1000,
+	SCHEDULER_ITEM_TIMEOUT_MS: 120000,
+	UPDATE_THRESHOLD_DAYS: 7,
+	SCHEDULER_MAX_ITEMS: 0,
+	JITTER_MS: { min: 0, max: 5000 },
 	DEFAULT_REGION: 'us'
 }
 
@@ -163,7 +268,20 @@ export function resetPerformanceConfig(): void {
 
 /**
  * Set a custom configuration instance (useful for testing).
+ * Rejects SCHEDULER_BATCH_SIZE values outside the valid range (a safe
+ * positive integer at most MAX_SCHEDULER_BATCH_SIZE); other fields are
+ * stored as-is so runtime guardrails (e.g. SCHEDULER_CONCURRENCY >= 1) can
+ * raise their own errors.
  */
 export function setPerformanceConfig(config: PerformanceConfig): void {
+	if (
+		!Number.isSafeInteger(config.SCHEDULER_BATCH_SIZE) ||
+		config.SCHEDULER_BATCH_SIZE <= 0 ||
+		config.SCHEDULER_BATCH_SIZE > MAX_SCHEDULER_BATCH_SIZE
+	) {
+		throw new Error(
+			`SCHEDULER_BATCH_SIZE must be an integer between 1 and ${MAX_SCHEDULER_BATCH_SIZE}`
+		)
+	}
 	_config = config
 }

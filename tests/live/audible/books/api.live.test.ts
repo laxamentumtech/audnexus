@@ -198,6 +198,13 @@ describe('Audible API Live Tests', () => {
 		it('should have parsed rating as string', () => {
 			expect(typeof parsedResponse.rating).toBe('string')
 		})
+
+		it('should have parsed ratings object with histogram when rating is present', () => {
+			expect(parsedResponse.ratings?.value).toBe(parsedResponse.rating)
+			expect(parsedResponse.ratings?.numRatings).toBeGreaterThan(0)
+			expect(parsedResponse.ratings?.distribution.five).toBeGreaterThanOrEqual(0)
+			expect(parsedResponse.ratings?.numReviews).toBeGreaterThanOrEqual(0)
+		})
 	})
 
 	describe('When fetching from different regions', () => {

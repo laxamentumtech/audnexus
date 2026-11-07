@@ -1,22 +1,45 @@
 import type { FastifyRedis } from '@fastify/redis'
 import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { ObjectId } from 'mongodb'
 
-import type { PerformanceConfig } from '#config/performance'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 import { createMockLogger } from '#tests/setup/mockLogger'
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 const mockAuthorFind = mock()
+const mockAuthorUpdateOne = mock()
 const mockAuthorHandler = mock()
 
 mock.module('#config/models/Author', () => ({
-	default: { find: mockAuthorFind }
+	default: { find: mockAuthorFind, updateOne: mockAuthorUpdateOne }
 }))
+
+// Mutable per-test state the mock reads at access time (the class body must
+// not capture values at definition time or a test's mid-run mutation would be
+// ignored by every subsequent instance).
+const authorFreshData = { fetched: true, persisted: true }
 
 mock.module('#helpers/routes/AuthorShowHelper', () => ({
 	default: class AuthorShowHelper {
 		handler = mockAuthorHandler
+		get fetchedFreshData() {
+			return authorFreshData.fetched
+		}
+		get persisted() {
+			return authorFreshData.persisted
+		}
 	}
+}))
+
+// Cooldown is process-global and sleeps real time; stub it so the parallel
+// pacing test asserts calls without waiting.
+const mockSleepCooldown = mock()
+const mockRegisterSuccess = mock()
+
+mock.module('#helpers/utils/adaptiveCooldown', () => ({
+	sleepCooldown: mockSleepCooldown,
+	registerSuccess: mockRegisterSuccess
 }))
 
 mock.module('@fastify/redis', () => ({}))
@@ -24,20 +47,6 @@ mock.module('@fastify/redis', () => ({}))
 type MockContext = {
 	client: FastifyRedis
 }
-
-const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: true,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
-	SCHEDULER_MAX_PER_REGION: 5,
-	DEFAULT_REGION: 'us',
-	...overrides
-})
 
 const createMockContext = (): MockContext => ({
 	client: {
@@ -49,6 +58,13 @@ const createMockContext = (): MockContext => ({
 	}
 })
 
+let idCounter = 0
+const makeStaleDoc = (asin: string, region: string) => ({
+	_id: new ObjectId(`5d00000000000000000000${(idCounter++).toString(16).padStart(2, '0')}`),
+	asin,
+	region,
+	updatedAt: new Date('2020-01-01T00:00:00.000Z')
+})
 
 describe('UpdateScheduler parallel processing', () => {
 	let helper: UpdateScheduler
@@ -56,10 +72,18 @@ describe('UpdateScheduler parallel processing', () => {
 	beforeEach(() => {
 		const ctx = createMockContext()
 		const mockLogger = createMockLogger()
-		helper = new UpdateScheduler(1, ctx.client, mockLogger)
+		helper = new UpdateScheduler(ctx.client, mockLogger)
 		resetPerformanceConfig()
 		mockAuthorFind.mockReset()
+		mockAuthorFind.mockResolvedValue([])
+		mockAuthorUpdateOne.mockReset()
+		mockAuthorUpdateOne.mockResolvedValue({ acknowledged: true })
 		mockAuthorHandler.mockReset()
+		mockSleepCooldown.mockReset()
+		mockSleepCooldown.mockResolvedValue(undefined)
+		mockRegisterSuccess.mockReset()
+		authorFreshData.fetched = true
+		authorFreshData.persisted = true
 	})
 
 	afterEach(() => {
@@ -73,18 +97,15 @@ describe('UpdateScheduler parallel processing', () => {
 
 	it('caps per-region concurrency at 5', async () => {
 		setPerformanceConfig(
-			createTestConfig({
+			createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				SCHEDULER_CONCURRENCY: 10
 			})
 		)
 
-		const authors = Array.from({ length: 12 }, (_, index) => ({
-			asin: `A${index}`,
-			region: 'us'
-		}))
+		const authors = Array.from({ length: 12 }, (_, index) => makeStaleDoc(`A${index}`, 'us'))
 
-		mockAuthorFind.mockResolvedValue(authors)
+		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
 
 		let concurrentCount = 0
 		let maxConcurrent = 0
@@ -97,7 +118,7 @@ describe('UpdateScheduler parallel processing', () => {
 		})
 
 		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
-		await expect(helper.updateAuthors()).resolves.toBeUndefined()
+		await expect(helper.updateAuthors()).resolves.toMatchObject({ total: 12, updated: 12 })
 		randomSpy.mockRestore()
 
 		expect(maxConcurrent).toBeLessThanOrEqual(5)
@@ -105,22 +126,22 @@ describe('UpdateScheduler parallel processing', () => {
 
 	it('respects overall concurrency across regions', async () => {
 		setPerformanceConfig(
-			createTestConfig({
+			createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				SCHEDULER_CONCURRENCY: 5
 			})
 		)
 
 		const authors = [
-			{ asin: 'A1', region: 'us' },
-			{ asin: 'A2', region: 'us' },
-			{ asin: 'A3', region: 'us' },
-			{ asin: 'B1', region: 'uk' },
-			{ asin: 'B2', region: 'uk' },
-			{ asin: 'B3', region: 'uk' }
+			makeStaleDoc('A1', 'us'),
+			makeStaleDoc('A2', 'us'),
+			makeStaleDoc('A3', 'us'),
+			makeStaleDoc('B1', 'uk'),
+			makeStaleDoc('B2', 'uk'),
+			makeStaleDoc('B3', 'uk')
 		]
 
-		mockAuthorFind.mockResolvedValue(authors)
+		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
 
 		let concurrentCount = 0
 		let maxConcurrent = 0
@@ -133,7 +154,7 @@ describe('UpdateScheduler parallel processing', () => {
 		})
 
 		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
-		await expect(helper.updateAuthors()).resolves.toBeUndefined()
+		await expect(helper.updateAuthors()).resolves.toMatchObject({ total: 6, updated: 6 })
 		randomSpy.mockRestore()
 
 		expect(maxConcurrent).toBeLessThanOrEqual(5)
@@ -141,28 +162,61 @@ describe('UpdateScheduler parallel processing', () => {
 
 	it('continues processing when one item fails', async () => {
 		setPerformanceConfig(
-			createTestConfig({
+			createTestPerformanceConfig({
 				USE_PARALLEL_SCHEDULER: true,
 				SCHEDULER_CONCURRENCY: 5
 			})
 		)
 
-		const authors = [
-			{ asin: 'A1', region: 'us' },
-			{ asin: 'A2', region: 'us' },
-			{ asin: 'A3', region: 'us' }
-		]
+		const authors = [makeStaleDoc('A1', 'us'), makeStaleDoc('A2', 'us'), makeStaleDoc('A3', 'us')]
 
-		mockAuthorFind.mockResolvedValue(authors)
+		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
 		mockAuthorHandler
 			.mockRejectedValueOnce(new Error('fail'))
 			.mockResolvedValueOnce(undefined)
 			.mockResolvedValueOnce(undefined)
 
 		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
-		await expect(helper.updateAuthors()).resolves.toBeUndefined()
+		await expect(helper.updateAuthors()).resolves.toMatchObject({ total: 3, failures: 1 })
 		randomSpy.mockRestore()
 
 		expect(mockAuthorHandler).toHaveBeenCalledTimes(3)
+	})
+
+	it('sleeps the adaptive cooldown after every item (including failures) and decays only on fresh fetches', async () => {
+		setPerformanceConfig(
+			createTestPerformanceConfig({
+				USE_PARALLEL_SCHEDULER: true,
+				SCHEDULER_CONCURRENCY: 5,
+				JITTER_MS: { min: 0, max: 0 }
+			})
+		)
+
+		const authors = [makeStaleDoc('A1', 'us'), makeStaleDoc('A2', 'us'), makeStaleDoc('A3', 'us')]
+
+		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
+		// A2 returns stored data (fetchedFreshData stays false on that call);
+		// A3 rejects (e.g. an upstream 503). All three must sleep the
+		// cooldown — the rejection must not skip it — and only the two fresh
+		// fetches register a usable success.
+		mockAuthorHandler.mockImplementation(async () => {
+			authorFreshData.fetched = true
+			const callNumber = mockAuthorHandler.mock.calls.length
+			if (callNumber === 2) {
+				authorFreshData.fetched = false // stored-data return
+				return undefined
+			}
+			if (callNumber === 3) {
+				throw new Error('upstream 503')
+			}
+			return undefined
+		})
+
+		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
+		await helper.updateAuthors()
+		randomSpy.mockRestore()
+
+		expect(mockSleepCooldown).toHaveBeenCalledTimes(3)
+		expect(mockRegisterSuccess).toHaveBeenCalledTimes(2)
 	})
 })

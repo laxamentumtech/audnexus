@@ -39,17 +39,33 @@ export default class GenericShowHelper {
 	sharedHelper: SharedHelper
 	type: 'author' | 'book' | 'chapter'
 	logger?: FastifyBaseLogger
+	forceUpdate?: boolean
+	/** True after handler() resolved with data that came from a fresh upstream
+	 * fetch (including the pre-order transient path). False when the handler
+	 * returned stored/projection data without hitting upstream — the recency
+	 * gate and the REGION_UNAVAILABLE/PRODUCT_DELISTED fallback. Consumers
+	 * like the scheduler's adaptive cooldown use this to decide whether a
+	 * resolved item was a genuinely usable fetch (registerSuccess) or a no-op
+	 * that must not relax the cooldown. */
+	fetchedFreshData = false
+	/** True once the freshly fetched data was actually written to MongoDB.
+	 * False for the pre-order transient path (no persistence) and for the
+	 * chapter-without-chapters path — both must be marked checked by the
+	 * scheduler, so they must not be reported as `updated`. */
+	persisted = false
 	constructor(
 		asin: string,
 		options: ApiQueryString,
 		redis: FastifyRedis | null,
 		type: 'author' | 'book' | 'chapter',
-		logger?: FastifyBaseLogger
+		logger?: FastifyBaseLogger,
+		forceUpdate?: boolean
 	) {
 		this.asin = asin
 		this.options = options
 		this.type = type
 		this.logger = logger
+		this.forceUpdate = forceUpdate
 		this.paprHelper = this.setupPaprHelper()
 		this.redisHelper = new RedisHelper(redis, type, asin, options.region, logger)
 		this.schema = this.setupSchema()
@@ -167,6 +183,11 @@ export default class GenericShowHelper {
 		// Special handling for chapter undefined
 		if (this.type == 'chapter' && !newData) return undefined
 
+		// From here on the returned data came from a fresh upstream fetch
+		// (persistence below only stores it) — the usable-fetch signal for
+		// the adaptive cooldown.
+		this.fetchedFreshData = true
+
 		// Pre-order books carry provisional metadata that can change before release;
 		// skip persistence only when we already have a cached/stored record to serve
 		// (this.originalData is not null). First-time fetches with no existing record
@@ -183,6 +204,12 @@ export default class GenericShowHelper {
 		// 2. Create or update the data
 		const dataToReturn = await this.paprHelper.createOrUpdate()
 		if (dataToReturn.data === null) throw this.errorMessageDataType()
+		// `createOrUpdate()` resolves without writing when the fetched data is
+		// identical to what is stored (the papr helpers return
+		// `modified: false`), so `persisted` must track the write, not the
+		// resolution. The pre-order transient path above returned before the
+		// persistence call, so the flag is false for it by construction.
+		this.persisted = dataToReturn.modified === true
 
 		// 3. Get the data with projections
 		const data = await this.getDataWithProjection()
@@ -210,8 +237,9 @@ export default class GenericShowHelper {
 	 */
 	async updateActions(): Promise<ApiAuthorProfile | ApiBook | ApiChapter | undefined> {
 		if (!this.originalData) throw new Error(ErrorMessageMissingOriginal(this.asin, this.type))
-		// 1. Check if the data is updated recently
-		if (this.isUpdatedRecently()) return this.getDataWithProjection()
+		// 1. Check if the data is updated recently — bypassed when forceUpdate is
+		// set (e.g. the ratings backfill), which must re-fetch every book it targets
+		if (!this.forceUpdate && this.isUpdatedRecently()) return this.getDataWithProjection()
 
 		// 2. Update the data,
 		// return undefined for chapters if the data is not updated

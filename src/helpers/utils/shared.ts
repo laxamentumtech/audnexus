@@ -4,6 +4,7 @@ import type { FastifyBaseLogger } from 'fastify'
 import { htmlToText } from 'html-to-text'
 import lodash from 'lodash'
 
+import { getPerformanceConfig } from '#config/performance'
 import { ApiGenre, ApiGenreSchema, asin11Regex, baseAsin10Regex } from '#config/types'
 import { PaprDocument } from '#config/typing/papr'
 import { NoticeGenreNotAvailable } from '#static/messages'
@@ -98,8 +99,7 @@ class SharedHelper {
 	 * @returns {boolean} true if updated in the threshold period, false otherwise
 	 */
 	isRecentlyUpdated(obj: PaprDocument): boolean {
-		// Get the environment variable for the number of days to check if it exists
-		const threshold = process.env.UPDATE_THRESHOLD ? parseInt(process.env.UPDATE_THRESHOLD) : 7
+		const threshold = getPerformanceConfig().UPDATE_THRESHOLD_DAYS
 		const now = new Date()
 		const lastUpdated = new Date(obj.updatedAt)
 		const diff = now.getTime() - lastUpdated.getTime()

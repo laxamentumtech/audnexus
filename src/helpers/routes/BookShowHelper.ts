@@ -9,8 +9,9 @@ export default class BookShowHelper extends GenericShowHelper {
 		asin: string,
 		options: ApiQueryString,
 		redis: FastifyRedis | null,
-		logger?: FastifyBaseLogger
+		logger?: FastifyBaseLogger,
+		forceUpdate?: boolean
 	) {
-		super(asin, options, redis, 'book', logger)
+		super(asin, options, redis, 'book', logger, forceUpdate)
 	}
 }

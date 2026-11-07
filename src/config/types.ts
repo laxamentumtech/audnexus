@@ -84,6 +84,27 @@ export const ApiNarratorOnBookSchema = z.object({
 })
 export type ApiNarratorOnBook = z.infer<typeof ApiNarratorOnBookSchema>
 
+// Book ratings
+// Star distribution counts derived from Audible's rating response group
+export const ApiRatingDistributionSchema = z.object({
+	five: z.number(),
+	four: z.number(),
+	three: z.number(),
+	two: z.number(),
+	one: z.number()
+})
+export type ApiRatingDistribution = z.infer<typeof ApiRatingDistributionSchema>
+
+export const ApiRatingsSchema = z.object({
+	value: z.string(),
+	numRatings: z.number(),
+	numReviews: z.number(),
+	distribution: ApiRatingDistributionSchema,
+	performanceDistribution: ApiRatingDistributionSchema.optional(),
+	storyDistribution: ApiRatingDistributionSchema.optional()
+})
+export type ApiRatings = z.infer<typeof ApiRatingsSchema>
+
 // Books
 // What we expect to keep from Audible's API
 export const ApiBookSchema = z.object({
@@ -103,6 +124,7 @@ export const ApiBookSchema = z.object({
 		.optional(),
 	narrators: z.array(ApiNarratorOnBookSchema).optional(),
 	publisherName: z.string(),
+	ratings: ApiRatingsSchema.optional(),
 	rating: z.string(),
 	region: RegionSchema,
 	releaseDate: z.date(),
@@ -155,8 +177,10 @@ const AudibleRatingItemSchema = z.object({
 const AudibleRatingSchema = z.object({
 	num_reviews: z.number().or(z.literal(0)),
 	overall_distribution: AudibleRatingItemSchema,
-	performance_distribution: AudibleRatingItemSchema,
-	story_distribution: AudibleRatingItemSchema
+	// Audible omits these groups for some products; keep them optional so the
+	// parse does not reject products that lack a performance/story distribution
+	performance_distribution: AudibleRatingItemSchema.optional(),
+	story_distribution: AudibleRatingItemSchema.optional()
 })
 
 export const AudibleSeriesSchema = z.object({

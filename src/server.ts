@@ -2,7 +2,6 @@ import cors from '@fastify/cors'
 import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
-import schedule from '@fastify/schedule'
 import { fastify, FastifyBaseLogger, FastifyError, FastifyReply, FastifyRequest } from 'fastify'
 import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
@@ -26,6 +25,7 @@ import { registerPerformanceHooks } from '#config/performance/hooks'
 import deleteAuthor from '#config/routes/authors/delete'
 import searchAuthor from '#config/routes/authors/search/show'
 import showAuthor from '#config/routes/authors/show'
+import backfillBookRatings from '#config/routes/books/backfill'
 import deleteChapter from '#config/routes/books/chapters/delete'
 import showChapter from '#config/routes/books/chapters/show'
 import deleteBook from '#config/routes/books/delete'
@@ -33,8 +33,9 @@ import searchBook from '#config/routes/books/search/show'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
 import { registerMetricsRoute } from '#config/routes/metrics'
+import { getUpdateSchedulerIntervals } from '#helpers/jobs/bullmq'
+import { registerUpdateScheduler } from '#helpers/jobs/schedule'
 import { getAllIps as getCloudflareIps } from '#helpers/utils/cloudflareIps'
-import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
 // Heroku or local port
 const host = process.env.HOST || '0.0.0.0'
@@ -77,8 +78,6 @@ function isTrustedProxy(ip: string, trustedProxiesList: string[]): boolean {
 
 let trustedProxies: string[] = []
 let server: ReturnType<typeof fastify>
-const updateInterval = Number(process.env.UPDATE_INTERVAL) || 30
-
 // Setup DB context
 if (!process.env.MONGODB_URI) {
 	throw new Error('No MongoDB URI specified')
@@ -110,9 +109,6 @@ async function registerPlugins() {
 	await server.register(helmet, {
 		global: true
 	})
-
-	// Scheduler
-	await server.register(schedule)
 
 	// Rate limiting
 	await server.register(rateLimit, {
@@ -212,6 +208,7 @@ async function registerRoutes() {
 		.register(searchBook)
 		.register(showBook)
 		.register(deleteBook)
+		.register(backfillBookRatings)
 		.register(showChapter)
 		.register(deleteChapter)
 		.register(showAuthor)
@@ -252,6 +249,10 @@ async function startServer() {
 	await registerRoutes().then(() => server.log.info('Routes registered'))
 	server.log.info('Registered routes: %s', server.printRoutes())
 
+	// The update schedule is a BullMQ repeatable job consumed by the worker
+	// container (src/worker.ts); the API only (re)creates it at startup.
+	await registerUpdateScheduler(getUpdateSchedulerIntervals(), server.log)
+
 	// Start main server
 	try {
 		const address = await server.listen({ port, host })
@@ -263,27 +264,6 @@ async function startServer() {
 		server.log.error(err)
 		process.exit(1)
 	}
-
-	server.ready(() => {
-		// test that db is connected
-		ctx.client
-			.db('papr')
-			.command({ ping: 1 })
-			.then(() => {
-				// Schedule update jobs
-				server.log.info(`Update interval: ${updateInterval} days`)
-				const updateScheduler = new UpdateScheduler(updateInterval, server.redis, server.log)
-				;(server as unknown as { updateScheduler: UpdateScheduler }).updateScheduler =
-					updateScheduler
-
-				const updateAllJob = updateScheduler.updateAllJob()
-				server.scheduler.addLongIntervalJob(updateAllJob)
-			})
-			.catch((err) => {
-				server.log.error(err)
-				process.exit(1)
-			})
-	})
 }
 
 /**
@@ -294,10 +274,6 @@ async function stopServer() {
 		process.exit(0)
 	}
 	server.log.info('Closing HTTP server')
-	// Only stop scheduler if it was initialized
-	if (server.scheduler) {
-		server.scheduler.stop()
-	}
 	try {
 		await server.close()
 		server.log.info('HTTP server closed')

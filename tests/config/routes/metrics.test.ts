@@ -2,26 +2,9 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'bun:test'
 import { FastifyRequest } from 'fastify'
 import Fastify from 'fastify'
 
-import {
-	DEFAULT_PERFORMANCE_CONFIG,
-	PerformanceConfig,
-	setPerformanceConfig
-} from '#config/performance'
+import { DEFAULT_PERFORMANCE_CONFIG, setPerformanceConfig } from '#config/performance'
 import { isIpAllowed, parseEnvArray, registerMetricsRoute } from '#config/routes/metrics'
-
-const createTestConfig = (overrides: Partial<PerformanceConfig>): PerformanceConfig => ({
-	USE_PARALLEL_SCHEDULER: false,
-	USE_CONNECTION_POOLING: true,
-	USE_COMPACT_JSON: true,
-	USE_SORTED_KEYS: false,
-	CIRCUIT_BREAKER_ENABLED: true,
-	METRICS_ENABLED: true,
-	MAX_CONCURRENT_REQUESTS: 50,
-	SCHEDULER_CONCURRENCY: 5,
-	SCHEDULER_MAX_PER_REGION: 5,
-	DEFAULT_REGION: 'us',
-	...overrides
-})
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 describe('Metrics Route - Authentication', () => {
 	let originalAuthToken: string | undefined
@@ -52,7 +35,7 @@ describe('Metrics Route - Authentication', () => {
 	describe('parseEnvArray behavior (via route)', () => {
 		it('returns 200 when METRICS_ALLOWED_IPS contains valid IPs', async () => {
 			process.env.METRICS_ALLOWED_IPS = '192.168.1.1, 10.0.0.1'
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -70,7 +53,7 @@ describe('Metrics Route - Authentication', () => {
 
 		it('returns 403 when IP not in METRICS_ALLOWED_IPS', async () => {
 			process.env.METRICS_ALLOWED_IPS = '192.168.1.1, 10.0.0.1'
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -88,7 +71,7 @@ describe('Metrics Route - Authentication', () => {
 
 		it('trims whitespace from IP entries', async () => {
 			process.env.METRICS_ALLOWED_IPS = ' 192.168.1.1 , 10.0.0.1 '
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -106,7 +89,7 @@ describe('Metrics Route - Authentication', () => {
 
 		it('filters out empty strings in IP list', async () => {
 			process.env.METRICS_ALLOWED_IPS = '192.168.1.1,,10.0.0.1'
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -123,7 +106,7 @@ describe('Metrics Route - Authentication', () => {
 		})
 
 		it('parseEnvArray returns undefined for whitespace-only commas', () => {
-		// Test the missing-entries branch: when all entries are whitespace/empty after split
+			// Test the missing-entries branch: when all entries are whitespace/empty after split
 			const result = parseEnvArray(' , ,  ')
 			expect(result).toBeUndefined()
 		})
@@ -134,7 +117,7 @@ describe('Metrics Route - Authentication', () => {
 		})
 
 		it('parseEnvArray returns undefined for only commas', () => {
-		// When parseEnvArray returns undefined due to empty result, auth fallback should allow access
+			// When parseEnvArray returns undefined due to empty result, auth fallback should allow access
 			const result = parseEnvArray(',,,')
 			expect(result).toBeUndefined()
 		})
@@ -142,7 +125,7 @@ describe('Metrics Route - Authentication', () => {
 		it('returns 200 when METRICS_ALLOWED_IPS is whitespace-only (triggers fallback)', async () => {
 			process.env.METRICS_ALLOWED_IPS = ' , ,  '
 			delete process.env.METRICS_AUTH_TOKEN
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -158,10 +141,10 @@ describe('Metrics Route - Authentication', () => {
 		})
 
 		it('returns 403 when METRICS_ALLOWED_IPS is whitespace-only but METRICS_AUTH_TOKEN is set', async () => {
-		// When parseEnvArray returns undefined but auth token is set, should check token
+			// When parseEnvArray returns undefined but auth token is set, should check token
 			process.env.METRICS_ALLOWED_IPS = ' , ,  '
 			process.env.METRICS_AUTH_TOKEN = 'test-token'
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -181,7 +164,7 @@ describe('Metrics Route - Authentication', () => {
 	describe('validateMetricsAuth with token auth', () => {
 		it('returns 200 when METRICS_AUTH_TOKEN matches x-metrics-token header', async () => {
 			process.env.METRICS_AUTH_TOKEN = 'secret-token-123'
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -199,7 +182,7 @@ describe('Metrics Route - Authentication', () => {
 
 		it('returns 403 when token does not match', async () => {
 			process.env.METRICS_AUTH_TOKEN = 'secret-token-123'
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -217,7 +200,7 @@ describe('Metrics Route - Authentication', () => {
 
 		it('returns 403 when token header is missing', async () => {
 			process.env.METRICS_AUTH_TOKEN = 'secret-token-123'
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -237,7 +220,7 @@ describe('Metrics Route - Authentication', () => {
 	describe('validateMetricsAuth with IP auth', () => {
 		it('returns 200 when request.ip is in METRICS_ALLOWED_IPS', async () => {
 			process.env.METRICS_ALLOWED_IPS = '192.168.1.1,10.0.0.1'
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -255,7 +238,7 @@ describe('Metrics Route - Authentication', () => {
 
 		it('returns 403 when IP not in list', async () => {
 			process.env.METRICS_ALLOWED_IPS = '192.168.1.1,10.0.0.1'
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -274,10 +257,10 @@ describe('Metrics Route - Authentication', () => {
 
 	describe('validateMetricsAuth fallback', () => {
 		it('returns 200 when neither env var is set', async () => {
-		// Should return 200 because parseEnvArray returns undefined and no auth token is set
+			// Should return 200 because parseEnvArray returns undefined and no auth token is set
 			delete process.env.METRICS_AUTH_TOKEN
 			delete process.env.METRICS_ALLOWED_IPS
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -297,7 +280,7 @@ describe('Metrics Route - Authentication', () => {
 describe('Metrics Route', () => {
 	describe('GET /metrics', () => {
 		it('should return metrics when enabled', async () => {
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: true }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: true }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
@@ -318,7 +301,7 @@ describe('Metrics Route', () => {
 		})
 
 		it('should return 404 when disabled', async () => {
-			setPerformanceConfig(createTestConfig({ METRICS_ENABLED: false }))
+			setPerformanceConfig(createTestPerformanceConfig({ METRICS_ENABLED: false }))
 
 			const fastify = Fastify()
 			registerMetricsRoute(fastify)
