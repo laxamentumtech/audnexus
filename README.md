@@ -240,13 +240,16 @@ against `MONGODB_URI` — it starts no server, Redis, or queue:
 # definition fails and is never replaced)
 bun src/history.ts prepare
 
-# Report current-book readiness issues: exact-region duplicate rows,
-# region-less rows, exact+region-less identity conflicts, and state coverage
+# Report current-book readiness issues: one NDJSON row per book with an
+# identity exception (invalid ASIN, missing/invalid region, non-ObjectId _id,
+# unparsed image reference), closed by a summary row with the identity
+# outcome counts (trusted / duplicate / ambiguous) and the truncated-walk
+# count when a bounded `_id` walk stopped early
 bun src/history.ts audit
 
-# One-time per-row legacy artwork seed. Each row runs in its own majority
-# transaction; the singleton checkpoint's row watermark advances in the same
-# transaction, so an interrupted run resumes where it stopped. Re-running a
+# One-time per-row legacy artwork seed. Each row commits in its own
+# majority-write transaction (row work and checkpoint advance together), so
+# an interrupted run resumes from the last committed row. Re-running a
 # completed seed is a no-op.
 bun src/history.ts seed
 
@@ -349,7 +352,7 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - Add `COOLIFY_TOKEN` to your GitHub repository secrets with the API token
    - The workflow `.github/workflows/deploy-coolify.yml` runs on `workflow_run` when a `main`-branch CI run in the same repository completes successfully; if that run shipped a fresh image (successful `docker-build` job), it calls the Coolify webhook over HTTP with the API token
 
-**Note:** The webhook simply notifies Coolify, which then performs its own documented build from the connected Git repository/branch (Dockerfile). The workflow never moves image tags. Versioned images are published to GitHub Container Registry (ghcr.io) by the Release workflow.
+**Note:** The webhook simply notifies Coolify, which then performs its own documented build from the connected Git repository/branch (Dockerfile). The workflow never moves image tags. Versioned images are published to GitHub Container Registry (ghcr.io) by the Release workflow; CI's `docker-build` job additionally pushes branch/PR/SHA tags.
 
 5. **Optional: Configure persistent volumes for MongoDB/Redis:**
    - For production, consider using external MongoDB and Redis services

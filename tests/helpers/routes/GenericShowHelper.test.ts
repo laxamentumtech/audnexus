@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 
 mock.module('#helpers/database/redis/RedisHelper', () => {
 	return {
@@ -21,7 +21,32 @@ mock.module('#helpers/database/papr/audible/PaprAudibleBookHelper', () => {
 	}
 })
 
+const mockReserveGeneration = mock(() => Promise.resolve(7))
+const mockPersistObservation = mock(() =>
+	Promise.resolve({ data: null, modified: false, disposition: 'accepted' as const })
+)
+const mockStitchProcess = mock(() => Promise.resolve(undefined))
+let mockStitchObservation: BookObservation | undefined = undefined
+
+mock.module('#config/papr', () => ({
+	bookHistoryStore: {
+		reserveGeneration: mockReserveGeneration,
+		persistObservation: mockPersistObservation
+	}
+}))
+
+mock.module('#helpers/books/audible/StitchHelper', () => ({
+	default: class StitchHelper {
+		process = () => mockStitchProcess()
+		getHistoryObservation = () => mockStitchObservation
+	}
+}))
+
+import type { FastifyBaseLogger } from 'fastify'
+
+import type { BookObservation } from '#config/bookHistory'
 import type { ApiBook } from '#config/types'
+import type { PersistResult } from '#helpers/database/papr/BookHistoryStore'
 import { BadRequestError, NotFoundError } from '#helpers/errors/ApiErrors'
 import GenericShowHelper from '#helpers/routes/GenericShowHelper'
 import { bookWithoutProjection } from '#tests/datasets/helpers/books'
@@ -448,6 +473,143 @@ describe('GenericShowHelper pre-order transient handling', () => {
 
 		expect(result).toBe(preOrderBook)
 		expect(helper.fetchedFreshData).toBe(true)
+	})
+})
+
+describe('GenericShowHelper history-enabled persist dispositions', () => {
+	const asin = 'B079LRSMNN'
+	const region = 'us'
+	let helper: GenericShowHelper
+	let mockLogger: FastifyBaseLogger
+	const savedEnv = process.env.BOOK_HISTORY_ENABLED
+
+	const apiBook = {
+		...(bookWithoutProjection as unknown as ApiBook),
+		releaseDate: new Date('2020-01-01')
+	} as ApiBook
+	const storedBook = {
+		...(bookWithoutProjection as unknown as ApiBook),
+		releaseDate: new Date('2019-06-01')
+	} as ApiBook
+	const observation: BookObservation = {
+		observedAt: new Date('2026-11-07T12:00:00.000Z'),
+		apiReceivedAt: new Date('2026-11-07T12:00:00.000Z'),
+		responseGroups: ['category_ladders'],
+		requestedRenditions: ['500', '1024'],
+		fields: [
+			{
+				field: 'title',
+				policy: 'editorial:title:v1',
+				value: { state: 'value', value: 'Galaxy' },
+				source: 'audible_api'
+			}
+		],
+		artwork: []
+	}
+
+	beforeEach(() => {
+		process.env.BOOK_HISTORY_ENABLED = 'true'
+		mockLogger = createMockLogger()
+		helper = new GenericShowHelper(
+			asin,
+			{ region, seedAuthors: undefined, update: '1' },
+			null,
+			'book',
+			mockLogger
+		)
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		// No redis hit: the handler falls through to the DB path and updateActions.
+		spyOn(helper.redisHelper, 'findOne').mockResolvedValue(null)
+		mockReserveGeneration.mockClear()
+		mockPersistObservation.mockClear()
+		mockStitchProcess.mockClear()
+		mockStitchProcess.mockResolvedValue(apiBook)
+		mockStitchObservation = observation
+	})
+
+	afterEach(() => {
+		if (savedEnv === undefined) delete process.env.BOOK_HISTORY_ENABLED
+		else process.env.BOOK_HISTORY_ENABLED = savedEnv
+	})
+
+	const dispositions: [string, PersistResult][] = [
+		['rejected', { data: null, modified: false, disposition: 'rejected' }],
+		['stale', { data: null, modified: false, disposition: 'stale' }],
+		['accepted', { data: storedBook, modified: true, disposition: 'accepted' }]
+	]
+
+	test.each(dispositions)('persistObservation disposition %s', async (disposition, persistResult) => {
+		mockPersistObservation.mockResolvedValue(persistResult)
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(storedBook)
+		const setOneSpy = spyOn(helper.redisHelper, 'setOne')
+
+		let result: ApiBook | undefined
+		let error: unknown
+		try {
+			result = (await helper.handler()) as ApiBook
+		} catch (err) {
+			error = err
+		}
+
+		// The history path is taken: the generation is reserved before the
+		// fetch and the observation persisted under it.
+		expect(mockReserveGeneration).toHaveBeenCalledTimes(1)
+		expect(mockReserveGeneration).toHaveBeenCalledWith(asin, region)
+		expect(mockStitchProcess).toHaveBeenCalledTimes(1)
+		expect(mockPersistObservation).toHaveBeenCalledTimes(1)
+		expect(mockPersistObservation).toHaveBeenCalledWith({
+			asin,
+			region,
+			generation: 7,
+			book: apiBook,
+			observation
+		})
+
+		if (disposition === 'rejected') {
+			// The update is refused; the stored projection stands with 200.
+			expect(result).toBe(storedBook)
+			expect(setOneSpy).toHaveBeenCalledTimes(1)
+			expect(setOneSpy).toHaveBeenCalledWith(storedBook)
+		} else if (disposition === 'stale') {
+			// A concurrent delete left no current row: the book is gone.
+			expect(error).toBeInstanceOf(NotFoundError)
+			expect(error).toHaveProperty('statusCode', 404)
+			expect(error).toHaveProperty('message', `Book ${asin} not found in region ${region}`)
+			expect(setOneSpy).not.toHaveBeenCalled()
+		} else {
+			// The fresh data is returned and written to the redis cache.
+			expect(result).toBe(storedBook)
+			expect(setOneSpy).toHaveBeenCalledTimes(1)
+			expect(setOneSpy).toHaveBeenCalledWith(storedBook)
+		}
+	})
+
+	test('missing observation → legacy persist path with warning', async () => {
+		mockStitchObservation = undefined
+
+		spyOn(helper.paprHelper, 'createOrUpdate').mockResolvedValue({ data: apiBook, modified: true })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(apiBook)
+		const setDataSpy = spyOn(helper.paprHelper, 'setData')
+		const setOneSpy = spyOn(helper.redisHelper, 'setOne')
+
+		const result = (await helper.handler()) as ApiBook
+
+		expect(result).toBe(apiBook)
+		// The reserved generation is consumed without establishing resources:
+		// persistObservation is never called, the legacy papr write runs.
+		expect(mockReserveGeneration).toHaveBeenCalledTimes(1)
+		expect(mockPersistObservation).not.toHaveBeenCalled()
+		expect(setDataSpy).toHaveBeenCalledTimes(1)
+		expect(setDataSpy).toHaveBeenCalledWith(apiBook)
+		expect(helper.paprHelper.createOrUpdate).toHaveBeenCalledTimes(1)
+		expect(setOneSpy).toHaveBeenCalledTimes(1)
+		expect(setOneSpy).toHaveBeenCalledWith(apiBook)
+		expect(helper.persisted).toBe(true)
+		expect(mockLogger.warn).toHaveBeenCalledTimes(1)
+		const warnMessage = (mockLogger.warn as ReturnType<typeof mock>).mock.calls[0][0] as string
+		expect(warnMessage).toBe(`History evidence missing for ${asin}; persisting via legacy path.`)
 	})
 })
 

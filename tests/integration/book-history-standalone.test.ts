@@ -20,6 +20,9 @@ import type { PersistInput } from '#helpers/database/papr/BookHistoryStore'
 
 const available = (() => {
 	if (process.env.HISTORY_TEST_MONGODB_URI) return true
+	// A missing docker executable throws ENOENT from spawnSync; `Bun.which`
+	// yields null instead, so absent Docker takes the skip path.
+	if (Bun.which('docker') === null) return false
 	const probe = Bun.spawnSync(['docker', 'info'] as const)
 	return probe.exitCode === 0
 })()
@@ -92,7 +95,6 @@ function persistInput(input: Partial<PersistInput>): PersistInput {
 		generation: 1,
 		book: book(),
 		observation: observation(),
-		updateRequested: true,
 		...input
 	}
 }
@@ -321,7 +323,6 @@ test('legacy capture on first touch does not collide with the next asset sequenc
 			imageId: IMG2,
 			imageUrl: `https://m.media-amazon.com/images/I/${IMG2}.jpg`
 		}),
-		updateRequested: true
 	})
 	expect(result.disposition).toBe('accepted')
 	const sequences = (
@@ -390,7 +391,6 @@ test('an equal observation on a seeded empty-baseline book initializes baselines
 			imageId: IMG2,
 			imageUrl: `https://m.media-amazon.com/images/I/${IMG2}.jpg`
 		}),
-		updateRequested: true
 	})
 	expect(result.disposition).toBe('accepted')
 	const state = await db2.collection('book_history_states').findOne({
@@ -428,7 +428,6 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			generation: 1,
 			book: book({ asin: conflictAsin }),
 			observation: observation(),
-			updateRequested: true
 		})
 	).resolves.toMatchObject({ disposition: 'accepted' })
 	// Now add a null-region competitor for the same identity.
@@ -445,7 +444,6 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			generation: 2,
 			book: book({ asin: conflictAsin }),
 			observation: observation(),
-			updateRequested: true
 		})
 	).rejects.toThrow('identity conflict')
 	// The first (pre-competitor) acceptance stands; the rejected run

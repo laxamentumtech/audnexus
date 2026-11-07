@@ -235,6 +235,27 @@ jobs:
       - name: Verify immutable release reservation boundaries
         run: python3 -m unittest discover -s scripts -p test_release.py
 
+  test-history:
+    # Docker-gated book history suite (audit/prepare/seed/status protocol +
+    # store transactions). The tests self-skip when no transaction-capable
+    # replica set is reachable, so this job is green on runners without
+    # Docker and exercises the protocol where Docker is present.
+    needs: [changes]
+    if: ${{ !cancelled() && needs['changes'].outputs.test == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.4'
+
+      - run: bun install --frozen-lockfile
+
+      - run: bun run test:history
+
   docker-build:
     needs: [changes, workflow-lint, lint-format, build, test]
     if: ${{ !cancelled() && needs['changes'].outputs.docker == 'true' && (needs['workflow-lint'].result == 'success' || needs['workflow-lint'].result == 'skipped') && (needs['lint-format'].result == 'success' || needs['lint-format'].result == 'skipped') && (needs['build'].result == 'success' || needs['build'].result == 'skipped') && (needs['test'].result == 'success' || needs['test'].result == 'skipped') }}

@@ -17,6 +17,9 @@ import { bookHistoryStore } from '#config/papr'
 
 const available = (() => {
 	if (process.env.HISTORY_TEST_MONGODB_URI) return true
+	// A missing docker executable throws ENOENT from spawnSync; `Bun.which`
+	// yields null instead, so absent Docker takes the skip path.
+	if (Bun.which('docker') === null) return false
 	const probe = Bun.spawnSync(['docker', 'info'] as const)
 	return probe.exitCode === 0
 })()

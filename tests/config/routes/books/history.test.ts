@@ -11,6 +11,7 @@ import { registerApiErrorHandler } from '#config/errorHandler'
 import bookArtwork from '#config/routes/books/artwork'
 import bookHistory from '#config/routes/books/history'
 import bookHistoryDetail from '#config/routes/books/historyDetail'
+import { canonicalJson } from '#helpers/books/historyCursor'
 
 const ASIN = 'B00TEST123'
 const UNKNOWN_ASIN = 'B00NOBOOK9'
@@ -58,15 +59,22 @@ function defaultImplementations() {
 		(filter: { asin?: string }) =>
 			Promise.resolve(filter?.asin === ASIN && trusted ? [{ region: 'us' }] : [])
 	)
-	mockRevisionFind.mockImplementation((filter: { revision?: { $lte?: number; $lt?: number } } | null) => {
-		const upper = filter?.revision?.$lte ?? Number.MAX_SAFE_INTEGER
-		const before = filter?.revision?.$lt ?? Number.MAX_SAFE_INTEGER
-		return Promise.resolve(
-			revisionDocs
-				.filter((doc) => doc.revision <= upper && doc.revision < before)
-				.sort((a: { revision: number }, b: { revision: number }) => b.revision - a.revision)
-		)
-	})
+	mockRevisionFind.mockImplementation(
+		(filter: { revision?: { $lte?: number; $lt?: number }; changedFields?: string } | null) => {
+			const upper = filter?.revision?.$lte ?? Number.MAX_SAFE_INTEGER
+			const before = filter?.revision?.$lt ?? Number.MAX_SAFE_INTEGER
+			return Promise.resolve(
+				revisionDocs
+					.filter(
+						(doc) =>
+							doc.revision <= upper &&
+							doc.revision < before &&
+							(!filter?.changedFields || doc.changedFields.includes(filter.changedFields))
+					)
+					.sort((a: { revision: number }, b: { revision: number }) => b.revision - a.revision)
+			)
+		}
+	)
 	mockRevisionFindOne.mockImplementation(() => Promise.resolve(revisionDocs[0] ?? null))
 	mockArtworkFind.mockImplementation(() => Promise.resolve([defaultArtworkAsset]))
 }
@@ -193,6 +201,57 @@ describe('history routes (injection)', () => {
 		})
 		expect(res.statusCode).toBe(404)
 		expect(res.json().error.code).toBe('NOT_FOUND')
+	})
+
+	test('list: cursor identity and filter mismatches are 400, not 500', async () => {
+		established = true
+		const cursorFor = (payload: Record<string, unknown>) =>
+			Buffer.from(canonicalJson(payload), 'utf8').toString('base64url')
+		// Canonical cursor bound to a different book ("Cursor does not match book")
+		const otherBook = cursorFor({
+			v: 1,
+			kind: 'history',
+			asin: UNKNOWN_ASIN,
+			region: 'us',
+			field: null,
+			upper: 3,
+			before: 1
+		})
+		// Canonical cursor with a different field ("Cursor does not match filter")
+		const otherField = cursorFor({
+			v: 1,
+			kind: 'history',
+			asin: ASIN,
+			region: 'us',
+			field: 'subtitle',
+			upper: 3,
+			before: 1
+		})
+		for (const cursor of [otherBook, otherField]) {
+			const res = await app.inject({
+				method: 'GET',
+				url: `/books/${ASIN}/history?cursor=${cursor}`
+			})
+			expect(res.statusCode, `expected 400 for cursor ${cursor}`).toBe(400)
+			expect(res.json().error.code).toBe('BAD_REQUEST')
+		}
+		// The artwork route shares the mapping: a history cursor on it is
+		// also a 400 cursor input error, not a 500 fall-through.
+		const historyCursor = cursorFor({
+			v: 1,
+			kind: 'history',
+			asin: ASIN,
+			region: 'us',
+			field: null,
+			upper: 3,
+			before: 1
+		})
+		const artworkRes = await app.inject({
+			method: 'GET',
+			url: `/books/${ASIN}/artwork?cursor=${historyCursor}`
+		})
+		expect(artworkRes.statusCode).toBe(400)
+		expect(artworkRes.json().error.code).toBe('BAD_REQUEST')
 	})
 
 	test('detail: returns the entire stored mixed revision', async () => {

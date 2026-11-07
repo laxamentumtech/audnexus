@@ -216,15 +216,26 @@ export default class GenericShowHelper {
 		}
 
 		this.paprHelper.setData(newData as never)
+		// Chapter-undefined already returned above; other types always resolve
+		// data on a fresh fetch.
+		return await this.persistFreshData()
+	}
 
+	/**
+	 * Shared persistence tail: write the fresh data through the papr helper,
+	 * read it back with projections, and refresh the redis cache. Tracks the
+	 * `persisted` write flag for the adaptive cooldown. Callers have already
+	 * placed the data into the papr helper.
+	 */
+	private async persistFreshData(): Promise<ApiAuthorProfile | ApiBook | ApiChapter> {
 		// 2. Create or update the data
 		const dataToReturn = await this.paprHelper.createOrUpdate()
 		if (dataToReturn.data === null) throw this.errorMessageDataType()
 		// `createOrUpdate()` resolves without writing when the fetched data is
 		// identical to what is stored (the papr helpers return
 		// `modified: false`), so `persisted` must track the write, not the
-		// resolution. The pre-order transient path above returned before the
-		// persistence call, so the flag is false for it by construction.
+		// resolution. The pre-order transient path returned before this call,
+		// so the flag is false for it by construction.
 		this.persisted = dataToReturn.modified === true
 
 		// 3. Get the data with projections
@@ -256,19 +267,14 @@ export default class GenericShowHelper {
 			// write behavior for this run.
 			this.logger?.warn(`History evidence missing for ${this.asin}; persisting via legacy path.`)
 			this.paprHelper.setData(newData as never)
-			const dataToReturn = await this.paprHelper.createOrUpdate()
-			if (dataToReturn.data === null) throw this.errorMessageDataType()
-			const data = (await this.getDataWithProjection()) as ApiBook
-			this.redisHelper.setOne(data)
-			return data
+			return (await this.persistFreshData()) as ApiBook
 		}
 		const result = await bookHistoryStore.persistObservation({
 			asin: this.asin,
 			region,
 			generation,
 			book: newData,
-			observation,
-			updateRequested: this.originalData !== null
+			observation
 		})
 		if (result.disposition === 'rejected') {
 			// Same outcome class as the disabled-mode genre safeguard: the

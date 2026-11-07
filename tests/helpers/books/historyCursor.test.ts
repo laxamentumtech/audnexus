@@ -63,9 +63,10 @@ describe('historyCursor', () => {
 		// truncated payload
 		const truncated = Buffer.from('{"v":1', 'utf8').toString('base64url')
 		expect(() => decodeCursor(truncated, asin, region, null)).toThrow('Invalid cursor')
-		// wrong version
+		// wrong version: canonical form so the version check (not the
+		// canonical-form check) is the branch under test
 		const badVersion = Buffer.from(
-			JSON.stringify({ v: 2, kind: 'history', asin, region, field: null, upper: 1, before: 2 }),
+			canonicalJson({ v: 2, kind: 'history', asin, region, field: null, upper: 1, before: 2 }),
 			'utf8'
 		).toString('base64url')
 		expect(() => decodeCursor(badVersion, asin, region, null)).toThrow('Invalid cursor')
@@ -79,8 +80,10 @@ describe('historyCursor', () => {
 	})
 
 	test('rejects out-of-range values after decode', () => {
+		// Canonical form (sorted keys) so the safe-count check is the branch
+		// under test, not the canonical-form check.
 		const bad = Buffer.from(
-			JSON.stringify({
+			canonicalJson({
 				v: 1,
 				kind: 'history',
 				asin,
@@ -91,7 +94,6 @@ describe('historyCursor', () => {
 			}),
 			'utf8'
 		).toString('base64url')
-		// Non-canonical? It is canonical JSON; value must fail the safe check.
 		expect(() => decodeCursor(bad, asin, region, null)).toThrow('Invalid cursor')
 	})
 

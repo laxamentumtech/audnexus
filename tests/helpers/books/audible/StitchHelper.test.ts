@@ -1,6 +1,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import * as cheerio from 'cheerio'
 
+import type { BookObservation } from '#config/bookHistory'
+import { GENRES_API_POLICY, GENRES_HTML_POLICY } from '#config/bookHistory'
 import { setPerformanceConfig } from '#config/performance'
 import { ApiBook, AudibleProduct } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
@@ -281,6 +283,97 @@ describe('StitchHelper should throw error when', () => {
 		spyOn(helper.scrapeHelper, 'parseResponse').mockRejectedValue(badRequestError)
 		await expect(helper.parseScraperResponse()).rejects.toBe(badRequestError)
 		expect(badRequestError.statusCode).toBe(400)
+	})
+})
+
+describe('StitchHelper getHistoryObservation composition', () => {
+	const apiTime = new Date('2026-11-07T12:00:00.000Z')
+	const htmlTime = new Date('2026-11-07T12:00:05.000Z')
+	const htmlGenres = [
+		{ asin: '18580606011', name: 'Science Fiction & Fantasy', type: 'genre' },
+		{ asin: '18580641011', name: 'Military', type: 'tag' }
+	]
+
+	const htmlCanonicalGenres = [
+		['genre', '18580606011', 'Science Fiction & Fantasy'],
+		['tag', '18580641011', 'Military']
+	]
+	const baseFields = [
+		{ field: 'title', policy: 'editorial:title:v1', value: { state: 'value', value: 'Galaxy' }, source: 'audible_api' },
+		{ field: 'genres', policy: GENRES_API_POLICY, value: { state: 'value', value: [] }, source: 'audible_api' }
+	]
+
+	const baseObservation = (): BookObservation => ({
+		observedAt: apiTime,
+		apiReceivedAt: apiTime,
+		responseGroups: ['category_ladders'],
+		requestedRenditions: ['500', '1024'],
+		fields: JSON.parse(JSON.stringify(baseFields)),
+		artwork: []
+	})
+
+	// Typed view over the private history-capture fields the composition
+	// reads (set by fetchScraperBook/includeGenres during a live fetch).
+	type HistoryState = StitchHelper & {
+		htmlReceivedAt?: Date
+		historyHtmlGenres?: typeof htmlGenres
+	}
+
+	const setupHelper = (captureHistory: boolean): HistoryState => {
+		const h = new StitchHelper(asin, region, undefined, captureHistory) as HistoryState
+		spyOn(h.apiHelper, 'getHistoryObservation').mockImplementation(() => baseObservation())
+		return h
+	}
+
+	test('uses the HTML receipt time when accepted HTML genres contributed', () => {
+		const h = setupHelper(true)
+		h.historyHtmlGenres = htmlGenres
+		h.htmlReceivedAt = htmlTime
+
+		const observation = h.getHistoryObservation()
+
+		expect(observation).toBeDefined()
+		expect(observation?.observedAt).toBe(htmlTime)
+		expect(observation?.apiReceivedAt).toBe(apiTime)
+		expect(observation?.htmlReceivedAt).toBe(htmlTime)
+		const genres = observation?.fields.find((f) => f.field === 'genres')
+		expect(genres?.source).toBe('audible_html')
+		expect(genres?.policy).toBe(GENRES_HTML_POLICY)
+		expect(genres?.value).toEqual({ state: 'value', value: htmlCanonicalGenres })
+	})
+
+	test('keeps the API receipt time when the HTML fetch produced no genres', () => {
+		const h = setupHelper(true)
+		// The HTML fetch succeeded (receipt time captured) but the page had no
+		// genres: the observation must fall back to the API snapshot and the
+		// API time — the HTML time only applies when HTML genres contributed.
+		h.htmlReceivedAt = htmlTime
+		expect(h.historyHtmlGenres).toBeUndefined()
+
+		const observation = h.getHistoryObservation()
+
+		expect(observation?.observedAt).toBe(apiTime)
+		expect(observation?.apiReceivedAt).toBe(apiTime)
+		expect(observation?.htmlReceivedAt).toBeUndefined()
+		const genres = observation?.fields.find((f) => f.field === 'genres')
+		expect(genres?.source).toBe('audible_api')
+		expect(genres?.policy).toBe(GENRES_API_POLICY)
+	})
+
+	test('passes the API observation through unchanged when captureHistory is false', () => {
+		const h = setupHelper(false)
+		// Even with HTML genre evidence present, collection disabled means the
+		// API observation is returned untouched.
+		h.historyHtmlGenres = htmlGenres
+		h.htmlReceivedAt = htmlTime
+
+		const observation = h.getHistoryObservation()
+
+		expect(observation?.observedAt).toBe(apiTime)
+		expect(observation?.htmlReceivedAt).toBeUndefined()
+		const genres = observation?.fields.find((f) => f.field === 'genres')
+		expect(genres?.source).toBe('audible_api')
+		expect(genres?.policy).toBe(GENRES_API_POLICY)
 	})
 })
 
