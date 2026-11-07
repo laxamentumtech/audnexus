@@ -304,6 +304,53 @@ describe('UpdateScheduler should', () => {
 		expect(mockLogger.error).toHaveBeenCalledTimes(1)
 	})
 
+	test('a rejected markChecked write is a failure, not a batch success', async () => {
+		// The batchSummary.success increment runs AFTER markChecked: a
+		// rejected write must not bump the batch success count (previously the
+		// item was counted as both a success and a failure in the batch log).
+		setPerformanceConfig(
+			createTestPerformanceConfig({
+				USE_PARALLEL_SCHEDULER: false,
+				JITTER_MS: { min: 0, max: 0 }
+			})
+		)
+		mockAuthorFind.mockResolvedValueOnce([makeStaleDoc()]).mockResolvedValueOnce([])
+		// fetchedFreshData true, persisted false → unchanged → markChecked.
+		authorFresh.fetched = true
+		authorFresh.persisted = false
+		mockAuthorUpdateOne.mockRejectedValueOnce(new Error('write rejected'))
+		mockAuthorHandler.mockResolvedValue(undefined)
+		const pass = await helper.updateAuthors()
+		// The item outcome counter (unchanged) is applied before markChecked;
+		// the rejected write adds a failure without erasing that outcome.
+		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 1, gone: 0, failures: 1 })
+		expect(mockAuthorUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockLogger.error).toHaveBeenCalledTimes(1)
+		// The observable fix: success=0 (not 1) in the batch-complete log.
+		expect(mockLogger.debug).toHaveBeenCalledWith(
+			'Authors batch complete: total=1 success=0 failures=1'
+		)
+	})
+
+	test('parallel mode: a rejected markChecked write is a failure, not a batch success', async () => {
+		setPerformanceConfig(
+			createTestPerformanceConfig({ USE_PARALLEL_SCHEDULER: true, JITTER_MS: { min: 0, max: 0 } })
+		)
+		mockAuthorFind.mockResolvedValueOnce([makeStaleDoc()]).mockResolvedValueOnce([])
+		authorFresh.fetched = true
+		authorFresh.persisted = false
+		mockAuthorUpdateOne.mockRejectedValueOnce(new Error('write rejected'))
+		mockAuthorHandler.mockResolvedValue(undefined)
+		mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
+		const pass = await helper.updateAuthors()
+		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 1, gone: 0, failures: 1 })
+		expect(mockAuthorUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockLogger.error).toHaveBeenCalledTimes(1)
+		expect(mockLogger.debug).toHaveBeenCalledWith(
+			'Authors batch complete: total=1 success=0 failures=1'
+		)
+	})
+
 	test('honors SCHEDULER_MAX_ITEMS by stopping the walk', async () => {
 		setPerformanceConfig(
 			createTestPerformanceConfig({

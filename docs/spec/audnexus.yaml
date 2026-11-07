@@ -457,7 +457,8 @@ paths:
         is logged, not returned. Pre-order books (releaseDate in the future)
         are reported as `skipped` — their refreshed data is not persisted
         while pre-release, so they cannot be counted as updated. Only one
-        backfill runs per process; concurrent requests receive `409`.
+        backfill can be queued or running at a time (queue-wide, durable
+        across API restarts); concurrent requests receive `409`.
       operationId: backfillRatings
       tags:
         - Books
@@ -480,8 +481,12 @@ paths:
                 properties:
                   message:
                     type: string
+                  id:
+                    type: string
+                    description: BullMQ job id of the queued backfill
                 example:
                   message: Ratings backfill started
+                  id: '1'
         '401':
           description: Missing or invalid admin token
           content:
@@ -497,7 +502,7 @@ paths:
                 error: Unauthorized
                 message: Invalid admin token
         '409':
-          description: A backfill is already running in the background
+          description: A backfill is already queued or running
           content:
             application/json:
               schema:
@@ -524,6 +529,20 @@ paths:
               example:
                 error: Not Found
                 message: Route not available
+        '503':
+          description: Redis is missing or not ready, so the backfill cannot be queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+              example:
+                error: Service Unavailable
+                message: Backfill requires a ready Redis connection
   '/books/{ASIN}/chapters':
     get:
       summary: Find chapters by ASIN

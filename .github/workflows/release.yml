@@ -47,7 +47,10 @@ jobs:
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
-          persist-credentials: true
+          # The reserve job never pushes; tag creation goes through the REST
+          # ref API with the token, so checkout credentials stay dropped like
+          # every other checkout in the repo.
+          persist-credentials: false
       - name: Reserve one immutable source/version identity
         id: reserve
         env:

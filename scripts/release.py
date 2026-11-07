@@ -421,7 +421,12 @@ def dispatch_docs(repo, source, version, correlation):
     semver(tag[1:])
     require(isinstance(source, str) and OID.fullmatch(source), "Docs source must be a full SHA")
     require(re.fullmatch(r"[0-9]+-[0-9]+", correlation), "Invalid docs correlation ID")
-    repo.run("gh", "workflow", "run", "deploy-docs.yml", "--repo", repo.repository(), "--ref", tag, "-f", f"version={tag}", "-f", f"source={source}", "-f", f"release_run={correlation}")
+    # Dispatch from main, not the tag: the deploy-docs deploy job uses the
+    # github-pages environment, whose deployment-branch-policy admits only the
+    # main branch, so a tag ref would be blocked. The exact release identity
+    # comes from the inputs (version/source/release_run), not the ref — the
+    # stamp step re-verifies source and the run is correlated by release_run.
+    repo.run("gh", "workflow", "run", "deploy-docs.yml", "--repo", repo.repository(), "--ref", "main", "-f", f"version={tag}", "-f", f"source={source}", "-f", f"release_run={correlation}")
     expected_title = f"Release docs {correlation}"
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:

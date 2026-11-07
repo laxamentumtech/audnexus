@@ -1,4 +1,6 @@
+import type { FastifyRedis } from '@fastify/redis'
 import type { FastifyBaseLogger } from 'fastify'
+import type { Redis } from 'ioredis'
 
 import BookModel from '#config/models/Book'
 import { getPerformanceConfig } from '#config/performance'
@@ -7,6 +9,7 @@ import BookShowHelper from '#helpers/routes/BookShowHelper'
 import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
 import { ASIN_REGION_PROJECTION, iterateKeyset, keysetFindAdapter } from '#helpers/utils/keyset'
+import { withDeadline } from '#helpers/utils/withDeadline'
 import { NoticeUpdateScheduled } from '#static/messages'
 
 interface BackfillResult {
@@ -18,8 +21,10 @@ interface BackfillResult {
 
 export default class BookBackfillHelper {
 	logger: FastifyBaseLogger
-	constructor(logger: FastifyBaseLogger) {
+	redis: Redis | null
+	constructor(logger: FastifyBaseLogger, redis: Redis | null = null) {
 		this.logger = logger
+		this.redis = redis
 	}
 
 	/**
@@ -30,9 +35,12 @@ export default class BookBackfillHelper {
 	 * books — the backfill targets books missing `ratings` regardless of
 	 * their `updatedAt`.
 	 *
-	 * Pre-order books are reported as `skipped`: GenericShowHelper returns
-	 * their fresh data transiently without persisting while a stored record
-	 * exists, so counting them as `updated` would re-select them forever.
+	 * Pre-order books are reported as `skipped` (checked before the ratings
+	 * gate, so a pre-order with no upstream rating data is still skipped, not
+	 * failed): GenericShowHelper returns their fresh data transiently without
+	 * persisting while a stored record exists, so counting them as `updated`
+	 * would re-select them forever. Non-pre-order books whose refreshed data
+	 * lacks ratings fail the ratings check and count `failed`.
 	 *
 	 * Books are walked in `_id`-ordered batches so memory stays bounded to one
 	 * batch even on multi-million-document collections.
@@ -57,13 +65,19 @@ export default class BookBackfillHelper {
 					const helper = new BookShowHelper(
 						book.asin,
 						{ region: book.region ?? 'us', update: '1' },
-						null,
+						this.redis as unknown as FastifyRedis | null,
 						this.logger,
 						true
 					)
 					let updatedBook: ApiAuthorProfile | ApiBook | ApiChapter | undefined
 					try {
-						updatedBook = await helper.handler()
+						// Same hard per-item deadline as the scheduler walk: a hung
+						// fetch must surface as a failure, not park the worker.
+						updatedBook = await withDeadline(
+							helper.handler(),
+							getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
+							`backfill book ${book.asin}`
+						)
 					} finally {
 						// Adaptive upstream-pressure cooldown (see
 						// adaptiveCooldown.ts): the backfill shares the
@@ -74,14 +88,31 @@ export default class BookBackfillHelper {
 						// next one.
 						await sleepCooldown()
 					}
+					// Pre-order first: a future releaseDate means the refreshed
+					// data is transient (not persisted) by
+					// GenericShowHelper.isPreOrder, so it is reported skipped —
+					// counting it as updated would be false, and a pre-order
+					// with no upstream rating data must NOT count failed.
+					// Checked before the ratings gate on purpose; a future
+					// releaseDate can only appear on the fresh transient data
+					// (pre-orders are never persisted, so a stored record
+					// returned by the REGION_UNAVAILABLE/PRODUCT_DELISTED
+					// fallback always carries a past releaseDate).
+					if (updatedBook && 'releaseDate' in updatedBook && updatedBook.releaseDate > new Date()) {
+						skipped += 1
+						registerSuccess()
+						return
+					}
+					// The releaseDate check (not `!helper.persisted`) is the
+					// skipped criterion: with the ratings gate below, a
+					// ratingless result that is not a pre-order (upstream
+					// failure, region unavailable, stored fallback) must
+					// count failed, and `!helper.persisted` would classify it
+					// as skipped instead. For data that carries ratings the
+					// two tests agree (the transient pre-order path is the
+					// only reachable no-write resolution returning ratings).
 					if (!updatedBook || !('ratings' in updatedBook && updatedBook.ratings)) {
 						throw new Error(`Ratings were not populated for ${book.asin}`)
-					}
-					// A releaseDate in the future means the refreshed data was returned
-					// transiently (not persisted) by the pre-order path — same definition
-					// as GenericShowHelper.isPreOrder.
-					if ('releaseDate' in updatedBook && updatedBook.releaseDate > new Date()) {
-						skipped += 1
 					}
 					// Got a fully-formed book with ratings: the only usable-success
 					// signal, so this (not a bare 200) relaxes the cooldown.

@@ -171,12 +171,16 @@ class LocalGitHub(release.Repository):
                 if part.startswith('-f'):
                     key, _, value = part[2:].partition('=')
                     inputs[key] = value
+            # A dispatched run freezes the dispatched ref's head as its
+            # head_sha (GitHub semantics). release.py dispatches from main,
+            # so the in-process fake resolves the remote main head.
+            head_sha = self.remote_git('rev-parse', 'refs/heads/main')
             run_id = len(self.runs) + 1
             self.dispatches.append(args)
             self.runs.append({'id': run_id,
                               'html_url': f'https://example.invalid/runs/{run_id}',
                               'display_title': f"Release docs {inputs.get('release_run')}",
-                              'head_sha': inputs.get('source'),
+                              'head_sha': head_sha,
                               'event': 'workflow_dispatch',
                               'status': 'completed'})
             self.jobs[run_id] = [{'id': run_id * 10 + 1, 'name': 'build-docs', 'conclusion': 'success'},
@@ -996,12 +1000,19 @@ def main():
                 i += 1
         store["dispatches"].append({"workflow": workflow, "ref": ref, "fields": fields})
         correlation = fields.get("release_run", "")
+        # A dispatched run freezes the dispatched ref's head as its head_sha
+        # (GitHub semantics). release.py dispatches from main, so resolve the
+        # checked-out main head from the local git repository.
+        import subprocess as _subprocess
+        main_head = _subprocess.run(["git", "-C", os.environ.get("FAKE_GIT", "."),
+                                     "rev-parse", "refs/heads/main"],
+                                    text=True, capture_output=True, check=True).stdout.strip()
         run_id = store["next_run"]
         store["next_run"] += 1
         store["runs"].append({"id": run_id,
                               "html_url": "https://github.com/%s/actions/runs/%d" % (repo, run_id),
                               "display_title": "Release docs %s" % correlation,
-                              "head_sha": fields.get("source", "")})
+                              "head_sha": main_head})
         deploy_job = {"id": run_id * 10 + 2, "name": "deploy"}
         store["jobs"][str(run_id)] = [{"id": run_id * 10 + 1, "name": "build-docs"},
                                       deploy_job]
@@ -1205,8 +1216,11 @@ class LocalLifecycleSubprocessSmoke(unittest.TestCase):
         self.assertIn('Published immutable release docs', result.stdout)
         result = self.run_cli('docs', '--source', sha, '--version', 'v1.1.0', '--correlation', '111-1')
         self.assertIn('Verified Pages deployment', result.stdout)
+        # The dispatch ref is main (the github-pages environment policy admits
+        # only main); the exact source stays in the inputs and the run is
+        # correlated by release_run.
         dispatch = self.store()['dispatches'][0]
-        self.assertEqual(dispatch, {'workflow': 'deploy-docs.yml', 'ref': 'v1.1.0',
+        self.assertEqual(dispatch, {'workflow': 'deploy-docs.yml', 'ref': 'main',
                                     'fields': {'version': 'v1.1.0', 'source': sha,
                                                'release_run': '111-1'}})
         # A successful deploy job whose Pages step was skipped is retained,

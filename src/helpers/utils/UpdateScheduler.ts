@@ -92,22 +92,30 @@ class UpdateScheduler {
 	}
 
 	/**
-	 * Process a single author update
+	 * Process a single stale document: run its type's show helper under the
+	 * per-item deadline, map the result to an outcome, and apply the shared
+	 * pacing (serial jitter + adaptive cooldown) after every item including
+	 * failures. The three public wrappers keep the per-type helper selection
+	 * and deadline label.
 	 */
-	private async processAuthor(
-		author: StaleDocumentWithRegion,
+	private async processItem(
+		makeHelper: (
+			asin: string,
+			region: string
+		) => {
+			handler: () => Promise<unknown>
+			fetchedFreshData: boolean
+			persisted: boolean
+		},
+		labelPrefix: string,
+		doc: StaleDocumentWithRegion,
 		options: { withDelay: boolean } = { withDelay: false }
 	): Promise<ItemOutcome> {
-		const helper = new AuthorShowHelper(
-			author.asin,
-			{ region: author.region ?? 'us', update: '1' },
-			this.redis as unknown as FastifyRedis | null,
-			this.logger
-		)
+		const helper = makeHelper(doc.asin, doc.region ?? 'us')
 		try {
 			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
-			await withDeadline(helper.handler(), timeoutMs, `author ${author.asin}`)
-			// Cooldown decay still keys on a real upstream fetch…
+			await withDeadline(helper.handler(), timeoutMs, `${labelPrefix} ${doc.asin}`)
+			// Cooldown decay keys on a real upstream fetch…
 			if (helper.fetchedFreshData) registerSuccess()
 			// …but "did the row move into the staleness window's past" keys on
 			// persistence, not on the fetch.
@@ -130,67 +138,66 @@ class UpdateScheduler {
 	}
 
 	/**
+	 * Process a single author update
+	 */
+	private processAuthor(
+		author: StaleDocumentWithRegion,
+		options?: { withDelay: boolean }
+	): Promise<ItemOutcome> {
+		return this.processItem(
+			(asin, region) =>
+				new AuthorShowHelper(
+					asin,
+					{ region, update: '1' },
+					this.redis as unknown as FastifyRedis | null,
+					this.logger
+				),
+			'author',
+			author,
+			options
+		)
+	}
+
+	/**
 	 * Process a single book update
 	 */
-	private async processBook(
+	private processBook(
 		book: StaleDocumentWithRegion,
-		options: { withDelay: boolean } = { withDelay: false }
+		options?: { withDelay: boolean }
 	): Promise<ItemOutcome> {
-		const helper = new BookShowHelper(
-			book.asin,
-			{ region: book.region ?? 'us', update: '1' },
-			this.redis as unknown as FastifyRedis | null,
-			this.logger
+		return this.processItem(
+			(asin, region) =>
+				new BookShowHelper(
+					asin,
+					{ region, update: '1' },
+					this.redis as unknown as FastifyRedis | null,
+					this.logger
+				),
+			'book',
+			book,
+			options
 		)
-		try {
-			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
-			await withDeadline(helper.handler(), timeoutMs, `book ${book.asin}`)
-			// Fresh fetch → relax the upstream cooldown (see processAuthor).
-			if (helper.fetchedFreshData) registerSuccess()
-			return helper.persisted ? 'updated' : 'unchanged'
-		} catch (error) {
-			if (error instanceof UpstreamGoneError) return 'gone'
-			throw error
-		} finally {
-			// Pacing jitter is serial-only (see processAuthor).
-			if (options.withDelay) {
-				await jitteredSleep()
-			}
-			// Cooldown runs in BOTH modes and after failures (see processAuthor).
-			await sleepCooldown()
-		}
 	}
 
 	/**
 	 * Process a single chapter update
 	 */
-	private async processChapter(
+	private processChapter(
 		chapter: StaleDocumentWithRegion,
-		options: { withDelay: boolean } = { withDelay: false }
+		options?: { withDelay: boolean }
 	): Promise<ItemOutcome> {
-		const helper = new ChapterShowHelper(
-			chapter.asin,
-			{ region: chapter.region ?? 'us', update: '1' },
-			this.redis as unknown as FastifyRedis | null,
-			this.logger
+		return this.processItem(
+			(asin, region) =>
+				new ChapterShowHelper(
+					asin,
+					{ region, update: '1' },
+					this.redis as unknown as FastifyRedis | null,
+					this.logger
+				),
+			'chapters',
+			chapter,
+			options
 		)
-		try {
-			const timeoutMs = getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS
-			await withDeadline(helper.handler(), timeoutMs, `chapters ${chapter.asin}`)
-			// Fresh fetch → relax the upstream cooldown (see processAuthor).
-			if (helper.fetchedFreshData) registerSuccess()
-			return helper.persisted ? 'updated' : 'unchanged'
-		} catch (error) {
-			if (error instanceof UpstreamGoneError) return 'gone'
-			throw error
-		} finally {
-			// Pacing jitter is serial-only (see processAuthor).
-			if (options.withDelay) {
-				await jitteredSleep()
-			}
-			// Cooldown runs in BOTH modes and after failures (see processAuthor).
-			await sleepCooldown()
-		}
 	}
 
 	/**
@@ -232,7 +239,6 @@ class UpdateScheduler {
 					batchSummary.regions[region] = (batchSummary.regions[region] ?? 0) + 1
 					try {
 						const outcome = await processOne(doc, { withDelay: true })
-						batchSummary.success += 1
 						if (outcome === 'updated') {
 							updated += 1
 						} else {
@@ -244,6 +250,10 @@ class UpdateScheduler {
 							}
 							await this.markChecked(model, doc._id)
 						}
+						// Count success only after the markChecked write lands:
+						// a rejected markChecked must be a failure, not both a
+						// success (batch summary) and a failure.
+						batchSummary.success += 1
 					} catch (error) {
 						this.logger.error(error)
 						batchSummary.failures += 1
@@ -278,7 +288,6 @@ class UpdateScheduler {
 						batchSummary.regions[region] = (batchSummary.regions[region] ?? 0) + 1
 						try {
 							const outcome = await processOne(doc, { withDelay: false })
-							batchSummary.success += 1
 							if (outcome === 'updated') {
 								updated += 1
 							} else {
@@ -292,6 +301,9 @@ class UpdateScheduler {
 								}
 								await this.markChecked(model, doc._id)
 							}
+							// Success only after the markChecked write lands
+							// (serial branch rationale applies here too).
+							batchSummary.success += 1
 							return outcome
 						} catch (error) {
 							this.logger.error(error)
