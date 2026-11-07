@@ -3,6 +3,7 @@ import { AxiosError, AxiosResponse } from 'axios'
 import { registerRateLimited } from '#helpers/utils/adaptiveCooldown'
 import pooledAxios from '#helpers/utils/connectionPool'
 import sleep from '#helpers/utils/sleep'
+import { isUpstreamGoneRedirect, UpstreamGoneError } from '#helpers/utils/upstreamGone'
 
 const MAX_BACKOFF_MS = 8000
 
@@ -96,6 +97,17 @@ function fetchPlus(url: string, options = {}, retries = 0): Promise<AxiosRespons
 			})
 			.catch(async (reason: AxiosError) => {
 				const status = reason.response?.status
+				// Audible answers a dead deep link with 301 → /search?advsearchKeywords= → 503.
+				// That is terminal, not throttling: retrying burns 1s+2s+4s and, worse,
+				// registerRateLimited() rides the process-wide cooldown to its 2h ceiling.
+				// axios (1.13.5) exposes the post-redirect URL on error.response.request.res.
+				const responseUrl = (
+					reason.response?.request as { res?: { responseUrl?: string } } | undefined
+				)?.res?.responseUrl
+				if (isUpstreamGoneRedirect(responseUrl)) {
+					reject(new UpstreamGoneError(responseUrl as string))
+					return
+				}
 				if (status && TRANSIENT_STATUSES[status]) {
 					// Rate-limit signal: raise the process-wide adaptive cooldown.
 					// Retry-After hints feed both the retry delay and the cooldown.

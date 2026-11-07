@@ -407,6 +407,30 @@ describe('GenericShowHelper pre-order transient handling', () => {
 		expect(helper.fetchedFreshData).toBe(true)
 	})
 
+	test('sets persisted only when createOrUpdate actually wrote', async () => {
+		const pastBook = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: new Date('2020-01-01')
+		} as ApiBook
+
+		spyOn(helper, 'getNewData').mockResolvedValue(pastBook)
+		spyOn(helper.paprHelper, 'createOrUpdate').mockResolvedValue({ data: pastBook, modified: true })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(pastBook)
+
+		await helper.createOrUpdateData()
+		expect(helper.persisted).toBe(true)
+
+		// Identical-data no-op: the papr helpers resolve without writing
+		// (`modified: false`); the row must count as `unchanged` so the
+		// scheduler marks it checked instead of re-fetching every pass.
+		spyOn(helper, 'getNewData').mockResolvedValue(pastBook)
+		spyOn(helper.paprHelper, 'createOrUpdate').mockResolvedValue({ data: pastBook, modified: false })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(pastBook)
+
+		await helper.createOrUpdateData()
+		expect(helper.persisted).toBe(false)
+	})
+
 	test('sets fetchedFreshData on the pre-order transient path', async () => {
 		const futureDate = new Date()
 		futureDate.setFullYear(futureDate.getFullYear() + 1)

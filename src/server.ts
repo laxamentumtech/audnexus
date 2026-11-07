@@ -32,6 +32,7 @@ import searchBook from '#config/routes/books/search/show'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
 import { registerMetricsRoute } from '#config/routes/metrics'
+import { getUpdateSchedulerIntervals } from '#helpers/jobs/bullmq'
 import { registerUpdateScheduler } from '#helpers/jobs/schedule'
 import { getAllIps as getCloudflareIps } from '#helpers/utils/cloudflareIps'
 
@@ -76,8 +77,6 @@ function isTrustedProxy(ip: string, trustedProxiesList: string[]): boolean {
 
 let trustedProxies: string[] = []
 let server: ReturnType<typeof fastify>
-const updateInterval = Number(process.env.UPDATE_INTERVAL) || 30
-
 // Setup DB context
 if (!process.env.MONGODB_URI) {
 	throw new Error('No MongoDB URI specified')
@@ -205,7 +204,7 @@ async function startServer() {
 
 	// The update schedule is a BullMQ repeatable job consumed by the worker
 	// container (src/worker.ts); the API only (re)creates it at startup.
-	await registerUpdateScheduler(updateInterval, server.log)
+	await registerUpdateScheduler(getUpdateSchedulerIntervals(), server.log)
 
 	// Start main server
 	try {

@@ -7,6 +7,7 @@ import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErro
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
+import { UpstreamGoneError } from '#helpers/utils/upstreamGone'
 import {
 	ErrorMessageContentTypeMismatch,
 	ErrorMessageHTTPFetch,
@@ -46,6 +47,7 @@ class ScrapeHelper {
 				return cheerio.load(text)
 			})
 			.catch((error) => {
+				if (error instanceof UpstreamGoneError) throw error
 				throw new Error(ErrorMessageHTTPFetch(this.asin, error.status, 'Audible HTML'))
 			})
 	}

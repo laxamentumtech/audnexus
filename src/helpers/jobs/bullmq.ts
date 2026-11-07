@@ -6,16 +6,36 @@ import type { FastifyBaseLogger } from 'fastify'
 import { Redis } from 'ioredis'
 import { randomUUID } from 'node:crypto'
 
+import { parseNonNegativeInt } from '#config/performance'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
 export const QUEUE_NAME = 'audnexus'
 
 export const JOB_NAMES = {
-	updateAll: 'update-all',
+	updateAuthors: 'update-authors',
+	updateBooks: 'update-books',
+	updateChapters: 'update-chapters',
 	backfillRatings: 'backfill-ratings'
 } as const
 export type JobName = (typeof JOB_NAMES)[keyof typeof JOB_NAMES]
+
+/** One repeatable scheduler per collection: a books pass over 4.99M rows must
+ * never starve authors/chapters. Ids are stable — they are the BullMQ upsert keys. */
+export const UPDATE_SCHEDULER_IDS = {
+	authors: 'update-authors-scheduler',
+	books: 'update-books-scheduler',
+	chapters: 'update-chapters-scheduler'
+} as const
+/** Stable map of scheduler id → job name (the BullMQ upsert key → job name). */
+export const UPDATE_SCHEDULERS: Record<string, (typeof JOB_NAMES)[keyof typeof JOB_NAMES]> = {
+	[UPDATE_SCHEDULER_IDS.authors]: JOB_NAMES.updateAuthors,
+	[UPDATE_SCHEDULER_IDS.books]: JOB_NAMES.updateBooks,
+	[UPDATE_SCHEDULER_IDS.chapters]: JOB_NAMES.updateChapters
+}
+/** Pre-split scheduler id; removed at every boot so its delayed job cannot keep
+ * firing the deleted `update-all` job name. */
+export const LEGACY_UPDATE_SCHEDULER_ID = 'update-all-scheduler'
 
 /** Fixed 5-minute retry backoff — jobs are long batch passes; a short retry is pointless. */
 export const RETRY_BACKOFF_MS = 300000
@@ -43,6 +63,15 @@ export const JOB_RETRIES = {
  * every awaited microtask, so the 2m LOCK_DURATION_MS only trips on a truly
  * dead worker. */
 const WORKER_OPTIONS: Omit<WorkerOptions, 'connection'> = {
+	// One job at a time (not per job name). The three update passes share one
+	// rate-limited upstream (one IP) and one process-wide adaptive cooldown:
+	// running them concurrently (the old concurrency: 3) saturated the upstream
+	// rate window, so every request 503s and the cooldown climbed to its
+	// ceiling — a 503 storm that throttled every pass to ~1 item/min. At
+	// concurrency: 1 the passes queue and run one at a time (each internally
+	// serial and bounded by SCHEDULER_MAX_ITEMS), so the shared cooldown/pace
+	// is the only throttle. handleJob's same-name guard still prevents a
+	// repeat from overlapping its own previous run.
 	concurrency: 1,
 	lockDuration: LOCK_DURATION_MS,
 	stalledInterval: STALLED_CHECK_INTERVAL_MS,
@@ -329,27 +358,73 @@ export async function enqueueBackfillRatings(options?: {
 	}
 }
 
-/** Replace the toad-scheduler LongIntervalJob: a BullMQ repeatable job firing
- * every `days` (converted to milliseconds — BullMQ repeat has no day unit).
- * `immediately: true` preserves the old runImmediately behavior.
- * days <= 0 is a no-op (no scheduler created) so local/smoke setups can run
- * the worker without a schedule. */
-export async function upsertUpdateScheduler(days: number): Promise<void> {
-	const everyMs = Math.floor(days * 86_400_000)
-	if (everyMs <= 0) return
+/** Per-collection refresh interval in days: authors/books share the hot
+ * `UPDATE_INTERVAL` cadence; chapters run on the slow `UPDATE_INTERVAL_CHAPTERS`
+ * cadence (chapter lists rarely change, and a full 943k-row sweep is the
+ * biggest contributor to upstream rate-limiting). */
+export interface UpdateSchedulerIntervals {
+	authors: number
+	books: number
+	chapters: number
+}
+
+/** Derive the per-collection refresh intervals (days) from the environment:
+ * authors/books share `UPDATE_INTERVAL` (default 30); chapters run on
+ * `UPDATE_INTERVAL_CHAPTERS` (default 30). A non-positive value disables that
+ * collection's scheduler (see upsertUpdateSchedulers). */
+export function getUpdateSchedulerIntervals(): UpdateSchedulerIntervals {
+	// Strict `\d+` parse (shared with the performance config): an explicit 0
+	// disables the collection (see upsertUpdateSchedulers), while garbage like
+	// ' ', '0x1E' or 'Infinity' falls back to the 30-day default instead of
+	// silently disabling or producing a non-finite interval.
+	const base = parseNonNegativeInt(process.env.UPDATE_INTERVAL, 30)
+	const chapters = parseNonNegativeInt(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
+	return { authors: base, books: base, chapters }
+}
+
+/** Replace the toad-scheduler LongIntervalJob: one BullMQ repeatable job per
+ * collection firing every `intervals.<collection>` days (converted to
+ * milliseconds — BullMQ repeat has no day unit). `immediately: true` preserves
+ * the old runImmediately behavior. An interval <= 0 skips that collection's
+ * scheduler (no scheduler created) so local/smoke setups can run the worker
+ * without a schedule. */
+export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals): Promise<void> {
 	await ensureReadyConnection()
 	await removeOrphanedActiveJobs()
+	// Reap the pre-split scheduler first: its delayed occurrence would keep
+	// firing the deleted `update-all` job name.
+	await withCommandTimeout(() => getQueue().removeJobScheduler(LEGACY_UPDATE_SCHEDULER_ID))
 	// v5.81+ scheduler shape: repeat options take `immediately` (with `every`
 	// it fires once at creation and runs every interval); name/data/opts live
 	// in the job template.
-	await withCommandTimeout(() =>
-		getQueue().upsertJobScheduler(
-			'update-all-scheduler',
-			{ every: everyMs, immediately: true },
-			{ name: JOB_NAMES.updateAll, opts: { ...JOB_RETRIES } }
+	for (const [collection, days] of Object.entries(intervals)) {
+		const everyMs = Math.floor(days * 86_400_000)
+		const schedulerId = UPDATE_SCHEDULER_IDS[collection as keyof typeof UPDATE_SCHEDULER_IDS]
+		// Disabling a collection must remove its existing scheduler, not just
+		// skip the upsert — otherwise a previous occurrence keeps firing.
+		if (everyMs <= 0) {
+			await withCommandTimeout(() => getQueue().removeJobScheduler(schedulerId))
+			continue
+		}
+		const name = UPDATE_SCHEDULERS[schedulerId]
+		await withCommandTimeout(() =>
+			getQueue().upsertJobScheduler(
+				schedulerId,
+				{ every: everyMs, immediately: true },
+				{
+					name,
+					opts: { ...JOB_RETRIES }
+				}
+			)
 		)
+	}
+	// ensureUpdateSchedulesWillRun matches against UPDATE_SCHEDULERS keys
+	// (scheduler ids), so translate the interval keys before passing them.
+	await ensureUpdateSchedulesWillRun(
+		Object.entries(intervals)
+			.filter(([, days]) => days <= 0)
+			.map(([c]) => UPDATE_SCHEDULER_IDS[c as keyof typeof UPDATE_SCHEDULER_IDS])
 	)
-	await ensureUpdateAllWillRun()
 }
 
 /**
@@ -390,38 +465,42 @@ export async function removeOrphanedActiveJobs(): Promise<void> {
 }
 
 /**
- * Guarantee the boot actually leads to a running update-all pass. The
- * repeatable scheduler's `immediately` fire is deduped by BullMQ against any
- * existing job for the scheduler — including a ghost the boot sweep could
- * not classify (a hash that reappeared between sweep and upsert) — and the
- * next scheduled occurrence may be years away (env sets 36500 days on the
- * dev stack). If nothing update-all-shaped is active, waiting, or due within
- * a day, enqueue a one-off pass; a duplicate with a genuine occurrence is
- * harmless (the walk is idempotent — it refreshes whatever is stale).
+ * Guarantee the boot actually leads to a running pass for every collection.
+ * The repeatable scheduler's `immediately` fire is deduped by BullMQ against any
+ * existing job for the scheduler — including a ghost the boot sweep could not
+ * classify (a hash that reappeared between sweep and upsert) — and the next
+ * scheduled occurrence may be a full interval away. A *delayed* occurrence up
+ * to a full interval away means nothing is running now, so a fresh boot must
+ * start a pass: for each collection with no same-name job in `active` or
+ * `waiting`, enqueue a one-off boot pass. A duplicate with a genuine occurrence
+ * is harmless (the single-flight guard drops it; the walk is idempotent — it
+ * refreshes whatever is stale).
  */
-export async function ensureUpdateAllWillRun(): Promise<void> {
+export async function ensureUpdateSchedulesWillRun(disabled: string[] = []): Promise<void> {
 	await ensureReadyConnection()
-	const jobs = await withCommandTimeout(() => getQueue().getJobs(['active', 'waiting', 'delayed']))
-	const updateAll = jobs.filter((job) => job.name === JOB_NAMES.updateAll)
-	const nearby = updateAll.some((job) => {
-		const delay = job.delay ?? 0
-		return delay < 86_400_000
-	})
-	if (nearby) return
-	await withCommandTimeout(() =>
-		// jobId must be colon-free (BullMQ validates custom ids) but still
-		// unique per boot; the dedup against repeat-generated ids uses the
-		// boot- prefix.
-		getQueue().add(JOB_NAMES.updateAll, {}, { ...JOB_RETRIES, jobId: `boot-${Date.now()}` })
-	)
-	console.warn('No update-all occurrence was pending; enqueued a boot pass')
+	const jobs = await withCommandTimeout(() => getQueue().getJobs(['active', 'waiting']))
+	for (const [collection, name] of Object.entries(UPDATE_SCHEDULERS)) {
+		// Disabled collections get no boot pass: a pass here would be work the
+		// operator explicitly turned off for the interval.
+		if (disabled.includes(collection)) continue
+		const inFlight = jobs.some((job) => job.name === name)
+		if (inFlight) continue
+		await withCommandTimeout(() =>
+			// jobId must be colon-free (BullMQ validates custom ids) but still
+			// unique per boot; the boot-<name>- prefix dedups against
+			// repeat-generated ids.
+			getQueue().add(name, {}, { ...JOB_RETRIES, jobId: `boot-${name}-${Date.now()}` })
+		)
+		console.warn(`No ${name} pass was active or waiting; enqueued a boot pass`)
+	}
 }
 
 /** Durable in-flight check for the backfill route (replaces the in-process
- * boolean guard). Counts only backfill jobs — the update-all scheduler keeps
- * a persistent delayed job in the queue, so queue-wide counts would make the
- * route permanently 409: waiting covers queued duplicates, active a running
- * pass, delayed a pass between fixed-backoff retries, paused a paused queue. */
+ * boolean guard). Counts only backfill jobs — the three update schedulers each
+ * keep a persistent delayed job in the queue, so queue-wide counts would make
+ * the route permanently 409: waiting covers queued duplicates, active a
+ * running pass, delayed a pass between fixed-backoff retries, paused a paused
+ * queue. */
 export async function countBackfillJobsInFlight(): Promise<number> {
 	await ensureReadyConnection()
 	const jobs = await withCommandTimeout(() =>
@@ -430,31 +509,77 @@ export async function countBackfillJobsInFlight(): Promise<number> {
 	return jobs.filter((job) => job.name === JOB_NAMES.backfillRatings).length
 }
 
-/** Single dispatch for both job types — the shared job runner. Each processor
+/** Module scope — must outlive a single handleJob invocation. Same-name mutual
+ * exclusion: a repeat occurrence that comes due while that job's previous run is
+ * still going is dropped instead of being picked up by a slot another job freed.
+ * The worker runs a single job at a time (see WORKER_OPTIONS.concurrency) so the
+ * three update passes never run concurrently — they queue and run one at a time.
+ * That serialization is what keeps the shared upstream rate window and the
+ * process-wide adaptive cooldown from being saturated by three passes at once
+ * (the 503 storm that throttled every pass to near-zero). The ratings backfill
+ * is not excluded from update passes by any other guard; under concurrency 1 it
+ * simply queues behind the running pass, which is acceptable for an operator-
+ * triggered bulk job. */
+const runningJobs = new Set<string>()
+
+/** Job result for a skipped (same-name) update occurrence: zeros plus
+ * `passSkipped: 1`, so it resolves successfully and consumes none of
+ * JOB_RETRIES.attempts. */
+const updateJobSummary = (name: string, passSkipped: number): Record<string, number> =>
+	name === JOB_NAMES.backfillRatings
+		? { total: 0, updated: 0, skipped: 0, failed: 0 }
+		: { total: 0, updated: 0, unchanged: 0, gone: 0, failures: 0, passSkipped }
+
+/** Single dispatch for all job types — the shared job runner. Each processor
  * returns a summary stored as the BullMQ job result; a thrown error marks the
  * job failed and triggers the fixed 5-minute retry. */
 export async function handleJob(
 	job: { name: string },
 	logger: FastifyBaseLogger
 ): Promise<Record<string, number>> {
-	if (job.name === JOB_NAMES.updateAll) {
-		const scheduler = new UpdateScheduler(getCacheRedis(), logger)
-		const summary = await scheduler.updateAll()
-		return { total: summary.total, success: summary.success, failures: summary.failures }
+	if (runningJobs.has(job.name)) {
+		logger.warn(`${job.name} still running; skipping this occurrence`)
+		return updateJobSummary(job.name, 1)
 	}
-	if (job.name === JOB_NAMES.backfillRatings) {
-		const summary = await new BookBackfillHelper(logger).process()
-		logger.info(
-			`Ratings backfill complete: total=${summary.total} updated=${summary.updated} skipped=${summary.skipped} failed=${summary.failed}`
-		)
-		return {
-			total: summary.total,
-			updated: summary.updated,
-			skipped: summary.skipped,
-			failed: summary.failed
+	runningJobs.add(job.name)
+	try {
+		if (
+			job.name === JOB_NAMES.updateAuthors ||
+			job.name === JOB_NAMES.updateBooks ||
+			job.name === JOB_NAMES.updateChapters
+		) {
+			const scheduler = new UpdateScheduler(getCacheRedis(), logger)
+			const pass =
+				job.name === JOB_NAMES.updateAuthors
+					? await scheduler.updateAuthors()
+					: job.name === JOB_NAMES.updateBooks
+						? await scheduler.updateBooks()
+						: await scheduler.updateChapters()
+			return {
+				total: pass.total,
+				updated: pass.updated,
+				unchanged: pass.unchanged,
+				gone: pass.gone,
+				failures: pass.failures,
+				passSkipped: 0
+			}
 		}
+		if (job.name === JOB_NAMES.backfillRatings) {
+			const summary = await new BookBackfillHelper(logger).process()
+			logger.info(
+				`Ratings backfill complete: total=${summary.total} updated=${summary.updated} skipped=${summary.skipped} failed=${summary.failed}`
+			)
+			return {
+				total: summary.total,
+				updated: summary.updated,
+				skipped: summary.skipped,
+				failed: summary.failed
+			}
+		}
+		throw new Error(`Unknown job name: ${job.name}`)
+	} finally {
+		runningJobs.delete(job.name)
 	}
-	throw new Error(`Unknown job name: ${job.name}`)
 }
 
 let worker: Worker | null = null

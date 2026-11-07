@@ -4,11 +4,31 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 const mockPaprInitialize = mock()
 const mockClientConnect = mock()
 const mockClientClose = mock()
-const mockClient = { connect: mockClientConnect, close: mockClientClose }
+const mockCreateIndex = mock(() => Promise.resolve())
+const mockClientDb = mock(() => ({
+	collection: mock(() => ({ createIndex: mockCreateIndex }))
+}))
+const mockClient = { connect: mockClientConnect, close: mockClientClose, db: mockClientDb }
 const mockCreateWorker = mock()
 const mockGetWorker = mock()
 const mockCloseQueue = mock()
-const mockUpsertUpdateScheduler = mock()
+const mockUpsertUpdateSchedulers = mock()
+// Mirrors the real helper (strict `\d+` parse: explicit 0 disables, anything
+// non-numeric falls back to 30) so the worker test can assert on the derived
+// object.
+const parseNonNegativeInt = (raw: string | undefined, fallback: number): number => {
+	const trimmed = raw?.trim()
+	if (trimmed && /^\d+$/.test(trimmed)) {
+		const parsed = Number(trimmed)
+		if (Number.isSafeInteger(parsed)) return parsed
+	}
+	return fallback
+}
+const mockGetUpdateSchedulerIntervals = mock(() => {
+	const base = parseNonNegativeInt(process.env.UPDATE_INTERVAL, 30)
+	const chapters = parseNonNegativeInt(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
+	return { authors: base, books: base, chapters }
+})
 const mockWorkerClose = mock()
 
 // No real MongoDB/Redis/papr clients: CI has no services, and the worker
@@ -42,8 +62,9 @@ mock.module('#helpers/jobs/bullmq', () => ({
 	QUEUE_NAME: 'audnexus',
 	closeQueue: mockCloseQueue,
 	createWorker: mockCreateWorker,
+	getUpdateSchedulerIntervals: mockGetUpdateSchedulerIntervals,
 	getWorker: mockGetWorker,
-	upsertUpdateScheduler: mockUpsertUpdateScheduler
+	upsertUpdateSchedulers: mockUpsertUpdateSchedulers
 }))
 
 // src/worker.ts runs its env guards at module load, so the required env must
@@ -68,7 +89,7 @@ const startupStartedAtImport = {
 	paprInitialize: mockPaprInitialize.mock.calls.length > 0,
 	clientConnect: mockClientConnect.mock.calls.length > 0,
 	createWorker: mockCreateWorker.mock.calls.length > 0,
-	upsertUpdateScheduler: mockUpsertUpdateScheduler.mock.calls.length > 0
+	upsertUpdateSchedulers: mockUpsertUpdateSchedulers.mock.calls.length > 0
 }
 
 const savedEnv: Record<string, string | undefined> = {}
@@ -79,7 +100,7 @@ let exitSpy: Mock<(code?: number) => void>
 let exitCalled: Promise.withResolvers<void>
 
 beforeEach(() => {
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL']) {
+	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS']) {
 		savedEnv[key] = process.env[key]
 	}
 	process.env.MONGODB_URI = 'mongodb://localhost:27017'
@@ -94,7 +115,7 @@ beforeEach(() => {
 	mockGetWorker.mockReturnValue({ close: mockWorkerClose })
 	mockCloseQueue.mockClear()
 	mockCloseQueue.mockResolvedValue(undefined)
-	mockUpsertUpdateScheduler.mockClear()
+	mockUpsertUpdateSchedulers.mockClear()
 	mockWorkerClose.mockClear()
 	mockWorkerClose.mockResolvedValue(undefined)
 
@@ -110,7 +131,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	process.exit = originalExit
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL']) {
+	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS']) {
 		if (savedEnv[key] === undefined) {
 			delete process.env[key]
 		} else {
@@ -148,33 +169,55 @@ describe('worker startup', () => {
 		expect(mockClientConnect).toHaveBeenCalledTimes(1)
 		expect(mockPaprInitialize).toHaveBeenCalledTimes(1)
 		expect(mockPaprInitialize).toHaveBeenCalledWith({ client: connectedClient })
-		expect(mockUpsertUpdateScheduler).toHaveBeenCalledTimes(1)
+		// The stale-walk index must target papr's explicit database, not the
+		// URI default.
+		expect(mockClientDb).toHaveBeenCalledWith('audnexus')
+		expect(mockCreateIndex).toHaveBeenCalledTimes(3)
+		expect(mockCreateIndex).toHaveBeenCalledWith(
+			{ updatedAt: 1, _id: 1 },
+			{ name: 'updatedAt_1__id_1' }
+		)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledTimes(1)
 		expect(mockCreateWorker).toHaveBeenCalledTimes(1)
 		expect(mockClientConnect.mock.invocationCallOrder[0]).toBeLessThan(
 			mockPaprInitialize.mock.invocationCallOrder[0]
 		)
 		expect(mockPaprInitialize.mock.invocationCallOrder[0]).toBeLessThan(
-			mockUpsertUpdateScheduler.mock.invocationCallOrder[0]
+			mockUpsertUpdateSchedulers.mock.invocationCallOrder[0]
 		)
-		expect(mockUpsertUpdateScheduler.mock.invocationCallOrder[0]).toBeLessThan(
+		expect(mockUpsertUpdateSchedulers.mock.invocationCallOrder[0]).toBeLessThan(
 			mockCreateWorker.mock.invocationCallOrder[0]
 		)
 	})
 
-	it('upserts the update scheduler with the UPDATE_INTERVAL env value', async () => {
+	it('upserts the update scheduler with the derived per-collection intervals', async () => {
 		process.env.UPDATE_INTERVAL = '12'
+		process.env.UPDATE_INTERVAL_CHAPTERS = '45'
 		await worker.startWorker()
-		expect(mockUpsertUpdateScheduler).toHaveBeenCalledWith(12)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledWith({
+			authors: 12,
+			books: 12,
+			chapters: 45
+		})
 	})
 
 	it('falls back to 30 when UPDATE_INTERVAL is unset or non-numeric', async () => {
 		delete process.env.UPDATE_INTERVAL
+		delete process.env.UPDATE_INTERVAL_CHAPTERS
 		await worker.startWorker()
-		expect(mockUpsertUpdateScheduler).toHaveBeenLastCalledWith(30)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith({
+			authors: 30,
+			books: 30,
+			chapters: 30
+		})
 
 		process.env.UPDATE_INTERVAL = 'not-a-number'
 		await worker.startWorker()
-		expect(mockUpsertUpdateScheduler).toHaveBeenLastCalledWith(30)
+		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith({
+			authors: 30,
+			books: 30,
+			chapters: 30
+		})
 	})
 })
 
@@ -258,6 +301,6 @@ describe('worker import side effects', () => {
 		expect(startupStartedAtImport.paprInitialize).toBe(false)
 		expect(startupStartedAtImport.clientConnect).toBe(false)
 		expect(startupStartedAtImport.createWorker).toBe(false)
-		expect(startupStartedAtImport.upsertUpdateScheduler).toBe(false)
+		expect(startupStartedAtImport.upsertUpdateSchedulers).toBe(false)
 	})
 })

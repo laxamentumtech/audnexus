@@ -25,6 +25,7 @@ import {
 } from '#helpers/utils/adaptiveCooldown'
 import pooledAxios from '#helpers/utils/connectionPool'
 import fetchPlus from '#helpers/utils/fetchPlus'
+import { UpstreamGoneError } from '#helpers/utils/upstreamGone'
 
 let mockStatus: { status: number; headers?: Record<string, string> }
 
@@ -299,6 +300,46 @@ describe('fetchPlus should', () => {
 		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
 		expect(pooledAxios.get).toHaveBeenCalledTimes(4)
 		expect(sleepDelays).toEqual([])
+	})
+
+	test('rejects with UpstreamGoneError on the search-page redirect — one attempt, no cooldown', async () => {
+		// Audible 301s a dead deep link to the search page (→ 503); axios
+		// surfaces the post-redirect URL on error.response.request.res.
+		const goneResponseUrl = 'https://www.audible.com/search?advsearchKeywords='
+		const error: Error & {
+			response: { status: number; request: { res: { responseUrl: string } } }
+		} = Object.assign(new Error('Request failed'), {
+			response: { status: 503, request: { res: { responseUrl: goneResponseUrl } } }
+		})
+		mockGet.mockImplementation(() => Promise.reject(error))
+
+		let caught: unknown
+		try {
+			await fetchPlus('test.com')
+		} catch (e) {
+			caught = e
+		}
+		// Terminal: one Axios attempt (Axios's internal follow of the 301 is
+		// not a second call), no sleep delay, cooldown untouched.
+		expect(caught).toBeInstanceOf(UpstreamGoneError)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(1)
+		expect(sleepDelays).toEqual([])
+		expect(getCooldownMs()).toBe(0)
+	})
+
+	test('control: a plain 503 without a redirect URL still retries 3x and raises the cooldown', async () => {
+		mockStatus = { status: 503 }
+		mockGet.mockImplementation(() => {
+			const error: Error & { response: typeof mockStatus } = Object.assign(
+				new Error('Request failed'),
+				{ response: mockStatus }
+			)
+			return Promise.reject(error)
+		})
+
+		await expect(fetchPlus('test.com')).rejects.toEqual(mockStatus)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(4)
+		expect(getCooldownMs()).toBeGreaterThan(0)
 	})
 })
 

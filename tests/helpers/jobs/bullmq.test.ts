@@ -17,6 +17,7 @@ const mockQueueUpsert = mock()
 const mockQueueGetJobs = mock()
 const mockQueueClose = mock()
 const mockQueueRemove = mock()
+const mockQueueRemoveJobScheduler = mock()
 const mockRedisQuit = mock()
 const mockRedisSet = mock()
 const mockRedisGet = mock()
@@ -27,7 +28,9 @@ const mockRedisLrem = mock()
 const mockRedisExists = mock()
 const mockWorkerClose = mock()
 const mockWorkerOn = mock()
-const mockSchedulerUpdateAll = mock()
+const mockSchedulerUpdateAuthors = mock()
+const mockSchedulerUpdateBooks = mock()
+const mockSchedulerUpdateChapters = mock()
 const mockBackfillProcess = mock()
 
 // No real ioredis sockets: CI has no Redis service, and ioredis connects
@@ -76,6 +79,7 @@ mock.module('bullmq', () => ({
 		getJobs = mockQueueGetJobs
 		close = mockQueueClose
 		remove = mockQueueRemove
+		removeJobScheduler = mockQueueRemoveJobScheduler
 	},
 	Worker: class {
 		close = mockWorkerClose
@@ -88,7 +92,9 @@ mock.module('bullmq', () => ({
 
 mock.module('#helpers/utils/UpdateScheduler', () => ({
 	default: class UpdateScheduler {
-		updateAll = mockSchedulerUpdateAll
+		updateAuthors = mockSchedulerUpdateAuthors
+		updateBooks = mockSchedulerUpdateBooks
+		updateChapters = mockSchedulerUpdateChapters
 	}
 }))
 
@@ -108,12 +114,16 @@ import {
 	enqueueBackfillRatings,
 	getCacheRedis,
 	getQueueRedis,
+	getUpdateSchedulerIntervals,
 	handleJob,
 	JOB_NAMES,
 	JOB_RETRIES,
+	LEGACY_UPDATE_SCHEDULER_ID,
 	QUEUE_NAME,
 	QueueUnavailableError,
-	upsertUpdateScheduler,
+	UPDATE_SCHEDULER_IDS,
+	UPDATE_SCHEDULERS,
+	upsertUpdateSchedulers,
 	withCommandTimeout
 } from '#helpers/jobs/bullmq'
 import { TEST_REDIS_URL } from '#tests/setup/performanceConfig'
@@ -132,10 +142,14 @@ beforeEach(() => {
 	mockQueueRemove.mockReset()
 	mockQueueRemove.mockResolvedValue(undefined)
 	mockQueueUpsert.mockClear()
+	mockQueueRemoveJobScheduler.mockClear()
 	mockQueueGetJobs.mockReset()
-	// Default: no jobs in any state — ensureUpdateAllWillRun then enqueues a
-	// boot pass, which individual tests override as needed.
+	// Default: no jobs in any state — ensureUpdateSchedulesWillRun then
+	// enqueues a boot pass per collection, which individual tests override.
 	mockQueueGetJobs.mockResolvedValue([])
+	mockSchedulerUpdateAuthors.mockReset()
+	mockSchedulerUpdateBooks.mockReset()
+	mockSchedulerUpdateChapters.mockReset()
 	mockJobFromId.mockClear()
 	mockJobFromId.mockImplementation(() => mockJobFromIdSequence.shift() ?? null)
 	mockRedisSet.mockReset()
@@ -509,23 +523,26 @@ describe('bullmq queue helpers', () => {
 		})
 	})
 
-	describe('upsertUpdateScheduler', () => {
+	describe('upsertUpdateSchedulers', () => {
 		// BullMQ repeat has no day unit — the interval is passed in MILLISECONDS.
 		const cases: Array<{ days: number; everyMs: number }> = [
 			{ days: 30, everyMs: 2_592_000_000 },
 			{ days: 0.5, everyMs: 43_200_000 }
 		]
 		for (const { days, everyMs } of cases) {
-			it(`upserts the repeatable update-all scheduler for ${days} day(s) as a ms interval`, async () => {
-				await upsertUpdateScheduler(days)
-				expect(mockQueueUpsert).toHaveBeenCalledWith(
-					'update-all-scheduler',
-					{ every: everyMs, immediately: true },
-					{
-						name: JOB_NAMES.updateAll,
-						opts: expect.objectContaining(JOB_RETRIES)
-					}
-				)
+			it(`upserts one scheduler per collection for ${days} day(s) as a ms interval`, async () => {
+				await upsertUpdateSchedulers({ authors: days, books: days, chapters: days })
+				expect(mockQueueRemoveJobScheduler).toHaveBeenCalledWith(LEGACY_UPDATE_SCHEDULER_ID)
+				for (const [schedulerId, name] of Object.entries(UPDATE_SCHEDULERS)) {
+					expect(mockQueueUpsert).toHaveBeenCalledWith(
+						schedulerId,
+						{ every: everyMs, immediately: true },
+						{
+							name,
+							opts: expect.objectContaining(JOB_RETRIES)
+						}
+					)
+				}
 			})
 		}
 
@@ -536,18 +553,19 @@ describe('bullmq queue helpers', () => {
 			vi.useFakeTimers()
 			try {
 				mockRedisStatus = 'connecting'
-				const pending = upsertUpdateScheduler(30)
+				const pending = upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
 				vi.advanceTimersByTime(50)
 				mockRedisStatus = 'ready'
 				vi.advanceTimersByTime(50)
 				await pending
-				expect(mockQueueUpsert).toHaveBeenCalledTimes(1)
+				// one upsert per collection
+				expect(mockQueueUpsert).toHaveBeenCalledTimes(Object.keys(UPDATE_SCHEDULERS).length)
 			} finally {
 				vi.useRealTimers()
 			}
 		})
 
-		it('sweeps ghost active-list entries before upserting the scheduler', async () => {
+		it('sweeps ghost active-list entries before upserting the schedulers', async () => {
 			// 2026-10-06 incident: restarts mid-job leaked active-list entries
 			// whose job records were gone; the boot `immediately` fire deduped
 			// against the ghost and the boot-only schedule never fired again.
@@ -556,52 +574,160 @@ describe('bullmq queue helpers', () => {
 			// First exists call (the ghost) → 0; second (a real job) → 1.
 			mockRedisExists.mockResolvedValueOnce(0).mockResolvedValueOnce(1)
 
-			await upsertUpdateScheduler(30)
+			await upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
 
 			expect(mockRedisLrem).toHaveBeenCalledWith('bull:audnexus:active', 0, ghostId)
 			expect(mockRedisLrem).not.toHaveBeenCalledWith('bull:audnexus:active', 0, 'real-job')
 			expect(mockRedisDel).toHaveBeenCalledWith(`bull:audnexus:${ghostId}:lock`)
 		})
 
-		it('enqueues a boot pass when no update-all occurrence is pending', async () => {
+		it('enqueues a boot pass per collection when none is active or waiting', async () => {
 			// After a ghost sweep (or any dedup loss) the boot-only schedule has
-			// no pending occurrence for potentially years; the boot must not
+			// no pending occurrence for up to a full interval; the boot must not
 			// trust the upsert alone.
 			mockQueueGetJobs.mockResolvedValue([])
 
-			await upsertUpdateScheduler(30)
+			await upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
 
-			expect(mockQueueAdd).toHaveBeenCalledWith(
-				JOB_NAMES.updateAll,
-				{},
-				expect.objectContaining({ jobId: expect.stringMatching(/^boot-\d+$/) })
-			)
+			for (const name of Object.values(UPDATE_SCHEDULERS)) {
+				expect(mockQueueAdd).toHaveBeenCalledWith(
+					name,
+					{},
+					expect.objectContaining({
+						jobId: expect.stringMatching(new RegExp(`^boot-${name}-\\d+$`))
+					})
+				)
+			}
 		})
 
-		it('does not enqueue a boot pass when an update-all is already due', async () => {
-			mockQueueGetJobs.mockResolvedValue([{ name: JOB_NAMES.updateAll, delay: 5_000 }])
+		it('does not enqueue a boot pass for disabled collections', async () => {
+			// A non-positive interval disables the collection: no scheduler and
+			// no boot pass (the disabled list must be matched against the
+			// scheduler ids, not the interval keys).
+			mockQueueGetJobs.mockResolvedValue([])
 			mockQueueAdd.mockClear()
 
-			await upsertUpdateScheduler(30)
+			await upsertUpdateSchedulers({ authors: 30, books: 0, chapters: 0 })
 
-			expect(mockQueueAdd).not.toHaveBeenCalled()
+			expect(mockQueueAdd).toHaveBeenCalledTimes(1)
+			expect(mockQueueAdd).toHaveBeenCalledWith(
+				JOB_NAMES.updateAuthors,
+				{},
+				expect.objectContaining({
+					jobId: expect.stringMatching(/^boot-update-authors-\d+$/)
+				})
+			)
+			expect(mockQueueAdd).not.toHaveBeenCalledWith(JOB_NAMES.updateBooks, {}, expect.anything())
+			expect(mockQueueAdd).not.toHaveBeenCalledWith(JOB_NAMES.updateChapters, {}, expect.anything())
+		})
+
+		it('does not enqueue a boot pass when a collection already has a job in flight', async () => {
+			// An active (or waiting) occurrence for a collection means that
+			// collection is already running; the other two still get a boot pass.
+			mockQueueGetJobs.mockResolvedValue([{ name: JOB_NAMES.updateBooks }])
+			mockQueueAdd.mockClear()
+
+			await upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
+
+			expect(mockQueueAdd).not.toHaveBeenCalledWith(JOB_NAMES.updateBooks, {}, expect.anything())
+			expect(mockQueueAdd).toHaveBeenCalledTimes(Object.keys(UPDATE_SCHEDULERS).length - 1)
+		})
+	})
+
+	describe('getUpdateSchedulerIntervals', () => {
+		it('defaults chapters to 30 days and mirrors UPDATE_INTERVAL for authors/books', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedChapters = process.env.UPDATE_INTERVAL_CHAPTERS
+			delete process.env.UPDATE_INTERVAL
+			delete process.env.UPDATE_INTERVAL_CHAPTERS
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 30,
+					books: 30,
+					chapters: 30
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedChapters === undefined) delete process.env.UPDATE_INTERVAL_CHAPTERS
+				else process.env.UPDATE_INTERVAL_CHAPTERS = savedChapters
+			}
+		})
+
+		it('preserves an explicit zero interval instead of defaulting it', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedChapters = process.env.UPDATE_INTERVAL_CHAPTERS
+			process.env.UPDATE_INTERVAL = '36500'
+			process.env.UPDATE_INTERVAL_CHAPTERS = '0'
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 36500,
+					books: 36500,
+					chapters: 0
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedChapters === undefined) delete process.env.UPDATE_INTERVAL_CHAPTERS
+				else process.env.UPDATE_INTERVAL_CHAPTERS = savedChapters
+			}
+		})
+
+		it('reads UPDATE_INTERVAL and UPDATE_INTERVAL_CHAPTERS independently', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedChapters = process.env.UPDATE_INTERVAL_CHAPTERS
+			process.env.UPDATE_INTERVAL = '7'
+			process.env.UPDATE_INTERVAL_CHAPTERS = '30'
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 7,
+					books: 7,
+					chapters: 30
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedChapters === undefined) delete process.env.UPDATE_INTERVAL_CHAPTERS
+				else process.env.UPDATE_INTERVAL_CHAPTERS = savedChapters
+			}
 		})
 	})
 
 	it('does not create a scheduler for non-positive day intervals', async () => {
 		mockQueueUpsert.mockClear()
-		await upsertUpdateScheduler(0)
-		await upsertUpdateScheduler(-1)
+		await upsertUpdateSchedulers({ authors: 0, books: 0, chapters: -1 })
 		expect(mockQueueUpsert).not.toHaveBeenCalled()
 	})
 
+	it('skips only the collections whose interval is non-positive', async () => {
+		mockQueueUpsert.mockClear()
+		mockQueueRemoveJobScheduler.mockClear()
+		await upsertUpdateSchedulers({ authors: 30, books: 0, chapters: 0 })
+		expect(mockQueueUpsert).toHaveBeenCalledTimes(1)
+		// Disabling a collection removes its existing scheduler, not just skips
+		// the upsert — otherwise a prior occurrence keeps firing.
+		expect(mockQueueRemoveJobScheduler).toHaveBeenCalledWith(UPDATE_SCHEDULER_IDS.books)
+		expect(mockQueueRemoveJobScheduler).toHaveBeenCalledWith(UPDATE_SCHEDULER_IDS.chapters)
+		expect(mockQueueRemoveJobScheduler).not.toHaveBeenCalledWith(UPDATE_SCHEDULER_IDS.authors)
+		expect(mockQueueUpsert).toHaveBeenCalledWith(
+			UPDATE_SCHEDULER_IDS.authors,
+			{ every: 2_592_000_000, immediately: true },
+			{
+				name: JOB_NAMES.updateAuthors,
+				opts: expect.objectContaining(JOB_RETRIES)
+			}
+		)
+	})
+
 	it('counts only backfill jobs across waiting, active, delayed, and paused', async () => {
-		// The update-all scheduler keeps a persistent delayed job in the queue;
-		// queue-wide counts would make the backfill route permanently 409.
+		// The three update schedulers each keep a persistent delayed job in the
+		// queue; queue-wide counts would make the backfill route permanently 409.
 		mockQueueGetJobs.mockResolvedValueOnce([
 			{ name: JOB_NAMES.backfillRatings },
 			{ name: JOB_NAMES.backfillRatings },
-			{ name: JOB_NAMES.updateAll }
+			{ name: JOB_NAMES.updateAuthors },
+			{ name: JOB_NAMES.updateBooks },
+			{ name: JOB_NAMES.updateChapters }
 		])
 		await expect(countBackfillJobsInFlight()).resolves.toBe(2)
 		expect(mockQueueGetJobs).toHaveBeenCalledWith(['waiting', 'active', 'delayed', 'paused'])
@@ -617,7 +743,7 @@ describe('bullmq queue helpers', () => {
 			const results = Promise.allSettled([
 				enqueueBackfillRatings(),
 				countBackfillJobsInFlight(),
-				upsertUpdateScheduler(30)
+				upsertUpdateSchedulers({ authors: 30, books: 30, chapters: 30 })
 			])
 			vi.advanceTimersByTime(COMMAND_TIMEOUT_MS + 100)
 			for (const result of await results) {
@@ -656,19 +782,141 @@ describe('bullmq queue helpers', () => {
 		await expect(raced).resolves.toBe('ok')
 	})
 
-	it('runs update-all jobs through UpdateScheduler', async () => {
-		mockSchedulerUpdateAll.mockResolvedValueOnce({
+	it('runs update-authors jobs through the authors pass', async () => {
+		mockSchedulerUpdateAuthors.mockResolvedValueOnce({
 			total: 10,
-			success: 9,
-			failures: 1,
-			regions: {},
-			maxConcurrencyObserved: 1
+			updated: 8,
+			unchanged: 1,
+			gone: 1,
+			failures: 0
 		})
-		await expect(handleJob({ name: 'update-all' }, createMockLogger())).resolves.toEqual({
-			total: 10,
-			success: 9,
-			failures: 1
+		await expect(handleJob({ name: JOB_NAMES.updateAuthors }, createMockLogger())).resolves.toEqual(
+			{
+				total: 10,
+				updated: 8,
+				unchanged: 1,
+				gone: 1,
+				failures: 0,
+				passSkipped: 0
+			}
+		)
+	})
+
+	it('runs update-books jobs through the books pass', async () => {
+		mockSchedulerUpdateBooks.mockResolvedValueOnce({
+			total: 4,
+			updated: 2,
+			unchanged: 1,
+			gone: 1,
+			failures: 0
 		})
+		await expect(handleJob({ name: JOB_NAMES.updateBooks }, createMockLogger())).resolves.toEqual({
+			total: 4,
+			updated: 2,
+			unchanged: 1,
+			gone: 1,
+			failures: 0,
+			passSkipped: 0
+		})
+	})
+
+	it('runs update-chapters jobs through the chapters pass', async () => {
+		mockSchedulerUpdateChapters.mockResolvedValueOnce({
+			total: 6,
+			updated: 5,
+			unchanged: 1,
+			gone: 0,
+			failures: 0
+		})
+		await expect(
+			handleJob({ name: JOB_NAMES.updateChapters }, createMockLogger())
+		).resolves.toEqual({
+			total: 6,
+			updated: 5,
+			unchanged: 1,
+			gone: 0,
+			failures: 0,
+			passSkipped: 0
+		})
+	})
+
+	// A PassSummary the in-flight gate resolves to once released.
+	const gateSummary = { total: 1, updated: 1, unchanged: 0, gone: 0, failures: 0 }
+
+	it('drops a same-name update occurrence that comes due while the previous run is in flight', async () => {
+		// The single-flight guard: a second update-books while update-books is
+		// still running must resolve with passSkipped: 1 and never touch the
+		// scheduler.
+		let release: (() => void) | undefined
+		const gate = new Promise<typeof gateSummary>((resolve) => {
+			release = () => resolve(gateSummary)
+		})
+		mockSchedulerUpdateBooks.mockReturnValueOnce(gate)
+		const first = handleJob({ name: JOB_NAMES.updateBooks }, createMockLogger())
+		// Yield until the first run has registered itself as in-flight.
+		await Promise.resolve()
+		const second = await handleJob({ name: JOB_NAMES.updateBooks }, createMockLogger())
+		expect(second).toEqual({
+			total: 0,
+			updated: 0,
+			unchanged: 0,
+			gone: 0,
+			failures: 0,
+			passSkipped: 1
+		})
+		release?.()
+		await first
+		// The second call never invoked the scheduler (only the first did).
+		expect(mockSchedulerUpdateBooks).toHaveBeenCalledTimes(1)
+	})
+
+	it('lets a different collection run while another is in flight', async () => {
+		// The guard is same-name only: update-authors is not excluded by an
+		// in-flight update-books (concurrent passes are the point of the split).
+		let release: (() => void) | undefined
+		const gate = new Promise<typeof gateSummary>((resolve) => {
+			release = () => resolve(gateSummary)
+		})
+		mockSchedulerUpdateBooks.mockReturnValueOnce(gate)
+		mockSchedulerUpdateAuthors.mockResolvedValueOnce({
+			total: 1,
+			updated: 1,
+			unchanged: 0,
+			gone: 0,
+			failures: 0
+		})
+		const books = handleJob({ name: JOB_NAMES.updateBooks }, createMockLogger())
+		await Promise.resolve()
+		const authors = await handleJob({ name: JOB_NAMES.updateAuthors }, createMockLogger())
+		expect(authors).toEqual({
+			total: 1,
+			updated: 1,
+			unchanged: 0,
+			gone: 0,
+			failures: 0,
+			passSkipped: 0
+		})
+		release?.()
+		await books
+		expect(mockSchedulerUpdateAuthors).toHaveBeenCalledTimes(1)
+	})
+
+	it('lets a backfill run while an update pass is in flight', async () => {
+		// No cross-type exclusion: an accepted backfill has no scheduled re-run,
+		// so it must never become a zero-work job because an update is running.
+		let release: (() => void) | undefined
+		const gate = new Promise<typeof gateSummary>((resolve) => {
+			release = () => resolve(gateSummary)
+		})
+		mockSchedulerUpdateBooks.mockReturnValueOnce(gate)
+		mockBackfillProcess.mockResolvedValueOnce({ total: 5, updated: 4, skipped: 1, failed: 0 })
+		const books = handleJob({ name: JOB_NAMES.updateBooks }, createMockLogger())
+		await Promise.resolve()
+		const backfill = await handleJob({ name: JOB_NAMES.backfillRatings }, createMockLogger())
+		expect(backfill).toEqual({ total: 5, updated: 4, skipped: 1, failed: 0 })
+		release?.()
+		await books
+		expect(mockBackfillProcess).toHaveBeenCalledTimes(1)
 	})
 
 	it('runs backfill-ratings jobs through BookBackfillHelper and logs the summary', async () => {
