@@ -600,6 +600,27 @@ describe('bullmq queue helpers', () => {
 			}
 		})
 
+		it('does not enqueue a boot pass for disabled collections', async () => {
+			// A non-positive interval disables the collection: no scheduler and
+			// no boot pass (the disabled list must be matched against the
+			// scheduler ids, not the interval keys).
+			mockQueueGetJobs.mockResolvedValue([])
+			mockQueueAdd.mockClear()
+
+			await upsertUpdateSchedulers({ authors: 30, books: 0, chapters: 0 })
+
+			expect(mockQueueAdd).toHaveBeenCalledTimes(1)
+			expect(mockQueueAdd).toHaveBeenCalledWith(
+				JOB_NAMES.updateAuthors,
+				{},
+				expect.objectContaining({
+					jobId: expect.stringMatching(/^boot-update-authors-\d+$/)
+				})
+			)
+			expect(mockQueueAdd).not.toHaveBeenCalledWith(JOB_NAMES.updateBooks, {}, expect.anything())
+			expect(mockQueueAdd).not.toHaveBeenCalledWith(JOB_NAMES.updateChapters, {}, expect.anything())
+		})
+
 		it('does not enqueue a boot pass when a collection already has a job in flight', async () => {
 			// An active (or waiting) occurrence for a collection means that
 			// collection is already running; the other two still get a boot pass.

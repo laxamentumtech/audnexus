@@ -34,9 +34,12 @@ const ctx = createDefaultContext(validateEnv())
 
 /** The staleness walk sorts on `{ updatedAt: 1, _id: 1 }` over collections as
  * large as `books`; create the backing index idempotently at boot (it is not
- * declared on the papr models, so nothing else builds it). Online build. */
+ * declared on the papr models, so nothing else builds it). Online build.
+ * Targets the same database papr initializes on (`audnexus`) — `client.db()`
+ * would select the URI's default database instead, leaving the walk unindexed
+ * and creating stray `test.*` collections. */
 async function ensureStaleWalkIndexes(client: MongoClient): Promise<void> {
-	const db = client.db()
+	const db = client.db('audnexus')
 	for (const name of ['authors', 'books', 'chapters']) {
 		await db.collection(name).createIndex({ updatedAt: 1, _id: 1 }, { name: 'updatedAt_1__id_1' })
 	}

@@ -6,6 +6,7 @@ import type { FastifyBaseLogger } from 'fastify'
 import { Redis } from 'ioredis'
 import { randomUUID } from 'node:crypto'
 
+import { parseNonNegativeInt } from '#config/performance'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
@@ -372,16 +373,12 @@ export interface UpdateSchedulerIntervals {
  * `UPDATE_INTERVAL_CHAPTERS` (default 30). A non-positive value disables that
  * collection's scheduler (see upsertUpdateSchedulers). */
 export function getUpdateSchedulerIntervals(): UpdateSchedulerIntervals {
-	// An explicit 0 disables the collection (see upsertUpdateSchedulers), so
-	// fall back to the 30-day default only for unset/non-numeric values —
-	// `Number('')` and `Number(undef) || 30` would both resurrect a schedule
-	// the operator explicitly turned off.
-	const interval = (raw: string | undefined, fallback: number): number => {
-		const value = Number(raw)
-		return raw === undefined || raw === '' || Number.isNaN(value) ? fallback : value
-	}
-	const base = interval(process.env.UPDATE_INTERVAL, 30)
-	const chapters = interval(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
+	// Strict `\d+` parse (shared with the performance config): an explicit 0
+	// disables the collection (see upsertUpdateSchedulers), while garbage like
+	// ' ', '0x1E' or 'Infinity' falls back to the 30-day default instead of
+	// silently disabling or producing a non-finite interval.
+	const base = parseNonNegativeInt(process.env.UPDATE_INTERVAL, 30)
+	const chapters = parseNonNegativeInt(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
 	return { authors: base, books: base, chapters }
 }
 
@@ -421,10 +418,12 @@ export async function upsertUpdateSchedulers(intervals: UpdateSchedulerIntervals
 			)
 		)
 	}
+	// ensureUpdateSchedulesWillRun matches against UPDATE_SCHEDULERS keys
+	// (scheduler ids), so translate the interval keys before passing them.
 	await ensureUpdateSchedulesWillRun(
 		Object.entries(intervals)
 			.filter(([, days]) => days <= 0)
-			.map(([c]) => c)
+			.map(([c]) => UPDATE_SCHEDULER_IDS[c as keyof typeof UPDATE_SCHEDULER_IDS])
 	)
 }
 

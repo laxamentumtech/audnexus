@@ -104,6 +104,19 @@ export type PerformanceConfig = z.infer<typeof PerformanceConfigSchema>
 // Configuration Factory
 // ============================================================================
 
+/** Strict non-negative-integer env parse: a pure `\d+` string (trimmed) is
+ * accepted, anything else (empty, whitespace, `'0x1E'`, `'Infinity'`, …)
+ * falls back. `'0'` is meaningful for the callers (disable / unlimited), so
+ * a plain `Number() || fallback` would corrupt it. */
+export const parseNonNegativeInt = (raw: string | undefined, fallback: number): number => {
+	const trimmed = raw?.trim()
+	if (trimmed && /^\d+$/.test(trimmed)) {
+		const parsed = Number(trimmed)
+		if (Number.isSafeInteger(parsed)) return parsed
+	}
+	return fallback
+}
+
 /**
  * Create performance configuration from environment variables.
  * Falls back to sensible defaults when env vars are not set.
@@ -134,18 +147,10 @@ export function createPerformanceConfig(): PerformanceConfig {
 		? parseInt(process.env.SCHEDULER_BATCH_SIZE, 10)
 		: 1000
 
-	// UPDATE_THRESHOLD_DAYS / SCHEDULER_MAX_ITEMS use strict full-string
-	// validation (like SCHEDULER_ITEM_TIMEOUT_MS) — '0' is meaningful for the
+	// UPDATE_THRESHOLD_DAYS / SCHEDULER_MAX_ITEMS use the strict
+	// `parseNonNegativeInt` (module scope above) — '0' is meaningful for the
 	// cap (unbounded), so only a pure non-negative integer string is accepted;
 	// anything else falls back to the default (7 days / 0 = unlimited).
-	const parseNonNegativeInt = (raw: string | undefined, fallback: number): number => {
-		const trimmed = raw?.trim()
-		if (trimmed && /^\d+$/.test(trimmed)) {
-			const parsed = Number(trimmed)
-			if (Number.isSafeInteger(parsed)) return parsed
-		}
-		return fallback
-	}
 	const updateThresholdDays = parseNonNegativeInt(process.env.UPDATE_THRESHOLD, 7)
 	const schedulerMaxItems = parseNonNegativeInt(process.env.SCHEDULER_MAX_ITEMS, 0)
 
