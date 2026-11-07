@@ -78,6 +78,14 @@ export const PerformanceConfigSchema = z.object({
 	 */
 	SCHEDULER_ITEM_TIMEOUT_MS: z.number().int().min(0).default(120000),
 
+	/** Days since updatedAt after which a document counts as stale for the update passes
+	 * (env: UPDATE_THRESHOLD, default 7 — the same knob SharedHelper.isRecentlyUpdated uses). */
+	UPDATE_THRESHOLD_DAYS: z.number().int().min(0).default(7),
+
+	/** Hard cap on documents one pass visits; 0 = unlimited (env: SCHEDULER_MAX_ITEMS).
+	 * Exists so a deploy can be proven bounded (see Verification). */
+	SCHEDULER_MAX_ITEMS: z.number().int().min(0).default(0),
+
 	/** Randomized pacing wait range in ms for batch workers (env: "min-max" or bare "max") */
 	JITTER_MS: z
 		.object({ min: z.number().int().min(0), max: z.number().int().min(0) })
@@ -125,6 +133,21 @@ export function createPerformanceConfig(): PerformanceConfig {
 	const schedulerBatchSize = process.env.SCHEDULER_BATCH_SIZE
 		? parseInt(process.env.SCHEDULER_BATCH_SIZE, 10)
 		: 1000
+
+	// UPDATE_THRESHOLD_DAYS / SCHEDULER_MAX_ITEMS use strict full-string
+	// validation (like SCHEDULER_ITEM_TIMEOUT_MS) — '0' is meaningful for the
+	// cap (unbounded), so only a pure non-negative integer string is accepted;
+	// anything else falls back to the default (7 days / 0 = unlimited).
+	const parseNonNegativeInt = (raw: string | undefined, fallback: number): number => {
+		const trimmed = raw?.trim()
+		if (trimmed && /^\d+$/.test(trimmed)) {
+			const parsed = Number(trimmed)
+			if (Number.isSafeInteger(parsed)) return parsed
+		}
+		return fallback
+	}
+	const updateThresholdDays = parseNonNegativeInt(process.env.UPDATE_THRESHOLD, 7)
+	const schedulerMaxItems = parseNonNegativeInt(process.env.SCHEDULER_MAX_ITEMS, 0)
 
 	// Handle invalid values before passing to Zod
 	const validatedMaxConcurrent =
@@ -181,6 +204,8 @@ export function createPerformanceConfig(): PerformanceConfig {
 		SCHEDULER_MAX_PER_REGION: validatedSchedulerMaxPerRegion,
 		SCHEDULER_BATCH_SIZE: validatedSchedulerBatchSize,
 		SCHEDULER_ITEM_TIMEOUT_MS: validatedSchedulerItemTimeout,
+		UPDATE_THRESHOLD_DAYS: updateThresholdDays,
+		SCHEDULER_MAX_ITEMS: schedulerMaxItems,
 		JITTER_MS: jitterMs,
 		DEFAULT_REGION: process.env.DEFAULT_REGION?.trim() || 'us'
 	})
@@ -206,6 +231,8 @@ export const DEFAULT_PERFORMANCE_CONFIG: Readonly<PerformanceConfig> = {
 	SCHEDULER_MAX_PER_REGION: 5,
 	SCHEDULER_BATCH_SIZE: 1000,
 	SCHEDULER_ITEM_TIMEOUT_MS: 120000,
+	UPDATE_THRESHOLD_DAYS: 7,
+	SCHEDULER_MAX_ITEMS: 0,
 	JITTER_MS: { min: 0, max: 5000 },
 	DEFAULT_REGION: 'us'
 }

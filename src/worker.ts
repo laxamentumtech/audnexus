@@ -5,9 +5,10 @@ import { initialize } from '#config/papr'
 import {
 	closeQueue,
 	createWorker,
+	getUpdateSchedulerIntervals,
 	getWorker,
 	QUEUE_NAME,
-	upsertUpdateScheduler
+	upsertUpdateSchedulers
 } from '#helpers/jobs/bullmq'
 import { setCooldownLogger } from '#helpers/utils/adaptiveCooldown'
 
@@ -34,12 +35,14 @@ export async function startWorker(): Promise<void> {
 	validateEnv()
 	await initialize({ client: await ctx.client.connect() })
 	// The worker owns the schedule: it creates/refreshes the repeatable
-	// update-all job, so the schedule survives API restarts.
-	await upsertUpdateScheduler(Number(process.env.UPDATE_INTERVAL) || 30)
+	// per-collection update jobs, so the schedule survives API restarts.
+	await upsertUpdateSchedulers(getUpdateSchedulerIntervals())
 	// Surface adaptive-cooldown growth in worker logs (see adaptiveCooldown.ts).
 	setCooldownLogger((message) => logger.warn(message))
 	createWorker(logger)
-	logger.info(`Worker started on queue ${QUEUE_NAME} (jobs: update-all, backfill-ratings)`)
+	logger.info(
+		`Worker started on queue ${QUEUE_NAME} (jobs: update-authors, update-books, update-chapters, backfill-ratings)`
+	)
 }
 
 export async function shutdown(): Promise<void> {

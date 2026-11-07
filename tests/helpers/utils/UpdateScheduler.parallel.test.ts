@@ -1,5 +1,6 @@
 import type { FastifyRedis } from '@fastify/redis'
 import { afterAll, afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test'
+import { ObjectId } from 'mongodb'
 
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
@@ -7,18 +8,27 @@ import { createMockLogger } from '#tests/setup/mockLogger'
 import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 const mockAuthorFind = mock()
+const mockAuthorUpdateOne = mock()
 const mockAuthorHandler = mock()
 
 mock.module('#config/models/Author', () => ({
-	default: { find: mockAuthorFind }
+	default: { find: mockAuthorFind, updateOne: mockAuthorUpdateOne }
 }))
 
-const authorFreshData = { fetched: true }
+// Mutable per-test state the mock reads at access time (the class body must
+// not capture values at definition time or a test's mid-run mutation would be
+// ignored by every subsequent instance).
+const authorFreshData = { fetched: true, persisted: true }
 
 mock.module('#helpers/routes/AuthorShowHelper', () => ({
 	default: class AuthorShowHelper {
 		handler = mockAuthorHandler
-		fetchedFreshData = authorFreshData.fetched
+		get fetchedFreshData() {
+			return authorFreshData.fetched
+		}
+		get persisted() {
+			return authorFreshData.persisted
+		}
 	}
 }))
 
@@ -48,6 +58,14 @@ const createMockContext = (): MockContext => ({
 	}
 })
 
+let idCounter = 0
+const makeStaleDoc = (asin: string, region: string) => ({
+	_id: new ObjectId(`5d00000000000000000000${(idCounter++).toString(16).padStart(2, '0')}`),
+	asin,
+	region,
+	updatedAt: new Date('2020-01-01T00:00:00.000Z')
+})
+
 describe('UpdateScheduler parallel processing', () => {
 	let helper: UpdateScheduler
 
@@ -57,11 +75,15 @@ describe('UpdateScheduler parallel processing', () => {
 		helper = new UpdateScheduler(ctx.client, mockLogger)
 		resetPerformanceConfig()
 		mockAuthorFind.mockReset()
+		mockAuthorFind.mockResolvedValue([])
+		mockAuthorUpdateOne.mockReset()
+		mockAuthorUpdateOne.mockResolvedValue({ acknowledged: true })
 		mockAuthorHandler.mockReset()
 		mockSleepCooldown.mockReset()
 		mockSleepCooldown.mockResolvedValue(undefined)
 		mockRegisterSuccess.mockReset()
 		authorFreshData.fetched = true
+		authorFreshData.persisted = true
 	})
 
 	afterEach(() => {
@@ -81,10 +103,7 @@ describe('UpdateScheduler parallel processing', () => {
 			})
 		)
 
-		const authors = Array.from({ length: 12 }, (_, index) => ({
-			asin: `A${index}`,
-			region: 'us'
-		}))
+		const authors = Array.from({ length: 12 }, (_, index) => makeStaleDoc(`A${index}`, 'us'))
 
 		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
 
@@ -99,7 +118,7 @@ describe('UpdateScheduler parallel processing', () => {
 		})
 
 		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
-		await expect(helper.updateAuthors()).resolves.toBeUndefined()
+		await expect(helper.updateAuthors()).resolves.toMatchObject({ total: 12, updated: 12 })
 		randomSpy.mockRestore()
 
 		expect(maxConcurrent).toBeLessThanOrEqual(5)
@@ -114,12 +133,12 @@ describe('UpdateScheduler parallel processing', () => {
 		)
 
 		const authors = [
-			{ asin: 'A1', region: 'us' },
-			{ asin: 'A2', region: 'us' },
-			{ asin: 'A3', region: 'us' },
-			{ asin: 'B1', region: 'uk' },
-			{ asin: 'B2', region: 'uk' },
-			{ asin: 'B3', region: 'uk' }
+			makeStaleDoc('A1', 'us'),
+			makeStaleDoc('A2', 'us'),
+			makeStaleDoc('A3', 'us'),
+			makeStaleDoc('B1', 'uk'),
+			makeStaleDoc('B2', 'uk'),
+			makeStaleDoc('B3', 'uk')
 		]
 
 		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
@@ -135,7 +154,7 @@ describe('UpdateScheduler parallel processing', () => {
 		})
 
 		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
-		await expect(helper.updateAuthors()).resolves.toBeUndefined()
+		await expect(helper.updateAuthors()).resolves.toMatchObject({ total: 6, updated: 6 })
 		randomSpy.mockRestore()
 
 		expect(maxConcurrent).toBeLessThanOrEqual(5)
@@ -149,11 +168,7 @@ describe('UpdateScheduler parallel processing', () => {
 			})
 		)
 
-		const authors = [
-			{ asin: 'A1', region: 'us' },
-			{ asin: 'A2', region: 'us' },
-			{ asin: 'A3', region: 'us' }
-		]
+		const authors = [makeStaleDoc('A1', 'us'), makeStaleDoc('A2', 'us'), makeStaleDoc('A3', 'us')]
 
 		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
 		mockAuthorHandler
@@ -162,7 +177,7 @@ describe('UpdateScheduler parallel processing', () => {
 			.mockResolvedValueOnce(undefined)
 
 		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
-		await expect(helper.updateAuthors()).resolves.toBeUndefined()
+		await expect(helper.updateAuthors()).resolves.toMatchObject({ total: 3, failures: 1 })
 		randomSpy.mockRestore()
 
 		expect(mockAuthorHandler).toHaveBeenCalledTimes(3)
@@ -177,11 +192,7 @@ describe('UpdateScheduler parallel processing', () => {
 			})
 		)
 
-		const authors = [
-			{ asin: 'A1', region: 'us' },
-			{ asin: 'A2', region: 'us' },
-			{ asin: 'A3', region: 'us' }
-		]
+		const authors = [makeStaleDoc('A1', 'us'), makeStaleDoc('A2', 'us'), makeStaleDoc('A3', 'us')]
 
 		mockAuthorFind.mockResolvedValueOnce(authors).mockResolvedValueOnce([])
 		// A2 returns stored data (fetchedFreshData stays false on that call);
@@ -202,7 +213,7 @@ describe('UpdateScheduler parallel processing', () => {
 		})
 
 		const randomSpy = spyOn(Math, 'random').mockReturnValue(0)
-		await expect(helper.updateAuthors()).resolves.toBeUndefined()
+		await helper.updateAuthors()
 		randomSpy.mockRestore()
 
 		expect(mockSleepCooldown).toHaveBeenCalledTimes(3)
