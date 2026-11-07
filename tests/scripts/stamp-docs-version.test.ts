@@ -164,6 +164,25 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		expect(await readStampedVersion(path)).toBe('0.0.0')
 	})
 
+	test('accept an advanced main build of a release dispatch with the expectation cleared', async () => {
+		// build-docs of a delayed release retry checks out main at dispatch
+		// time (source has advanced past the frozen release source) and
+		// clears DOCS_EXPECTED_SOURCE — the release identity is proven in
+		// release-docs, not here. The stamp must succeed with the tag-shaped
+		// ref and explicit version and must not re-check the advanced source
+		// against the older release source.
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/tags/v1.2.0',
+			DOCS_SOURCE: otherSha,
+			DOCS_EXPECTED_SOURCE: '',
+			DOCS_VERSION: 'v1.2.0'
+		})
+		expect(result.code).toBe(0)
+		expect(result.stdout).toBe(`Docs version: 1.2.0; source: ${otherSha}`)
+		expect(await readStampedVersion(path)).toBe('1.2.0')
+	})
+
 	test('accept an explicit version on a release dispatch from main', async () => {
 		// A release dispatch freezes the reserved release source in the
 		// dispatch (DOCS_EXPECTED_SOURCE) and dispatches from main (the

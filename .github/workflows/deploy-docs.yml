@@ -66,7 +66,12 @@ jobs:
           # identity itself is proven by the release-docs job's stamp step.
           DOCS_REF: ${{ inputs.release_run != '' && format('refs/tags/{0}', inputs.version) || github.ref }}
           DOCS_SOURCE: ${{ github.sha }}
-          DOCS_EXPECTED_SOURCE: ${{ inputs.release_run != '' && '' || inputs.source }}
+          # `&& '' || x` can never yield '' (an empty middle operand is falsey,
+          # so `||` takes x). This build is not the frozen release source — it
+          # is main at dispatch time — so clear the expectation for release
+          # dispatches instead of comparing against inputs.source, which would
+          # fail the stamp on a delayed retry and skip release-docs.
+          DOCS_EXPECTED_SOURCE: ${{ inputs.release_run == '' && inputs.source || '' }}
           DOCS_VERSION: ${{ inputs.version }}
         run: bun scripts/stamp-docs-version.ts
 
