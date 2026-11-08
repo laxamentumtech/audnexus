@@ -113,6 +113,12 @@ describe('BookHistoryHelper', () => {
 			await expect(helper.listHistory({ region, limit: 50 })).rejects.toThrow(ConflictError)
 		})
 
+		test('409 when a single exact book has a competitor (writer 409 state)', async () => {
+			mockStateFindOne.mockResolvedValue(null)
+			mockBooksFind.mockResolvedValue([{ region }, { region: 'zz' }])
+			await expect(helper.listHistory({ region, limit: 50 })).rejects.toThrow(ConflictError)
+		})
+
 		test('pending trusted current book without state: 200 with empty items and pending tracking', async () => {
 			mockStateFindOne.mockResolvedValue(null)
 			mockBooksFind.mockResolvedValue([{ region }])
@@ -228,20 +234,35 @@ describe('BookHistoryHelper', () => {
 			expect(decodeCursor(cursor, asin, region, null)).toEqual({ upper: 5, before: 4 })
 		})
 
-		test('a field filter never advances the cursor past unseen rows', async () => {
+		test('a field filter runs in the query and the cursor advances over matching rows', async () => {
 			mockStateFindOne.mockResolvedValue({ ...establishedState(), revision: 4 })
+			// The database sees only matching revisions: the query carries
+			// the field condition, so a rarely-changed field no longer
+			// forces paging through unrelated revisions.
 			const docs: RevisionDoc[] = [
-				revisionDoc(4, { subtitle: { before: { state: 'absent' }, after: { state: 'value', value: 'side' } } }, ['subtitle']),
 				revisionDoc(3, titleChange('D'), ['title']),
-				revisionDoc(2, titleChange('C'), ['title']),
-				revisionDoc(1, titleChange('B'), ['title'])
+				revisionDoc(2, titleChange('C'), ['title'])
 			]
-			mockRevisionFind.mockResolvedValue(docs)
-			const result = await helper.listHistory({ region, limit: 2, field: 'title' })
-			// Page window is [4,3]; the filtered display is [3]; the cursor
-			// must be encoded from the raw last row (3), not the filtered one.
+			mockRevisionFind.mockResolvedValueOnce(docs)
+			const result = await helper.listHistory({ region, limit: 1, field: 'title' })
 			expect(result.items.map((item) => item.revision)).toEqual(['3'])
+			const filter = mockRevisionFind.mock.calls[0][0] as { changedFields?: string }
+			expect(filter.changedFields).toBe('title')
+			// The continuation advances over matching rows: the last
+			// matching revision not yet returned.
 			expect(result.nextCursor).toBe(encodeCursor(asin, region, 'title', 4, 3))
+			expect(decodeCursor(result.nextCursor as string, asin, region, 'title')).toEqual({
+				upper: 4,
+				before: 3
+			})
+		})
+
+		test('an unfiltered query carries no field condition', async () => {
+			mockStateFindOne.mockResolvedValue({ ...establishedState(), revision: 4 })
+			mockRevisionFind.mockResolvedValueOnce([revisionDoc(3, titleChange('D'), ['title'])])
+			await helper.listHistory({ region, limit: 1 })
+			const filter = mockRevisionFind.mock.calls[0][0] as { changedFields?: string }
+			expect(filter.changedFields).toBeUndefined()
 		})
 
 		test('a bad cursor throws a 400-class error', async () => {

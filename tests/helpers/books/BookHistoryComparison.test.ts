@@ -2,9 +2,11 @@ import { describe, expect, test } from 'bun:test'
 
 import type {
 	BookObservation,
+	EditorialHistoryField,
 	FieldBaseline,
 	HistoryBaselines,
 	HistoryValue,
+	JsonValue,
 	RenditionBaseline
 } from '#config/bookHistory'
 import {
@@ -22,13 +24,10 @@ import {
 const now = new Date('2026-10-01T12:00:00.000Z')
 const earlier = new Date('2026-09-01T12:00:00.000Z')
 
-const asValue = (value: HistoryValue['value'] & object): HistoryValue => ({
-	state: 'value',
-	value
-})
+const asValue = (value: JsonValue): { state: 'value'; value: JsonValue } => ({ state: 'value', value })
 
 function observation(
-	fields: Array<{ field: string; policy?: string; value: HistoryValue }>,
+	fields: Array<{ field: EditorialHistoryField; policy?: string; value: HistoryValue }>,
 	artwork: Array<{ rendition: string; sourceUrl: string; imageId: string | null }> = []
 ): BookObservation {
 	return {
@@ -37,10 +36,8 @@ function observation(
 		responseGroups: ['product'],
 		requestedRenditions: artwork.map((a) => a.rendition),
 		fields: fields.map((f) => ({
-			field: f.field as never,
-			policy:
-				f.policy ??
-				EDITORIAL_FIELD_POLICIES[f.field as keyof typeof EDITORIAL_FIELD_POLICIES],
+			field: f.field,
+			policy: f.policy ?? EDITORIAL_FIELD_POLICIES[f.field],
 			value: f.value,
 			source: 'audible_api'
 		})),

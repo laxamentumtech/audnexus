@@ -72,6 +72,31 @@ describe('iterateKeyset should', () => {
 		)
 	})
 
+	it('keeps a baseFilter with its own _id bound on every page', async () => {
+		// Seed sends `{ $and: [{ _id: { $gt } }, { _id: { $lte } }] }`: the
+		// upper watermark is part of the base filter, so the walk's `$gt`
+		// continuation must be ANDed in without dropping the bound.
+		const find = mock().mockImplementation(findPaged(2))
+		await iterateKeyset(
+			find,
+			{ projection, baseFilter: { _id: { $lte: ids[4] } }, batchSize: 2 },
+			mock()
+		)
+		// The first page carries the base bound with no continuation yet.
+		expect(find).toHaveBeenNthCalledWith(1, { $and: [{ _id: { $lte: ids[4] } }] }, findOptions)
+		// Each continuation ANDs the $gt onto the bound — never replaces it.
+		expect(find).toHaveBeenNthCalledWith(
+			2,
+			{ $and: [{ _id: { $lte: ids[4] } }, { _id: { $gt: ids[1] } }] },
+			findOptions
+		)
+		expect(find).toHaveBeenNthCalledWith(
+			3,
+			{ $and: [{ _id: { $lte: ids[4] } }, { _id: { $gt: ids[3] } }] },
+			findOptions
+		)
+	})
+
 	it('returns zero batches when the first page is empty', async () => {
 		const find = mock().mockResolvedValueOnce([])
 		const onBatch = mock()

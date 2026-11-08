@@ -51,8 +51,6 @@ export interface PersistInput {
 	generation: number
 	book: ApiBook
 	observation: BookObservation
-	/** `true` for create-with-new-state, `false` for update paths. */
-	updateRequested: boolean
 }
 
 export interface PersistResult {
@@ -238,7 +236,10 @@ export class BookHistoryStore {
 	 * Preserves the exact stored string, recognized ID or unparsed key, null
 	 * upstream time, unknown rendition; the import time is separate. Never
 	 * invents a first-observation date from the import time. Idempotent when
-	 * the same stored string already exists.
+	 * the same stored string already exists. A non-ObjectId source row
+	 * cannot satisfy the ObjectId-typed `legacy.sourceBookId`; the typed
+	 * capture is skipped after the stored URL is retained as an identity
+	 * exception, so a caller that deletes the row loses no image.
 	 */
 	async captureLegacy(
 		session: ClientSession,
@@ -249,6 +250,10 @@ export class BookHistoryStore {
 		const storedUrl =
 			typeof sourceBook.image === 'string' && sourceBook.image ? sourceBook.image : undefined
 		if (!storedUrl) return 0
+		if (!(sourceBook._id instanceof ObjectId)) {
+			await this.recordIdentityException(session, sourceBook)
+			return 0
+		}
 		const imageId = parseArtworkReference(storedUrl)
 		const artwork = this.collection<Document>(COLLECTIONS.artwork)
 		const legacy = {
@@ -315,14 +320,28 @@ export class BookHistoryStore {
 		} else {
 			region = { state: regionState }
 		}
+		const idValid = sourceBook._id instanceof ObjectId
 		const reasons: string[] = []
+		if (!idValid) reasons.push('unsupported_id')
 		if (opts?.asinValid === false) reasons.push('invalid_asin')
 		if (regionState === 'missing') reasons.push('missing_region')
 		else if (regionState === 'null') reasons.push('invalid_region')
 		else if (!isSupportedRegionValue(sourceBook.region)) reasons.push('invalid_region')
 		if (reasons.length === 0) reasons.push('ambiguous_identity')
+		// Non-ObjectId source rows (audit/seed: `unsupported_id`) cannot be the
+		// collection's `_id`; use a deterministic string key that includes the
+		// region value and the source row's own `_id` so distinct rows never
+		// share one exception document.
+		const exceptionId = idValid
+			? sourceBook._id
+			: [
+					asin,
+					regionState,
+					regionState === 'value' ? String(sourceBook.region) : '',
+					`${typeof sourceBook._id}:${String(sourceBook._id)}`
+				].join('::')
 		const doc: Document = {
-			_id: sourceBook._id,
+			_id: exceptionId,
 			asin,
 			region,
 			reasons
@@ -391,8 +410,8 @@ export class BookHistoryStore {
 			const currentBook = resolution.trustedBook
 
 			if (
-				resolution.exactCount > 1 ||
-				(resolution.exactCount === 0 && resolution.competitorCount > 0)
+				!resolution.trustedBook &&
+				(resolution.exactCount > 0 || resolution.competitorCount > 0)
 			) {
 				this.conflictError(asin)
 			}
@@ -483,6 +502,21 @@ export class BookHistoryStore {
 					return { data: oldApi, modified: false, disposition: 'accepted' }
 				}
 				if (!genreSafeguardPasses(currentBook, book)) {
+					// Step 3's first-touch legacy capture already persisted
+					// its assetSequence advance to the state row in this
+					// transaction, so a later accepted observation cannot
+					// re-insert at the same sequence and trip the unique
+					// artwork_order index; only the legacyCaptured watermark
+					// and the stateVersion bump are non-redundant here.
+					// reserveGeneration (the sole caller's precondition)
+					// inserts the state doc and state docs are never deleted,
+					// so `state` is always present.
+					if (!state) throw new Error(`History state missing for ${key}`)
+					await stateCol.updateOne(
+						{ _id: state._id },
+						{ $set: { legacyCaptured, stateVersion: state.stateVersion + 1 } },
+						{ session }
+					)
 					return { data: oldApi, modified: false, disposition: 'rejected' }
 				}
 			}
@@ -636,12 +670,13 @@ export class BookHistoryStore {
 			const booksCol = this.collection<Document>(COLLECTIONS.books)
 
 			if (!resolution.trustedBook && resolution.exactCount === 0) {
-				// Legacy no-region fallback: a single region-less row and no
-				// other competitor.
+				// Legacy fallback: a single competitor row (region missing,
+				// null, or unsupported — the same definition resolveCurrent
+				// counts) and no other competitor.
 				if (resolution.competitorCount > 1) this.conflictError(asin)
 				const legacy = (
 					await booksCol
-						.find({ asin, region: { $exists: false } }, { session })
+						.find({ asin, region: { $nin: Array.from(supportedRegionSet) } }, { session })
 						.limit(1)
 						.toArray()
 				)[0]
@@ -724,15 +759,6 @@ export class BookHistoryStore {
 				observedAt
 			}
 			if (existing) {
-				if (
-					imageId === null &&
-					typeof existing.unparsedKey === 'string' &&
-					typeof existing.sourceUrl === 'string' &&
-					existing.sourceUrl &&
-					existing.sourceUrl !== ref.sourceUrl
-				) {
-					throw new Error(`Unparsed artwork hash collision for ${asin}/${region}`)
-				}
 				const renditions: Array<{
 					rendition: string
 					firstSourceUrl: string
@@ -803,6 +829,7 @@ export class BookHistoryStore {
 				name: string
 				key: Record<string, number>
 				unique?: boolean
+				partialFilterExpression?: Record<string, unknown>
 			}>
 			const match = indexes.find((idx) => idx.name === def.name)
 			if (!match) throw failure()
@@ -810,6 +837,13 @@ export class BookHistoryStore {
 				Object.keys(match.key).length === Object.keys(def.keys).length &&
 				Object.entries(def.keys).every(([k, v]) => match.key[k] === v)
 			if (!keysEqual) throw failure()
+			// A same-name index without the expected string-only partial
+			// filter would pass the gate and then fail at runtime with
+			// duplicate-key errors on gallery inserts.
+			const partialEqual =
+				JSON.stringify(match.partialFilterExpression ?? null) ===
+				JSON.stringify(def.partialFilterExpression ?? null)
+			if (!partialEqual) throw failure()
 			// MongoDB reports `_id` indexes without a `unique` flag — they
 			// are unique by construction.
 			const isIdIndex = Object.keys(def.keys).length === 1 && def.keys._id === 1

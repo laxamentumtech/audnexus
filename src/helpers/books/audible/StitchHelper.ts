@@ -139,12 +139,19 @@ class StitchHelper {
 	getHistoryObservation(): BookObservation | undefined {
 		const apiObservation = this.apiHelper.getHistoryObservation()
 		if (!this.captureHistory || !apiObservation) return apiObservation
-		const fields = this.historyHtmlGenres
-			? withGenresField(apiObservation.fields, this.historyHtmlGenres, 'audible_html')
+		// The HTML time is the observation time only when accepted HTML
+		// genres contributed (see the doc above); an HTML fetch without
+		// genres keeps the API receipt time.
+		const htmlGenres = this.historyHtmlGenres
+		const fields = htmlGenres
+			? withGenresField(apiObservation.fields, htmlGenres, 'audible_html')
 			: apiObservation.fields
 		return {
 			...apiObservation,
-			...composeTimestamps(apiObservation.apiReceivedAt, this.htmlReceivedAt),
+			...composeTimestamps(
+				apiObservation.apiReceivedAt,
+				htmlGenres ? this.htmlReceivedAt : undefined
+			),
 			fields
 		}
 	}

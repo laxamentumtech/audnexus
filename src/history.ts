@@ -109,6 +109,10 @@ async function audit(
 	}
 	const pairCounts = new Map<string, number>()
 	const competitorCounts = new Map<string, number>()
+	// Bounded walks that stopped early because the last `_id` in a batch was
+	// not an ObjectId (a type-bracketed `$gt` cannot continue): every pass
+	// that hits this is incomplete, and the summary must say so.
+	let truncatedWalks = 0
 
 	/** One bounded ascending `_id` batch walk. */
 	const walk = async (
@@ -127,7 +131,10 @@ async function audit(
 			if (batch.length === 0) break
 			for (const row of batch) onRow(row)
 			const lastIdValue = batch[batch.length - 1]._id
-			if (!(lastIdValue instanceof ObjectId)) return // cannot continue the walk
+			if (!(lastIdValue instanceof ObjectId)) {
+				truncatedWalks++ // cannot continue the walk
+				return
+			}
 			lastId = lastIdValue
 		}
 	}
@@ -168,12 +175,17 @@ async function audit(
 				reasons
 			})
 		}
-		const asin = String(row.asin)
-		if (isSupportedRegion(row.region)) {
-			const key = `${row.region}:${asin}`
-			pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1)
-		} else {
-			competitorCounts.set(asin, (competitorCounts.get(asin) ?? 0) + 1)
+		// Dimension counts only cover valid ASINs: pass 2 classifies them
+		// with the store's exact-type equality, so a non-string/invalid
+		// ASIN must not enter the maps (it would desync the report).
+		if (asinValid) {
+			const asin = String(row.asin)
+			if (isSupportedRegion(row.region)) {
+				const key = `${row.region}:${asin}`
+				pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1)
+			} else {
+				competitorCounts.set(asin, (competitorCounts.get(asin) ?? 0) + 1)
+			}
 		}
 	})
 
@@ -190,7 +202,10 @@ async function audit(
 		else if (competitors > 0) counters.ambiguousIdentity++
 	})
 
-	const summary = { type: 'summary' as const, counts: { scanned, trusted, ...counters } }
+	const summary = {
+		type: 'summary' as const,
+		counts: { scanned, trusted, truncatedWalks, ...counters }
+	}
 	emit(summary)
 	return summary
 }
@@ -205,17 +220,23 @@ async function audit(
  */
 async function prepare(client: MongoClient): Promise<void> {
 	const { initialize } = await import('#config/papr')
-	await initialize({ client } as never, { bookHistoryEnabled: false })
+	await initialize({ client } as never)
 	let failed = false
 	const db = client.db('audnexus')
 	for (const def of HISTORY_INDEX_DEFINITIONS) {
 		try {
-			let indexes: Array<{ name: string; key: Record<string, number>; unique?: boolean }>
+			let indexes: Array<{
+				name: string
+				key: Record<string, number>
+				unique?: boolean
+				partialFilterExpression?: Record<string, unknown>
+			}>
 			try {
 				indexes = (await db.collection(def.collection).listIndexes().toArray()) as Array<{
 					name: string
 					key: Record<string, number>
 					unique?: boolean
+					partialFilterExpression?: Record<string, unknown>
 				}>
 			} catch (probeError) {
 				// Namespace does not exist (code 26): no indexes; createIndex
@@ -230,8 +251,15 @@ async function prepare(client: MongoClient): Promise<void> {
 					Object.entries(def.keys).every(([k, v]) => existing.key[k] === v)
 				const isIdIndex =
 					Object.keys(def.keys).length === 1 && (def.keys as Record<string, 1>)._id === 1
+				// A missing partial filter (absent on both sides) is `null` on
+				// both sides; a same-name index whose partial filter is
+				// missing/different is a conflicting definition.
+				const samePartialFilter =
+					JSON.stringify(existing.partialFilterExpression ?? null) ===
+					JSON.stringify(def.partialFilterExpression ?? null)
 				if (
 					!sameKeys ||
+					!samePartialFilter ||
 					(def.unique === true && !existing.unique && !isIdIndex) ||
 					(def.unique !== true && existing.unique && !isIdIndex)
 				) {
@@ -305,21 +333,26 @@ async function seed(
 		)
 	}
 
+	/** The current maximum book `_id` — the upper bound for a new run. */
+	const captureUpperId = async (): Promise<ObjectId | null> => {
+		const maxRow = await collections()
+			.find({})
+			.sort({ _id: -1 } as never)
+			.limit(1)
+			.project({ _id: 1 })
+			.toArray()
+		return (maxRow[0]?._id as ObjectId | undefined) ?? null
+	}
+
 	const existing = await progress.findOne({ _id: SEED_PROGRESS_ID })
 	let checkpoint: SeedRow
 	if (existing && !restart && existing.completed) {
 		return { message: 'seed already completed', runId: existing.runId, rows: 0, batches: 0 }
 	}
-	// Capture the run's upper bound once: the initial maximum ObjectId.
-	const maxRow = await collections()
-		.find({})
-		.sort({ _id: -1 } as never)
-		.limit(1)
-		.project({ _id: 1 })
-		.toArray()
-	const upperId = (maxRow[0]?._id as ObjectId | undefined) ?? null
-
 	if (restart) {
+		// A new run captures the upper bound once: the initial maximum
+		// ObjectId at (re)start.
+		const upperId = await captureUpperId()
 		const now = new Date()
 		const runId = `seed-${Date.now()}-${randomUUIDLike()}`
 		const fresh: SeedRow = {
@@ -337,6 +370,7 @@ async function seed(
 	} else if (existing) {
 		checkpoint = existing
 	} else {
+		const upperId = await captureUpperId()
 		const now = new Date()
 		const fresh: SeedRow = {
 			_id: SEED_PROGRESS_ID,
@@ -346,9 +380,24 @@ async function seed(
 			updatedAt: now
 		}
 		if (upperId) fresh.upperId = upperId
-		checkpoint = fresh
-		await progress.insertOne(checkpoint)
+		try {
+			await progress.insertOne(fresh)
+			checkpoint = fresh
+		} catch (error) {
+			// A concurrent runner created the checkpoint first (E11000):
+			// re-read the winner and join its run (its runId and watermark)
+			// instead of failing.
+			if ((error as { code?: number }).code !== 11000) throw error
+			const winner = await progress.findOne({ _id: SEED_PROGRESS_ID })
+			if (winner === null) throw error
+			checkpoint = winner
+		}
 	}
+	// The run's snapshot bound: the checkpoint's persisted bound. A resume
+	// keeps the bound its run captured; only a checkpoint missing one (or a
+	// run over no books) falls back to a fresh capture, so resuming never
+	// widens the run's scope with the current max.
+	const upperId = checkpoint.upperId ?? (await captureUpperId())
 	const runId = checkpoint.runId
 	const lastIdBound = checkpoint.lastId ?? null
 
@@ -368,7 +417,15 @@ async function seed(
 	let prev: ObjectId | null = lastIdBound
 	await iterateKeyset(
 		(filter, options) =>
-			collections().find(filter).sort(options.sort).limit(options.limit).toArray(),
+			collections()
+				.find(filter)
+				.sort(options.sort)
+				// `_id` is included by default in a find projection.
+				.project<{ _id: ObjectId; asin: string; region?: string | null; image?: string }>(
+					options.projection
+				)
+				.limit(options.limit)
+				.toArray(),
 		{
 			baseFilter: bounds.length ? baseFilter : undefined,
 			batchSize: SEED_BATCH_SIZE,
@@ -428,20 +485,16 @@ async function status(client: MongoClient): Promise<StatusResult> {
 	const doc = (await db.collection<SeedRow>('book_history_seed_progress').findOne({
 		_id: SEED_PROGRESS_ID
 	})) as SeedRow | null
-	const states = (await db
-		.collection<{
-			_id: string
-			established?: boolean
-			fields?: unknown[]
-			renditions?: unknown[]
-		}>('book_history_states')
-		.find({ established: true })
-		.project({ fields: 1, renditions: 1 })
-		.toArray()) as Array<{ fields?: unknown[]; renditions?: unknown[] }>
-	let activeStates = 0
-	for (const state of states) {
-		if ((state.fields?.length ?? 0) > 0 || (state.renditions?.length ?? 0) > 0) activeStates++
-	}
+	// Count in the database (countDocuments) instead of loading every
+	// established state's fields/renditions arrays into memory: `active`
+	// is any established state with at least one baseline array element.
+	const establishedStates = await db
+		.collection('book_history_states')
+		.countDocuments({ established: true } as never)
+	const activeStates = await db.collection('book_history_states').countDocuments({
+		established: true,
+		$or: [{ 'fields.0': { $exists: true } }, { 'renditions.0': { $exists: true } }]
+	} as never)
 	const recognizedAssets = await db
 		.collection('book_artwork')
 		.countDocuments({ imageId: { $type: 'string' } })
@@ -460,7 +513,7 @@ async function status(client: MongoClient): Promise<StatusResult> {
 					completed: Boolean(doc.completed)
 				}
 			: null,
-		pendingStates: states.length - activeStates,
+		pendingStates: establishedStates - activeStates,
 		activeStates,
 		recognizedAssets,
 		unparsedAssets,

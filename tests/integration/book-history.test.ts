@@ -17,6 +17,9 @@ import { bookHistoryStore } from '#config/papr'
 
 const available = (() => {
 	if (process.env.HISTORY_TEST_MONGODB_URI) return true
+	// A missing docker executable throws ENOENT from spawnSync; `Bun.which`
+	// yields null instead, so absent Docker takes the skip path.
+	if (Bun.which('docker') === null) return false
 	const probe = Bun.spawnSync(['docker', 'info'] as const)
 	return probe.exitCode === 0
 })()
@@ -132,6 +135,64 @@ run('history CLI protocol against a replica set', () => {
 		expect(rowsAfter).toBe(rowsBefore)
 		expect(stateAfter).toBe(stateBefore)
 	})
+
+	test('identity-exception validator accepts a string _id and distinct rows', async () => {
+		// P0 regression: prepare() ran updateSchemas above, so the live
+		// $jsonSchema validator must accept both the ObjectId _id (trusted
+		// rows) and the deterministic string key (non-ObjectId rows). A
+		// string-key upsert is rejected outright by the legacy ObjectId-only
+		// validator, so a persisted doc here is exactly the P0 the fix closed.
+		const db2 = collections()
+		const session = await client.startSession()
+		try {
+			const sourceA = {
+				_id: 'audit-string-id-2',
+				asin: 'B0HISTVAL1',
+				region: 'us',
+				image: 'https://m.media-amazon.com/images/I/VALIDATORVALIDATORVALIDATORV.jpg'
+			}
+			await bookHistoryStore.recordIdentityException(session, sourceA as never)
+			const keyA = 'B0HISTVAL1::value::us::string:audit-string-id-2'
+			const docA = await db2
+				.collection('book_history_identity_exceptions')
+				.findOne({ _id: keyA })
+			expect(docA?._id).toBe(keyA)
+			expect(docA?.asin).toBe('B0HISTVAL1')
+			expect(docA?.region).toEqual({ state: 'value', value: 'us' })
+			expect(docA?.reasons).toEqual(['unsupported_id'])
+			expect(docA?.storedUrl).toBe(sourceA.image)
+
+			// Two distinct non-ObjectId source rows (same asin/regionState,
+			// different source _id) never share one document: the per-source
+			// key embeds the row's own `_id`.
+			const keyB = 'B0HISTVAL2::value::us::string:audit-string-id-3'
+			const keyC = 'B0HISTVAL2::value::us::string:audit-string-id-4'
+			for (const _id of ['audit-string-id-3', 'audit-string-id-4'] as const) {
+				await bookHistoryStore.recordIdentityException(
+					session,
+					({
+						_id,
+						asin: 'B0HISTVAL2',
+						region: 'us',
+						image: 'https://m.media-amazon.com/images/I/VALIDATORVALIDATORVALIDATORW.jpg'
+					} as never)
+				)
+			}
+			const docs = await db2
+				.collection('book_history_identity_exceptions')
+				.find({ _id: { $in: [keyB, keyC] } })
+				.sort({ _id: 1 })
+				.toArray()
+			expect(docs.map((d) => d._id)).toEqual([keyB, keyC])
+
+			// Keep the audit's count for the status test: drop these docs.
+			await db2
+				.collection('book_history_identity_exceptions')
+				.deleteMany({ asin: { $in: ['B0HISTVAL1', 'B0HISTVAL2'] } })
+		} finally {
+			await session.endSession()
+		}
+	}, 30000)
 
 	test('status reports the retained seed outcome', async () => {
 		const { status } = await import('../../src/history')

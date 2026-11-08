@@ -58,12 +58,10 @@ interface HistoryEvidence {
 	captured: {
 		product: RawProduct
 		contentType: string | undefined
-		seriesPresent: boolean
 		ladders: AudibleCategory[][]
 		thesaurusKeywords: string[] | undefined
 		copyrightYear: number | undefined
 		apiGenres: ApiGenre[]
-		seriesSelected: boolean
 	}
 }
 
@@ -410,16 +408,10 @@ class ApiHelper {
 			captured: {
 				product,
 				contentType: 'content_delivery_type' in product ? product.content_delivery_type : undefined,
-				seriesPresent: seriesEvidence(
-					product,
-					'content_delivery_type' in product ? product.content_delivery_type : undefined,
-					false
-				).present,
 				ladders,
 				thesaurusKeywords: product.thesaurus_subject_keywords?.map((k) => String(k)),
 				copyrightYear: this.getCopyrightYear(),
-				apiGenres: this.snapshotApiGenres(ladders),
-				seriesSelected: false
+				apiGenres: this.snapshotApiGenres(ladders)
 			}
 		}
 	}
@@ -502,7 +494,9 @@ class ApiHelper {
 			asin: this.audibleResponse.asin,
 			authors: this.audibleResponse.authors.map((person: ApiAuthorOnBook) => {
 				const authorJson: ApiAuthorOnBook = {
-					asin: person.asin,
+					...(person.asin && {
+						asin: person.asin
+					}),
 					name: person.name
 				}
 				return authorJson

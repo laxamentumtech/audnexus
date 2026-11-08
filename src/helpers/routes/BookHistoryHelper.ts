@@ -142,7 +142,9 @@ async function resolveReadableResource(
 	}
 	// No established state: fall through to current-book resolution. The
 	// writer's trusted rule is exactly one exact-region row with no
-	// region-less/unsupported competitor.
+	// region-less/unsupported competitor; every other populated outcome
+	// (duplicate exact rows, or any exact row with a competitor) is the
+	// writer's 409 state and reads as a conflict too.
 	const rows = (await BookModel.find(
 		{
 			asin,
@@ -155,7 +157,7 @@ async function resolveReadableResource(
 	if (exact.length === 1 && competitors === 0) {
 		return { state, outcome: { exists: true, conflict: false } }
 	}
-	if (exact.length > 1 || (exact.length === 0 && competitors > 0)) {
+	if (exact.length > 1 || competitors > 0) {
 		return { state, outcome: { exists: false, conflict: true } }
 	}
 	return { state, outcome: { exists: false, conflict: false } }
@@ -172,9 +174,12 @@ export default class BookHistoryHelper {
 
 	/**
 	 * `GET /books/:asin/history` — newest-first page of revisions.
-	 * `field` selects complete matching revisions. 200 for an established
-	 * resource (retained, including after deletion) and for a pending
-	 * trusted current book; 409 for unresolved identity; 404 otherwise.
+	 * `field` selects complete matching revisions in the database query
+	 * (the cursor binds the same field, so pages contain only matching
+	 * revisions and the continuation advances over matching rows). 200 for
+	 * an established resource (retained, including after deletion) and for
+	 * a pending trusted current book; 409 for unresolved identity; 404
+	 * otherwise.
 	 */
 	async listHistory(query: HistoryListQuery): Promise<{
 		asin: string
@@ -203,6 +208,11 @@ export default class BookHistoryHelper {
 		const revisionFilter: Record<string, unknown> = {
 			asin: this.asin,
 			region,
+			// The field condition runs in the query (backed by the
+			// `history_field` index), not in memory: a rarely-changed field
+			// must not force clients to page through every unrelated
+			// revision to reach a matching one.
+			...(field ? { changedFields: field } : {}),
 			revision: { $lte: upper, $lt: before }
 		}
 		const docs = (await BookHistoryRevisionModel.find(revisionFilter, {
@@ -212,15 +222,14 @@ export default class BookHistoryHelper {
 
 		const hasMore = docs.length > limit
 		const window = docs.slice(0, limit)
-		const items = (field ? window.filter((doc) => doc.changedFields.includes(field)) : window).map(
-			(doc) => ({
-				revision: String(doc.revision),
-				observedAt: toIso(doc.observedAt),
-				changedFields: [...doc.changedFields]
-			})
-		)
-		// Encode from the raw window's last row: filter-narrowed pages must
-		// not advance the continuation past unseen rows.
+		const items = window.map((doc) => ({
+			revision: String(doc.revision),
+			observedAt: toIso(doc.observedAt),
+			changedFields: [...doc.changedFields]
+		}))
+		// The query only sees matching rows, so the window's last row is the
+		// latest matching revision not yet returned: the continuation
+		// advances over matching rows.
 		const nextCursor =
 			hasMore && window.length > 0
 				? encodeCursor(this.asin, region, field ?? null, upper, window[window.length - 1].revision)

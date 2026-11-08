@@ -1,12 +1,9 @@
 import { FastifyInstance } from 'fastify'
 
 import { HISTORY_REVISION_REGEX, historyDetailQuerySchema } from '#config/bookHistory'
-import { AsinSchema } from '#config/types'
+import { requireValidAsin } from '#config/routes/books/historyRouteGuards'
 import { BadRequestError } from '#helpers/errors/ApiErrors'
 import BookHistoryHelper from '#helpers/routes/BookHistoryHelper'
-import { MessageBadAsin } from '#static/messages'
-
-const REVISION_SAFE_INTEGER_LIMIT = 9_007_199_254_740_991
 
 /**
  * `GET /books/:asin/history/:revision` — one revision's stored complete
@@ -20,11 +17,7 @@ async function _historyDetail(fastify: FastifyInstance) {
 			asin: string
 			revision: string
 		}
-		if (!AsinSchema.safeParse(String(asinParam)).success) {
-			reply.code(400)
-			throw new BadRequestError(MessageBadAsin)
-		}
-		const asin = AsinSchema.parse(String(asinParam))
+		const asin = requireValidAsin(String(asinParam))
 		const parsed = historyDetailQuerySchema.safeParse(request.query)
 		if (!parsed.success) {
 			reply.code(400)
@@ -35,7 +28,7 @@ async function _historyDetail(fastify: FastifyInstance) {
 			throw new BadRequestError(`Invalid history revision: ${revisionParam}`)
 		}
 		const revisionNumber = Number.parseInt(String(revisionParam), 10)
-		if (!Number.isSafeInteger(revisionNumber) || revisionNumber > REVISION_SAFE_INTEGER_LIMIT) {
+		if (!Number.isSafeInteger(revisionNumber)) {
 			reply.code(400)
 			throw new BadRequestError(`Invalid history revision: ${revisionParam}`)
 		}

@@ -1,10 +1,9 @@
 import { FastifyInstance } from 'fastify'
 
 import { artworkListQuerySchema } from '#config/bookHistory'
-import { AsinSchema } from '#config/types'
+import { guardCursorErrors, requireValidAsin } from '#config/routes/books/historyRouteGuards'
 import { BadRequestError } from '#helpers/errors/ApiErrors'
 import BookHistoryHelper from '#helpers/routes/BookHistoryHelper'
-import { MessageBadAsin } from '#static/messages'
 
 /**
  * `GET /books/:asin/artwork` — the retained artwork gallery for one exact
@@ -15,27 +14,15 @@ import { MessageBadAsin } from '#static/messages'
  */
 async function _artwork(fastify: FastifyInstance) {
 	fastify.get('/books/:asin/artwork', async (request, reply) => {
-		const asinParam = String((request.params as { asin: string }).asin)
-		if (!AsinSchema.safeParse(asinParam).success) {
-			reply.code(400)
-			throw new BadRequestError(MessageBadAsin)
-		}
-		const asin = AsinSchema.parse(asinParam)
+		const asin = requireValidAsin(String((request.params as { asin: string }).asin))
 		const parsed = artworkListQuerySchema.safeParse(request.query)
 		if (!parsed.success) {
 			reply.code(400)
 			throw new BadRequestError(`Invalid artwork query: ${parsed.error.message}`)
 		}
 		const helper = new BookHistoryHelper(asin, request.log)
-		try {
-			return await helper.listArtwork(parsed.data)
-		} catch (error) {
-			if (error instanceof Error && /^Invalid cursor/.test(error.message)) {
-				reply.code(400)
-				throw new BadRequestError(`Invalid cursor: ${error.message}`)
-			}
-			throw error
-		}
+		// Cursor failures are query-input 400s, not resource 404/409s.
+		return await guardCursorErrors(() => helper.listArtwork(parsed.data))
 	})
 }
 
