@@ -51,6 +51,11 @@ import { regions } from '#static/regions'
 /** Known product_state values that indicate a delisted/unavailable product. */
 const DELISTED_STATES: readonly string[] = ['NOT_AVAILABLE_FOR_PURCHASE']
 
+/** The image renditions requested from the product API (`image_sizes`),
+ * mirrored verbatim in the history evidence so the observation and the
+ * request can never drift. */
+const REQUESTED_IMAGE_SIZES = ['500', '1024']
+
 interface HistoryEvidence {
 	apiReceivedAt: Date
 	responseGroups: string[]
@@ -102,7 +107,7 @@ class ApiHelper {
 			'product_extended_attrs',
 			'rating',
 			'series',
-			'image_sizes=500,1024'
+			`image_sizes=${REQUESTED_IMAGE_SIZES.join(',')}`
 		]
 		const paramStr = helper.getParamString(paramArr)
 		const params = `response_groups=${paramStr}`
@@ -404,7 +409,7 @@ class ApiHelper {
 					? jsonResponse.response_groups.filter((g): g is string => typeof g === 'string')
 					: [],
 			// The constructor always requests exactly these renditions
-			requestedRenditions: ['500', '1024'],
+			requestedRenditions: [...REQUESTED_IMAGE_SIZES],
 			captured: {
 				product,
 				contentType: 'content_delivery_type' in product ? product.content_delivery_type : undefined,

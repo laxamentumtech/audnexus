@@ -14,6 +14,7 @@ export default class BookDeleteHelper {
 	paprHelper: PaprAudibleBookHelper
 	redisHelper: RedisHelper
 	originalBook: BookDocument | null = null
+	logger?: FastifyBaseLogger
 	constructor(
 		asin: string,
 		options: ApiQueryString,
@@ -22,6 +23,7 @@ export default class BookDeleteHelper {
 	) {
 		this.asin = asin
 		this.options = options
+		this.logger = logger
 		this.paprHelper = new PaprAudibleBookHelper(asin, options, logger)
 		this.redisHelper = new RedisHelper(redis, 'book', asin, options.region, logger)
 	}
@@ -45,18 +47,33 @@ export default class BookDeleteHelper {
 	 * Main handler for the book delete route
 	 */
 	async handler() {
-		this.originalBook = await this.getBookFromPapr()
-
 		if (isBookHistoryEnabled()) {
 			// Transactional delete: identity resolution, legacy artwork
 			// capture, delete by verified _id, and delete fence — history
 			// state, baselines, revisions, and assets all survive.
 			const result = await bookHistoryStore.deleteCurrent(this.asin, this.options.region)
 			if (result.data.deletedCount === 0) return false
-			await this.redisHelper.deleteOne()
+			// Post-commit invalidation is best-effort: the delete is durable,
+			// and a cache failure must not turn a completed delete into a 500
+			// (the stale cache key would otherwise be served until its TTL).
+			// `log: false` — this wrapper emits the single actionable line
+			// (which book, that the delete is committed); the redis-layer log
+			// is suppressed so a cache failure does not emit two error lines.
+			try {
+				await this.redisHelper.deleteOne({ log: false })
+			} catch (error) {
+				this.logger?.error(
+					`History cache invalidation failed for book ${this.asin} (delete is committed): ${String(error)}`
+				)
+			}
 			return true
 		}
 
+		// Legacy only: the pre-read gates the delete (history mode's
+		// `deleteCurrent` re-resolves identity in-transaction and never
+		// reads it, so no read happens on that path). `deleteActions`
+		// re-resolves by asin+region and does not use `originalBook` again.
+		this.originalBook = await this.getBookFromPapr()
 		// If the book is already present
 		if (this.originalBook) {
 			return this.deleteActions()

@@ -112,8 +112,11 @@ describe('parseArtworkReference', () => {
 
 	test('rejects non-http(s) protocols, credentials, and other hosts', () => {
 		expect(parseArtworkReference('ftp://m.media-amazon.com/images/I/ABC.jpg')).toBeNull()
+		// `user:pass@` parses as real credentials (a port-less `user:m...`
+		// form throws in `new URL` before the guard can run), so this is
+		// what exercises the username/password rejection path.
 		expect(
-			parseArtworkReference('https://user:m.media-amazon.com/images/I/ABC.jpg')
+			parseArtworkReference('https://user:pass@m.media-amazon.com/images/I/ABC.jpg')
 		).toBeNull()
 		expect(parseArtworkReference('https://cdn.example.com/images/I/ABC.jpg')).toBeNull()
 	})
@@ -122,6 +125,22 @@ describe('parseArtworkReference', () => {
 		expect(parseArtworkReference('https://m.media-amazon.com/images/G/ABC.jpg')).toBeNull()
 		expect(parseArtworkReference('https://m.media-amazon.com/images/I/ABC.gif')).toBeNull()
 		expect(parseArtworkReference('not a url')).toBeNull()
+	})
+
+	test('recognizes multi-segment transforms, rejects comma and slash segments', () => {
+		// A multi-segment `._…` transform chain parses down to the asset ID.
+		expect(
+			parseArtworkReference('https://m.media-amazon.com/images/I/ID123._SL500_._V1_.jpg')
+		).toBe('ID123')
+		// Transform segments are `[A-Za-z0-9_]` only: a comma (multi-size
+		// `UR1600,800`) or a path separator inside the transform must fall
+		// back to the unparsed-reference path (`null`, exact URL retained).
+		expect(
+			parseArtworkReference(
+				'https://m.media-amazon.com/images/I/ID123._SL10_UR1600,800_.jpg'
+			)
+		).toBeNull()
+		expect(parseArtworkReference('https://m.media-amazon.com/images/I/ID123._X/y.jpg')).toBeNull()
 	})
 })
 
@@ -208,6 +227,15 @@ describe('buildFieldObservations', () => {
 	test('series: key absent produces no series observations', () => {
 		const fields = buildFieldObservations(makeInputs({ seriesKeyPresent: false }))
 		expect(fields.find((f) => f.field === 'seriesPrimary')).toBeUndefined()
+	})
+
+	test('empty apiGenres omits the genres field entirely (no absent envelope)', () => {
+		// An empty `apiGenres` means "no categories returned" (evidence
+		// absent → omit, retain any old baseline), not an explicit
+		// "genres removed" observation.
+		const fields = buildFieldObservations(makeInputs({ apiGenres: [] }))
+		expect(fields.find((f) => f.field === 'genres')).toBeUndefined()
+		expect(fields.some((f) => f.field === 'genres' && f.value.state === 'absent')).toBe(false)
 	})
 
 	test('genres are canonicalized observations; literatureType needs justification', () => {

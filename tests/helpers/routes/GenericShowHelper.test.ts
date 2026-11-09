@@ -572,7 +572,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			// The update is refused; the stored projection stands with 200.
 			expect(result).toBe(storedBook)
 			expect(setOneSpy).toHaveBeenCalledTimes(1)
-			expect(setOneSpy).toHaveBeenCalledWith(storedBook)
+			expect(setOneSpy).toHaveBeenCalledWith(storedBook, { log: false })
 		} else if (disposition === 'stale') {
 			// A concurrent delete left no current row: the book is gone.
 			expect(error).toBeInstanceOf(NotFoundError)
@@ -583,13 +583,36 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			// The fresh data is returned and written to the redis cache.
 			expect(result).toBe(storedBook)
 			expect(setOneSpy).toHaveBeenCalledTimes(1)
-			expect(setOneSpy).toHaveBeenCalledWith(storedBook)
+			expect(setOneSpy).toHaveBeenCalledWith(storedBook, { log: false })
 			// `persisted` tracks the write, not the acceptance: a modified
 			// acceptance is a real write; the equal short-circuit
 			// (accepted but unchanged) is not.
 			expect(helper.persisted).toBe(persistResult.modified === true)
 		}
 	})
+
+	test.each([
+		['rejected', { data: null, modified: false, disposition: 'rejected' as const }],
+		['accepted', { data: storedBook, modified: true, disposition: 'accepted' as const }]
+	])(
+		'cache refresh failure after a committed %s disposition still resolves to the projection',
+		async (disposition, persistResult) => {
+			mockPersistObservation.mockResolvedValue(persistResult)
+			spyOn(helper, 'getDataWithProjection').mockResolvedValue(storedBook)
+			// `setOne` rethrows on a cache failure; a committed persistence
+			// must not become a 500 — the refresh is best-effort.
+			spyOn(helper.redisHelper, 'setOne').mockRejectedValue(new Error('redis down'))
+
+			const result = (await helper.handler()) as ApiBook
+
+			expect(result).toBe(storedBook)
+			expect(mockLogger.error).toHaveBeenCalledTimes(1)
+			const message = (mockLogger.error as ReturnType<typeof mock>).mock.calls[0][0] as string
+			expect(message).toBe(
+				`History cache refresh failed for book ${asin} (data is persisted): Error: redis down`
+			)
+		}
+	)
 
 	test('missing observation → legacy persist path with warning', async () => {
 		mockStitchObservation = undefined

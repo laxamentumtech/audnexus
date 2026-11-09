@@ -655,7 +655,7 @@ describe('bullmq queue helpers', () => {
 			expect(mockQueueAdd).not.toHaveBeenCalled()
 		})
 
-		it('skips boot passes for disabled collections only under the default option', async () => {
+		it('upserts no scheduler and adds no boot pass for disabled collections when skipBootPass is set', async () => {
 			// A disabled collection must get neither a scheduler nor a boot
 			// pass; `skipBootPass` must not change the disabled handling.
 			mockQueueGetJobs.mockResolvedValue([])

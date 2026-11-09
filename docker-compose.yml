@@ -13,6 +13,7 @@ services:
       PRIVATE_KEY: ${PRIVATE_KEY}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       UPDATE_INTERVAL: ${UPDATE_INTERVAL:-30}
+      UPDATE_INTERVAL_CHAPTERS: ${UPDATE_INTERVAL_CHAPTERS:-30}
       UPDATE_THRESHOLD: ${UPDATE_THRESHOLD:-7}
     ports:
       - '3000:3000'
@@ -47,13 +48,19 @@ services:
     command: ['bun', 'run', 'worker']
     environment:
       ADP_TOKEN: ${ADP_TOKEN}
+      BOOK_HISTORY_ENABLED: ${BOOK_HISTORY_ENABLED:-false}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/audnexus}
       PRIVATE_KEY: ${PRIVATE_KEY}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}
       UPDATE_INTERVAL: ${UPDATE_INTERVAL:-30}
+      UPDATE_INTERVAL_CHAPTERS: ${UPDATE_INTERVAL_CHAPTERS:-30}
       UPDATE_THRESHOLD: ${UPDATE_THRESHOLD:-7}
       SCHEDULER_CONCURRENCY: ${SCHEDULER_CONCURRENCY:-5}
       SCHEDULER_BATCH_SIZE: ${SCHEDULER_BATCH_SIZE:-1000}
+      SCHEDULER_ITEM_TIMEOUT_MS: ${SCHEDULER_ITEM_TIMEOUT_MS:-120000}
+      SCHEDULER_MAX_ITEMS: ${SCHEDULER_MAX_ITEMS:-0}
+      RATE_LIMIT_COOLDOWN_BASE_MS: ${RATE_LIMIT_COOLDOWN_BASE_MS:-120000}
+      RATE_LIMIT_COOLDOWN_MAX_MS: ${RATE_LIMIT_COOLDOWN_MAX_MS:-7200000}
       JITTER_MS: ${JITTER_MS:-0-5000}
     depends_on:
       - mongo
@@ -64,7 +71,7 @@ services:
       test:
         - 'CMD-SHELL'
         - >-
-          bun -e '(async () => { const { Redis } = await import("ioredis"); const r = new Redis(process.env.REDIS_URL); await r.ping(); process.exit(0) })().catch(() => process.exit(1))'
+          bun -e '(async () => { if (!process.env.REDIS_URL) process.exit(1); const { Redis } = await import("ioredis"); const r = new Redis(process.env.REDIS_URL, { lazyConnect: true, connectTimeout: 3000, maxRetriesPerRequest: 1, retryStrategy: () => null }); r.on("error", () => process.exit(1)); await r.ping(); r.disconnect(); process.exit(0) })().catch(() => process.exit(1))'
       interval: 30s
       timeout: 6s
       retries: 3

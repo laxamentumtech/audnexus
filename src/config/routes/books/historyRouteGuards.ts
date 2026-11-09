@@ -4,6 +4,7 @@
 // mismatches are client input, never server 500s).
 
 import { AsinSchema } from '#config/types'
+import { InvalidCursorError } from '#helpers/books/historyCursor'
 import { BadRequestError } from '#helpers/errors/ApiErrors'
 import { MessageBadAsin } from '#static/messages'
 
@@ -22,17 +23,17 @@ export function requireValidAsin(asinParam: string): string {
 }
 
 /**
- * Wrap a helper call and map every cursor-validation failure to a 400
- * `BadRequestError`. `decodeCursor` throws plain `Error`s for any of
- * `Invalid cursor ...` (malformed, non-canonical, oversized, unbound) and
- * `Cursor does not match book|filter` (identity or field-filter reuse);
- * all of them are client input errors.
+ * Wrap a helper call and map decode-side cursor-validation failures to a
+ * 400 `BadRequestError`. Only `InvalidCursorError` — thrown by the decode
+ * paths for malformed, non-canonical, oversized, and unbound cursors —
+ * is client input. Encode-side `Invalid cursor value` failures (server
+ * state, e.g. a corrupted watermark) propagate as 500s.
  */
 export async function guardCursorErrors<T>(action: () => Promise<T>): Promise<T> {
 	try {
 		return await action()
 	} catch (error) {
-		if (error instanceof Error && /^(Invalid cursor|Cursor does not match)/.test(error.message)) {
+		if (error instanceof InvalidCursorError) {
 			throw new BadRequestError(`Invalid cursor: ${error.message}`)
 		}
 		throw error

@@ -7,9 +7,14 @@
 // Same gating convention as the live tests: explicit
 // `HISTORY_TEST_MONGODB_URI` replica-set URI or a running Docker daemon;
 // otherwise the suite skips.
+//
+// Run via `bun run test:history` (`--parallel=1`): the two book-history
+// suites share the in-process papr/bookHistoryStore singletons, and bun's
+// default file parallelism can interleave their containers into a
+// MongoNotConnectedError in beforeAll.
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { MongoClient } from 'mongodb'
+import { MongoClient, ObjectId } from 'mongodb'
 
 import { type HistoryMongo,resolveHistoryMongo } from './env'
 
@@ -32,7 +37,7 @@ const run = available ? describe : describe.skip
 
 run('history CLI protocol against a replica set', () => {
 	beforeAll(async () => {
-		history = await resolveHistoryMongo()
+		history = await resolveHistoryMongo('rollout')
 		if (!history) throw new Error('no transaction-capable replica set available')
 		client = new MongoClient(history.uri, { serverSelectionTimeoutMS: 5000 })
 		await client.connect()
@@ -192,6 +197,110 @@ run('history CLI protocol against a replica set', () => {
 		} finally {
 			await session.endSession()
 		}
+	}, 30000)
+
+	test('a completed seed re-run is a no-op and a restart supersedes the run', async () => {
+		const { seed, status } = await import('../../src/history')
+
+		// (a) The audit test left a completed seed (runId A) over four rows:
+		// re-running without restart must report the completed no-op without
+		// touching the retained data.
+		const completed = await status(client)
+		const runIdA = completed.seed?.runId
+		expect(runIdA).toBeDefined()
+		expect(completed.seed?.completed).toBe(true)
+		const artworkA = await collections().collection('book_artwork').countDocuments({})
+		const stateA = await collections().collection('book_history_states').countDocuments({})
+		const noOp = await seed(client, false)
+		expect(noOp.message).toBe('seed already completed')
+		expect(noOp.runId).toBe(runIdA)
+		expect(noOp.rows).toBe(0)
+		expect(noOp.batches).toBe(0)
+		expect(await collections().collection('book_artwork').countDocuments({})).toBe(artworkA)
+		expect(await collections().collection('book_history_states').countDocuments({})).toBe(stateA)
+
+		// A restart supersedes the finished run: a new runId, full rescan.
+		const restarted = await seed(client, true)
+		expect(restarted.message).toBe('seed complete')
+		const runIdB = restarted.runId
+		expect(runIdB).toBeDefined()
+		expect(runIdB).not.toBe(runIdA)
+		expect(restarted.rows).toBe(4)
+		// The retained data is intact: legacy assets are deduplicated by
+		// imageId and trusted states merged in place, so the counts survive
+		// the rescan.
+		expect(await collections().collection('book_artwork').countDocuments({})).toBe(artworkA)
+		expect(await collections().collection('book_history_states').countDocuments({})).toBe(stateA)
+		const checkpoint = (
+			await collections()
+				.collection('book_history_seed_progress')
+				.findOne({ _id: 'legacy-artwork-v1' })
+		) as { runId: string; completed: boolean }
+		expect(checkpoint.runId).toBe(runIdB)
+		expect(checkpoint.completed).toBe(true)
+
+		// (b) A stale runner against the superseded run is stopped at its
+		// row start: the in-transaction checkpoint re-read no longer matches
+		// runId A.
+		const rows = await db.collection('books').find({}).sort({ _id: 1 } as never).toArray()
+		expect(rows.length).toBeGreaterThan(0)
+		const session = await client.startSession()
+		try {
+			await expect(
+				bookHistoryStore.withSeedTransaction(async (txSession) => {
+					await bookHistoryStore.seedRow(txSession, rows[0]._id as never, runIdA)
+				})
+			).rejects.toThrow('Seed run superseded')
+		} finally {
+			await session.endSession()
+		}
+	}, 60000)
+
+	test('seedCheckpoint first-advance is joiner-compatible and rejects a stale divergent write', async () => {
+		const { status } = await import('../../src/history')
+		const out = await status(client)
+		const runId = out.seed?.runId
+		expect(runId).toBeDefined()
+		expect(out.seed?.completed).toBe(true)
+		const rows = await db.collection('books').find({}).sort({ _id: 1 } as never).toArray()
+		const lastRow = rows[rows.length - 1]
+		const firstRow = rows[0]
+		expect(lastRow._id).toBeInstanceOf(ObjectId)
+		expect(firstRow._id).toBeInstanceOf(ObjectId)
+		// The checkpoint sits at the final watermark (the completed run's
+		// last row). Two first-advance (`expectLastId: null`) cases:
+		// (a) a cooperating joiner that rebased onto the winner's watermark
+		//    writes back the stored watermark — idempotent, must match (1)
+		//    and not move the watermark;
+		// (b) a genuinely stale runner writing a divergent (earlier)
+		//    watermark — must match zero documents and not move it.
+		const lastIdBefore = out.seed?.lastId
+		expect(lastIdBefore?.equals(lastRow._id as ObjectId)).toBe(true)
+		const session = await client.startSession()
+		try {
+			const joinerMatched = await bookHistoryStore.withSeedTransaction(async (txSession) => {
+				return bookHistoryStore.seedCheckpoint(
+					txSession,
+					runId,
+					lastRow._id as ObjectId,
+					null
+				)
+			})
+			expect(joinerMatched).toBe(1)
+			const staleMatched = await bookHistoryStore.withSeedTransaction(async (txSession) => {
+				return bookHistoryStore.seedCheckpoint(
+					txSession,
+					runId,
+					firstRow._id as ObjectId,
+					null
+				)
+			})
+			expect(staleMatched).toBe(0)
+		} finally {
+			await session.endSession()
+		}
+		const outAfter = await status(client)
+		expect(outAfter.seed?.lastId?.equals(lastIdBefore as ObjectId)).toBe(true)
 	}, 30000)
 
 	test('status reports the retained seed outcome', async () => {

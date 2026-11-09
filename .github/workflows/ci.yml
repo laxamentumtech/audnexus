@@ -29,6 +29,7 @@ jobs:
       build: ${{ steps.classify.outputs.build || 'true' }}
       test: ${{ steps.classify.outputs.test || 'true' }}
       docker: ${{ steps.classify.outputs.docker || 'true' }}
+      history: ${{ steps.classify.outputs.history || 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -56,6 +57,9 @@ jobs:
           BUILD=true
           TEST=true
           DOCKER=true
+          # The Docker-gated history suite only tracks history feature code and
+          # its integration tests — not the general test/flags.
+          HISTORY=true
           FAILSAFE=""
 
           DIFF_FILE="$(mktemp)"
@@ -92,25 +96,28 @@ jobs:
               BUILD=false
               TEST=false
               DOCKER=false
+              HISTORY=false
               SAW_PATH=false
               while IFS= read -r -d '' path; do
                 SAW_PATH=true
                 case "$path" in
                   .github/workflows/*.yml|.github/workflows/*.yaml) WORKFLOW=true ;;
                   Dockerfile|.dockerignore|docker-compose.yml|docker-compose.develop.yml) DOCKER=true ;;
-                  src/*) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
+                  src/*) LINT=true; BUILD=true; TEST=true; DOCKER=true; HISTORY=true ;;
                   tests/live/*) LINT=true ;;
+                  tests/integration/*) LINT=true; TEST=true; HISTORY=true ;;
                   tests/*) LINT=true; TEST=true ;;
                   *.md|docs/*|renovate.json5|.pre-commit-config.yaml|.gitignore|.editorconfig|LICENSE|.env.example|.coderabbit.yaml|.sisyphus/*|.nvmrc) : ;;
-                  package.json|bun.lock|.npmrc) LINT=true; BUILD=true; TEST=true; DOCKER=true; ;;
-                  package-lock.json|shrinkwrap.yaml) LINT=true; BUILD=true; TEST=true; DOCKER=true; FAILSAFE="npm artifact (only-allow bun forbids these); full run to expose it" ;;
-                  bunfig.toml) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
-                  tsconfig.json) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
+                  package.json|bun.lock|.npmrc) LINT=true; BUILD=true; TEST=true; DOCKER=true; HISTORY=true; ;;
+                  package-lock.json|shrinkwrap.yaml) LINT=true; BUILD=true; TEST=true; DOCKER=true; HISTORY=true; FAILSAFE="npm artifact (only-allow bun forbids these); full run to expose it" ;;
+                  bunfig.toml) LINT=true; BUILD=true; TEST=true; DOCKER=true; HISTORY=true ;;
+                  tsconfig.json) LINT=true; BUILD=true; TEST=true; DOCKER=true; HISTORY=true ;;
                   eslint.config.mjs|.prettierrc|.prettierignore) LINT=true ;;
                   scripts/release.py|scripts/test_release.py) TEST=true ;;
-                  scripts/*.ts) LINT=true; TEST=true; DOCKER=true ;;
+                  # Stamp/build scripts ship no Docker code; they do have tests.
+                  scripts/*.ts) LINT=true; TEST=true ;;
                   scripts/*) TEST=true; DOCKER=true ;;
-                  *) LINT=true; BUILD=true; TEST=true; DOCKER=true ;;
+                  *) LINT=true; BUILD=true; TEST=true; DOCKER=true; HISTORY=true ;;
                 esac
               done < "$DIFF_FILE"
               if [ "$SAW_PATH" = false ]; then
@@ -119,6 +126,7 @@ jobs:
                 BUILD=true
                 TEST=true
                 DOCKER=true
+                HISTORY=true
                 FAILSAFE="empty diff"
               fi
             else
@@ -132,6 +140,7 @@ jobs:
             echo "build=${BUILD}"
             echo "test=${TEST}"
             echo "docker=${DOCKER}"
+            echo "history=${HISTORY}"
           } >> "$GITHUB_OUTPUT"
           {
             echo "### Selective CI classification"
@@ -143,6 +152,7 @@ jobs:
             echo "| build | ${BUILD} |"
             echo "| test | ${TEST} |"
             echo "| docker | ${DOCKER} |"
+            echo "| history | ${HISTORY} |"
             if [ -n "$FAILSAFE" ]; then
               echo ""
               echo "Fail-safe full run: ${FAILSAFE}"
@@ -252,7 +262,7 @@ jobs:
     # replica set is reachable, so this job is green on runners without
     # Docker and exercises the protocol where Docker is present.
     needs: [changes]
-    if: ${{ !cancelled() && needs['changes'].outputs.test == 'true' }}
+    if: ${{ !cancelled() && needs['changes'].outputs.history == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -268,8 +278,10 @@ jobs:
       - run: bun run test:history
 
   docker-build:
-    needs: [changes, workflow-lint, lint-format, build, test]
-    if: ${{ !cancelled() && needs['changes'].outputs.docker == 'true' && (needs['workflow-lint'].result == 'success' || needs['workflow-lint'].result == 'skipped') && (needs['lint-format'].result == 'success' || needs['lint-format'].result == 'skipped') && (needs['build'].result == 'success' || needs['build'].result == 'skipped') && (needs['test'].result == 'success' || needs['test'].result == 'skipped') }}
+    # `test-history` is in the gate so an image can never push after a red
+    # history suite; it skips (not fails) when not triggered.
+    needs: [changes, workflow-lint, lint-format, build, test, test-history]
+    if: ${{ !cancelled() && needs['changes'].outputs.docker == 'true' && (needs['workflow-lint'].result == 'success' || needs['workflow-lint'].result == 'skipped') && (needs['lint-format'].result == 'success' || needs['lint-format'].result == 'skipped') && (needs['build'].result == 'success' || needs['build'].result == 'skipped') && (needs['test'].result == 'success' || needs['test'].result == 'skipped') && (needs['test-history'].result == 'success' || needs['test-history'].result == 'skipped') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

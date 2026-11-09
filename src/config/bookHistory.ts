@@ -12,6 +12,7 @@ import { z } from 'zod'
 import { RegionSchema } from '#config/types'
 import { LITERATURE_TYPE_POLICY } from '#helpers/books/audible/literatureType'
 import { HISTORY_CURSOR_MAX_LENGTH } from '#helpers/books/historyCursor'
+import { regions } from '#static/regions'
 
 /**
  * The tracked editorial fields, in canonical order. `HISTORY_FIELDS` is this
@@ -57,7 +58,18 @@ const isHistoryField = (field: string): field is HistoryField =>
  * Deterministic per-(ASIN,region) history state key. Callers of
  * `bookKey(asin, region)` cannot supply a different state key.
  */
-export const bookKey = (asin: string, region: string): string => `${region}:${asin}`
+export const bookKey = (asin: string, region: string) => `${region}:${asin}`
+
+const supportedRegionsSet = new Set(Object.keys(regions))
+
+/** Shared list of supported region values (the store, the CLI, and the read
+ * routes all treat the same region values as trusted). */
+export const SUPPORTED_REGIONS: string[] = Object.keys(regions)
+
+/** Shared supported-region classification (the store, the CLI, and the
+ * read routes all treat the same region values as trusted). */
+export const isSupportedRegionValue = (region: unknown): region is string =>
+	typeof region === 'string' && supportedRegionsSet.has(region)
 
 export interface JsonObject {
 	[key: string]: JsonValue
@@ -362,16 +374,13 @@ export const HISTORY_INDEX_DEFINITIONS: HistoryIndexDefinition[] = [
 		collection: 'books',
 		name: 'history_book_lookup',
 		keys: { asin: 1, region: 1 }
-	},
+	}
 	// `book_history_states` and `book_history_seed_progress` are keyed by
 	// their `_id` (bookKey / the deterministic seed id); the default unique
 	// `_id_` index is created by MongoDB by construction and cannot be
-	// renamed, so it needs no definition here.
-	{
-		collection: 'book_history_seed_progress',
-		name: 'book_history_seed_progress_position',
-		keys: { _id: 1, lastId: 1 }
-	}
+	// renamed, so it needs no definition here. (The old
+	// `{ _id: 1, lastId: 1 }` seed-progress index was dropped: every access
+	// filters `_id` by equality, which the built-in `_id_` index serves.)
 ]
 
 export const SEED_PROGRESS_ID = 'legacy-artwork-v1'

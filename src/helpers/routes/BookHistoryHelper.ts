@@ -13,6 +13,7 @@
 // operation, or upstream request.
 
 import type { FastifyBaseLogger } from 'fastify'
+import { z } from 'zod'
 
 import type {
 	ArtworkChange,
@@ -21,7 +22,14 @@ import type {
 	HistoryListQuery,
 	HistoryValue
 } from '#config/bookHistory'
-import { bookKey, EDITORIAL_FIELD_NAMES, isBookHistoryEnabled } from '#config/bookHistory'
+import {
+	ArtworkChangeSchema,
+	bookKey,
+	EDITORIAL_FIELD_NAMES,
+	HistoryValueSchema,
+	isBookHistoryEnabled,
+	SUPPORTED_REGIONS
+} from '#config/bookHistory'
 import BookModel from '#config/models/Book'
 import type { BookArtworkDocument, BookHistoryStateDocument } from '#config/models/BookHistory'
 import type { BookHistoryRevisionDocument } from '#config/models/BookHistory'
@@ -36,10 +44,7 @@ import {
 	encodeArtworkCursor,
 	encodeCursor
 } from '#helpers/books/historyCursor'
-import { BadRequestError, ConflictError, NotFoundError } from '#helpers/errors/ApiErrors'
-import { regions } from '#static/regions'
-
-const supportedRegionSet = new Set(Object.keys(regions))
+import { ConflictError, NotFoundError } from '#helpers/errors/ApiErrors'
 
 /** One public field delta inside a revision detail. */
 export interface HistoryChangeField {
@@ -47,10 +52,12 @@ export interface HistoryChangeField {
 	after: HistoryValue
 }
 
-/** Public artwork transition inside a revision detail. */
+/** Public artwork transition inside a revision detail. Every recorded
+ * transition has a non-null `before`: a first observation initializes
+ * baselines silently and produces no revision entry. */
 export interface HistoryChangeArtwork {
 	rendition: string
-	before: { imageId: string; sourceUrl: string } | null
+	before: { imageId: string; sourceUrl: string }
 	after: { imageId: string; sourceUrl: string }
 }
 
@@ -148,7 +155,7 @@ async function resolveReadableResource(
 	const rows = (await BookModel.find(
 		{
 			asin,
-			$or: [{ region }, { region: { $nin: Array.from(supportedRegionSet) } }]
+			$or: [{ region }, { region: { $nin: SUPPORTED_REGIONS } }]
 		} as never,
 		{ projection: { region: 1 } }
 	)) as unknown as Array<{ region?: string | null }>
@@ -189,58 +196,37 @@ export default class BookHistoryHelper {
 		nextCursor: string | null
 	}> {
 		const { region, limit, cursor, field } = query
-		const { state, outcome } = await resolveReadableResource(this.asin, region)
-		if (outcome.conflict) {
-			throw new ConflictError(`Book history identity conflict for ${this.asin}`, {
-				asin: this.asin
-			})
-		}
-		if (!outcome.exists) {
-			throw new NotFoundError(`No history for book ${this.asin} in region ${region}`)
-		}
-
-		const decoded = decodeCursor(cursor, this.asin, region, field ?? null)
-		// `upper` is the listing's initial state watermark, captured when the
-		// first page started (0 for a pending resource); it is retained across
-		// pages from the cursor so a growing collection cannot skip rows.
-		const upper = decoded?.upper ?? state?.revision ?? 0
-		const before = decoded?.before ?? Number.MAX_SAFE_INTEGER
-		const revisionFilter: Record<string, unknown> = {
-			asin: this.asin,
+		const { tracking, items, nextCursor } = await this.runList({
 			region,
-			// The field condition runs in the query (backed by the
-			// `history_field` index), not in memory: a rarely-changed field
-			// must not force clients to page through every unrelated
-			// revision to reach a matching one.
-			...(field ? { changedFields: field } : {}),
-			revision: { $lte: upper, $lt: before }
-		}
-		const docs = (await BookHistoryRevisionModel.find(revisionFilter, {
+			limit,
+			defaultUpper: (state) => state?.revision ?? 0,
+			decode: () => decodeCursor(cursor, this.asin, region, field ?? null),
+			buildFilter: (upper, before) => ({
+				asin: this.asin,
+				region,
+				// The field condition runs in the query (backed by the
+				// `history_field` index), not in memory: a rarely-changed field
+				// must not force clients to page through every unrelated
+				// revision to reach a matching one.
+				...(field ? { changedFields: field } : {}),
+				revision: { $lte: upper, $lt: before }
+			}),
 			sort: { revision: -1 },
-			limit: limit + 1
-		})) as unknown as RevisionShape[]
-
-		const hasMore = docs.length > limit
-		const window = docs.slice(0, limit)
-		const items = window.map((doc) => ({
-			revision: String(doc.revision),
-			observedAt: toIso(doc.observedAt),
-			changedFields: [...doc.changedFields]
-		}))
+			find: (filter, findOptions) =>
+				BookHistoryRevisionModel.find(filter, findOptions) as Promise<RevisionShape[]>,
+			watermarkOf: (doc) => doc.revision,
+			mapItem: (doc) => ({
+				revision: String(doc.revision),
+				observedAt: toIso(doc.observedAt),
+				changedFields: [...doc.changedFields]
+			}),
+			encodeNext: (upper, lastWatermark) =>
+				encodeCursor(this.asin, region, field ?? null, upper, lastWatermark)
+		})
 		// The query only sees matching rows, so the window's last row is the
 		// latest matching revision not yet returned: the continuation
 		// advances over matching rows.
-		const nextCursor =
-			hasMore && window.length > 0
-				? encodeCursor(this.asin, region, field ?? null, upper, window[window.length - 1].revision)
-				: null
-		return {
-			asin: this.asin,
-			region,
-			tracking: buildTracking(state, outcome.exists),
-			items,
-			nextCursor
-		}
+		return { asin: this.asin, region, tracking, items, nextCursor }
 	}
 
 	/**
@@ -287,41 +273,75 @@ export default class BookHistoryHelper {
 		nextCursor: string | null
 	}> {
 		const { region, limit, cursor } = query
-		const { state, outcome } = await resolveReadableResource(this.asin, region)
+		const { tracking, items, nextCursor } = await this.runList({
+			region,
+			limit,
+			defaultUpper: (state) => state?.assetSequence ?? 0,
+			decode: () => decodeArtworkCursor(cursor, this.asin, region),
+			buildFilter: (upper, before) => ({
+				asin: this.asin,
+				region,
+				sequence: { $lte: upper, $lt: before }
+			}),
+			sort: { sequence: -1 },
+			find: (filter, findOptions) =>
+				BookArtworkModel.find(filter, findOptions) as Promise<BookArtworkDocument[]>,
+			watermarkOf: (doc) => doc.sequence,
+			mapItem: toArtworkEntry,
+			encodeNext: (upper, lastWatermark) =>
+				encodeArtworkCursor(this.asin, region, upper, lastWatermark)
+		})
+		return { asin: this.asin, region, tracking, items, nextCursor }
+	}
+
+	/**
+	 * Shared keyset pager for the two list endpoints: existence/identity
+	 * check, cursor decode, `upper`/`before` windowing, `limit + 1` fetch,
+	 * item mapping, and next-cursor encoding. Each caller supplies only the
+	 * collection-specific parts so the two pages cannot drift apart.
+	 */
+	private async runList<TDoc, TItem>(params: {
+		region: string
+		limit: number
+		defaultUpper: (state: BookHistoryStateDocument | null) => number
+		decode: () => { upper: number; before: number } | null
+		buildFilter: (upper: number, before: number) => Record<string, unknown>
+		sort: Record<string, 1 | -1>
+		find: (
+			filter: Record<string, unknown>,
+			options: { sort: Record<string, 1 | -1>; limit: number }
+		) => Promise<TDoc[]>
+		watermarkOf: (doc: TDoc) => number
+		mapItem: (doc: TDoc) => TItem
+		encodeNext: (upper: number, lastWatermark: number) => string
+	}): Promise<{ tracking: HistoryTracking; items: TItem[]; nextCursor: string | null }> {
+		const { state, outcome } = await resolveReadableResource(this.asin, params.region)
 		if (outcome.conflict) {
 			throw new ConflictError(`Book history identity conflict for ${this.asin}`, {
 				asin: this.asin
 			})
 		}
 		if (!outcome.exists) {
-			throw new NotFoundError(`No history for book ${this.asin} in region ${region}`)
+			throw new NotFoundError(`No history for book ${this.asin} in region ${params.region}`)
 		}
-		const decoded = decodeArtworkCursor(cursor, this.asin, region)
-		const upper = decoded?.upper ?? state?.assetSequence ?? 0
+		const decoded = params.decode()
+		// `upper` is the listing's initial state watermark, captured when the
+		// first page started (0 for a pending resource); it is retained across
+		// pages from the cursor so a growing collection cannot skip rows.
+		const upper = decoded?.upper ?? params.defaultUpper(state)
 		const before = decoded?.before ?? Number.MAX_SAFE_INTEGER
-		const docs = (await BookArtworkModel.find(
-			{
-				asin: this.asin,
-				region,
-				sequence: { $lte: upper, $lt: before }
-			} as never,
-			{ sort: { sequence: -1 }, limit: limit + 1 }
-		)) as unknown as BookArtworkDocument[]
-
-		const hasMore = docs.length > limit
-		const window = docs.slice(0, limit)
-		const items = window.map(toArtworkEntry)
+		const docs = await params.find(params.buildFilter(upper, before), {
+			sort: params.sort,
+			limit: params.limit + 1
+		})
+		const hasMore = docs.length > params.limit
+		const window = docs.slice(0, params.limit)
+		const items = window.map(params.mapItem)
 		const nextCursor =
 			hasMore && window.length > 0
-				? encodeArtworkCursor(this.asin, region, upper, window[window.length - 1].sequence)
+				? params.encodeNext(upper, params.watermarkOf(window[window.length - 1]))
 				: null
-		return {
-			asin: this.asin,
-			region,
-			tracking: buildTracking(state, outcome.exists),
-			items,
-			nextCursor
-		}
+		return { tracking: buildTracking(state), items, nextCursor }
 	}
 }
 
@@ -338,20 +358,28 @@ function toHistoryDetail(
 	policies: { fields: Record<string, string>; artwork: Record<string, string> }
 	changes: HistoryDetailItem
 } {
+	// The stored `changes` map is a loose leaf in the papr schema, so the
+	// read boundary validates it with the shared Zod schemas: a malformed
+	// envelope is a server fault (500), never a silent API payload.
 	const changes: HistoryDetailItem = {}
 	const artwork: HistoryChangeArtwork[] = []
 	for (const [rawField, change] of Object.entries(shaped.changes)) {
 		if (rawField === 'artwork') {
 			artwork.push(
-				...(change as ArtworkChange[]).map((entry) => ({
-					rendition: entry.rendition,
-					before: entry.before ?? null,
-					after: entry.after
-				}))
+				...z
+					.array(ArtworkChangeSchema)
+					.parse(change)
+					.map((entry) => ({
+						rendition: entry.rendition,
+						before: entry.before,
+						after: entry.after
+					}))
 			)
 			continue
 		}
-		const fieldChange = change as { before: HistoryValue; after: HistoryValue }
+		const fieldChange = z
+			.object({ before: HistoryValueSchema, after: HistoryValueSchema })
+			.parse(change)
 		changes[rawField] = { before: fieldChange.before, after: fieldChange.after }
 	}
 	const detail = changes as HistoryDetailItem
@@ -371,13 +399,12 @@ function toHistoryDetail(
  * Build the tracking block. `active` requires at least one comparable live
  * baseline (a field or rendition baseline initialized from an accepted
  * source observation). Pending resources have null start, all-null field
- * coverage, and no artwork coverage entries.
+ * coverage, and no artwork coverage entries. Callers pass it only after
+ * their existence check resolved to an existing resource — a
+ * missing-resource tracking block is unreachable, so the former
+ * `resourceExists` guard (and its `BadRequestError` throw) is gone.
  */
-function buildTracking(
-	state: BookHistoryStateDocument | null,
-	resourceExists: boolean
-): HistoryTracking {
-	if (!resourceExists) throw new BadRequestError('Tracking requires an existing resource')
+function buildTracking(state: BookHistoryStateDocument | null): HistoryTracking {
 	const fields = {} as Record<EditorialHistoryField, TrackingFieldEntry>
 	for (const name of EDITORIAL_FIELD_NAMES) {
 		fields[name] = { policy: null, baselineAt: null }

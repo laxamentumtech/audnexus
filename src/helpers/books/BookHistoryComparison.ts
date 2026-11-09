@@ -7,9 +7,9 @@
 //   erases it.
 // - Missing baseline or policy mismatch initializes/replaces a baseline
 //   silently (no change event).
-// - Same-policy value inequality is a change; equipment taxonomy is already
-//   canonicalized at capture (sorted, deduped tuples) so deep equality
-//   ignores membership ordering.
+// - Same-policy value inequality is a change; genres are canonicalized at
+//   capture (sorted, deduped tuples) so deep equality ignores membership
+//   ordering.
 // - Artwork transitions only between comparable parsed IDs in the same
 //   previously-comparable rendition; a new URL for an equal ID updates the
 //   reference, not a revision.
@@ -136,8 +136,9 @@ export function compareBookObservation(
 	// Process incoming comparable renditions
 	for (const [rendition, ref] of incomingParsed) {
 		const oldBaseline = oldRenditions.get(rendition)
-		if (!oldBaseline) {
-			// New comparable rendition: initialize baseline silently
+		if (!oldBaseline || oldBaseline.policy !== ARTWORK_POLICY) {
+			// New comparable rendition or policy change: initialize/replace
+			// the baseline silently (mirrors the editorial policy check).
 			newRenditions.push({
 				rendition,
 				policy: ARTWORK_POLICY,

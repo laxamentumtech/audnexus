@@ -74,10 +74,17 @@ jobs:
 
       - name: Deploy to Coolify
         if: steps.image-check.outputs.deploy == 'true'
+        # Pass the secrets via `env:` (referenced as shell variables) rather
+        # than interpolating them into the `run` script: the interpolated form
+        # lets a secret containing shell metacharacters break out of the
+        # string/quote and inject commands.
+        env:
+          COOLIFY_WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
           response_body=$(mktemp)
-          response=$(curl -s -o "$response_body" -w "%{http_code}" --max-time 30 --request POST '${{ secrets.COOLIFY_WEBHOOK }}' \
-            --header 'Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}')
+          response=$(curl -s -o "$response_body" -w "%{http_code}" --max-time 30 --request POST "${COOLIFY_WEBHOOK}" \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}")
           if [ "$response" -ne 200 ] && [ "$response" -ne 202 ]; then
             echo "Coolify deployment failed with status: $response"
             echo "Response body:"

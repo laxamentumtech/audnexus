@@ -4,9 +4,6 @@ const mockBookFind = mock()
 const mockProcessBatchByRegion = mock()
 const mockShowHandler = mock()
 const showConstructorArgs: unknown[][] = []
-// Persistence signal on the mocked helper (drives the persisted flag the
-// backfill reads after the handler resolves).
-const bookPersisted = { persisted: true }
 
 mock.module('#config/models/Book', () => ({
 	default: class BookModel {
@@ -24,7 +21,6 @@ mock.module('#helpers/routes/BookShowHelper', () => ({
 			showConstructorArgs.push(args)
 		}
 		handler = mockShowHandler
-		persisted = bookPersisted.persisted
 	}
 }))
 
@@ -77,7 +73,6 @@ describe('BookBackfillHelper should', () => {
 		mock.clearAllMocks()
 		mockSleepCooldown.mockResolvedValue(undefined)
 		showConstructorArgs.length = 0
-		bookPersisted.persisted = true
 		helper = new BookBackfillHelper(createMockLogger())
 		// First call returns the batch, second returns empty to end pagation
 		mockBookFind.mockResolvedValueOnce(books).mockResolvedValueOnce([])

@@ -107,6 +107,9 @@ beforeEach(() => {
 	}
 	process.env.MONGODB_URI = 'mongodb://localhost:27017'
 	process.env.REDIS_URL = 'redis://localhost:6379'
+	// The disabled-case tests require the flag to be OFF under the runner,
+	// regardless of how the process was started (afterEach restores it).
+	delete process.env.BOOK_HISTORY_ENABLED
 	mockPaprInitialize.mockClear()
 	mockClientConnect.mockClear()
 	mockClientConnect.mockResolvedValue(mockClient)

@@ -24,7 +24,16 @@ export interface HistoryMongo {
 	stop: () => Promise<void>
 }
 
-export async function resolveHistoryMongo(): Promise<HistoryMongo | null> {
+/**
+ * Resolve a replica set for one suite. Each suite gets its own container
+ * (`audnexus-history-rs-<suite>`) because every suite drops the shared
+ * `audnexus` DB: a single shared container + name means
+ * `bun test tests/integration` (both suites in one process tree) would race
+ * on one data directory. The `test:history` script runs the suites in
+ * separate invocations. The explicit-URI path shares one DB across suites;
+ * suites are run serially by `test:history`, so no container is started.
+ */
+export async function resolveHistoryMongo(suite: string): Promise<HistoryMongo | null> {
 	const explicit = process.env.HISTORY_TEST_MONGODB_URI
 	if (explicit) {
 		const probe = new MongoClient(explicit, { serverSelectionTimeoutMS: 5000 })
@@ -39,9 +48,10 @@ export async function resolveHistoryMongo(): Promise<HistoryMongo | null> {
 			await probe.close()
 		}
 	}
+	const container = `${CONTAINER}-${suite}`
 	try {
-		const uri = await startReplicaSet({ container: CONTAINER })
-		return { uri, stop: async () => stopReplicaSet(CONTAINER) }
+		const uri = await startReplicaSet({ container })
+		return { uri, stop: async () => stopReplicaSet(container) }
 	} catch {
 		return null
 	}

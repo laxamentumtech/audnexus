@@ -19,34 +19,31 @@
 import { MongoClient, ObjectId } from 'mongodb'
 import { pathToFileURL } from 'node:url'
 
-import { HISTORY_INDEX_DEFINITIONS, SEED_PROGRESS_ID } from '#config/bookHistory'
+import {
+	HISTORY_INDEX_DEFINITIONS,
+	isSupportedRegionValue,
+	SEED_PROGRESS_ID
+} from '#config/bookHistory'
 import { bookHistoryStore } from '#config/papr'
+import { asin10Regex } from '#config/types'
 import { parseArtworkReference } from '#helpers/books/audible/BookObservation'
 import { BookHistoryStore } from '#helpers/database/papr/BookHistoryStore'
 import { iterateKeyset } from '#helpers/utils/keyset'
-import { regions } from '#static/regions'
 
 const COMMANDS = ['audit', 'prepare', 'seed', 'status'] as const
 type Command = (typeof COMMANDS)[number]
 const SEED_BATCH_SIZE = 500
 const BOOKS_COLLECTION = 'books'
-/** Deterministic 10-char ASIN shape (B-prefixed or numeric, X check suffix). */
-const ASIN_REGEX = /^(B[0-9A-Z]{9}|\d{9}(X|\d))$/
 
 /** Tagged region representation: missing, null, and value are distinct. */
 type RegionTag =
 	| { state: 'missing' | 'null'; value?: undefined }
 	| { state: 'value'; value: string }
-const VALID_REGIONS = new Set(Object.keys(regions))
 
 function regionTag(region: unknown): RegionTag {
 	if (region === undefined) return { state: 'missing' }
 	if (region === null) return { state: 'null' }
 	return { state: 'value', value: String(region) }
-}
-
-function isSupportedRegion(region: unknown): region is string {
-	return typeof region === 'string' && VALID_REGIONS.has(region)
 }
 
 function fail(message: string, code: number): never {
@@ -143,7 +140,7 @@ async function audit(
 	// issues (invalid ASIN / region, unsupported _id, image parseability).
 	await walk(undefined, (row) => {
 		scanned++
-		const asinValid = typeof row.asin === 'string' && ASIN_REGEX.test(row.asin)
+		const asinValid = typeof row.asin === 'string' && asin10Regex.test(row.asin)
 		const tag = regionTag(row.region)
 		const reasons: string[] = []
 		const storedUrl = typeof row.image === 'string' && row.image.length > 0 ? row.image : null
@@ -158,7 +155,7 @@ async function audit(
 		if (tag.state === 'missing') {
 			counters.missingRegion++
 			reasons.push('missing_region')
-		} else if (tag.state === 'null' || !isSupportedRegion(row.region)) {
+		} else if (tag.state === 'null' || !isSupportedRegionValue(row.region)) {
 			counters.invalidRegion++
 			reasons.push('invalid_region')
 		}
@@ -180,7 +177,7 @@ async function audit(
 		// ASIN must not enter the maps (it would desync the report).
 		if (asinValid) {
 			const asin = String(row.asin)
-			if (isSupportedRegion(row.region)) {
+			if (isSupportedRegionValue(row.region)) {
 				const key = `${row.region}:${asin}`
 				pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1)
 			} else {
@@ -192,9 +189,9 @@ async function audit(
 	// Pass 2: bounded walk classifying pair-level identity outcomes using
 	// the pass-1 dimension counts.
 	await walk({ _id: 1, asin: 1, region: 1 }, (row) => {
-		const asinValid = typeof row.asin === 'string' && ASIN_REGEX.test(row.asin)
+		const asinValid = typeof row.asin === 'string' && asin10Regex.test(row.asin)
 		const asin = String(row.asin)
-		if (!asinValid || !isSupportedRegion(row.region)) return
+		if (!asinValid || !isSupportedRegionValue(row.region)) return
 		const exact = pairCounts.get(`${row.region}:${asin}`) ?? 0
 		const competitors = competitorCounts.get(asin) ?? 0
 		if (exact === 1 && competitors === 0) trusted++
@@ -386,7 +383,12 @@ async function seed(
 		} catch (error) {
 			// A concurrent runner created the checkpoint first (E11000):
 			// re-read the winner and join its run (its runId and watermark)
-			// instead of failing.
+			// instead of failing. This read is a fresh view taken after the
+			// collision, so if the winner has already advanced the watermark
+			// past the joiner's expected-null, the joiner rebases its scan
+			// start and first-advance onto the winner's current watermark and
+			// continues idempotently (see the first-advance fence in
+			// `seedCheckpoint`).
 			if ((error as { code?: number }).code !== 11000) throw error
 			const winner = await progress.findOne({ _id: SEED_PROGRESS_ID })
 			if (winner === null) throw error

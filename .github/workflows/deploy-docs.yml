@@ -146,6 +146,13 @@ jobs:
       # reserved release identity in the inputs, not the dispatched ref: a
       # tag-shaped DOCS_REF with the frozen source proves the exact release
       # and fails closed on any drift.
+      #
+      # Kept in lockstep with the build-docs job's "Stamp the actual docs
+      # release identity" env block: that one is conditional (a delayed retry
+      # stamps current main, not the release) while this one is unconditional
+      # (it always checks out the frozen source). Change the variable set in
+      # both places together — the release-docs asset is the authoritative
+      # identity the immutable asset carries.
       - name: Stamp the actual docs release identity
         env:
           DOCS_REF: refs/tags/${{ inputs.version }}

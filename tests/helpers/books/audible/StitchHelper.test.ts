@@ -360,20 +360,17 @@ describe('StitchHelper getHistoryObservation composition', () => {
 		expect(genres?.policy).toBe(GENRES_API_POLICY)
 	})
 
-	test('passes the API observation through unchanged when captureHistory is false', () => {
+	test('returns the API observation (undefined) when captureHistory is false', () => {
 		const h = setupHelper(false)
-		// Even with HTML genre evidence present, collection disabled means the
-		// API observation is returned untouched.
+		// A real ApiHelper built with `captureHistory: false` never captures
+		// evidence, so `getHistoryObservation()` returns `undefined` — the
+		// disabled path must pass that through, and must not synthesize an
+		// observation from the HTML genre state below.
+		spyOn(h.apiHelper, 'getHistoryObservation').mockImplementation(() => undefined)
 		h.historyHtmlGenres = htmlGenres
 		h.htmlReceivedAt = htmlTime
 
-		const observation = h.getHistoryObservation()
-
-		expect(observation?.observedAt).toBe(apiTime)
-		expect(observation?.htmlReceivedAt).toBeUndefined()
-		const genres = observation?.fields.find((f) => f.field === 'genres')
-		expect(genres?.source).toBe('audible_api')
-		expect(genres?.policy).toBe(GENRES_API_POLICY)
+		expect(h.getHistoryObservation()).toBeUndefined()
 	})
 })
 

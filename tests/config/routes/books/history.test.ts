@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { fastify, type FastifyInstance } from 'fastify'
 
+import { artworkListQuerySchema, historyListQuerySchema } from '#config/bookHistory'
 import { registerApiErrorHandler } from '#config/errorHandler'
 import bookArtwork from '#config/routes/books/artwork'
 import bookHistory from '#config/routes/books/history'
@@ -192,6 +193,24 @@ describe('history routes (injection)', () => {
 			expect(res.statusCode, `expected 400 for cursor ${cursor}`).toBe(400)
 			expect(res.json().error.code).toBe('BAD_REQUEST')
 		}
+	})
+
+	test('list: an empty cursor is a 400 (the query schema requires min length 1)', async () => {
+		established = true
+		// Mechanism, not just outcome: the empty string fails the schema's
+		// min(1) before the handler or the cursor guard can run.
+		expect(historyListQuerySchema.safeParse({ cursor: '' }).success).toBe(false)
+		const res = await app.inject({ method: 'GET', url: `/books/${ASIN}/history?cursor=` })
+		expect(res.statusCode).toBe(400)
+		expect(res.json().error.code).toBe('BAD_REQUEST')
+	})
+
+	test('artwork: an empty cursor is a 400 (the query schema requires min length 1)', async () => {
+		established = true
+		expect(artworkListQuerySchema.safeParse({ cursor: '' }).success).toBe(false)
+		const res = await app.inject({ method: 'GET', url: `/books/${ASIN}/artwork?cursor=` })
+		expect(res.statusCode).toBe(400)
+		expect(res.json().error.code).toBe('BAD_REQUEST')
 	})
 
 	test('list: invalid cursor on a nonexistent resource is 404 (existence precedes cursor)', async () => {
