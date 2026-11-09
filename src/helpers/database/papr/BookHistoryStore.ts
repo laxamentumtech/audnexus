@@ -152,6 +152,42 @@ function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
 	return true
 }
 
+/** The series fields the store may $unset on an explicit removal. */
+const SERIES_FIELDS: readonly string[] = ['seriesPrimary', 'seriesSecondary']
+
+/** Equality for the update flow's equal short-circuit: series keys present
+ * ONLY on the stored side are ignored when the incoming observation carries
+ * no series evidence at all — neither a seriesPrimary/seriesSecondary key
+ * on the book nor a series field in the observation. The write path retains
+ * unknown-evidence series on the row (it never clears them without an
+ * explicit removal observation), so such stored-only keys must not force an
+ * unequal result and a redundant write with `modified: true` on every
+ * accepted fetch. Any series evidence (including an explicit null value,
+ * the producer's vanished-series signal) is compared as usual. */
+function deepEqualBookIgnoringStoredOnlySeries(
+	a: ApiBook,
+	b: ApiBook,
+	incomingHasSeriesEvidence: boolean
+): boolean {
+	if (incomingHasSeriesEvidence) return deepEqualBook(a, b)
+	const aObj = a as unknown as Record<string, unknown>
+	const bObj = b as unknown as Record<string, unknown>
+	const storedHasSeriesOnly = SERIES_FIELDS.some((field) => field in aObj)
+	if (!storedHasSeriesOnly) return deepEqualBook(a, b)
+	return deepEqualBook(
+		omitSeriesKeys(aObj) as unknown as ApiBook,
+		omitSeriesKeys(bObj) as unknown as ApiBook
+	)
+}
+
+function omitSeriesKeys(obj: Record<string, unknown>): Record<string, unknown> {
+	const out: Record<string, unknown> = {}
+	for (const key of Object.keys(obj)) {
+		if (!SERIES_FIELDS.includes(key)) out[key] = obj[key]
+	}
+	return out
+}
+
 function sha256Hex(value: string): string {
 	return createHash('sha256').update(value).digest('hex')
 }
@@ -470,7 +506,21 @@ export class BookHistoryStore {
 			const normBook = parsedBook.success ? parsedBook.data : book
 			const oldApi = toApiBook(currentBook)
 			if (currentBook && oldApi) {
-				if (deepEqualBook(oldApi, normBook)) {
+				// Series keys present only on the stored side are not changes
+				// when the incoming observation has no series evidence at
+				// all: the write path retains them (unknown evidence), so the
+				// equality result must match the write and stay in the equal
+				// short-circuit. Any series evidence in the book or
+				// observation (including explicit null-value removals) falls
+				// back to full comparison.
+				const incomingHasSeriesEvidence =
+					SERIES_FIELDS.some(
+						(field) => field in (normBook as unknown as Record<string, unknown>)
+					) ||
+					observation.fields.some(
+						(f) => f.field === 'seriesPrimary' || f.field === 'seriesSecondary'
+					)
+				if (deepEqualBookIgnoringStoredOnlySeries(oldApi, normBook, incomingHasSeriesEvidence)) {
 					// Equal public projection is still an accepted
 					// observation: rendition transitions can change without
 					// touching any public field, and an established state
@@ -578,20 +628,26 @@ export class BookHistoryStore {
 				returned = toApiBook(book) ?? book
 			} else {
 				// `$set` alone cannot clear a field the observation explicitly
-				// removed: an observation declaring a series key ABSENT
-				// normalizes to an absent key, so explicitly unset the
-				// declared-absent series fields that are still present on the
+				// removed: an observation declaring a series key ABSENT or
+				// carrying an explicit null value (the producer's signal for a
+				// vanished series) normalizes to an absent key, so explicitly
+				// unset the cleared series fields that are still present on the
 				// stored row to keep the baseline and the row in step. A
 				// series-less observation is UNKNOWN evidence — the comparison
 				// contract retains unknown evidence — so it must NOT unset:
 				// the row keeps its stored series until a removal is observed.
 				const unset: Record<string, 1> = {}
-				const declaredAbsent = new Set(
-					observation.fields.filter((f) => f.value.state === 'absent').map((f) => f.field)
+				const clearedSeries = new Set(
+					observation.fields
+						.filter(
+							(f) =>
+								f.value.state === 'absent' || (f.value.state === 'value' && f.value.value === null)
+						)
+						.map((f) => f.field)
 				)
-				if ('seriesPrimary' in currentBook && declaredAbsent.has('seriesPrimary'))
+				if ('seriesPrimary' in currentBook && clearedSeries.has('seriesPrimary'))
 					unset.seriesPrimary = 1
-				if ('seriesSecondary' in currentBook && declaredAbsent.has('seriesSecondary'))
+				if ('seriesSecondary' in currentBook && clearedSeries.has('seriesSecondary'))
 					unset.seriesSecondary = 1
 				await booksCol.updateOne(
 					{ _id: currentBook._id },

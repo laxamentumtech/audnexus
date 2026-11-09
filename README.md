@@ -322,7 +322,7 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - `HTTP_MAX_SOCKETS`: Maximum HTTP sockets (hard limit: 50, default: 50) - values above 50 will be clamped to 50
    - `HTTP_TIMEOUT_MS`: HTTP request timeout in milliseconds (default: 30000)
    - `SCHEDULER_BATCH_SIZE`: Documents per batch when paginating over books/authors/chapters (default: 1000, hard cap: 10000)
-   - `SCHEDULER_ITEM_TIMEOUT_MS`: Hard deadline for a single scheduler item in milliseconds (default: 120000; `0` disables the guard)
+   - `SCHEDULER_ITEM_TIMEOUT_MS`: Hard deadline for a single scheduler item in milliseconds (default: 120000; `0` disables the guard). Bounds the wait for the handler, not the work itself — a late handler can keep running after the deadline elapses, and its writes can still land.
    - `SCHEDULER_MAX_ITEMS`: Hard cap on documents one pass visits (default: 0 = unlimited)
    - `JITTER_MS`: Randomized pacing wait range in milliseconds for batch workers, as `min-max` or bare `max` (default: `0-5000`)
 

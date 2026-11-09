@@ -986,4 +986,211 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		})
 		expect(revisions[0].changes.seriesSecondary.after).toEqual({ state: 'absent' })
 	}, 30000)
+
+	test('an explicit null series value clears the stored field and records the delta', async () => {
+		// The producer's vanished-series signal is `{state: 'value',
+		// value: null}` (primary kept selected, secondary gone): the key
+		// normalizes away from the book, so `$set` alone can never reach
+		// the stored field — the clear must come from the $unset path,
+		// which previously only fired on `state: 'absent'`.
+		// Series ASINs are 10 chars (B + 9): the stored row must validate
+		// through ApiBookSchema for the store's projection to be non-null.
+		const nullAsin = 'B0SERIEST3'
+		const db2 = collections()
+		const seriesPrimary = { asin: 'B0SERIES10', name: 'Series One', position: '1' }
+		const seriesSecondary = { asin: 'B0SERIES20', name: 'Spinoff', position: '2' }
+		await db2.collection('books').insertOne(
+			book({ asin: nullAsin, title: 'Null Series Book', seriesPrimary, seriesSecondary }) as never
+		)
+		await db2.collection('book_history_states').insertOne({
+			_id: `${REGION}:${nullAsin}`,
+			asin: nullAsin,
+			region: REGION,
+			allocatedGeneration: 0,
+			acceptedGeneration: 0,
+			deleteFence: 0,
+			revision: 0,
+			assetSequence: 1,
+			stateVersion: 1,
+			established: true,
+			legacyCaptured: true,
+			fields: [
+				{
+					field: 'seriesPrimary',
+					policy: 'editorial:seriesPrimary:v1',
+					value: { state: 'value', value: seriesPrimary },
+					baselineAt: new Date('2026-01-01T00:00:00.000Z')
+				},
+				{
+					field: 'seriesSecondary',
+					policy: 'editorial:seriesSecondary:v1',
+					value: { state: 'value', value: seriesSecondary },
+					baselineAt: new Date('2026-01-01T00:00:00.000Z')
+				}
+			],
+			renditions: []
+		} as never)
+		// The seeded legacy asset keeps assetSequence honest across the run.
+		await db2.collection('book_artwork').insertOne({
+			asin: nullAsin,
+			region: REGION,
+			sequence: 1,
+			imageId: IMG1,
+			legacy: {
+				sourceBookId: new ObjectId(),
+				storedUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`,
+				importedAt: new Date('2026-01-01T00:00:00.000Z')
+			},
+			renditions: []
+		} as never)
+
+		// The observation keeps `seriesPrimary` (value envelope present)
+		// and carries an explicit null `seriesSecondary` (the producer's
+		// vanished-series shape).
+		const nullObservation = observation({
+			title: 'Null Series Book',
+			imageId: IMG1,
+			imageUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
+		})
+		nullObservation.fields.push(
+			{
+				field: 'seriesPrimary',
+				policy: 'editorial:seriesPrimary:v1',
+				value: { state: 'value', value: seriesPrimary },
+				source: 'audible_api'
+			},
+			{
+				field: 'seriesSecondary',
+				policy: 'editorial:seriesSecondary:v1',
+				value: { state: 'value', value: null },
+				source: 'audible_api'
+			}
+		)
+		const result = await bookHistoryStore.persistObservation({
+			asin: nullAsin,
+			region: REGION,
+			generation: 1,
+			book: book({ asin: nullAsin, title: 'Null Series Book' }),
+			observation: nullObservation
+		})
+		expect(result.disposition).toBe('accepted')
+		// The explicit null is a real change: the stored field is $unset.
+		expect(result.modified).toBe(true)
+		// The returned/cached projection keeps the retained series and
+		// drops the cleared one.
+		expect(result.data.seriesPrimary).toEqual(seriesPrimary)
+		expect(result.data.seriesSecondary).toBeUndefined()
+
+		// The stored row RETAINS seriesPrimary and $unsets only
+		// seriesSecondary, the rest stands.
+		const current = await db2.collection('books').findOne({ asin: nullAsin })
+		expect(current).toHaveProperty('seriesPrimary', seriesPrimary)
+		expect(current).not.toHaveProperty('seriesSecondary')
+		expect(current?.title).toBe('Null Series Book')
+
+		// Baselines: seriesPrimary unchanged, seriesSecondary advanced to
+		// the explicit null value; exactly one revision counter step.
+		const state = await db2
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${nullAsin}` })
+		const byField = new Map(
+			(state?.fields ?? []).map((f: { field: string; value: unknown }) => [f.field, f.value])
+		)
+		expect(byField.get('seriesPrimary')).toEqual({ state: 'value', value: seriesPrimary })
+		expect(byField.get('seriesSecondary')).toEqual({ state: 'value', value: null })
+		expect(state?.revision).toBe(1)
+
+		// The revision records exactly the single series transition.
+		const revisions = await db2
+			.collection('book_history_revisions')
+			.find({ asin: nullAsin, region: REGION, revision: 1 })
+			.toArray()
+		expect(revisions).toHaveLength(1)
+		expect(revisions[0].changedFields.slice().sort()).toEqual(['seriesSecondary'])
+		expect(revisions[0].changes.seriesSecondary.before).toEqual({
+			state: 'value',
+			value: seriesSecondary
+		})
+		expect(revisions[0].changes.seriesSecondary.after).toEqual({ state: 'value', value: null })
+	}, 30000)
+
+	test('a series-less observation on a series-bearing row is an equal no-op', async () => {
+		// Equality must match the write: stored series keys with no series
+		// evidence in the incoming observation are retained by the update
+		// path (unknown evidence), so they must not force a redundant
+		// `modified: true` write on every accepted fetch.
+		const eqAsin = 'B0SERIEST4'
+		const db2 = collections()
+		const seriesPrimary = { asin: 'B0SERIES10', name: 'Series One', position: '1' }
+		await db2.collection('books').insertOne(
+			book({ asin: eqAsin, title: 'Equal Series Book', seriesPrimary }) as never
+		)
+		await db2.collection('book_history_states').insertOne({
+			_id: `${REGION}:${eqAsin}`,
+			asin: eqAsin,
+			region: REGION,
+			allocatedGeneration: 0,
+			acceptedGeneration: 0,
+			deleteFence: 0,
+			revision: 0,
+			assetSequence: 1,
+			stateVersion: 1,
+			established: true,
+			legacyCaptured: true,
+			fields: [
+				{
+					field: 'seriesPrimary',
+					policy: 'editorial:seriesPrimary:v1',
+					value: { state: 'value', value: seriesPrimary },
+					baselineAt: new Date('2026-01-01T00:00:00.000Z')
+				}
+			],
+			renditions: []
+		} as never)
+		// The seeded legacy asset keeps assetSequence honest across the run.
+		await db2.collection('book_artwork').insertOne({
+			asin: eqAsin,
+			region: REGION,
+			sequence: 1,
+			imageId: IMG1,
+			legacy: {
+				sourceBookId: new ObjectId(),
+				storedUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`,
+				importedAt: new Date('2026-01-01T00:00:00.000Z')
+			},
+			renditions: []
+		} as never)
+
+		// No series keys on the book, no series fields in the observation
+		// (unknown evidence), everything else identical to the stored row.
+		const result = await bookHistoryStore.persistObservation({
+			asin: eqAsin,
+			region: REGION,
+			generation: 1,
+			book: book({ asin: eqAsin, title: 'Equal Series Book' }),
+			observation: observation({
+				title: 'Equal Series Book',
+				imageId: IMG1,
+				imageUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
+			})
+		})
+		expect(result.disposition).toBe('accepted')
+		// Equal public projection (modulo the retained stored-only series):
+		// no revision, no counter step.
+		expect(result.modified).toBe(false)
+		// The stored row keeps its series untouched.
+		const current = await db2.collection('books').findOne({ asin: eqAsin })
+		expect(current).toHaveProperty('seriesPrimary', seriesPrimary)
+		expect(current?.title).toBe('Equal Series Book')
+		// The returned/cached projection preserves the stored series.
+		expect(result.data.seriesPrimary).toEqual(seriesPrimary)
+		const state = await db2
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${eqAsin}` })
+		expect(state?.revision).toBe(0)
+		const revisions = await db2
+			.collection('book_history_revisions')
+			.countDocuments({ asin: eqAsin, region: REGION })
+		expect(revisions).toBe(0)
+	}, 30000)
 })
