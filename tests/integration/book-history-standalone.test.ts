@@ -694,12 +694,14 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		expect(state?.fields[0].value).toEqual({ state: 'web' })
 	}, 30000)
 
-	test('a series-less accepted book $unsets removed series fields and records the series delta', async () => {
-		// The accepted-write path can only $set: fields the upstream removed
-		// are explicitly $unset from the current row (seriesPrimary/
-		// seriesSecondary) so the row and the baselines stay in step. The
-		// baselines advance to an explicit ABSENT envelope — not unknown
-		// evidence — and the transition is a recorded revision.
+	test('unknown series evidence preserves the stored series; removal evidence $unsets and records the delta', async () => {
+		// Two cases in one scenario: (1) an accepted book whose observation
+		// carries NO series evidence (unknown, not absent) must preserve the
+		// stored series — the comparison contract retains unknown evidence,
+		// so the row and the returned projection keep the keys; (2) an
+		// accepted book whose observation declares the series keys ABSENT
+		// (explicit removal) must $unset them from the row so the row and
+		// the baselines stay in step, and record the series delta.
 		const seriesAsin = 'B0SERIEST1'
 		const db2 = collections()
 		const seriesPrimary = { asin: 'B0SERIES1', name: 'Series One', position: '1' }
@@ -749,9 +751,10 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			renditions: []
 		} as never)
 		// Phase 1: no series evidence in the observation (unknown, not
-		// absent) — the row must still lose the keys via $unset, while the
-		// baselines and revision counter stay untouched (unknown evidence
-		// retains, never compares).
+		// absent) — the stored row keeps its series keys (the comparison
+		// contract retains unknown evidence), the returned/cached projection
+		// reflects them, and the baselines + revision counter stay untouched
+		// (unknown evidence retains, never compares).
 		const first = await bookHistoryStore.persistObservation({
 			asin: seriesAsin,
 			region: REGION,
@@ -765,8 +768,12 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		})
 		expect(first.disposition).toBe('accepted')
 		const rowAfterFirst = await db2.collection('books').findOne({ asin: seriesAsin })
-		expect(rowAfterFirst).not.toHaveProperty('seriesPrimary')
-		expect(rowAfterFirst).not.toHaveProperty('seriesSecondary')
+		expect(rowAfterFirst).toHaveProperty('seriesPrimary', seriesPrimary)
+		expect(rowAfterFirst).toHaveProperty('seriesSecondary', seriesSecondary)
+		// The accepted observation's returned projection preserves the
+		// stored series (the API serves the series the row still carries).
+		expect(first.data.seriesPrimary).toEqual(seriesPrimary)
+		expect(first.data.seriesSecondary).toEqual(seriesSecondary)
 		const stateAfterFirst = await db2
 			.collection('book_history_states')
 			.findOne({ _id: `${REGION}:${seriesAsin}` })
@@ -780,6 +787,10 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		expect(firstByField.get('seriesPrimary')).toEqual({
 			state: 'value',
 			value: seriesPrimary
+		})
+		expect(firstByField.get('seriesSecondary')).toEqual({
+			state: 'value',
+			value: seriesSecondary
 		})
 
 		// Phase 2: the observation declares the series keys as explicitly
@@ -812,11 +823,14 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			observation: seriesObservation
 		})
 		expect(result.disposition).toBe('accepted')
-		// The phase-1 $unset already brought the row to the series-less
-		// projection, so this accepted observation is the equal
-		// short-circuit (`modified: false`) — and the series delta is still
-		// recorded from within that branch.
-		expect(result.modified).toBe(false)
+		// Phase 1 preserved the stored series, so the declared-absent
+		// observation is a real change: the row $unsets the series, the
+		// baselines advance to ABSENT, and a revision records the delta.
+		expect(result.modified).toBe(true)
+		// The returned/cached projection reflects the removal: the series
+		// keys are gone from the accepted projection.
+		expect(result.data.seriesPrimary).toBeUndefined()
+		expect(result.data.seriesSecondary).toBeUndefined()
 
 		// Both series keys are removed from the stored row, the rest stands.
 		const current = await db2.collection('books').findOne({ asin: seriesAsin })
@@ -847,5 +861,129 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			value: seriesPrimary
 		})
 		expect(revisions[0].changes.seriesPrimary.after).toEqual({ state: 'absent' })
+	}, 30000)
+
+	test('mixed series evidence retains the value-declared series and $unsets only the absent one', async () => {
+		// The mixed state the other two phases never cover: an accepted
+		// observation that keeps a selected `seriesPrimary` (value envelope
+		// present) while declaring `seriesSecondary` ABSENT. Per the
+		// F1/F6 contract the stored row RETAINS `seriesPrimary` and $unsets
+		// only `seriesSecondary`; the revision records exactly that delta.
+		const mixedAsin = 'B0SERIEST2'
+		const db2 = collections()
+		const seriesPrimary = { asin: 'B0SERIES1', name: 'Series One', position: '1' }
+		const seriesSecondary = { asin: 'B0SERIES2', name: 'Spinoff', position: '2' }
+		await db2.collection('books').insertOne(
+			book({ asin: mixedAsin, title: 'Mixed Series Book', seriesPrimary, seriesSecondary }) as never
+		)
+		await db2.collection('book_history_states').insertOne({
+			_id: `${REGION}:${mixedAsin}`,
+			asin: mixedAsin,
+			region: REGION,
+			allocatedGeneration: 0,
+			acceptedGeneration: 0,
+			deleteFence: 0,
+			revision: 0,
+			assetSequence: 1,
+			stateVersion: 1,
+			established: true,
+			legacyCaptured: true,
+			fields: [
+				{
+					field: 'seriesPrimary',
+					policy: 'editorial:seriesPrimary:v1',
+					value: { state: 'value', value: seriesPrimary },
+					baselineAt: new Date('2026-01-01T00:00:00.000Z')
+				},
+				{
+					field: 'seriesSecondary',
+					policy: 'editorial:seriesSecondary:v1',
+					value: { state: 'value', value: seriesSecondary },
+					baselineAt: new Date('2026-01-01T00:00:00.000Z')
+				}
+			],
+			renditions: []
+		} as never)
+		// The seeded legacy asset keeps assetSequence honest across the run.
+		await db2.collection('book_artwork').insertOne({
+			asin: mixedAsin,
+			region: REGION,
+			sequence: 1,
+			imageId: IMG1,
+			legacy: {
+				sourceBookId: new ObjectId(),
+				storedUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`,
+				importedAt: new Date('2026-01-01T00:00:00.000Z')
+			},
+			renditions: []
+		} as never)
+
+		// The observation keeps `seriesPrimary` (value envelope present) and
+		// declares `seriesSecondary` ABSENT (explicit removal).
+		const mixedObservation = observation({
+			title: 'Mixed Series Book',
+			imageId: IMG1,
+			imageUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
+		})
+		mixedObservation.fields.push(
+			{
+				field: 'seriesPrimary',
+				policy: 'editorial:seriesPrimary:v1',
+				value: { state: 'value', value: seriesPrimary },
+				source: 'audible_api'
+			},
+			{
+				field: 'seriesSecondary',
+				policy: 'editorial:seriesSecondary:v1',
+				value: { state: 'absent' },
+				source: 'audible_api'
+			}
+		)
+		const result = await bookHistoryStore.persistObservation({
+			asin: mixedAsin,
+			region: REGION,
+			generation: 1,
+			book: book({ asin: mixedAsin, title: 'Mixed Series Book' }),
+			observation: mixedObservation
+		})
+		expect(result.disposition).toBe('accepted')
+		// The declared-absent seriesSecondary is a real change.
+		expect(result.modified).toBe(true)
+		// The returned/cached projection keeps the retained series and
+		// drops the removed one.
+		expect(result.data.seriesPrimary).toEqual(seriesPrimary)
+		expect(result.data.seriesSecondary).toBeUndefined()
+
+		// The stored row RETAINS seriesPrimary and $unsets only
+		// seriesSecondary — the mixed case $unset gating.
+		const current = await db2.collection('books').findOne({ asin: mixedAsin })
+		expect(current).toHaveProperty('seriesPrimary', seriesPrimary)
+		expect(current).not.toHaveProperty('seriesSecondary')
+		expect(current?.title).toBe('Mixed Series Book')
+
+		// Baselines: seriesPrimary unchanged (same value), seriesSecondary
+		// advanced to ABSENT; exactly one revision counter step.
+		const state = await db2
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${mixedAsin}` })
+		const byField = new Map(
+			(state?.fields ?? []).map((f: { field: string; value: unknown }) => [f.field, f.value])
+		)
+		expect(byField.get('seriesPrimary')).toEqual({ state: 'value', value: seriesPrimary })
+		expect(byField.get('seriesSecondary')).toEqual({ state: 'absent' })
+		expect(state?.revision).toBe(1)
+
+		// The revision records exactly the single series transition.
+		const revisions = await db2
+			.collection('book_history_revisions')
+			.find({ asin: mixedAsin, region: REGION, revision: 1 })
+			.toArray()
+		expect(revisions).toHaveLength(1)
+		expect(revisions[0].changedFields.slice().sort()).toEqual(['seriesSecondary'])
+		expect(revisions[0].changes.seriesSecondary.before).toEqual({
+			state: 'value',
+			value: seriesSecondary
+		})
+		expect(revisions[0].changes.seriesSecondary.after).toEqual({ state: 'absent' })
 	}, 30000)
 })

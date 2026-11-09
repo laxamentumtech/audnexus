@@ -572,7 +572,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			// The update is refused; the stored projection stands with 200.
 			expect(result).toBe(storedBook)
 			expect(setOneSpy).toHaveBeenCalledTimes(1)
-			expect(setOneSpy).toHaveBeenCalledWith(storedBook)
+			expect(setOneSpy).toHaveBeenCalledWith(storedBook, { log: false })
 		} else if (disposition === 'stale') {
 			// A concurrent delete left no current row: the book is gone.
 			expect(error).toBeInstanceOf(NotFoundError)
@@ -583,7 +583,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			// The fresh data is returned and written to the redis cache.
 			expect(result).toBe(storedBook)
 			expect(setOneSpy).toHaveBeenCalledTimes(1)
-			expect(setOneSpy).toHaveBeenCalledWith(storedBook)
+			expect(setOneSpy).toHaveBeenCalledWith(storedBook, { log: false })
 			// `persisted` tracks the write, not the acceptance: a modified
 			// acceptance is a real write; the equal short-circuit
 			// (accepted but unchanged) is not.

@@ -256,30 +256,46 @@ run('history CLI protocol against a replica set', () => {
 		}
 	}, 60000)
 
-	test('seedCheckpoint with a wrong expected previous watermark does not advance', async () => {
+	test('seedCheckpoint first-advance is joiner-compatible and rejects a stale divergent write', async () => {
 		const { status } = await import('../../src/history')
 		const out = await status(client)
 		const runId = out.seed?.runId
 		expect(runId).toBeDefined()
 		expect(out.seed?.completed).toBe(true)
 		const rows = await db.collection('books').find({}).sort({ _id: 1 } as never).toArray()
-		const otherRow = rows[rows.length - 1]
-		expect(otherRow._id).toBeInstanceOf(ObjectId)
-		// The checkpoint sits at the final watermark; the first-advance
-		// bound (`expectLastId: null`) no longer matches, so the conditional
-		// advance matches zero documents and must not move the watermark.
+		const lastRow = rows[rows.length - 1]
+		const firstRow = rows[0]
+		expect(lastRow._id).toBeInstanceOf(ObjectId)
+		expect(firstRow._id).toBeInstanceOf(ObjectId)
+		// The checkpoint sits at the final watermark (the completed run's
+		// last row). Two first-advance (`expectLastId: null`) cases:
+		// (a) a cooperating joiner that rebased onto the winner's watermark
+		//    writes back the stored watermark — idempotent, must match (1)
+		//    and not move the watermark;
+		// (b) a genuinely stale runner writing a divergent (earlier)
+		//    watermark — must match zero documents and not move it.
 		const lastIdBefore = out.seed?.lastId
+		expect(lastIdBefore?.equals(lastRow._id as ObjectId)).toBe(true)
 		const session = await client.startSession()
 		try {
-			const matched = await bookHistoryStore.withSeedTransaction(async (txSession) => {
+			const joinerMatched = await bookHistoryStore.withSeedTransaction(async (txSession) => {
 				return bookHistoryStore.seedCheckpoint(
 					txSession,
 					runId,
-					otherRow._id as ObjectId,
+					lastRow._id as ObjectId,
 					null
 				)
 			})
-			expect(matched).toBe(0)
+			expect(joinerMatched).toBe(1)
+			const staleMatched = await bookHistoryStore.withSeedTransaction(async (txSession) => {
+				return bookHistoryStore.seedCheckpoint(
+					txSession,
+					runId,
+					firstRow._id as ObjectId,
+					null
+				)
+			})
+			expect(staleMatched).toBe(0)
 		} finally {
 			await session.endSession()
 		}

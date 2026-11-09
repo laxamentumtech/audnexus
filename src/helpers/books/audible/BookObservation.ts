@@ -49,12 +49,16 @@ const ARTWORK_PATH_RE = /^\/images\/I\/([A-Za-z0-9+_-]+)(?:\.[A-Za-z0-9_]+)*\.(j
  *
  * Recognized: HTTP(S), no credentials, exact allowed host, `/images/I/`
  * path, ASCII `[A-Za-z0-9+-]+` asset ID, an optional Amazon `._…`
- * transformation segment without slash, and a `.jpg`/`.jpeg`/`.png`/`.webp`
- * extension. The ID is captured before the transformation segment; a plain
- * `<id>.jpg` is recognized. Query/fragment/extension/recognized-host/
- * transform differences do not enter ID equality. Anything else returns null
- * while the exact URL is retained as an unparsed reference — never split an
- * arbitrary URL at its first dot.
+ * transformation segment, and a `.jpg`/`.jpeg`/`.png`/`.webp` extension.
+ * Each transformation segment is `[A-Za-z0-9_]+` — interior dots are not
+ * allowed, so a transform chain resolves to an image ID only when every
+ * segment is dot-free (e.g. `._SL500_._V1_`); a chain containing an interior
+ * dot (e.g. `._SX500_SY500_..jpg`) returns null. The ID is captured before
+ * the transformation segment; a plain `<id>.jpg` is recognized.
+ * Query/fragment/extension/recognized-host/transform differences do not
+ * enter ID equality. Anything else returns null while the exact URL is
+ * retained as an unparsed reference — never split an arbitrary URL at its
+ * first dot.
  */
 export function parseArtworkReference(url: string): string | null {
 	let parsed: URL

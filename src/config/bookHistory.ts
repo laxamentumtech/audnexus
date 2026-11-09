@@ -60,10 +60,11 @@ const isHistoryField = (field: string): field is HistoryField =>
  */
 export const bookKey = (asin: string, region: string) => `${region}:${asin}`
 
-/** Deterministic 10-char ASIN shape (B-prefixed or numeric, X check suffix). */
-export const ASIN_SHAPE_REGEX = /^(B[0-9A-Z]{9}|\d{9}(X|\d))$/
-
 const supportedRegionsSet = new Set(Object.keys(regions))
+
+/** Shared list of supported region values (the store, the CLI, and the read
+ * routes all treat the same region values as trusted). */
+export const SUPPORTED_REGIONS: string[] = Object.keys(regions)
 
 /** Shared supported-region classification (the store, the CLI, and the
  * read routes all treat the same region values as trusted). */

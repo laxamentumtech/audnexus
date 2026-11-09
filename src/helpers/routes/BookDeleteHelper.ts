@@ -56,9 +56,11 @@ export default class BookDeleteHelper {
 			// Post-commit invalidation is best-effort: the delete is durable,
 			// and a cache failure must not turn a completed delete into a 500
 			// (the stale cache key would otherwise be served until its TTL).
-			// `deleteOne` already logs the underlying error.
+			// `log: false` — this wrapper emits the single actionable line
+			// (which book, that the delete is committed); the redis-layer log
+			// is suppressed so a cache failure does not emit two error lines.
 			try {
-				await this.redisHelper.deleteOne()
+				await this.redisHelper.deleteOne({ log: false })
 			} catch (error) {
 				this.logger?.error(
 					`History cache invalidation failed for book ${this.asin} (delete is committed): ${String(error)}`

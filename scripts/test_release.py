@@ -729,6 +729,68 @@ class ReleaseBehavior(unittest.TestCase):
         self.assertEqual(len(self.repo.dispatches), 1)
         self.assertEqual(self.repo.runs[-1]['created_at'], fixed)
 
+    def _run_dispatch_with_offset(self, correlation, created_at, fixed_date):
+        """Run dispatch_docs with a fixed server Date and a dispatched run
+        whose created_at is forced to `created_at`. Returns the repo. The
+        server Date probe and the dispatched run's created_at are both fixed
+        so the tolerance boundary is exercised without clock dependence."""
+        source = self.source
+        original_run = self.repo.run
+
+        def run(*args, ok=(0,)):
+            result = original_run(*args, ok=ok)
+            if args[0] == 'gh' and args[1] == 'api' and args[2] == f'repos/{self.repo.repository()}' and '-i' in args:
+                return 'HTTP/2 200 OK\nDate: ' + fixed_date + '\nServer: example\n'
+            if args[:4] == ('gh', 'workflow', 'run', 'deploy-docs.yml'):
+                self.repo.runs[-1]['created_at'] = created_at
+            return result
+
+        with unittest.mock.patch.object(self.repo, 'run', run), ControlledClock().bound():
+            release.dispatch_docs(self.repo, source, 'v1.1.0', correlation)
+
+    def test_docs_dispatch_accepts_run_1_to_5_seconds_before_server_date(self):
+        """Boundary: a run created 1-5 seconds BEFORE the probed server Date
+        is within the matcher's tolerance (created_at >= server_date - 5s)
+        and must correlate. A refactor that shrinks the tolerance below the
+        offset would find no match and the 120s observation would fail."""
+        self.seed_docs_dispatch_fixture('v1.1.0', self.source)
+        fixed_date = 'Sat, 07 Nov 2026 19:28:37 GMT'
+        # 3 seconds before the server Date: within the 5s tolerance window.
+        self._run_dispatch_with_offset('780-1', '2026-11-07T19:28:34+00:00', fixed_date)
+        self.assertEqual(len(self.repo.dispatches), 1)
+        self.assertEqual(self.repo.runs[-1]['created_at'], '2026-11-07T19:28:34+00:00')
+
+    def test_docs_dispatch_accepts_run_exactly_5_seconds_before_server_date(self):
+        """Boundary: a run created EXACTLY 5 seconds BEFORE the probed server
+        Date sits on the inclusive edge of the matcher (created_at >=
+        server_date - 5s) and must correlate. A tolerance narrowed from 5 to
+        4 seconds would find no match and the 120s observation would fail,
+        so this test pins the inclusive boundary that the 3s/6s offset tests
+        cannot."""
+        self.seed_docs_dispatch_fixture('v1.1.0', self.source)
+        fixed_date = 'Sat, 07 Nov 2026 19:28:37 GMT'
+        # Exactly 5 seconds before the server Date: the inclusive boundary.
+        self._run_dispatch_with_offset('782-1', '2026-11-07T19:28:32+00:00', fixed_date)
+        self.assertEqual(len(self.repo.dispatches), 1)
+        self.assertEqual(self.repo.runs[-1]['created_at'], '2026-11-07T19:28:32+00:00')
+
+    def test_docs_dispatch_rejects_run_more_than_5_seconds_before_server_date(self):
+        """Boundary: a run created MORE than 5 seconds BEFORE the probed
+        server Date is outside the tolerance (created_at < server_date - 5s)
+        and must not match. The correlation then falls through to the
+        stale-exclusion path: no run matches, the 120s observation window
+        exhausts, and dispatch_docs raises."""
+        self.seed_docs_dispatch_fixture('v1.1.0', self.source)
+        fixed_date = 'Sat, 07 Nov 2026 19:28:37 GMT'
+        # 6 seconds before the server Date: outside the 5s tolerance window.
+        with self.assertRaisesRegex(release.ReleaseError,
+                                    'not observed within 120 seconds'):
+            self._run_dispatch_with_offset('781-1', '2026-11-07T19:28:31+00:00', fixed_date)
+        # The dispatch fired once, but the run was never accepted as the
+        # correlation target.
+        self.assertEqual(len(self.repo.dispatches), 1)
+        self.assertEqual(self.repo.runs[-1]['created_at'], '2026-11-07T19:28:31+00:00')
+
 
 class DocsAssetRepository(release.Repository):
     source = 'a' * 40

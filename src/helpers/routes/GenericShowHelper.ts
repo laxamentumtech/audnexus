@@ -301,11 +301,15 @@ export default class GenericShowHelper {
 	 * Best-effort redis cache refresh after a committed history write:
 	 * `setOne` rethrows on a cache failure, and a committed persistence must
 	 * not become a 500 on a cache outage — the next read repopulates the
-	 * key from the stored data. `setOne` already logs the underlying error.
+	 * key from the stored data. This wrapper emits the single error line
+	 * (the redis-layer log is suppressed via `log: false`).
 	 */
 	private async cacheBookBestEffort(data: ApiBook): Promise<void> {
 		try {
-			await this.redisHelper.setOne(data)
+			// `log: false` — this wrapper emits the single actionable line
+			// (which book, that the data is persisted); the redis-layer log is
+			// suppressed so a cache failure does not emit two error lines.
+			await this.redisHelper.setOne(data, { log: false })
 		} catch (error) {
 			this.logger?.error(
 				`History cache refresh failed for book ${this.asin} (data is persisted): ${String(error)}`

@@ -27,7 +27,8 @@ import {
 	bookKey,
 	EDITORIAL_FIELD_NAMES,
 	HistoryValueSchema,
-	isBookHistoryEnabled
+	isBookHistoryEnabled,
+	SUPPORTED_REGIONS
 } from '#config/bookHistory'
 import BookModel from '#config/models/Book'
 import type { BookArtworkDocument, BookHistoryStateDocument } from '#config/models/BookHistory'
@@ -44,9 +45,6 @@ import {
 	encodeCursor
 } from '#helpers/books/historyCursor'
 import { ConflictError, NotFoundError } from '#helpers/errors/ApiErrors'
-import { regions } from '#static/regions'
-
-const supportedRegionSet = new Set(Object.keys(regions))
 
 /** One public field delta inside a revision detail. */
 export interface HistoryChangeField {
@@ -157,7 +155,7 @@ async function resolveReadableResource(
 	const rows = (await BookModel.find(
 		{
 			asin,
-			$or: [{ region }, { region: { $nin: Array.from(supportedRegionSet) } }]
+			$or: [{ region }, { region: { $nin: SUPPORTED_REGIONS } }]
 		} as never,
 		{ projection: { region: 1 } }
 	)) as unknown as Array<{ region?: string | null }>

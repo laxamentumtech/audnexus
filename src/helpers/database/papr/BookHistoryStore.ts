@@ -22,22 +22,19 @@ import type {
 	RenditionBaseline
 } from '#config/bookHistory'
 import {
-	ASIN_SHAPE_REGEX,
 	bookKey,
 	HISTORY_INDEX_DEFINITIONS,
 	HistoryValueSchema,
 	isSupportedRegionValue,
-	SEED_PROGRESS_ID
+	SEED_PROGRESS_ID,
+	SUPPORTED_REGIONS
 } from '#config/bookHistory'
 import type { ApiBook } from '#config/types'
-import { ApiBookSchema } from '#config/types'
+import { ApiBookSchema, asin10Regex } from '#config/types'
 import { parseArtworkReference } from '#helpers/books/audible/BookObservation'
 import type { ComparisonResult } from '#helpers/books/BookHistoryComparison'
 import { compareBookObservation } from '#helpers/books/BookHistoryComparison'
 import { ConflictError } from '#helpers/errors/ApiErrors'
-import { regions } from '#static/regions'
-
-const supportedRegionSet = new Set(Object.keys(regions))
 
 const COLLECTIONS = {
 	state: 'book_history_states',
@@ -228,7 +225,7 @@ export class BookHistoryStore {
 		const booksCol = this.collection<Document>(COLLECTIONS.books)
 		const exactCount = await booksCol.countDocuments({ asin, region }, { session })
 		const competitorCount = await booksCol.countDocuments(
-			{ asin, region: { $nin: Array.from(supportedRegionSet) } },
+			{ asin, region: { $nin: SUPPORTED_REGIONS } },
 			{ session }
 		)
 		const trustedBook =
@@ -571,21 +568,30 @@ export class BookHistoryStore {
 
 			// 8. Current book: real create or accepted unequal projection.
 			const booksCol = this.collection<Document>(COLLECTIONS.books)
+			let returned: ApiBook
 			if (!currentBook) {
 				const now = new Date()
 				await booksCol.insertOne(
 					{ ...book, _id: new ObjectId(), createdAt: now, updatedAt: now },
 					{ session }
 				)
+				returned = toApiBook(book) ?? book
 			} else {
-				// `$set` alone cannot clear fields the upstream removed: a
-				// series-less response normalizes to absent keys, so
-				// explicitly unset the series fields that disappeared from
-				// the stored row to keep the baseline and the row in step.
+				// `$set` alone cannot clear a field the observation explicitly
+				// removed: an observation declaring a series key ABSENT
+				// normalizes to an absent key, so explicitly unset the
+				// declared-absent series fields that are still present on the
+				// stored row to keep the baseline and the row in step. A
+				// series-less observation is UNKNOWN evidence — the comparison
+				// contract retains unknown evidence — so it must NOT unset:
+				// the row keeps its stored series until a removal is observed.
 				const unset: Record<string, 1> = {}
-				if ('seriesPrimary' in currentBook && !('seriesPrimary' in normBook))
+				const declaredAbsent = new Set(
+					observation.fields.filter((f) => f.value.state === 'absent').map((f) => f.field)
+				)
+				if ('seriesPrimary' in currentBook && declaredAbsent.has('seriesPrimary'))
 					unset.seriesPrimary = 1
-				if ('seriesSecondary' in currentBook && !('seriesSecondary' in normBook))
+				if ('seriesSecondary' in currentBook && declaredAbsent.has('seriesSecondary'))
 					unset.seriesSecondary = 1
 				await booksCol.updateOne(
 					{ _id: currentBook._id },
@@ -596,6 +602,24 @@ export class BookHistoryStore {
 					},
 					{ session }
 				)
+				// The returned/cached projection must reflect the row's
+				// resulting state: a series key that is retained (not
+				// declared absent) but absent from the incoming book keeps its
+				// stored value, so the API serves the series that the row
+				// still carries.
+				const retained: Record<string, unknown> = {
+					...(normBook as unknown as Record<string, unknown>)
+				}
+				for (const field of ['seriesPrimary', 'seriesSecondary'] as const) {
+					if (
+						!unset[field] &&
+						!(field in retained) &&
+						field in (currentBook as Record<string, unknown>)
+					) {
+						retained[field] = (currentBook as Record<string, unknown>)[field]
+					}
+				}
+				returned = toApiBook(retained as Document) ?? (retained as ApiBook)
 			}
 
 			// 9. Watermark. A fresh state must retain the counter the
@@ -614,7 +638,7 @@ export class BookHistoryStore {
 				finalSequence
 			)
 
-			return { data: toApiBook(book) ?? book, modified: true, disposition: 'accepted' }
+			return { data: returned, modified: true, disposition: 'accepted' }
 		})
 	}
 
@@ -745,7 +769,7 @@ export class BookHistoryStore {
 				if (resolution.competitorCount > 1) this.conflictError(asin)
 				const legacy = (
 					await booksCol
-						.find({ asin, region: { $nin: Array.from(supportedRegionSet) } }, { session })
+						.find({ asin, region: { $nin: SUPPORTED_REGIONS } }, { session })
 						.limit(1)
 						.toArray()
 				)[0]
@@ -1008,7 +1032,7 @@ export class BookHistoryStore {
 		)) as Document | null
 		if (row) {
 			const asin = String(row.asin)
-			const asinValid = typeof row.asin === 'string' && ASIN_SHAPE_REGEX.test(row.asin)
+			const asinValid = typeof row.asin === 'string' && asin10Regex.test(row.asin)
 			if (asinValid) {
 				const supported = isSupportedRegionValue(row.region)
 				const resolution = supported
@@ -1061,6 +1085,16 @@ export class BookHistoryStore {
 	 * `runId` no longer matches, its expected watermark no longer matches,
 	 * or the in-transaction write conflicts and the whole transaction
 	 * aborts. Returns the documents matched (0 means superseded/stale bound).
+	 *
+	 * The first advance (`expectLastId === null`) is additionally compatible
+	 * with a *cooperating* joiner: a runner that joined this run on E11000
+	 * (see the `seed()` join path) may find the stored watermark already
+	 * advanced past its own expected-null by the run's winner. In that case
+	 * the first write is idempotent (re-writing the current watermark), so
+	 * matching the stored watermark is allowed — the joiner rebases onto the
+	 * winner's progress and continues. Only the `runId` recheck and the
+	 * expected-watermark fence on subsequent advances reject a genuinely
+	 * superseded/stale runner.
 	 */
 	async seedCheckpoint(
 		session: ClientSession,
@@ -1074,9 +1108,11 @@ export class BookHistoryStore {
 			filter.lastId = expectLastId
 		} else {
 			// First advance: require the stored checkpoint to still be at its
-			// initial position so two runners both at a null watermark cannot
-			// both match and overwrite each other's first write.
-			filter.lastId = null
+			// initial position OR already advanced to the value being written.
+			// A cooperating joiner (joined the run on E11000) reads the winner's
+			// already-advanced watermark back and must be able to continue
+			// idempotently; only a genuinely stale runner is superseded here.
+			filter.lastId = { $in: [null, lastId] }
 		}
 		const result = await this.collection<SeedProgressDoc>(COLLECTIONS.seedProgress).updateOne(
 			filter,

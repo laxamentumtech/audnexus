@@ -88,7 +88,7 @@ Tests for this project use Bun's built-in test runner. Tests can be done locally
 
 - `bun run test`
 
-To generate a coverage report, run `bun test --coverage`; it is written to the `coverage/` directory under the project directory.
+To generate a coverage report, run `bun run test`; it is written to the `coverage/` directory under the project directory.
 
 ## ⚠️ Error Handling <a name = "error_handling"></a>
 
@@ -268,7 +268,13 @@ prerequisite of enabling history in any deployment.
 
 ### Release identity
 
-Releases run automatically when `develop` is promoted to `main`; for a deliberate run, use **Actions → Release → Run workflow** on main, leaving version/bump empty for automatic selection. Each release publishes an image under an immutable version tag at GitHub Container Registry (ghcr.io) — production deployments should pin one of those release tags, never `:latest`.
+One normal `develop` → `main` merge-commit promotion runs **Release** automatically. For a deliberate run, use **Actions → Release → Run workflow** on main; leave version/bump empty for automatic selection, or choose a version/bump override. The same body freezes the event source, creates one immutable version reservation, tests the native build, publishes a source/version-checked image, and explicitly dispatches the docs build for that exact release (dispatched from `main`, because the Pages environment only admits the `main` branch; the release identity travels in the dispatch inputs). No package.json version commit, preparation PR, or merge-back is needed.
+
+The release image consumes VERSION and GIT_COMMIT as OCI metadata. The package.json version remains package metadata, not the running application's release label. Published OpenAPI docs retain this project's release-label semantics: explicit/tagged builds use the selected release version; untagged builds use `dev-<SHA>` and an unconfigured local build uses `dev`. The docs workflow never copies package.json's frozen version. Release dispatches verify the matching source, wait for the identified docs run, and verify the immutable release HTML asset before publishing; develop/stale runs build artifacts without replacing production Pages. A release-dispatched docs build also stores the actual generated `docs/index.html` as an immutable `index.html` release asset labeled with its source, version, and SHA-256. That named-version HTML remains the authoritative documentation for the release even after production Pages moves on to a newer main source. Standalone tag/dev docs builds still derive their own tag or `dev-<SHA>` identity and never write release assets.
+
+Retries reuse the exact source's reservation and validate immutable image identity/digest instead of overwriting existing bytes. An existing `index.html` asset is accepted only when its recorded source/version and actual byte digest match the build being retried; an unlabeled asset is accepted only when its bytes exactly equal that build and is then labeled; a conflicting asset fails closed and nothing is overwritten. An existing tag is not completion. The source-bound release stays a draft until image/docs outputs finish, and the existing Annalist App fills notes; deploy its shared previous-published-ancestor fix before cutover. Because production Pages admits only the current main source, an old-source retry completes its immutable named docs and image outputs without claiming or performing a Pages rollback; Pages may intentionally remain on the newer source. CI retains branch/PR/SHA previews only; production consumers use the release tag/digest rather than a mutable latest alias. The example production compose does not pin an image itself: for the immutable `AUDNEXUS_IMAGE` tag/digest requirement, see the Docker Swarm Deployment section below.
+
+Main branch protection is unchanged; develop retains required checks/conflict detection without requiring an update after every unrelated merge. Native GitHub `queue: max` retains waiting manual runs across later automatic events. Current actionlint v1.7.12 rejects that documented key ([upstream parser gap](https://github.com/rhysd/actionlint/issues/657)); do not remove queue retention or hide unrelated findings to accommodate it.
 
 ## 🚀 Deployment <a name = "deployment"></a>
 
@@ -288,7 +294,7 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
 
    **Core Configuration:**
    - `MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`) [required]
-   - `REDIS_URL`: Redis connection URL (e.g., `redis://redis:6379`) [optional]
+   - `REDIS_URL`: Redis connection URL (e.g., `redis://redis:6379`) [required for deployments that run a worker — the worker rejects startup without it; optional for an API-only deployment. Compose supplies a default (`redis://redis:6379`)]
    - `HOST`: Server host address (default: `0.0.0.0`)
    - `PORT`: Server port (default: `3000`)
    - `LOG_LEVEL`: Log level - `trace`, `debug`, `info`, `warn`, `error`, `fatal` (default: `info`)
@@ -301,6 +307,8 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
 
    **Rate Limiting:**
    - `MAX_REQUESTS`: Max requests per minute per source (default: 100)
+   - `RATE_LIMIT_COOLDOWN_BASE_MS`: Base inter-item cooldown (in ms) applied after the first consecutive rate-limit response (default: 120000)
+   - `RATE_LIMIT_COOLDOWN_MAX_MS`: Ceiling (in ms) for the adaptive inter-item cooldown while rate-limited (default: 7200000)
 
    **Update Scheduling:**
    - `UPDATE_INTERVAL`: Update interval in days (default: 30). A startup pass is enqueued by the worker.
@@ -313,6 +321,10 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - `SCHEDULER_MAX_PER_REGION`: Hard cap for max per-region concurrency in batch processing (default: 5)
    - `HTTP_MAX_SOCKETS`: Maximum HTTP sockets (hard limit: 50, default: 50) - values above 50 will be clamped to 50
    - `HTTP_TIMEOUT_MS`: HTTP request timeout in milliseconds (default: 30000)
+   - `SCHEDULER_BATCH_SIZE`: Documents per batch when paginating over books/authors/chapters (default: 1000, hard cap: 10000)
+   - `SCHEDULER_ITEM_TIMEOUT_MS`: Hard deadline for a single scheduler item in milliseconds (default: 120000; `0` disables the guard)
+   - `SCHEDULER_MAX_ITEMS`: Hard cap on documents one pass visits (default: 0 = unlimited)
+   - `JITTER_MS`: Randomized pacing wait range in milliseconds for batch workers, as `min-max` or bare `max` (default: `0-5000`)
 
    **Feature Flags (Boolean - supports `true`, `True`, `TRUE`, `1`):**
    - `USE_PARALLEL_SCHEDULER`: Enable parallel UpdateScheduler (default: `false`) - HIGH RISK, requires testing
