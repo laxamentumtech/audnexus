@@ -360,6 +360,29 @@ paths:
                     statusCode: 400
                     error: Bad Request
                     message: Bad ASIN
+        '409':
+          description: |
+            History mode only: an unresolved identity conflict for this
+            asin+region (duplicate exact-region rows, or an exact-region row
+            alongside a region-less or unsupported-region row) blocks a
+            forced `update=1` refresh. A stored book is served normally
+            without a forced update; legacy mode returns 200 with the stale
+            data instead.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+              example:
+                statusCode: 409
+                error: Conflict
+                message: Book history identity conflict for B000000000
       tags:
         - Books
     delete:
@@ -416,7 +439,10 @@ paths:
                     type: string
               examples: {}
         '404':
-          description: Book not found
+          description: |
+            Book not found. In history mode this also covers the concurrent
+            delete race: a book removed by a concurrent delete (or already
+            absent) is not deleted again by this request.
           content:
             application/json:
               schema:
@@ -434,6 +460,28 @@ paths:
                     error: Bad Request
                     message: Bad ASIN
               examples: {}
+        '409':
+          description: |
+            History mode only: an unresolved identity conflict for this
+            asin+region (duplicate exact-region rows, or an exact-region row
+            alongside a region-less or unsupported-region row) blocks the
+            delete. Legacy mode deletes the found row and returns 200
+            instead.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+              example:
+                statusCode: 409
+                error: Conflict
+                message: Book history identity conflict for B000000000
       description: Deletes a single book
       tags:
         - Books
@@ -450,16 +498,19 @@ paths:
       description: |
         Returns the retained artwork gallery for one exact asin+region pair,
         newest immutable sequence first. Parsed (Amazon image ID) and unparsed
-        references are both listed; unparsed entries carry a null imageId and
-        expose their exact URL through their rendition entries. Live-observed
-        references report the URL verbatim; imported legacy references report
-        the server-side stored URL and import time via `legacy`.
+        references are both listed; unparsed entries carry a null imageId.
+        Live-observed references report the URL verbatim, and unparsed
+        live-observed entries expose their exact URL through their rendition
+        entries. Imported legacy references report the server-side stored URL
+        and import time via `legacy` with an empty `renditions` array — their
+        URL is not exposed through rendition entries.
 
         Read-only: served from retained data, and may answer even when the
         current book is deleted. 200 for a pending (no state yet) trusted
         current book, returning empty items; 409 for an unresolved identity
-        conflict; 404 for a wholly unknown resource; 400 for invalid
-        path/query input.
+        conflict only while no established history state exists (an
+        established retained state always wins and reads 200); 404 for a
+        wholly unknown resource; 400 for invalid path/query input.
       operationId: getBookArtwork
       tags:
         - Books
@@ -481,16 +532,20 @@ paths:
           in: query
           required: false
           schema:
-            type: number
-            minimum: 1
-            maximum: 100
-            default: 50
+            type: string
+            pattern: '^\d{1,3}$'
+            description: Page size, 1-100 (declared as a decimal digit string)
+            default: '50'
         - name: cursor
           in: query
           required: false
           schema:
             type: string
-            description: Opaque keyset continuation cursor from a previous page
+            maxLength: 2048
+            description: |
+              Opaque keyset continuation cursor from a previous page. Bound
+              to the exact asin+region pair that issued it; reusing it for
+              any other pair returns 400 ("Cursor does not match").
       responses:
         '200':
           description: Page of artwork (empty for a pending resource)
@@ -553,11 +608,11 @@ paths:
                     type: string
                     nullable: true
         '400':
-          description: Invalid query (bad limit, cursor, region, or unexpected keys)
+          description: Invalid path/query input (bad ASIN, bad limit, invalid or oversized or cross-book cursor, bad region, or unexpected keys)
         '404':
           description: No established history state and no trusted current book for this asin+region
         '409':
-          description: Unresolved identity conflict for this asin+region
+          description: Unresolved identity conflict for this asin+region (only while no established history state exists)
   '/books/{ASIN}/history':
     get:
       summary: Book history
@@ -570,9 +625,11 @@ paths:
         may answer even when the current book is deleted. 200 for an
         established (retained) resource and for a pending trusted current
         book (empty items, pending tracking); 409 for an unresolved identity
-        conflict; 404 for a wholly unknown resource. An invalid cursor on an
-        established resource is 400; on an unknown resource the existence
-        check runs first and is 404.
+        conflict only while no established history state exists (an
+        established retained state always wins and reads 200); 404 for a
+        wholly unknown resource. An invalid cursor on an established
+        resource is 400; on an unknown resource the existence check runs
+        first and is 404.
       operationId: getBookHistory
       tags:
         - Books
@@ -594,16 +651,21 @@ paths:
           in: query
           required: false
           schema:
-            type: number
-            minimum: 1
-            maximum: 100
-            default: 50
+            type: string
+            pattern: '^\d{1,3}$'
+            description: Page size, 1-100 (declared as a decimal digit string)
+            default: '50'
         - name: cursor
           in: query
           required: false
           schema:
             type: string
-            description: Opaque keyset continuation cursor from a previous page
+            maxLength: 2048
+            description: |
+              Opaque keyset continuation cursor from a previous page. Bound
+              to the exact asin+region pair (and `field` filter, if any)
+              that issued it; reusing it for a different pair or filter
+              returns 400 ("Cursor does not match").
         - name: field
           in: query
           required: false
@@ -661,11 +723,11 @@ paths:
                     type: string
                     nullable: true
         '400':
-          description: Invalid query (bad limit, cursor, region, field, or unexpected keys)
+          description: Invalid path/query input (bad ASIN, bad limit, invalid or oversized or cross-book cursor, bad region, bad field, or unexpected keys)
         '404':
           description: No established history state and no trusted current book for this asin+region
         '409':
-          description: Unresolved identity conflict for this asin+region
+          description: Unresolved identity conflict for this asin+region (only while no established history state exists)
   '/books/{ASIN}/history/{revision}':
     get:
       summary: Book history revision detail
@@ -736,12 +798,13 @@ paths:
                       Editorial name keys each map to a before/after value
                       envelope. An optional `artwork` key maps to the ordered
                       rendition transitions, each entry carrying `rendition`,
-                      `before`, and `after`. `before` is null on first
-                      observation; otherwise both are objects of `imageId` +
-                      `sourceUrl`.
+                      `before`, and `after`, both objects of `imageId` +
+                      `sourceUrl`. A first observation initializes baselines
+                      silently and produces no revision entry, so every
+                      recorded artwork transition has a non-null `before`.
                     additionalProperties: true
         '400':
-          description: Invalid parameter (bad ASIN, revision format, or region)
+          description: Invalid path/query input (bad ASIN, revision format, bad region, or unexpected query keys)
         '404':
           description: No such revision for this book/region
   '/books/backfill-ratings':
@@ -758,7 +821,9 @@ paths:
         are reported as `skipped` — their refreshed data is not persisted
         while pre-release, so they cannot be counted as updated. Only one
         backfill can be queued or running at a time (queue-wide, durable
-        across API restarts); concurrent requests receive `409`.
+        across API restarts); concurrent requests normally receive `409`,
+        though a racing request that is deduped on the job id before the
+        running check observes it receives `202` with the same job id.
       operationId: backfillRatings
       tags:
         - Books
@@ -786,7 +851,7 @@ paths:
                     description: BullMQ job id of the queued backfill
                 example:
                   message: Ratings backfill started
-                  id: '1'
+                  id: backfill-ratings
         '401':
           description: Missing or invalid admin token
           content:
@@ -830,7 +895,11 @@ paths:
                 error: Not Found
                 message: Route not available
         '503':
-          description: Redis is missing or not ready, so the backfill cannot be queued
+          description: |
+            Redis is missing or not ready, so the backfill cannot be queued.
+            A Redis that is ready but erroring surfaces as 500 instead; and
+            a 503 from a queue-add deadline does not prove nothing was
+            queued, so a later 409 may follow a 503.
           content:
             application/json:
               schema:

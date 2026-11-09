@@ -6,7 +6,7 @@ import argparse
 import hashlib
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 import re
@@ -476,8 +476,12 @@ def dispatch_docs(repo, source, version, correlation):
     # repo endpoint (the runs API has no "now", and the repo-level
     # /actions root is not a documented endpoint — it 404s): same-second
     # dispatches are legal, so the header is captured immediately before
-    # the dispatch call and the matcher accepts created_at >= it.
-    dispatch_time = parse_server_date(repo.server_date())
+    # the dispatch call and the matcher accepts created_at >= it. The
+    # tolerance absorbs cross-endpoint clock skew (the Date header and the
+    # run's created_at come from different endpoints and can differ by a
+    # second or two); the stale-run exclusion still rests on the
+    # correlation-unique display_title.
+    dispatch_time = parse_server_date(repo.server_date()) - timedelta(seconds=5)
     repo.run("gh", "workflow", "run", "deploy-docs.yml", "--repo", repo.repository(), "--ref", "main", "-f", f"version={tag}", "-f", f"source={source}", "-f", f"release_run={correlation}")
     expected_title = f"Release docs {correlation}"
     deadline = time.monotonic() + 120

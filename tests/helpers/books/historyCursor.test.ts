@@ -6,7 +6,8 @@ import {
 	decodeCursor,
 	encodeArtworkCursor,
 	encodeCursor,
-	HISTORY_CURSOR_MAX_LENGTH
+	HISTORY_CURSOR_MAX_LENGTH,
+	InvalidCursorError
 } from '#helpers/books/historyCursor'
 
 const asin = 'B00TEST123'
@@ -95,6 +96,21 @@ describe('historyCursor', () => {
 			'utf8'
 		).toString('base64url')
 		expect(() => decodeCursor(bad, asin, region, null)).toThrow('Invalid cursor')
+	})
+
+	test('encode rejects payloads whose encoded form exceeds the cursor budget', () => {
+		// The identity alphabet is unbounded, so an oversized asin/region
+		// pushes the base64url length past HISTORY_CURSOR_MAX_LENGTH before
+		// any decode path can run — the encoder must fail, not emit an
+		// input the decoder would always reject.
+		const longAsin = `A${'B'.repeat(HISTORY_CURSOR_MAX_LENGTH)}`
+		expect(() => encodeCursor(longAsin, region, null, 1, 2)).toThrow('Invalid cursor value')
+		expect(() => encodeArtworkCursor(longAsin, region, 1, 2)).toThrow('Invalid cursor value')
+	})
+
+	test('decode rejects an artwork cursor bound to a different book', () => {
+		const cursor = encodeArtworkCursor(asin, region, 9, 4)
+		expect(() => decodeArtworkCursor(cursor, OTHER_ASIN, region)).toThrow(InvalidCursorError)
 	})
 
 	test('encode requires positive before and safe upper', () => {

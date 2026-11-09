@@ -21,7 +21,14 @@ import type {
 	HistoryBaselines,
 	RenditionBaseline
 } from '#config/bookHistory'
-import { bookKey, HISTORY_INDEX_DEFINITIONS, SEED_PROGRESS_ID } from '#config/bookHistory'
+import {
+	ASIN_SHAPE_REGEX,
+	bookKey,
+	HISTORY_INDEX_DEFINITIONS,
+	HistoryValueSchema,
+	isSupportedRegionValue,
+	SEED_PROGRESS_ID
+} from '#config/bookHistory'
 import type { ApiBook } from '#config/types'
 import { ApiBookSchema } from '#config/types'
 import { parseArtworkReference } from '#helpers/books/audible/BookObservation'
@@ -41,7 +48,8 @@ const COLLECTIONS = {
 	books: 'books'
 } as const
 
-const MAX_SAFE_COUNTER = Number.MAX_SAFE_INTEGER
+/** Hard cap on the per-key generation counter (a JS safe integer). */
+const GENERATION_LIMIT = Number.MAX_SAFE_INTEGER
 
 export type PersistDisposition = 'accepted' | 'rejected' | 'stale' | 'transient'
 
@@ -59,6 +67,13 @@ export interface PersistResult {
 	disposition: PersistDisposition
 }
 
+/** Raw document shapes as stored (not papr-stamped). The papr model's
+ * document type (the Zod-decoded `BookHistoryStateDocument` /
+ * `BookHistorySeedProgressDocument` in `#config/models/BookHistory`) is
+ * AUTHORITATIVE: these interfaces mirror it for the store's raw read/write
+ * boundary, and must be kept in sync when the papr schema changes. A full
+ * compile-time link is not expressible (papr's document type carries
+ * papr-internal stamped fields that are not part of the raw shape). */
 interface SeedProgressDoc extends Document {
 	_id: string
 	runId: string
@@ -105,15 +120,16 @@ function isPreOrderBook(book: ApiBook): boolean {
 }
 
 /**
- * The existing update flow's genre safeguard, reproduced exactly: an
- * unequal update is only allowed when genre evidence exists (old genres
- * present, or incoming genres present) and the incoming genres are
- * non-empty.
+ * The existing update flow's genre safeguard, reproduced exactly
+ * (`PaprAudibleBookHelper.createOrUpdate`): an unequal update is only
+ * allowed when genre evidence exists — the stored genres are present, or
+ * the stored genres are absent and the incoming genres are — and the
+ * incoming genres are non-empty (no "nuked data" updates).
  */
 function genreSafeguardPasses(oldDoc: Document, newBook: ApiBook): boolean {
 	const oldGenres = oldDoc.genres
 	const newGenres = newBook.genres
-	return Boolean((oldGenres || (!oldGenres && newGenres)) && newGenres?.length)
+	return Boolean(oldGenres || (!oldGenres && newGenres)) && Boolean(newGenres?.length)
 }
 
 /** Deep structural equality over the sanitized public projections. */
@@ -206,21 +222,26 @@ export class BookHistoryStore {
 	): Promise<CurrentResolution> {
 		// Non-exact competitors include region-less, null, and
 		// non-supported-region rows — every row that is not the exact
-		// region for this identity.
-		const rows = (await this.collection<Document>(COLLECTIONS.books)
-			.find(
-				{ asin, $or: [{ region }, { region: { $nin: Array.from(supportedRegionSet) } }] },
-				{ session }
-			)
-			.sort({ _id: 1 })
-			.toArray()) as Document[]
-		const exact = rows.filter((row) => row.region === region)
-		const competitors = rows.filter((row) => row.region !== region)
-		return {
-			trustedBook: exact.length === 1 && competitors.length === 0 ? exact[0] : null,
-			exactCount: exact.length,
-			competitorCount: competitors.length
-		}
+		// region for this identity. Counts bound memory to O(1); the
+		// trusted row itself is fetched (bounded to one) only when the
+		// identity resolves to exactly one exact row and no competitor.
+		const booksCol = this.collection<Document>(COLLECTIONS.books)
+		const exactCount = await booksCol.countDocuments({ asin, region }, { session })
+		const competitorCount = await booksCol.countDocuments(
+			{ asin, region: { $nin: Array.from(supportedRegionSet) } },
+			{ session }
+		)
+		const trustedBook =
+			exactCount === 1 && competitorCount === 0
+				? ((
+						(await booksCol
+							.find({ asin, region }, { session })
+							.sort({ _id: 1 })
+							.limit(1)
+							.toArray()) as Document[]
+					)[0] ?? null)
+				: null
+		return { trustedBook, exactCount, competitorCount }
 	}
 
 	private conflictError(asin: string): never {
@@ -270,9 +291,10 @@ export class BookHistoryStore {
 				.toArray()
 		)[0]
 		if (existing) {
-			if (imageId === null && existing.storedUrl && existing.storedUrl !== storedUrl) {
-				throw new Error(`Unparsed artwork hash collision for ${asin}/${region}`)
-			}
+			// The unique `artwork_unparsed` index already guarantees the same
+			// sha256 key per asin+region, and the stored URL lives under
+			// `legacy.storedUrl`; a mismatched URL under the same hash is
+			// recorded, not fatal.
 			if (!existing.legacy) {
 				await artwork.updateOne({ _id: existing._id }, { $set: { legacy } }, { session })
 			}
@@ -386,7 +408,7 @@ export class BookHistoryStore {
 				{ session, returnDocument: 'after' }
 			)) as StateDoc | null
 			if (!updated) throw new Error(`History state missing after reservation for ${key}`)
-			if (updated.allocatedGeneration > MAX_SAFE_COUNTER)
+			if (updated.allocatedGeneration > GENERATION_LIMIT)
 				throw new Error(`History generation counter overflow for ${key}`)
 			return updated.allocatedGeneration
 		})
@@ -457,10 +479,7 @@ export class BookHistoryStore {
 					// touching any public field, and an established state
 					// with empty baselines (seeded pre-history row) must be
 					// initialised from this observation.
-					const equalBaselines: HistoryBaselines = {
-						fields: (state?.fields ?? []) as FieldBaseline[],
-						renditions: (state?.renditions ?? []) as RenditionBaseline[]
-					}
+					const equalBaselines = this.decodeBaselines(state)
 					const equalComparison = compareBookObservation(equalBaselines, observation)
 					const equalSequence = await this.upsertArtworkRefs(
 						session,
@@ -473,18 +492,14 @@ export class BookHistoryStore {
 						equalComparison.changedFields.length > 0 ? (state?.revision ?? 0) + 1 : 0
 					if (revisionAdvance > 0) {
 						// Rendition-only transition: one revision document.
-						await this.collection<Document>(COLLECTIONS.revision).insertOne(
-							{
-								asin,
-								region,
-								revision: revisionAdvance,
-								generation,
-								observedAt: observation.observedAt,
-								changedFields: [...equalComparison.changedFields],
-								policies: equalComparison.policies,
-								changes: equalComparison.changes
-							},
-							{ session }
+						await this.insertRevision(
+							session,
+							asin,
+							region,
+							revisionAdvance,
+							generation,
+							observation.observedAt,
+							equalComparison
 						)
 					}
 					await this.applyWatermark(
@@ -521,12 +536,10 @@ export class BookHistoryStore {
 				}
 			}
 
-			// 5. Compare against same-policy baselines.
-			const baselines: HistoryBaselines = {
-				fields: (state?.fields ?? []) as FieldBaseline[],
-				renditions: (state?.renditions ?? []) as RenditionBaseline[]
-			}
-			const comparison = compareBookObservation(baselines, observation)
+			// 5. Compare against same-policy baselines (validated at the
+			// read boundary — a malformed stored value is a server fault,
+			// not a silent comparison input).
+			const comparison = compareBookObservation(this.decodeBaselines(state), observation)
 			const changed = comparison.changedFields.length > 0
 			const nextRevision = (state?.revision ?? 0) + (changed ? 1 : 0)
 
@@ -545,18 +558,14 @@ export class BookHistoryStore {
 			// 7. At most one revision document for this observation's
 			//    changed fields.
 			if (changed) {
-				await this.collection<Document>(COLLECTIONS.revision).insertOne(
-					{
-						asin,
-						region,
-						revision: nextRevision,
-						generation,
-						observedAt: observation.observedAt,
-						changedFields: [...comparison.changedFields],
-						policies: comparison.policies,
-						changes: comparison.changes
-					},
-					{ session }
+				await this.insertRevision(
+					session,
+					asin,
+					region,
+					nextRevision,
+					generation,
+					observation.observedAt,
+					comparison
 				)
 			}
 
@@ -569,10 +578,20 @@ export class BookHistoryStore {
 					{ session }
 				)
 			} else {
+				// `$set` alone cannot clear fields the upstream removed: a
+				// series-less response normalizes to absent keys, so
+				// explicitly unset the series fields that disappeared from
+				// the stored row to keep the baseline and the row in step.
+				const unset: Record<string, 1> = {}
+				if ('seriesPrimary' in currentBook && !('seriesPrimary' in normBook))
+					unset.seriesPrimary = 1
+				if ('seriesSecondary' in currentBook && !('seriesSecondary' in normBook))
+					unset.seriesSecondary = 1
 				await booksCol.updateOne(
 					{ _id: currentBook._id },
 					{
 						$set: { ...normBook },
+						...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
 						$currentDate: { updatedAt: true }
 					},
 					{ session }
@@ -597,6 +616,56 @@ export class BookHistoryStore {
 
 			return { data: toApiBook(book) ?? book, modified: true, disposition: 'accepted' }
 		})
+	}
+
+	/**
+	 * Read the stored state baselines back through the shared Zod value
+	 * schema: a malformed `value` envelope is a server fault (500), never a
+	 * silent comparison input. (The store must not import
+	 * `#config/models/BookHistory` — that would create a papr cycle — so the
+	 * decode is local, mirroring the model's `decodeStateBaselines`.)
+	 */
+	private decodeBaselines(state: StateDoc | null): HistoryBaselines {
+		if (!state) return { fields: [], renditions: [] }
+		const fields: FieldBaseline[] = (state.fields ?? []).map((entry) => ({
+			field: entry.field,
+			policy: entry.policy,
+			value: HistoryValueSchema.parse(entry.value),
+			baselineAt: entry.baselineAt
+		}))
+		const renditions: RenditionBaseline[] = (state.renditions ?? []).map((entry) => ({
+			rendition: entry.rendition,
+			policy: entry.policy,
+			imageId: entry.imageId,
+			sourceUrl: entry.sourceUrl,
+			baselineAt: entry.baselineAt
+		}))
+		return { fields, renditions }
+	}
+
+	/** Insert one immutable revision document for a comparison's changes. */
+	private async insertRevision(
+		session: ClientSession,
+		asin: string,
+		region: string,
+		revision: number,
+		generation: number,
+		observedAt: Date,
+		comparison: ComparisonResult
+	): Promise<void> {
+		await this.collection<Document>(COLLECTIONS.revision).insertOne(
+			{
+				asin,
+				region,
+				revision,
+				generation,
+				observedAt,
+				changedFields: [...comparison.changedFields],
+				policies: comparison.policies,
+				changes: comparison.changes
+			},
+			{ session }
+		)
 	}
 
 	private async applyWatermark(
@@ -790,6 +859,10 @@ export class BookHistoryStore {
 			await artwork.insertOne(doc, { session })
 		}
 		if (nextSequence !== startSequence) {
+			// The state document is only absent on the fresh-create path
+			// (no prior state row); the caller's `applyWatermark` inserts
+			// the state with the final sequence in the same transaction, so
+			// skipping the $set here is the intended tolerated-missing case.
 			await this.collection<StateDoc>(COLLECTIONS.state).updateOne(
 				{ _id: bookKey(asin, region) },
 				{ $set: { assetSequence: nextSequence } },
@@ -825,12 +898,24 @@ export class BookHistoryStore {
 		if (!helloName) throw failure()
 		const db = this.requireClient().db('audnexus')
 		for (const def of HISTORY_INDEX_DEFINITIONS) {
-			const indexes = (await db.collection(def.collection).listIndexes().toArray()) as Array<{
+			let indexes: Array<{
 				name: string
 				key: Record<string, number>
 				unique?: boolean
 				partialFilterExpression?: Record<string, unknown>
 			}>
+			try {
+				indexes = (await db.collection(def.collection).listIndexes().toArray()) as typeof indexes
+			} catch (error) {
+				// A not-yet-created collection reports "ns not found" (code 26);
+				// map it to the stable failure message like every other
+				// unprepared state. Any other error (e.g. code 13 unauthorized)
+				// keeps its own diagnostics.
+				if (error && typeof error === 'object' && 'code' in error && error.code === 26) {
+					throw failure()
+				}
+				throw error
+			}
 			const match = indexes.find((idx) => idx.name === def.name)
 			if (!match) throw failure()
 			const keysEqual =
@@ -852,14 +937,17 @@ export class BookHistoryStore {
 		}
 		const probeId = `probe-${randomUUID()}`
 		try {
-			const progress = this.collection<SeedProgressDoc>(COLLECTIONS.seedProgress)
+			// The probe rides on the seed-progress collection by design: it
+			// needs any history-owned, transaction-capable collection, and
+			// this one is always present once `prepare` has run.
+			const probe = this.collection<SeedProgressDoc>(COLLECTIONS.seedProgress)
 			await this.withTx(async (session) => {
 				const now = new Date()
-				await progress.insertOne(
+				await probe.insertOne(
 					{ _id: probeId, runId: probeId, completed: false, startedAt: now, updatedAt: now },
 					{ session }
 				)
-				await progress.deleteOne({ _id: probeId }, { session })
+				await probe.deleteOne({ _id: probeId }, { session })
 			})
 		} catch {
 			throw failure()
@@ -877,16 +965,6 @@ export class BookHistoryStore {
 		return this.withTx(fn)
 	}
 
-	async seedProgressDoc(
-		session: ClientSession,
-		id: string = SEED_PROGRESS_ID
-	): Promise<SeedProgressDoc | null> {
-		return (await this.collection<SeedProgressDoc>(COLLECTIONS.seedProgress).findOne(
-			{ _id: id },
-			{ session }
-		)) as SeedProgressDoc | null
-	}
-
 	/** Signals a seed worker whose run was superseded by `--restart`. */
 	static readonly SUPERSEDED = 'Seed run superseded'
 
@@ -901,7 +979,11 @@ export class BookHistoryStore {
 	 * `legacyCaptured`. The singleton checkpoint's `runId` is re-read inside
 	 * the transaction; a superseded run stops before its next write. The
 	 * checkpoint is advanced conditionally (same `runId`, same `_id` bound)
-	 * after the row's successful work, in the same transaction.
+	 * after the row's successful work, in the same transaction. Concurrency
+	 * safety: a run superseded mid-flight is detected by the checkpoint
+	 * `runId` recheck at the row's start and by the write-conflict abort of
+	 * its conditional checkpoint advance (matchedCount 0), so a stale runner
+	 * commits no progress after `--restart`.
 	 *
 	 * Returns the outcome: `captured` (legacy reference stored/merged),
 	 * `exception` (unresolvable identity recorded), `noState` (row gone), or
@@ -926,8 +1008,7 @@ export class BookHistoryStore {
 		)) as Document | null
 		if (row) {
 			const asin = String(row.asin)
-			const asinValid =
-				typeof row.asin === 'string' && /^(B[0-9A-Z]{9}|\d{9}(X|\d))$/.test(row.asin)
+			const asinValid = typeof row.asin === 'string' && ASIN_SHAPE_REGEX.test(row.asin)
 			if (asinValid) {
 				const supported = isSupportedRegionValue(row.region)
 				const resolution = supported
@@ -976,8 +1057,10 @@ export class BookHistoryStore {
 	/**
 	 * Conditionally advance the singleton seed checkpoint inside the
 	 * caller's transaction: same `runId` and (when given) the expected
-	 * previous watermark. A superseded run cannot advance or complete.
-	 * Returns the documents matched (0 means superseded/stale bound).
+	 * previous watermark. A superseded run cannot advance or complete: its
+	 * `runId` no longer matches, its expected watermark no longer matches,
+	 * or the in-transaction write conflicts and the whole transaction
+	 * aborts. Returns the documents matched (0 means superseded/stale bound).
 	 */
 	async seedCheckpoint(
 		session: ClientSession,
@@ -989,6 +1072,11 @@ export class BookHistoryStore {
 		if (expectLastId) {
 			if (expectLastId.equals(lastId)) return 0
 			filter.lastId = expectLastId
+		} else {
+			// First advance: require the stored checkpoint to still be at its
+			// initial position so two runners both at a null watermark cannot
+			// both match and overwrite each other's first write.
+			filter.lastId = null
 		}
 		const result = await this.collection<SeedProgressDoc>(COLLECTIONS.seedProgress).updateOne(
 			filter,
@@ -1010,8 +1098,4 @@ export class BookHistoryStore {
 		)
 		return result.matchedCount
 	}
-}
-
-function isSupportedRegionValue(region: unknown): region is string {
-	return typeof region === 'string' && supportedRegionSet.has(region)
 }

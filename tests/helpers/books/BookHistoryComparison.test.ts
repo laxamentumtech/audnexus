@@ -243,6 +243,51 @@ describe('artwork comparison', () => {
 		])
 	})
 
+	test('artwork policy change re-baselines silently even when the image ID differs', () => {
+		// A stored baseline under a superseded policy is never comparable:
+		// the baseline is replaced silently (mirrors the editorial policy
+		// check), so a differing incoming ID records no artwork revision.
+		const previous: HistoryBaselines = {
+			fields: [],
+			renditions: [
+				{
+					rendition: 'default',
+					policy: 'artwork:legacy:v0',
+					imageId: 'OLD',
+					sourceUrl: 'https://m.media-amazon.com/images/I/OLD._V1_.jpg',
+					baselineAt: earlier
+				}
+			]
+		}
+		const result = compareBookObservation(
+			previous,
+			observation(
+				[],
+				[
+					{
+						rendition: 'default',
+						sourceUrl: 'https://m.media-amazon.com/images/I/NEW.jpg',
+						imageId: 'NEW'
+					}
+				]
+			)
+		)
+		expect(result.changedFields).toEqual([])
+		expect(result.changes).not.toHaveProperty('artwork')
+		expect(result.policies.artwork).not.toHaveProperty('default')
+		expect(hasChanges(result)).toBe(false)
+		// The baseline is silently replaced at the current policy.
+		expect(result.renditions).toEqual([
+			{
+				rendition: 'default',
+				policy: ARTWORK_POLICY,
+				imageId: 'NEW',
+				sourceUrl: 'https://m.media-amazon.com/images/I/NEW.jpg',
+				baselineAt: now
+			}
+		])
+	})
+
 	test('new comparable renditions initialize baselines silently', () => {
 		const result = compareBookObservation(
 			baselines(),

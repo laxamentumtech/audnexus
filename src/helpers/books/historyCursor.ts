@@ -13,6 +13,14 @@
 /** Hard limit for public cursor input length. */
 export const HISTORY_CURSOR_MAX_LENGTH = 2048
 
+/**
+ * A cursor-validation failure on the decode (client-input) path. The
+ * routes map this to a 400; encode failures (server-side input, e.g. a
+ * corrupted state watermark) deliberately do NOT throw this and propagate
+ * as 500s.
+ */
+export class InvalidCursorError extends Error {}
+
 export interface HistoryCursorPayload {
 	v: 1
 	kind: 'history'
@@ -74,13 +82,13 @@ function isSafeCount(value: unknown, positive: boolean): value is number {
 }
 
 function validateInput(cursor: string): string {
-	if (cursor.length > HISTORY_CURSOR_MAX_LENGTH) throw new Error('Invalid cursor')
-	if (!BASE64URL_ALPHABET.test(cursor)) throw new Error('Invalid cursor')
+	if (cursor.length > HISTORY_CURSOR_MAX_LENGTH) throw new InvalidCursorError('Invalid cursor')
+	if (!BASE64URL_ALPHABET.test(cursor)) throw new InvalidCursorError('Invalid cursor')
 	const raw = Buffer.from(cursor, 'base64url').toString('utf8')
 	// eslint-disable-next-line no-control-regex -- validating JSON text for control characters
 	const invalidCharacter = /[\u0000-\u001f\u007f]/.test(raw)
 	if (invalidCharacter || Buffer.from(raw, 'utf8').toString('base64url') !== cursor) {
-		throw new Error('Invalid cursor')
+		throw new InvalidCursorError('Invalid cursor')
 	}
 	return raw
 }
@@ -91,12 +99,12 @@ function strictRecord(raw: string): Record<string, unknown> {
 		parsed = JSON.parse(raw)
 	} catch (error) {
 		// Map any parse failure to the stable cursor error contract.
-		throw new Error('Invalid cursor', { cause: error })
+		throw new InvalidCursorError('Invalid cursor', { cause: error })
 	}
 	if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-		throw new Error('Invalid cursor')
+		throw new InvalidCursorError('Invalid cursor')
 	}
-	if (canonicalJson(parsed) !== raw) throw new Error('Invalid cursor')
+	if (canonicalJson(parsed) !== raw) throw new InvalidCursorError('Invalid cursor')
 	return parsed as Record<string, unknown>
 }
 
@@ -152,8 +160,8 @@ export function encodeArtworkCursor(
 /**
  * Decode and verify a history cursor for the exact asin+region+field
  * listing. `field` is the requested filter; `null` means unfiltered.
- * Returns null when no cursor was supplied. Throws a plain Error for any
- * malformed, non-canonical, oversized, or unbound cursor.
+ * Returns null when no cursor was supplied. Throws `InvalidCursorError`
+ * for any malformed, non-canonical, oversized, or unbound cursor.
  */
 export function decodeCursor(
 	cursor: string | undefined,
@@ -163,13 +171,13 @@ export function decodeCursor(
 ): DecodedHistoryCursor | null {
 	if (cursor === undefined) return null
 	const payload = strictRecord(validateInput(cursor))
-	if (payload.v !== 1) throw new Error('Invalid cursor')
-	if (payload.kind !== 'history') throw new Error('Invalid cursor')
-	if (payload.asin !== asin) throw new Error('Cursor does not match book')
-	if (payload.region !== region) throw new Error('Cursor does not match book')
-	if (payload.field !== field) throw new Error('Cursor does not match filter')
+	if (payload.v !== 1) throw new InvalidCursorError('Invalid cursor')
+	if (payload.kind !== 'history') throw new InvalidCursorError('Invalid cursor')
+	if (payload.asin !== asin) throw new InvalidCursorError('Cursor does not match book')
+	if (payload.region !== region) throw new InvalidCursorError('Cursor does not match book')
+	if (payload.field !== field) throw new InvalidCursorError('Cursor does not match filter')
 	if (!isSafeCount(payload.upper, false) || !isSafeCount(payload.before, true)) {
-		throw new Error('Invalid cursor')
+		throw new InvalidCursorError('Invalid cursor')
 	}
 	return { upper: payload.upper, before: payload.before }
 }
@@ -185,12 +193,12 @@ export function decodeArtworkCursor(
 ): DecodedHistoryCursor | null {
 	if (cursor === undefined) return null
 	const payload = strictRecord(validateInput(cursor))
-	if (payload.v !== 1) throw new Error('Invalid cursor')
-	if (payload.kind !== 'artwork') throw new Error('Invalid cursor')
-	if (payload.asin !== asin) throw new Error('Cursor does not match book')
-	if (payload.region !== region) throw new Error('Cursor does not match book')
+	if (payload.v !== 1) throw new InvalidCursorError('Invalid cursor')
+	if (payload.kind !== 'artwork') throw new InvalidCursorError('Invalid cursor')
+	if (payload.asin !== asin) throw new InvalidCursorError('Cursor does not match book')
+	if (payload.region !== region) throw new InvalidCursorError('Cursor does not match book')
 	if (!isSafeCount(payload.upper, false) || !isSafeCount(payload.before, true)) {
-		throw new Error('Invalid cursor')
+		throw new InvalidCursorError('Invalid cursor')
 	}
 	return { upper: payload.upper, before: payload.before }
 }

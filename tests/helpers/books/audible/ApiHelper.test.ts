@@ -254,15 +254,28 @@ describe('ApiHelper edge cases should', () => {
 		const observed = captureHelper.getHistoryObservation()
 		expect(observed).toBeDefined()
 		const literatureTypeField = observed!.fields.find((f) => f.field === 'literatureType')
-		expect(literatureTypeField?.value).toEqual({
-			state: parsed.literatureType ? 'value' : 'absent',
-			...(parsed.literatureType ? { value: parsed.literatureType } : {})
-		})
-		expect(observed!.fields.find((f) => f.field === 'genres')?.value).toEqual(
-			parsed.genres && parsed.genres.length > 0
-				? { state: 'value', value: canonicalGenres(parsed.genres) }
-				: { state: 'absent' }
-		)
+		if (parsed.literatureType) {
+			expect(literatureTypeField?.value).toEqual({
+				state: 'value',
+				value: parsed.literatureType
+			})
+		} else {
+			// `buildFieldObservations` omits the field entirely when
+			// literatureType is not justified/present — it never emits a
+			// `{state:'absent'}` envelope for it.
+			expect(literatureTypeField).toBeUndefined()
+		}
+		const genresField = observed!.fields.find((f) => f.field === 'genres')
+		if (parsed.genres && parsed.genres.length > 0) {
+			expect(genresField?.value).toEqual({
+				state: 'value',
+				value: canonicalGenres(parsed.genres)
+			})
+		} else {
+			// Same omission for no categories returned (see the literatureType
+			// branch) — the field is absent, not an `absent` value envelope.
+			expect(genresField).toBeUndefined()
+		}
 	})
 
 	test('getRatings omits absent performance/story distributions', () => {

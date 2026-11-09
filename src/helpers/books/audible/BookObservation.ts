@@ -41,7 +41,7 @@ const BOOK_SERIES_CONTENT_TYPES: readonly string[] = ['MultiPartBook', 'SinglePa
 /** Exact allowed artwork hosts. Other Amazon hosts are not comparable. */
 const ARTWORK_HOSTS: readonly string[] = ['m.media-amazon.com', 'images-na.ssl-images-amazon.com']
 
-const ARTWORK_PATH_RE = /^\/images\/I\/([A-Za-z0-9+_-]+)(?:\.[A-Za-z0-9_.]+)*\.(jpg|jpeg|png|webp)$/
+const ARTWORK_PATH_RE = /^\/images\/I\/([A-Za-z0-9+_-]+)(?:\.[A-Za-z0-9_]+)*\.(jpg|jpeg|png|webp)$/
 
 /**
  * Extract the Amazon asset ID from a returned product image URL, or null
@@ -204,7 +204,10 @@ export function buildFieldObservations(input: ObservationInputs): FieldObservati
 		}
 	}
 
-	// Genres: API-mapped, canonicalized (StitchHelper may supersede)
+	// Genres: API-mapped, canonicalized (StitchHelper may supersede).
+	// Intentional asymmetry: an empty `apiGenres` means "no categories
+	// returned" (evidence absent → omit, retain any old baseline), not an
+	// explicit "genres removed" observation — so no `ABSENT` is pushed here.
 	if (apiGenres.length > 0) {
 		push('genres', GENRES_API_POLICY, asValue(canonicalGenres(apiGenres)))
 	}

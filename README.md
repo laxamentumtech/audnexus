@@ -1,8 +1,3 @@
-<p align="center">
-  <a href="" rel="noopener">
- <img width=200px height=200px src="../assets/logos/logo.png?raw=true" alt="Project logo"></a>
-</p>
-
 <h3 align="center">audnexus</h3>
 
 <div align="center">
@@ -33,7 +28,6 @@
 - [Usage](#usage)
 - [Deployment](#deployment)
 - [Built Using](#built_using)
-- [TODO](../TODO.md)
 - [Contributing](../CONTRIBUTING.md)
 - [Authors](#authors)
 - [Acknowledgments](#acknowledgement)
@@ -56,7 +50,7 @@ These instructions will get you a copy of the project up and running on your loc
   - [Coolify](https://coolify.io) - Self-hosted PaaS platform with automatic deployments from Git
   - [Docker Swarm](https://docs.docker.com/engine/swarm/swarm-tutorial/) - Docker Compose stack with Traefik reverse proxy
   - Directly, via `bun run`
-    - Mongo 4 or greater
+    - MongoDB 6.0+ recommended (driver v7); replica set required for book history
     - [Bun](https://bun.sh/) 1.3.9 or greater
     - Redis
   - Registered Audible device keys, `ADP_TOKEN` and `PRIVATE_KEY`, for chapters. You will need Python and `audible` for this. [More on that here](https://audible.readthedocs.io/en/latest/auth/register.html)
@@ -94,7 +88,7 @@ Tests for this project use Bun's built-in test runner. Tests can be done locally
 
 - `bun run test`
 
-After the tests have run, you may also browse the test coverage. This is generated in `coverage/` directory under the project directory.
+To generate a coverage report, run `bun test --coverage`; it is written to the `coverage/` directory under the project directory.
 
 ## ⚠️ Error Handling <a name = "error_handling"></a>
 
@@ -274,13 +268,7 @@ prerequisite of enabling history in any deployment.
 
 ### Release identity
 
-One normal `develop` → `main` merge-commit promotion runs **Release** automatically. For a deliberate run, use **Actions → Release → Run workflow** on main; leave version/bump empty for automatic selection, or choose a version/bump override. The same body freezes the event source, creates one immutable version reservation, tests the native build, publishes a source/version-checked image, and explicitly dispatches the docs build for that exact release (dispatched from `main`, because the Pages environment only admits the `main` branch; the release identity travels in the dispatch inputs). No package.json version commit, preparation PR, or merge-back is needed.
-
-The release image consumes VERSION and GIT_COMMIT as OCI metadata. The package.json version remains package metadata, not the running application's release label. Published OpenAPI docs retain this project's release-label semantics: explicit/tagged builds use the selected release version; untagged builds use `dev-<SHA>` and an unconfigured local build uses `dev`. The docs workflow never copies package.json's frozen version. Release dispatches verify the matching source, wait for the identified docs run, and verify the immutable release HTML asset before publishing; develop/stale runs build artifacts without replacing production Pages. A release-dispatched docs build also stores the actual generated `docs/index.html` as an immutable `index.html` release asset labeled with its source, version, and SHA-256. That named-version HTML remains the authoritative documentation for the release even after production Pages moves on to a newer main source. Standalone tag/dev docs builds still derive their own tag or `dev-<SHA>` identity and never write release assets.
-
-Retries reuse the exact source's reservation and validate immutable image identity/digest instead of overwriting existing bytes. An existing `index.html` asset is accepted only when its recorded source/version and actual byte digest match the build being retried; an unlabeled asset is accepted only when its bytes exactly equal that build and is then labeled; a conflicting asset fails closed and nothing is overwritten. An existing tag is not completion. The source-bound release stays a draft until image/docs outputs finish, and the existing Annalist App fills notes; deploy its shared previous-published-ancestor fix before cutover. Because production Pages admits only the current main source, an old-source retry completes its immutable named docs and image outputs without claiming or performing a Pages rollback; Pages may intentionally remain on the newer source. CI retains branch/PR/SHA previews only; production consumers use the release tag/digest rather than a mutable latest alias. The example production compose does not pin an image itself: the operator sets `AUDNEXUS_IMAGE` to an immutable release tag or digest pin, and the preflight validator is the deploy-time proof that the value is immutable.
-
-Main branch protection is unchanged; develop retains required checks/conflict detection without requiring an update after every unrelated merge. Native GitHub `queue: max` retains waiting manual runs across later automatic events. Current actionlint v1.7.12 rejects that documented key ([upstream parser gap](https://github.com/rhysd/actionlint/issues/657)); do not remove queue retention or hide unrelated findings to accommodate it.
+Releases run automatically when `develop` is promoted to `main`; for a deliberate run, use **Actions → Release → Run workflow** on main, leaving version/bump empty for automatic selection. Each release publishes an image under an immutable version tag at GitHub Container Registry (ghcr.io) — production deployments should pin one of those release tags, never `:latest`.
 
 ## 🚀 Deployment <a name = "deployment"></a>
 
@@ -296,7 +284,7 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - Select the branch (e.g., `main` or `develop`)
 
 2. **Configure environment variables:**
-   - Set up the following environment variables in Coolify:
+   - Set up the following environment variables in Coolify. This list is the canonical reference for the app's environment variables and applies to every deployment method:
 
    **Core Configuration:**
    - `MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`) [required]
@@ -315,7 +303,8 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - `MAX_REQUESTS`: Max requests per minute per source (default: 100)
 
    **Update Scheduling:**
-   - `UPDATE_INTERVAL`: Update interval in days (default: 30)
+   - `UPDATE_INTERVAL`: Update interval in days (default: 30). A startup pass is enqueued by the worker.
+   - `UPDATE_INTERVAL_CHAPTERS`: Chapter update interval in days (default: 30; `0` disables chapter scheduling).
    - `UPDATE_THRESHOLD`: Minimum days before checking updates again (default: 7)
 
    **Performance Tuning:**
@@ -328,10 +317,11 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    **Feature Flags (Boolean - supports `true`, `True`, `TRUE`, `1`):**
    - `USE_PARALLEL_SCHEDULER`: Enable parallel UpdateScheduler (default: `false`) - HIGH RISK, requires testing
    - `USE_CONNECTION_POOLING`: Enable HTTP connection pooling for API calls (default: `true`)
+   - `BOOK_HISTORY_ENABLED`: Enable book history tracking (default: `false`). Strict flag: accepts only `true` or `false` — the general boolean-flag guidance above (`1`/`True`/`TRUE`) does NOT apply to it.
    - `USE_COMPACT_JSON`: Use compact JSON format in Redis (default: `true`)
    - `USE_SORTED_KEYS`: Sort object keys in responses (adds O(n log n) overhead, default: `false`)
    - `CIRCUIT_BREAKER_ENABLED`: Enable circuit breaker pattern for external API calls (default: `true`)
-   - `METRICS_ENABLED`: Enable performance metrics collection and /metrics endpoint (default: `true`)
+   - `METRICS_ENABLED`: Enable performance metrics collection and /metrics endpoint (default: `false`)
 
    **Metrics Endpoint Security:**
    - `METRICS_AUTH_TOKEN`: Authentication token for /metrics endpoint (optional)
@@ -359,18 +349,13 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - For production, consider using external MongoDB and Redis services
    - Or configure Coolify to use managed databases
 
-**Important:** The audnexus application requires MongoDB and Redis services to run. You must either:
-
-- Use Coolify's managed database services or external databases
-- Deploy the full stack (including MongoDB and Redis containers) using the Docker Compose method in the Docker Swarm section below
-
-Do not proceed with Coolify deployment until you have the `MONGODB_URI` and `REDIS_URL` values ready.
-
-**Note:** For production deployments, consider using Coolify's managed database services for MongoDB and Redis, or deploy the full stack using the Docker Compose method below.
+**Important:** The audnexus application requires MongoDB and Redis services to run. For production, use Coolify's managed database services or external databases, or deploy the full stack (including MongoDB and Redis containers) using the Docker Compose method in the Docker Swarm section below. Do not proceed with Coolify deployment until you have the `MONGODB_URI` and `REDIS_URL` values ready.
 
 ### Docker Swarm Deployment
 
 Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, and use it to start the stack. Using something like Portainer for a Swarm GUI will make this much easier.
+
+**Note:** The bundled standalone `mongo:7.0.45` service is single-node and can never satisfy the book history replica-set gate, so enabling `BOOK_HISTORY_ENABLED` against the bundled stack is a guaranteed boot crash by design — point `MONGODB_URI` at a replica set first.
 
 The stack defaults to 15 replicas for the node-server container. Customize this as needed.
 
@@ -380,56 +365,9 @@ The app image is supplied by the required `AUDNEXUS_IMAGE` variable — set it t
 bun scripts/validate-image-reference.ts "$AUDNEXUS_IMAGE"
 ```
 
-**Core Environment Variables:**
+**Application Environment Variables:**
 
-- `MONGODB_URI`: MongoDB connection URL, such as `mongodb://mongo/audnexus`
-- `REDIS_URL`: Redis connection URL, such as `redis://redis:6379`
-- `HOST`: Server host address (default: `0.0.0.0`)
-- `PORT`: Server port (default: `3000`)
-- `LOG_LEVEL`: Log level - `trace`, `debug`, `info`, `warn`, `error`, `fatal` (default: `info`)
-- `TRUSTED_PROXIES`: Comma-separated list of trusted proxy IPs/CIDR ranges (optional)
-- `DEFAULT_REGION`: Default region for batch processing (default: `us`)
-
-**Audible API Configuration:**
-
-- `ADP_TOKEN`: Audible ADP_TOKEN value (optional, for chapters endpoint)
-- `PRIVATE_KEY`: Audible PRIVATE_KEY value (optional, for chapters endpoint)
-
-**Rate Limiting:**
-
-- `MAX_REQUESTS`: Maximum number of requests per 1-minute period from a single source (default: 100)
-
-**Update Scheduling:**
-
-- `UPDATE_INTERVAL`: Frequency (in days) to run scheduled update tasks (default: 30). Update task is also run at startup.
-- `UPDATE_THRESHOLD`: Minimum number of days after an item is updated, to allow it to check for updates again (either scheduled or parameter).
-
-**Performance Tuning:**
-
-- `MAX_CONCURRENT_REQUESTS`: HTTP connection pool size for concurrent API calls (default: 50)
-- `SCHEDULER_CONCURRENCY`: Max concurrent scheduler operations (default: 5)
-- `SCHEDULER_MAX_PER_REGION`: Hard cap for max per-region concurrency in batch processing (default: 5)
-- `HTTP_MAX_SOCKETS`: Maximum HTTP sockets (hard limit: 50, default: 50) - values above 50 will be clamped to 50
-- `HTTP_TIMEOUT_MS`: HTTP request timeout in milliseconds (default: 30000)
-
-**Feature Flags (Boolean - supports `true`, `True`, `TRUE`, `1`):**
-
-- `USE_PARALLEL_SCHEDULER`: Enable parallel UpdateScheduler (default: `false`) - HIGH RISK, requires testing
-- `USE_CONNECTION_POOLING`: Enable HTTP connection pooling for API calls (default: `true`)
-- `USE_COMPACT_JSON`: Use compact JSON format in Redis (default: `true`)
-- `USE_SORTED_KEYS`: Sort object keys in responses (adds O(n log n) overhead, default: `false`)
-- `CIRCUIT_BREAKER_ENABLED`: Enable circuit breaker pattern for external API calls (default: `true`)
-- `METRICS_ENABLED`: Enable performance metrics collection and /metrics endpoint (default: `true`)
-
-**Metrics Endpoint Security:**
-
-- `METRICS_AUTH_TOKEN`: Authentication token for /metrics endpoint (optional)
-- `METRICS_ALLOWED_IPS`: Comma-separated list of allowed IPs/CIDR ranges for /metrics (supports CIDR notation, optional)
-
-**Stats Admin:**
-
-- `UPDATE_STATS`: Enable stats-updating admin routes (default: `0`)
-- `ADMIN_TOKEN`: Admin token for /books/backfill-ratings endpoint, sent via the `x-admin-token` header (optional; only effective when `UPDATE_STATS=1`)
+Set the full set of application environment variables listed in the [Coolify Deployment](#coolify-deployment) section above — that list is the canonical reference for all deployments. For Swarm, in addition, the compose file requires the following platform-specific variables:
 
 **Traefik Configuration:**
 

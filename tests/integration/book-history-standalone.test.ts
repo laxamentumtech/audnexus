@@ -13,9 +13,11 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { MongoClient, ObjectId } from 'mongodb'
 
+import { prepare } from '../../src/history'
+
 import { type HistoryMongo,resolveHistoryMongo } from './env'
 
-import { bookHistoryStore } from '#config/papr'
+import { bookHistoryStore, initialize } from '#config/papr'
 import type { PersistInput } from '#helpers/database/papr/BookHistoryStore'
 
 const available = (() => {
@@ -107,13 +109,20 @@ const run = available ? describe : describe.skip
 
 run('BookHistoryStore against a replica set', () => {
 	beforeAll(async () => {
-		history = await resolveHistoryMongo()
+		history = await resolveHistoryMongo('standalone')
 		if (!history) throw new Error('no transaction-capable replica set available')
 		client = new MongoClient(history.uri, { serverSelectionTimeoutMS: 5000 })
 		await client.connect()
+		// Papr validators first (the store's reads/writes go through papr
+		// models).
+		await initialize({ client } as never)
 		bookHistoryStore.configure(client)
 		db = client.db('audnexus')
 		await db.dropDatabase()
+		// Named history indexes after the drop, so the unique
+		// `history_revision`/`artwork_order` indexes are present and
+		// exercised for real.
+		await prepare(client)
 	}, 90000)
 
 	afterAll(async () => {
@@ -456,12 +465,13 @@ test('an equal observation on a seeded empty-baseline book initializes baselines
 	// public projection still produces a revision.
 	const seedAsin = 'B0SEEDEQ01'
 	const db2 = collections()
-	await db2.collection('books').insertOne({
-		asin: seedAsin,
-		region: REGION,
-		title: 'Seeded Book',
-		image: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
-	} as never)
+	// A full valid book row (the `book()` fixture) so `toApiBook(currentBook)`
+	// is non-null and `deepEqualBook` matches — this is what makes the
+	// `currentBook && oldApi` equal short-circuit branch run (the F2
+	// regression). A partial row would fail `ApiBookSchema` and skip it.
+	await db2.collection('books').insertOne(
+		book({ asin: seedAsin, title: 'Seeded Book' }) as never
+	)
 	// Seed-like established state with empty baselines.
 	await db2.collection('book_history_states').insertOne({
 		_id: `${REGION}:${seedAsin}`,
@@ -502,6 +512,9 @@ test('an equal observation on a seeded empty-baseline book initializes baselines
 		}),
 	})
 	expect(result.disposition).toBe('accepted')
+	// The equal short-circuit branch ran (a differing public projection would
+	// take the accepted-write path and return `modified: true`).
+	expect(result.modified).toBe(false)
 	const state = await db2.collection('book_history_states').findOne({
 		_id: `${REGION}:${seedAsin}`
 	})
@@ -628,4 +641,211 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			})
 		expect(unparsed?._id).toBeInstanceOf(ObjectId)
 	})
+
+	test('a malformed stored value envelope is a server fault, not a silent comparison input', async () => {
+		// Baselines are decoded through `HistoryValueSchema` at the read
+		// boundary (decodeBaselines): a bare `{ state: 'web' }` stub is an
+		// invalid envelope. The persist must reject with a Zod fault before
+		// any comparison — never comparing against the malformed baseline
+		// and never writing on top of it.
+		const malformedAsin = 'B0MALFORMD'
+		const db2 = collections()
+		await db2.collection('books').insertOne(
+			book({ asin: malformedAsin, title: 'Malformed Book' }) as never
+		)
+		await db2.collection('book_history_states').insertOne({
+			_id: `${REGION}:${malformedAsin}`,
+			asin: malformedAsin,
+			region: REGION,
+			allocatedGeneration: 0,
+			acceptedGeneration: 0,
+			deleteFence: 0,
+			revision: 0,
+			assetSequence: 0,
+			stateVersion: 1,
+			established: true,
+			legacyCaptured: true,
+			fields: [
+				{
+					field: 'title',
+					policy: 'editorial:title:v1',
+					value: { state: 'web' },
+					baselineAt: new Date('2026-01-01T00:00:00.000Z')
+				}
+			],
+			renditions: []
+		} as never)
+		await expect(
+			bookHistoryStore.persistObservation({
+				asin: malformedAsin,
+				region: REGION,
+				generation: 1,
+				book: book({ asin: malformedAsin, title: 'Malformed Book' }),
+				observation: observation({ title: 'Malformed Book', imageId: IMG2 })
+			})
+		).rejects.toThrow()
+		// The fault aborts the transaction before any write: the current
+		// row and the malformed state survive untouched.
+		const current = await db2.collection('books').findOne({ asin: malformedAsin })
+		expect(current?.title).toBe('Malformed Book')
+		const state = await db2
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${malformedAsin}` })
+		expect(state?.fields[0].value).toEqual({ state: 'web' })
+	}, 30000)
+
+	test('a series-less accepted book $unsets removed series fields and records the series delta', async () => {
+		// The accepted-write path can only $set: fields the upstream removed
+		// are explicitly $unset from the current row (seriesPrimary/
+		// seriesSecondary) so the row and the baselines stay in step. The
+		// baselines advance to an explicit ABSENT envelope — not unknown
+		// evidence — and the transition is a recorded revision.
+		const seriesAsin = 'B0SERIEST1'
+		const db2 = collections()
+		const seriesPrimary = { asin: 'B0SERIES1', name: 'Series One', position: '1' }
+		const seriesSecondary = { asin: 'B0SERIES2', name: 'Spinoff', position: '2' }
+		await db2.collection('books').insertOne(
+			book({ asin: seriesAsin, title: 'Series Book', seriesPrimary, seriesSecondary }) as never
+		)
+		await db2.collection('book_history_states').insertOne({
+			_id: `${REGION}:${seriesAsin}`,
+			asin: seriesAsin,
+			region: REGION,
+			allocatedGeneration: 0,
+			acceptedGeneration: 0,
+			deleteFence: 0,
+			revision: 0,
+			assetSequence: 1,
+			stateVersion: 1,
+			established: true,
+			legacyCaptured: true,
+			fields: [
+				{
+					field: 'seriesPrimary',
+					policy: 'editorial:seriesPrimary:v1',
+					value: { state: 'value', value: seriesPrimary },
+					baselineAt: new Date('2026-01-01T00:00:00.000Z')
+				},
+				{
+					field: 'seriesSecondary',
+					policy: 'editorial:seriesSecondary:v1',
+					value: { state: 'value', value: seriesSecondary },
+					baselineAt: new Date('2026-01-01T00:00:00.000Z')
+				}
+			],
+			renditions: []
+		} as never)
+		// The seeded legacy asset keeps assetSequence honest across the run.
+		await db2.collection('book_artwork').insertOne({
+			asin: seriesAsin,
+			region: REGION,
+			sequence: 1,
+			imageId: IMG1,
+			legacy: {
+				sourceBookId: new ObjectId(),
+				storedUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`,
+				importedAt: new Date('2026-01-01T00:00:00.000Z')
+			},
+			renditions: []
+		} as never)
+		// Phase 1: no series evidence in the observation (unknown, not
+		// absent) — the row must still lose the keys via $unset, while the
+		// baselines and revision counter stay untouched (unknown evidence
+		// retains, never compares).
+		const first = await bookHistoryStore.persistObservation({
+			asin: seriesAsin,
+			region: REGION,
+			generation: 1,
+			book: book({ asin: seriesAsin, title: 'Series Book' }),
+			observation: observation({
+				title: 'Series Book',
+				imageId: IMG1,
+				imageUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
+			})
+		})
+		expect(first.disposition).toBe('accepted')
+		const rowAfterFirst = await db2.collection('books').findOne({ asin: seriesAsin })
+		expect(rowAfterFirst).not.toHaveProperty('seriesPrimary')
+		expect(rowAfterFirst).not.toHaveProperty('seriesSecondary')
+		const stateAfterFirst = await db2
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${seriesAsin}` })
+		expect(stateAfterFirst?.revision).toBe(0)
+		const firstByField = new Map(
+			(stateAfterFirst?.fields ?? []).map((f: { field: string; value: unknown }) => [
+				f.field,
+				f.value
+			])
+		)
+		expect(firstByField.get('seriesPrimary')).toEqual({
+			state: 'value',
+			value: seriesPrimary
+		})
+
+		// Phase 2: the observation declares the series keys as explicitly
+		// empty (the `series: []` outcome → `state: 'absent'` envelopes):
+		// the baselines advance to ABSENT and the transition is recorded.
+		const seriesObservation = observation({
+			title: 'Series Book',
+			imageId: IMG1,
+			imageUrl: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
+		})
+		seriesObservation.fields.push(
+			{
+				field: 'seriesPrimary',
+				policy: 'editorial:seriesPrimary:v1',
+				value: { state: 'absent' },
+				source: 'audible_api'
+			},
+			{
+				field: 'seriesSecondary',
+				policy: 'editorial:seriesSecondary:v1',
+				value: { state: 'absent' },
+				source: 'audible_api'
+			}
+		)
+		const result = await bookHistoryStore.persistObservation({
+			asin: seriesAsin,
+			region: REGION,
+			generation: 2,
+			book: book({ asin: seriesAsin, title: 'Series Book' }),
+			observation: seriesObservation
+		})
+		expect(result.disposition).toBe('accepted')
+		// The phase-1 $unset already brought the row to the series-less
+		// projection, so this accepted observation is the equal
+		// short-circuit (`modified: false`) — and the series delta is still
+		// recorded from within that branch.
+		expect(result.modified).toBe(false)
+
+		// Both series keys are removed from the stored row, the rest stands.
+		const current = await db2.collection('books').findOne({ asin: seriesAsin })
+		expect(current).not.toHaveProperty('seriesPrimary')
+		expect(current).not.toHaveProperty('seriesSecondary')
+		expect(current?.title).toBe('Series Book')
+
+		// The baselines advanced to ABSENT (an explicit source declaration).
+		const state = await db2
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${seriesAsin}` })
+		const byField = new Map(
+			(state?.fields ?? []).map((f: { field: string; value: unknown }) => [f.field, f.value])
+		)
+		expect(byField.get('seriesPrimary')).toEqual({ state: 'absent' })
+		expect(byField.get('seriesSecondary')).toEqual({ state: 'absent' })
+		expect(state?.revision).toBe(1)
+
+		// The revision records exactly the two series transitions.
+		const revisions = await db2
+			.collection('book_history_revisions')
+			.find({ asin: seriesAsin, region: REGION, revision: 1 })
+			.toArray()
+		expect(revisions).toHaveLength(1)
+		expect(revisions[0].changedFields.slice().sort()).toEqual(['seriesPrimary', 'seriesSecondary'])
+		expect(revisions[0].changes.seriesPrimary.before).toEqual({
+			state: 'value',
+			value: seriesPrimary
+		})
+		expect(revisions[0].changes.seriesPrimary.after).toEqual({ state: 'absent' })
+	}, 30000)
 })

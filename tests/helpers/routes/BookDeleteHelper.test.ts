@@ -82,6 +82,27 @@ describe('BookDeleteHelper history-mode delete contract', () => {
 		expect(helper.paprHelper.delete).not.toHaveBeenCalled()
 	})
 
+	test('history enabled + cache invalidation failure → true, single error log', async () => {
+		process.env.BOOK_HISTORY_ENABLED = 'true'
+		mockDeleteCurrent.mockClear()
+		mockDeleteCurrent.mockResolvedValue({
+			data: { acknowledged: true, deletedCount: 1 },
+			modified: true
+		})
+		// Post-commit invalidation is best-effort: a cache failure must not
+		// turn a committed delete into a 500 — the handler swallows it and
+		// logs it exactly once (the mock `deleteOne` logs nothing itself).
+		spyOn(helper.redisHelper, 'deleteOne').mockRejectedValue(new Error('redis down'))
+
+		const result = await helper.handler()
+
+		expect(result).toBe(true)
+		expect(mockLogger.error).toHaveBeenCalledTimes(1)
+		const message = (mockLogger.error as ReturnType<typeof mock>).mock.calls[0][0] as string
+		expect(message).toContain('History cache invalidation failed')
+		expect(message).toContain(asin)
+	})
+
 	test('history disabled → legacy deleteActions path runs', async () => {
 		process.env.BOOK_HISTORY_ENABLED = 'false'
 		mockDeleteCurrent.mockClear()

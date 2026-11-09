@@ -19,7 +19,7 @@
 import { MongoClient, ObjectId } from 'mongodb'
 import { pathToFileURL } from 'node:url'
 
-import { HISTORY_INDEX_DEFINITIONS, SEED_PROGRESS_ID } from '#config/bookHistory'
+import { ASIN_SHAPE_REGEX, HISTORY_INDEX_DEFINITIONS, SEED_PROGRESS_ID } from '#config/bookHistory'
 import { bookHistoryStore } from '#config/papr'
 import { parseArtworkReference } from '#helpers/books/audible/BookObservation'
 import { BookHistoryStore } from '#helpers/database/papr/BookHistoryStore'
@@ -30,8 +30,6 @@ const COMMANDS = ['audit', 'prepare', 'seed', 'status'] as const
 type Command = (typeof COMMANDS)[number]
 const SEED_BATCH_SIZE = 500
 const BOOKS_COLLECTION = 'books'
-/** Deterministic 10-char ASIN shape (B-prefixed or numeric, X check suffix). */
-const ASIN_REGEX = /^(B[0-9A-Z]{9}|\d{9}(X|\d))$/
 
 /** Tagged region representation: missing, null, and value are distinct. */
 type RegionTag =
@@ -143,7 +141,7 @@ async function audit(
 	// issues (invalid ASIN / region, unsupported _id, image parseability).
 	await walk(undefined, (row) => {
 		scanned++
-		const asinValid = typeof row.asin === 'string' && ASIN_REGEX.test(row.asin)
+		const asinValid = typeof row.asin === 'string' && ASIN_SHAPE_REGEX.test(row.asin)
 		const tag = regionTag(row.region)
 		const reasons: string[] = []
 		const storedUrl = typeof row.image === 'string' && row.image.length > 0 ? row.image : null
@@ -192,7 +190,7 @@ async function audit(
 	// Pass 2: bounded walk classifying pair-level identity outcomes using
 	// the pass-1 dimension counts.
 	await walk({ _id: 1, asin: 1, region: 1 }, (row) => {
-		const asinValid = typeof row.asin === 'string' && ASIN_REGEX.test(row.asin)
+		const asinValid = typeof row.asin === 'string' && ASIN_SHAPE_REGEX.test(row.asin)
 		const asin = String(row.asin)
 		if (!asinValid || !isSupportedRegion(row.region)) return
 		const exact = pairCounts.get(`${row.region}:${asin}`) ?? 0

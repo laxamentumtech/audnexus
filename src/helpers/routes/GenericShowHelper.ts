@@ -280,7 +280,7 @@ export default class GenericShowHelper {
 			// Same outcome class as the disabled-mode genre safeguard: the
 			// update is refused and the stored projection stands with 200.
 			const stored = (await this.getDataWithProjection()) as ApiBook
-			this.redisHelper.setOne(stored)
+			await this.cacheBookBestEffort(stored)
 			return stored
 		}
 		if (result.disposition === 'stale' && result.data === null) {
@@ -289,12 +289,28 @@ export default class GenericShowHelper {
 			throw new NotFoundError(`Book ${this.asin} not found in region ${region}`)
 		}
 		if (result.data === null) throw this.errorMessageDataType()
-		if (result.disposition === 'accepted') this.redisHelper.setOne(result.data)
+		if (result.disposition === 'accepted') await this.cacheBookBestEffort(result.data)
 		// Track the write, not the acceptance: an accepted-but-unmodified
 		// observation (the equal short-circuit) still needs `markChecked` and
 		// must not be reported as an update.
 		this.persisted = result.modified === true
 		return result.data
+	}
+
+	/**
+	 * Best-effort redis cache refresh after a committed history write:
+	 * `setOne` rethrows on a cache failure, and a committed persistence must
+	 * not become a 500 on a cache outage — the next read repopulates the
+	 * key from the stored data. `setOne` already logs the underlying error.
+	 */
+	private async cacheBookBestEffort(data: ApiBook): Promise<void> {
+		try {
+			await this.redisHelper.setOne(data)
+		} catch (error) {
+			this.logger?.error(
+				`History cache refresh failed for book ${this.asin} (data is persisted): ${String(error)}`
+			)
+		}
 	}
 
 	/**
