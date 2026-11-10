@@ -111,7 +111,7 @@ run('BookHistoryStore against a replica set', () => {
 	beforeAll(async () => {
 		history = await resolveHistoryMongo('standalone')
 		if (!history) throw new Error('no transaction-capable replica set available')
-		client = new MongoClient(history.uri, { serverSelectionTimeoutMS: 5000 })
+		client = new MongoClient(history.uri, { serverSelectionTimeoutMS: 5000, ignoreUndefined: true })
 		await client.connect()
 		// Papr validators first (the store's reads/writes go through papr
 		// models).
@@ -1192,6 +1192,25 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			.collection('book_history_revisions')
 			.countDocuments({ asin: eqAsin, region: REGION })
 		expect(revisions).toBe(0)
+	}, 30000)
+
+	test('omits an explicitly undefined optional field instead of nulling it', async () => {
+		// ApiHelper sets optional keys to undefined when Audible omits them
+		// (e.g. subtitle). Driving the update without `ignoreUndefined` writes
+		// null, and the strict books validator types those fields as strings.
+		const undefAsin = 'B0UNDEFSUB1'
+		const db4 = collections()
+		const gen1 = await bookHistoryStore.reserveGeneration(undefAsin, REGION)
+		const first = await bookHistoryStore.persistObservation({
+			asin: undefAsin,
+			region: REGION,
+			generation: gen1,
+			book: book({ asin: undefAsin, title: 'Undefined Subtitle', subtitle: undefined }),
+			observation: observation({ title: 'Undefined Subtitle', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		const current = await db4.collection('books').findOne({ asin: undefAsin })
+		expect(current).not.toHaveProperty('subtitle')
 	}, 30000)
 
 	test('accepts an update when neither side has genre evidence', async () => {
