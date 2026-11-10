@@ -213,15 +213,21 @@ export default class BookBackfillHelper {
 						// papr's model type omits updateOne; the runtime model
 						// has it (UpdateScheduler.markChecked relies on the same).
 						const bookModel = BookModel as unknown as {
-							updateOne: (filter: object, update: object) => Promise<unknown>
+							updateOne: (filter: object, update: object, options?: object) => Promise<unknown>
 						}
+						// The repair is a targeted field addition on legacy stubs
+						// that already fail the validator for unrelated missing
+						// content fields, so bypass validation here (content
+						// writes keep full validation) — otherwise the row can
+						// never leave the target set.
 						await bookModel.updateOne(
 							{ _id: book._id },
 							{
 								$set: { ratings },
 								$unset: { ratingsBackfillSkip: '' },
 								$currentDate: { updatedAt: true }
-							}
+							},
+							{ bypassDocumentValidation: true }
 						)
 					}
 					// Got a fully-formed book with ratings: the only usable-success

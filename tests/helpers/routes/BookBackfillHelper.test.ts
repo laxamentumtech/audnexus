@@ -280,7 +280,8 @@ describe('BookBackfillHelper should', () => {
 				$set: { ratings: bookWithRatings.ratings },
 				$unset: { ratingsBackfillSkip: '' },
 				$currentDate: { updatedAt: true }
-			}
+			},
+			{ bypassDocumentValidation: true }
 		)
 	})
 
@@ -299,7 +300,8 @@ describe('BookBackfillHelper should', () => {
 				$set: { ratings: bookWithRatings.ratings },
 				$unset: { ratingsBackfillSkip: '' },
 				$currentDate: { updatedAt: true }
-			}
+			},
+			{ bypassDocumentValidation: true }
 		)
 	})
 
