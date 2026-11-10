@@ -11,6 +11,7 @@ import {
 	recognizedContentTypes
 } from '#config/types'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
+import { canonicalGenres } from '#helpers/books/audible/BookObservation'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
@@ -239,6 +240,42 @@ describe('ApiHelper edge cases should', () => {
 		const parsed = helper.getFinalData()
 		expect(parsed.rating).toBe('4.5')
 		expect(parsed.ratings).toEqual(ratings)
+	})
+
+	test('getFinalData and the observation share the first mapping pass', async () => {
+		// getGenres() shifts the live ladders in place, so a second
+		// mapping pass would classify literatureType from the already
+		// shifted ladders and drop parent genres. The observation must
+		// carry the exact evidence the first pass produced.
+		const captureHelper = new ApiHelper(asin, region, undefined, true)
+		const data = await captureHelper.fetchBook()
+		const parsed = await captureHelper.parseResponse(data)
+		expect(captureHelper.getFinalData()).toBe(parsed)
+		const observed = captureHelper.getHistoryObservation()
+		expect(observed).toBeDefined()
+		const literatureTypeField = observed!.fields.find((f) => f.field === 'literatureType')
+		if (parsed.literatureType) {
+			expect(literatureTypeField?.value).toEqual({
+				state: 'value',
+				value: parsed.literatureType
+			})
+		} else {
+			// `buildFieldObservations` omits the field entirely when
+			// literatureType is not justified/present — it never emits a
+			// `{state:'absent'}` envelope for it.
+			expect(literatureTypeField).toBeUndefined()
+		}
+		const genresField = observed!.fields.find((f) => f.field === 'genres')
+		if (parsed.genres && parsed.genres.length > 0) {
+			expect(genresField?.value).toEqual({
+				state: 'value',
+				value: canonicalGenres(parsed.genres)
+			})
+		} else {
+			// Same omission for no categories returned (see the literatureType
+			// branch) — the field is absent, not an `absent` value envelope.
+			expect(genresField).toBeUndefined()
+		}
 	})
 
 	test('getRatings omits absent performance/story distributions', () => {

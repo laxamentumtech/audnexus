@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, mock, test, vi } from 'bun:test'
 
 const mockBookFind = mock()
 const mockProcessBatchByRegion = mock()
@@ -36,8 +36,10 @@ mock.module('#helpers/utils/adaptiveCooldown', () => ({
 
 import { ObjectId } from 'mongodb'
 
+import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
 import { createMockLogger } from '#tests/setup/mockLogger'
+import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
 
 const books = [
 	{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f01'), asin: 'B000000001', region: 'us' },
@@ -109,13 +111,13 @@ describe('BookBackfillHelper should', () => {
 		expect(mockBookFind).toHaveBeenCalledTimes(2)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			1,
-			{ ratings: { $exists: false } },
+			{ $and: [{ ratings: { $exists: false } }] },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-			{ ratings: { $exists: false }, _id: { $gt: books[books.length - 1]._id } },
-			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
+		{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
+		{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
 
@@ -166,12 +168,12 @@ describe('BookBackfillHelper should', () => {
 		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, failed: 0 })
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-			{ ratings: { $exists: false }, _id: { $gt: books[books.length - 1]._id } },
+			{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			3,
-			{ ratings: { $exists: false }, _id: { $gt: secondPage[secondPage.length - 1]._id } },
+			{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: secondPage[secondPage.length - 1]._id } }] },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
@@ -216,6 +218,60 @@ describe('BookBackfillHelper should', () => {
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
 		expect(mockSleepCooldown).toHaveBeenCalledTimes(1)
 		expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
+	})
+
+	test('passes the injected cache client to BookShowHelper', async () => {
+		const cacheClient = { get: mock(), set: mock(), del: mock(), ping: mock() }
+		const withRedis = new BookBackfillHelper(createMockLogger(), cacheClient)
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		await withRedis.process()
+		expect(showConstructorArgs[0][2]).toBe(cacheClient)
+	})
+
+	test('counts a ratingless pre-order as skipped, not failed', async () => {
+		// The pre-order check runs before the ratings gate: a future
+		// releaseDate with no upstream rating data is reported skipped (it is
+		// not persisted, so it stays a backfill target), not counted failed.
+		const ratinglessPreOrder = {
+			asin: 'B000000003',
+			releaseDate: new Date('2999-01-01T00:00:00Z')
+		}
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[2]]).mockResolvedValueOnce([])
+		mockShowHandler.mockImplementation(async () => ratinglessPreOrder)
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 1, failed: 0 })
+	})
+
+	test('counts a non-pre-order ratingless result as failed', async () => {
+		// No future releaseDate → the pre-order branch does not apply; the
+		// ratings gate throws and the book counts failed.
+		const ratinglessStale = { asin: 'B000000001', releaseDate: new Date('2024-01-01T00:00:00Z') }
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockShowHandler.mockImplementation(async () => ratinglessStale)
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
+	})
+
+	test('rejects a book when the handler exceeds the item deadline', async () => {
+		// The backfill wraps each handler in withDeadline (same contract as
+		// the scheduler walk): a hung fetch surfaces as a failure. Fake timers
+		// drive the deadline deterministically — no real wall-clock wait.
+		setPerformanceConfig(createTestPerformanceConfig({ SCHEDULER_ITEM_TIMEOUT_MS: 50 }))
+		vi.useFakeTimers()
+		try {
+			mockBookFind.mockReset()
+			mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+			const neverSettles = Promise.withResolvers<unknown>()
+			mockShowHandler.mockImplementation(() => neverSettles.promise)
+			const pending = helper.process()
+			await Promise.resolve() // let the walk reach the awaited deadline
+			vi.advanceTimersByTime(60)
+			await expect(pending).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
+		} finally {
+			vi.useRealTimers()
+			resetPerformanceConfig()
+		}
 	})
 })
 

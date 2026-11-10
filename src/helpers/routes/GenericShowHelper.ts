@@ -1,9 +1,11 @@
 import { FastifyRedis } from '@fastify/redis'
 import type { FastifyBaseLogger } from 'fastify'
 
+import { isBookHistoryEnabled } from '#config/bookHistory'
 import type { AuthorDocument } from '#config/models/Author'
 import type { BookDocument } from '#config/models/Book'
 import type { ChapterDocument } from '#config/models/Chapter'
+import { bookHistoryStore } from '#config/papr'
 import { getPerformanceConfig } from '#config/performance'
 import {
 	ApiAuthorProfile,
@@ -178,8 +180,18 @@ export default class GenericShowHelper {
 	 * @throws {Error} Data is null or not the correct type
 	 */
 	async createOrUpdateData(): Promise<ApiAuthorProfile | ApiBook | ApiChapter | undefined> {
-		// 1. Place the new data into the paprHelper
-		const newData = await this.getNewData()
+		// 1. Place the new data into the paprHelper. History-enabled book
+		// fetches run through the same StitchHelper instance that is the
+		// final consumer of the fetch session: its generation is reserved
+		// before the fetch (a failed fetch consumes it, establishing no
+		// resources) and its evidence is read after a success.
+		let stitchHelper: StitchHelper | null = null
+		let generation: number | undefined
+		if (this.type === 'book' && isBookHistoryEnabled()) {
+			stitchHelper = new StitchHelper(this.asin, this.options.region, this.logger, true)
+			generation = await bookHistoryStore.reserveGeneration(this.asin, this.options.region)
+		}
+		const newData = stitchHelper ? await stitchHelper.process() : await this.getNewData()
 		// Special handling for chapter undefined
 		if (this.type == 'chapter' && !newData) return undefined
 
@@ -199,16 +211,31 @@ export default class GenericShowHelper {
 			return newData
 		}
 
-		this.paprHelper.setData(newData as never)
+		if (this.type === 'book' && stitchHelper && generation !== undefined) {
+			return await this.persistBookWithHistory(stitchHelper, generation, newData as ApiBook)
+		}
 
+		this.paprHelper.setData(newData as never)
+		// Chapter-undefined already returned above; other types always resolve
+		// data on a fresh fetch.
+		return await this.persistFreshData()
+	}
+
+	/**
+	 * Shared persistence tail: write the fresh data through the papr helper,
+	 * read it back with projections, and refresh the redis cache. Tracks the
+	 * `persisted` write flag for the adaptive cooldown. Callers have already
+	 * placed the data into the papr helper.
+	 */
+	private async persistFreshData(): Promise<ApiAuthorProfile | ApiBook | ApiChapter> {
 		// 2. Create or update the data
 		const dataToReturn = await this.paprHelper.createOrUpdate()
 		if (dataToReturn.data === null) throw this.errorMessageDataType()
 		// `createOrUpdate()` resolves without writing when the fetched data is
 		// identical to what is stored (the papr helpers return
 		// `modified: false`), so `persisted` must track the write, not the
-		// resolution. The pre-order transient path above returned before the
-		// persistence call, so the flag is false for it by construction.
+		// resolution. The pre-order transient path returned before this call,
+		// so the flag is false for it by construction.
 		this.persisted = dataToReturn.modified === true
 
 		// 3. Get the data with projections
@@ -218,6 +245,76 @@ export default class GenericShowHelper {
 		this.redisHelper.setOne(data)
 
 		return data
+	}
+
+	/**
+	 * History-enabled book persistence: transactional persist of the current
+	 * book + baselines + optional revision under the reserved generation,
+	 * then the redis cache.
+	 */
+	private async persistBookWithHistory(
+		stitchHelper: StitchHelper,
+		generation: number,
+		newData: ApiBook
+	): Promise<ApiBook> {
+		const region = this.options.region
+		const observation = stitchHelper.getHistoryObservation()
+		if (!observation) {
+			// Failed to produce evidence on a resolved fetch (e.g. response
+			// without parsed product evidence). The reserved generation is
+			// consumed without establishing resources; the update proceeds
+			// through the ordinary papr path, which retains the legacy
+			// write behavior for this run.
+			this.logger?.warn(`History evidence missing for ${this.asin}; persisting via legacy path.`)
+			this.paprHelper.setData(newData as never)
+			return (await this.persistFreshData()) as ApiBook
+		}
+		const result = await bookHistoryStore.persistObservation({
+			asin: this.asin,
+			region,
+			generation,
+			book: newData,
+			observation
+		})
+		if (result.disposition === 'rejected') {
+			// Same outcome class as the disabled-mode genre safeguard: the
+			// update is refused and the stored projection stands with 200.
+			const stored = (await this.getDataWithProjection()) as ApiBook
+			await this.cacheBookBestEffort(stored)
+			return stored
+		}
+		if (result.disposition === 'stale' && result.data === null) {
+			// A concurrent delete left the generation stale with no current
+			// row: the book is gone.
+			throw new NotFoundError(`Book ${this.asin} not found in region ${region}`)
+		}
+		if (result.data === null) throw this.errorMessageDataType()
+		if (result.disposition === 'accepted') await this.cacheBookBestEffort(result.data)
+		// Track the write, not the acceptance: an accepted-but-unmodified
+		// observation (the equal short-circuit) still needs `markChecked` and
+		// must not be reported as an update.
+		this.persisted = result.modified === true
+		return result.data
+	}
+
+	/**
+	 * Best-effort redis cache refresh after a committed history write:
+	 * `setOne` rethrows on a cache failure, and a committed persistence must
+	 * not become a 500 on a cache outage — the next read repopulates the
+	 * key from the stored data. This wrapper emits the single error line
+	 * (the redis-layer log is suppressed via `log: false`).
+	 */
+	private async cacheBookBestEffort(data: ApiBook): Promise<void> {
+		try {
+			// `log: false` — this wrapper emits the single actionable line
+			// (which book, that the data is persisted); the redis-layer log is
+			// suppressed so a cache failure does not emit two error lines.
+			await this.redisHelper.setOne(data, { log: false })
+		} catch (error) {
+			this.logger?.error(
+				`History cache refresh failed for book ${this.asin} (data is persisted): ${String(error)}`
+			)
+		}
 	}
 
 	/**

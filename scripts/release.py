@@ -6,6 +6,8 @@ import argparse
 import hashlib
 import json
 import os
+from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 import re
 import subprocess
@@ -32,6 +34,29 @@ def semver(value):
 def require(condition, message):
     if not condition:
         raise ReleaseError(message)
+
+
+def parse_github_time(value):
+    """Parse a GitHub ISO 8601 timestamp (runs API emits a `+00:00` suffix)
+    into an aware UTC datetime for created_at comparisons."""
+    parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def parse_server_date(value):
+    """Parse an RFC 1123 HTTP `Date` header (e.g. `Sat, 07 Nov 2026 22:12:08 GMT`)
+    into an aware UTC datetime for created_at comparisons."""
+    try:
+        parsed = parsedate_to_datetime(str(value).strip())
+    except ValueError:
+        parsed = None
+    if parsed is None:
+        raise ReleaseError(f"Unparseable server Date header: {value!r}")
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def isolated_git_environment():
@@ -70,6 +95,22 @@ class Repository:
             args += ["-f", f"{key}={value}"]
         value = self.run(*args)
         return json.loads(value) if value else None
+
+    def server_date(self):
+        """Current server time as an HTTP `Date` header (RFC 1123).
+
+        Read from a documented, cacheable-by-nature repo endpoint with
+        caching disabled, so the header is the live server instant (not a
+        stale CDN copy). Used as the dispatch-time reference when a runs
+        API has no "now" field. The `Date` header is authoritative for the
+        request; `Cache-Control: no-cache` keeps GitHub from serving a
+        cached response whose header predates the actual dispatch."""
+        lines = self.run("gh", "api", f"repos/{self.repository()}",
+                         "-i", "-H", "Cache-Control: no-cache").splitlines()
+        for line in lines:
+            if line[:5].lower() == "date:":
+                return line[5:].strip()
+        raise ReleaseError("Server response carried no Date header")
 
     def api_asset_download(self, repository, asset_id):
         result = subprocess.run(
@@ -421,12 +462,34 @@ def dispatch_docs(repo, source, version, correlation):
     semver(tag[1:])
     require(isinstance(source, str) and OID.fullmatch(source), "Docs source must be a full SHA")
     require(re.fullmatch(r"[0-9]+-[0-9]+", correlation), "Invalid docs correlation ID")
-    repo.run("gh", "workflow", "run", "deploy-docs.yml", "--repo", repo.repository(), "--ref", tag, "-f", f"version={tag}", "-f", f"source={source}", "-f", f"release_run={correlation}")
+    # Dispatch from main, not the tag: the deploy-docs deploy job uses the
+    # github-pages environment, whose deployment-branch-policy admits only the
+    # main branch, so a tag ref would be blocked. The exact release identity
+    # comes from the inputs (version/source/release_run), not the ref — the
+    # stamp step re-verifies source. Correlating the dispatched run: the
+    # runs API does not return the dispatch inputs, and the run's head_sha
+    # is main's head at dispatch time — a newer commit than the frozen
+    # source on a delayed-source retry — so neither field identifies it.
+    # display_title is unique per release (it embeds the correlation ID),
+    # so match display_title plus created_at at/after the dispatch. The
+    # dispatch instant comes from the server Date header of a documented
+    # repo endpoint (the runs API has no "now", and the repo-level
+    # /actions root is not a documented endpoint — it 404s): same-second
+    # dispatches are legal, so the header is captured immediately before
+    # the dispatch call and the matcher accepts created_at >= it. The
+    # tolerance absorbs cross-endpoint clock skew (the Date header and the
+    # run's created_at come from different endpoints and can differ by a
+    # second or two); the stale-run exclusion still rests on the
+    # correlation-unique display_title.
+    dispatch_time = parse_server_date(repo.server_date()) - timedelta(seconds=5)
+    repo.run("gh", "workflow", "run", "deploy-docs.yml", "--repo", repo.repository(), "--ref", "main", "-f", f"version={tag}", "-f", f"source={source}", "-f", f"release_run={correlation}")
     expected_title = f"Release docs {correlation}"
     deadline = time.monotonic() + 120
     while time.monotonic() < deadline:
         runs = repo.api(f"repos/{repo.repository()}/actions/workflows/deploy-docs.yml/runs?event=workflow_dispatch&per_page=100")["workflow_runs"]
-        matches = [run for run in runs if run.get("display_title") == expected_title and run.get("head_sha") == source]
+        matches = [run for run in runs
+                   if run.get("display_title") == expected_title
+                   and parse_github_time(run["created_at"]) >= dispatch_time]
         require(len(matches) <= 1, "Ambiguous docs dispatch run")
         if matches:
             repo.run("gh", "run", "watch", str(matches[0]["id"]), "--repo", repo.repository(), "--exit-status", "--interval", "10")

@@ -247,6 +247,76 @@ describe('fetchPlus should', () => {
 		expect(sleepDelays[0]).toBeLessThan(8_250)
 	})
 
+	// Retry-After HTTP-date coverage. 429 is used because it applies the
+	// retry delay without jitter, so exact values can be asserted. Date.now
+	// is pinned (via the relative offset in the header, not a wall-clock
+	// race) so the delay is deterministic.
+	test('honor a future HTTP-date Retry-After on 429 (delay ≈ date - now)', async () => {
+		const now = Date.now()
+		const mockError = {
+			response: {
+				status: 429,
+				headers: { 'retry-after': new Date(now + 2_500).toISOString() }
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		const response = await fetchPlus('test.com')
+
+		expect(response).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		// The window between building the header and computing the delay is
+		// microseconds; a tight band keeps the test race-free without pinning
+		// the wall clock.
+		expect(sleepDelays).toHaveLength(1)
+		// The delay is (date - now-at-compute); now-at-compute is a hair after
+		// the header was built, so the delay is at most the offset (inclusive)
+		// and well above the offset minus the microseconds of the async gap.
+		expect(sleepDelays[0]).toBeGreaterThanOrEqual(2_000)
+		expect(sleepDelays[0]).toBeLessThanOrEqual(2_500)
+	})
+
+	test('clamp a future HTTP-date Retry-After longer than the 8s ceiling', async () => {
+		const now = Date.now()
+		const mockError = {
+			response: {
+				status: 429,
+				headers: { 'retry-after': new Date(now + 30_000).toISOString() }
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		await fetchPlus('test.com')
+
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays).toEqual([8_000])
+	})
+
+	test('fall back to exponential backoff on an expired HTTP-date Retry-After', async () => {
+		const now = Date.now()
+		const mockError = {
+			response: {
+				status: 429,
+				headers: { 'retry-after': new Date(now - 5_000).toISOString() }
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		const response = await fetchPlus('test.com')
+
+		expect(response).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		// An expired date yields no delay, so the exponential backoff for the
+		// first retry (1s) applies, exactly as with an absent header.
+		expect(sleepDelays).toEqual([1_000])
+	})
+
 	test('raise the adaptive cooldown on 503; a bare 200 does not decay it', async () => {
 		const mockError = {
 			response: {
@@ -267,6 +337,41 @@ describe('fetchPlus should', () => {
 		// soak). Decay belongs to item-level consumers.
 		expect(getCooldownMs()).toBe(120_000)
 		expect(getConsecutiveRateLimited()).toBe(1)
+	})
+
+	test('register a cooldown derived from a future HTTP-date Retry-After, not the ladder base', async () => {
+		// The cooldown side of the HTTP-date path: the parsed date's
+		// milliseconds feed registerRateLimited as the cooldown floor. A
+		// 30-min-ahead date is far above the ladder base (120s), so the
+		// observed cooldown must be date-derived. The header is built from a
+		// fixed relative offset; by the time the delay is computed the clock
+		// has advanced microseconds, so the value is at most the offset and
+		// well above it minus the async gap — a tight band keeps it race-free
+		// without pinning the wall clock.
+		const now = Date.now()
+		const offset = 30 * 60 * 1000
+		const mockError = {
+			response: {
+				status: 429,
+				headers: { 'retry-after': new Date(now + offset).toISOString() }
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		const response = await fetchPlus('test.com')
+
+		expect(response).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		// The per-retry delay still clamps to the 8s ceiling (429, no jitter).
+		expect(sleepDelays).toEqual([8_000])
+		// Cooldown is the date-derived milliseconds, not the 120s ladder base
+		// nor any backoff value: below the offset (clock advanced since the
+		// header was built), above offset minus a generous millisecond band.
+		expect(getConsecutiveRateLimited()).toBe(1)
+		expect(getCooldownMs()).toBeLessThanOrEqual(offset)
+		expect(getCooldownMs()).toBeGreaterThanOrEqual(offset - 5_000)
 	})
 
 	test('not register a non-transient 500 failure into the adaptive cooldown', async () => {

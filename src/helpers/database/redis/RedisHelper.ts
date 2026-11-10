@@ -39,17 +39,19 @@ export default class RedisHelper {
 
 	/**
 	 * Delete single key from Redis
+	 * @param {object} [options] - `log: false` suppresses the redis-layer error
+	 * log for callers that log their own (more actionable) line, so a single
+	 * failure does not emit two error lines.
 	 * @returns {boolean} - True if deleted, false if not
 	 * @throws {Error} - If there's an error
 	 */
-	async deleteOne(): Promise<boolean | undefined> {
+	async deleteOne(options?: { log?: boolean }): Promise<boolean | undefined> {
 		try {
 			const deleted = await this.instance?.del(this.key)
 			if (deleted === undefined) return undefined
 			return deleted === 1
 		} catch (error) {
-			const message = getErrorMessage(error)
-			this.logger?.error(message)
+			if (options?.log !== false) this.logger?.error(getErrorMessage(error))
 			throw new Error(ErrorMessageRedisDelete(this.key), { cause: error })
 		}
 	}
@@ -109,17 +111,19 @@ export default class RedisHelper {
 	/**
 	 * Set one key in Redis
 	 * @param {object} data - Data to set
-	 * @returns {string | undefined} - Status if set, null if not
+	 * @param {object} [options] - `log: false` suppresses the redis-layer error
+	 * log for callers that log their own (more actionable) line, so a single
+	 * failure does not emit two error lines.
+	 * @returns {string} - Status if set, null if not
 	 * @throws {Error} - If there's an error
 	 */
-	async setOne(data: object): Promise<string | undefined> {
+	async setOne(data: object, options?: { log?: boolean }): Promise<string | undefined> {
 		try {
 			const set = await this.instance?.set(this.key, JSON.stringify(data))
 			this.setExpiration()
 			return set
 		} catch (error) {
-			const message = getErrorMessage(error)
-			this.logger?.error(message)
+			if (options?.log !== false) this.logger?.error(getErrorMessage(error))
 			throw new Error(ErrorMessageRedisSet(this.key), { cause: error })
 		}
 	}

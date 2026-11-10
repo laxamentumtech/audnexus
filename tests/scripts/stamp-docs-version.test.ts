@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -27,10 +27,22 @@ interface StampResult {
 }
 
 async function stampFixture(path: string, env: Record<string, string>): Promise<StampResult> {
-	const child = Bun.spawn(
-		['bun', 'scripts/stamp-docs-version.ts', path],
-		{ cwd: process.cwd(), env: { ...process.env, ...env }, stdout: 'pipe', stderr: 'pipe' },
-	)
+	// Reset the DOCS_* contract vars so a parent process (or CI) that has them
+	// set cannot leak into the child and mask the per-test env. They are then
+	// re-applied from `env` below, so an explicit '' from a test is honored.
+	const child = Bun.spawn(['bun', 'scripts/stamp-docs-version.ts', path], {
+		cwd: process.cwd(),
+		env: {
+			...process.env,
+			DOCS_REF: '',
+			DOCS_SOURCE: '',
+			DOCS_EXPECTED_SOURCE: '',
+			DOCS_VERSION: '',
+			...env
+		},
+		stdout: 'pipe',
+		stderr: 'pipe'
+	})
 	const stdout = new Response(child.stdout).text()
 	const stderr = new Response(child.stderr).text()
 	const code = await child.exited
@@ -61,7 +73,7 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		const path = join(root, 'spec.yaml')
 		const result = await stampFixture(path, {
 			DOCS_REF: 'refs/tags/v1.2.0',
-			DOCS_SOURCE: sha,
+			DOCS_SOURCE: sha
 		})
 		expect(result.code).toBe(0)
 		expect(result.stdout).toBe(`Docs version: 1.2.0; source: ${sha}`)
@@ -73,7 +85,7 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		const result = await stampFixture(path, {
 			DOCS_REF: 'refs/tags/v1.2.0',
 			DOCS_SOURCE: sha,
-			DOCS_VERSION: 'v1.2.0',
+			DOCS_VERSION: 'v1.2.0'
 		})
 		expect(result.code).toBe(0)
 		expect(await readStampedVersion(path)).toBe('1.2.0')
@@ -83,7 +95,7 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		const path = join(root, 'spec.yaml')
 		const result = await stampFixture(path, {
 			DOCS_REF: 'refs/heads/main',
-			DOCS_SOURCE: sha,
+			DOCS_SOURCE: sha
 		})
 		expect(result.code).toBe(0)
 		expect(result.stdout).toBe(`Docs version: dev-${sha.slice(0, 12)}; source: ${sha}`)
@@ -94,7 +106,7 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		const path = join(root, 'spec.yaml')
 		const result = await stampFixture(path, {
 			DOCS_REF: 'refs/heads/develop',
-			DOCS_SOURCE: sha,
+			DOCS_SOURCE: sha
 		})
 		expect(result.code).toBe(0)
 		expect(await readStampedVersion(path)).toBe(`dev-${sha.slice(0, 12)}`)
@@ -104,7 +116,7 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		const path = join(root, 'spec.yaml')
 		const result = await stampFixture(path, {
 			DOCS_REF: 'refs/heads/main',
-			DOCS_SOURCE: 'not-a-sha',
+			DOCS_SOURCE: 'not-a-sha'
 		})
 		expect(result.code).toBe(1)
 		expect(result.stderr).toContain('must be an exact commit SHA')
@@ -116,7 +128,24 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		const result = await stampFixture(path, {
 			DOCS_REF: 'refs/tags/v1.2.0',
 			DOCS_SOURCE: sha,
+			DOCS_EXPECTED_SOURCE: otherSha
+		})
+		expect(result.code).toBe(1)
+		expect(result.stderr).toContain('does not match the reserved release source')
+		expect(await readStampedVersion(path)).toBe('0.0.0')
+	})
+
+	test('reject a mismatched expected source on a main ref even with an explicit version', async () => {
+		// The relaxation admits an explicit version on a main ref, but only
+		// when the expected source equals the reserved source. With
+		// expectedSource set but DIFFERING, the source-mismatch guard must
+		// fire first (fail-closed ordering), never the tag-mismatch error.
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/heads/main',
+			DOCS_SOURCE: sha,
 			DOCS_EXPECTED_SOURCE: otherSha,
+			DOCS_VERSION: 'v1.2.0'
 		})
 		expect(result.code).toBe(1)
 		expect(result.stderr).toContain('does not match the reserved release source')
@@ -128,10 +157,118 @@ describe('scripts/stamp-docs-version.ts should', () => {
 		const result = await stampFixture(path, {
 			DOCS_REF: 'refs/heads/main',
 			DOCS_SOURCE: sha,
-			DOCS_VERSION: 'v1.2.0',
+			DOCS_VERSION: 'v1.2.0'
 		})
 		expect(result.code).toBe(1)
 		expect(result.stderr).toContain('matching immutable release tag')
 		expect(await readStampedVersion(path)).toBe('0.0.0')
+	})
+
+	test('stamp an advanced main build of a delayed release retry with a dev identity', async () => {
+		// build-docs of a delayed release retry checks out main at dispatch
+		// time (source has advanced past the frozen release source). The
+		// workflow stamps that build with its own development identity — its
+		// own ref, cleared expected source and cleared version — so it can
+		// never be published to Pages labeled as the older release. The
+		// release identity is proven in release-docs from the frozen source.
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/heads/main',
+			DOCS_SOURCE: otherSha,
+			DOCS_EXPECTED_SOURCE: '',
+			DOCS_VERSION: ''
+		})
+		expect(result.code).toBe(0)
+		expect(result.stdout).toBe(`Docs version: dev-${otherSha.slice(0, 12)}; source: ${otherSha}`)
+		expect(await readStampedVersion(path)).toBe(`dev-${otherSha.slice(0, 12)}`)
+	})
+
+	test('accept an explicit version on a release dispatch from main', async () => {
+		// A release dispatch freezes the reserved release source in the
+		// dispatch (DOCS_EXPECTED_SOURCE) and dispatches from main (the
+		// github-pages environment policy admits only main). The identity is
+		// proven by the reserved source, so an explicit version is admissible
+		// even when the ref is not the immutable tag.
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/heads/main',
+			DOCS_SOURCE: sha,
+			DOCS_EXPECTED_SOURCE: sha,
+			DOCS_VERSION: 'v1.2.0'
+		})
+		expect(result.code).toBe(0)
+		expect(result.stdout).toBe(`Docs version: 1.2.0; source: ${sha}`)
+		expect(await readStampedVersion(path)).toBe('1.2.0')
+	})
+
+	test('reject a spec without an OpenAPI info section', async () => {
+		const path = join(root, 'spec.yaml')
+		await writeFile(
+			path,
+			'openapi: 3.0.0\npaths:\n  /books/{asin}:\n    get:\n      summary: Book\n'
+		)
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/heads/main',
+			DOCS_SOURCE: sha
+		})
+		expect(result.code).toBe(1)
+		expect(result.stderr).toContain('OpenAPI info section is missing')
+	})
+
+	test('accept a dispatch whose expected source matches the reserved release source', async () => {
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/tags/v1.2.0',
+			DOCS_SOURCE: sha,
+			DOCS_EXPECTED_SOURCE: sha
+		})
+		expect(result.code).toBe(0)
+		expect(await readStampedVersion(path)).toBe('1.2.0')
+	})
+
+	test('reject a tag ref whose requested version differs from the tag', async () => {
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/tags/v1.2.0',
+			DOCS_SOURCE: sha,
+			DOCS_VERSION: 'v9.9.9'
+		})
+		expect(result.code).toBe(1)
+		expect(result.stderr).toContain('matching immutable release tag')
+		expect(await readStampedVersion(path)).toBe('0.0.0')
+	})
+
+	test('fall back to a dev-<sha> label for a non-semver tag ref', async () => {
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: `refs/tags/${sha}`,
+			DOCS_SOURCE: sha
+		})
+		expect(result.code).toBe(0)
+		expect(result.stdout).toBe(`Docs version: dev-${sha.slice(0, 12)}; source: ${sha}`)
+		expect(await readStampedVersion(path)).toBe(`dev-${sha.slice(0, 12)}`)
+	})
+
+	test('keep the spec structure intact across the rewrite', async () => {
+		const path = join(root, 'spec.yaml')
+		const result = await stampFixture(path, {
+			DOCS_REF: 'refs/tags/v1.2.0',
+			DOCS_SOURCE: sha
+		})
+		expect(result.code).toBe(0)
+		const spec = Bun.YAML.parse(await readFile(path)) as {
+			info?: { version?: string }
+			paths?: Record<string, unknown>
+		}
+		expect(spec.info?.version).toBe('1.2.0')
+		// The stamped file must stay block-style, 2-space-indented YAML:
+		// a one-line flow dump would indicate the indent argument was lost.
+		const raw = await Bun.file(path).text()
+		expect(raw).toContain('\n  ')
+		// Structure survives the parse/stringify round trip.
+		const book = (spec.paths?.['/books/{asin}'] ?? {}) as {
+			get?: { summary?: string }
+		}
+		expect(book.get?.summary).toBe('Book')
 	})
 })

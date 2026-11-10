@@ -7,7 +7,8 @@ import {
 	registerSuccess,
 	resetCooldown,
 	setCooldownLogger,
-	sleepCooldown} from '#helpers/utils/adaptiveCooldown'
+	sleepCooldown
+} from '#helpers/utils/adaptiveCooldown'
 
 // The singleton is process-global; every test starts from a clean slate.
 afterEach(() => {
@@ -105,6 +106,21 @@ describe('adaptiveCooldown', () => {
 		registerRateLimited()
 		expect(messages).toHaveLength(1)
 		expect(messages[0]).toContain('120s')
+	})
+
+	test('notifier does not fire when the cooldown is held flat', () => {
+		// A headerless rate-limit inside a long streak repeats the outstanding
+		// cooldown; the guard must not log a fresh growth event.
+		const messages: string[] = []
+		setCooldownLogger((message) => messages.push(message))
+		// 10-minute Retry-After sets the floor and logs one growth.
+		registerRateLimited(600_000)
+		expect(messages).toHaveLength(1)
+		// A headerless 503 computes base (120s) < 600s, so the cooldown is
+		// held flat — no second growth event.
+		registerRateLimited()
+		expect(getCooldownMs()).toBe(600_000)
+		expect(messages).toHaveLength(1)
 	})
 
 	test('notifier is cleared by resetCooldown', () => {

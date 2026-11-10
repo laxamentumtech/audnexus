@@ -13,6 +13,7 @@ const mockCreateWorker = mock()
 const mockGetWorker = mock()
 const mockCloseQueue = mock()
 const mockUpsertUpdateSchedulers = mock()
+const mockAssertHistoryPrerequisites = mock()
 // Mirrors the real helper (strict `\d+` parse: explicit 0 disables, anything
 // non-numeric falls back to 30) so the worker test can assert on the derived
 // object.
@@ -49,7 +50,11 @@ const mockWorkerClose = mock()
 // file in its own worker process, so the mocks never escape this file. Do not
 // run this file under default parallel `bun test` alongside other suites.
 mock.module('#config/papr', () => ({
-	initialize: mockPaprInitialize
+	initialize: mockPaprInitialize,
+	// The worker's activation gate calls assertHistoryPrerequisites only when
+	// BOOK_HISTORY_ENABLED is true; the mock doubles as the gate's assertion
+	// seam for the history-enabled tests below.
+	bookHistoryStore: { assertHistoryPrerequisites: mockAssertHistoryPrerequisites }
 }))
 mock.module('#config/context', () => ({
 	// matches the real Context shape: { client: MongoClient }
@@ -97,11 +102,14 @@ let exitSpy: Mock<(code?: number) => void>
 let exitCalled: Promise.withResolvers<void>
 
 beforeEach(() => {
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS']) {
+	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS', 'BOOK_HISTORY_ENABLED']) {
 		savedEnv[key] = process.env[key]
 	}
 	process.env.MONGODB_URI = 'mongodb://localhost:27017'
 	process.env.REDIS_URL = 'redis://localhost:6379'
+	// The disabled-case tests require the flag to be OFF under the runner,
+	// regardless of how the process was started (afterEach restores it).
+	delete process.env.BOOK_HISTORY_ENABLED
 	mockPaprInitialize.mockClear()
 	mockClientConnect.mockClear()
 	mockClientConnect.mockResolvedValue(mockClient)
@@ -115,6 +123,8 @@ beforeEach(() => {
 	mockUpsertUpdateSchedulers.mockClear()
 	mockWorkerClose.mockClear()
 	mockWorkerClose.mockResolvedValue(undefined)
+	mockAssertHistoryPrerequisites.mockClear()
+	mockAssertHistoryPrerequisites.mockResolvedValue(undefined)
 
 	// The shutdown handler ends with process.exit(0); stub it so the test
 	// process survives.
@@ -128,7 +138,7 @@ beforeEach(() => {
 
 afterEach(() => {
 	process.exit = originalExit
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS']) {
+	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS', 'BOOK_HISTORY_ENABLED']) {
 		if (savedEnv[key] === undefined) {
 			delete process.env[key]
 		} else {
@@ -215,6 +225,34 @@ describe('worker startup', () => {
 			books: 30,
 			chapters: 30
 		})
+	})
+})
+
+describe('worker history activation gate', () => {
+	it('skips assertHistoryPrerequisites when history is disabled', async () => {
+		await worker.startWorker()
+		expect(mockAssertHistoryPrerequisites).not.toHaveBeenCalled()
+	})
+
+	it('calls assertHistoryPrerequisites before scheduling when enabled', async () => {
+		process.env.BOOK_HISTORY_ENABLED = 'true'
+		await worker.startWorker()
+		expect(mockAssertHistoryPrerequisites).toHaveBeenCalledTimes(1)
+		// The gate runs before the schedule is upserted, so a deployment
+		// that cannot record never schedules update jobs.
+		expect(mockAssertHistoryPrerequisites.mock.invocationCallOrder[0]).toBeLessThan(
+			mockUpsertUpdateSchedulers.mock.invocationCallOrder[0]
+		)
+	})
+
+	it('fails closed when the prerequisites check rejects while enabled', async () => {
+		process.env.BOOK_HISTORY_ENABLED = 'true'
+		mockAssertHistoryPrerequisites.mockRejectedValue(
+			new Error('BOOK_HISTORY_ENABLED requires a transaction-capable MongoDB replica set and prepared history indexes')
+		)
+		await expect(worker.startWorker()).rejects.toThrow('replica set and prepared history indexes')
+		expect(mockCreateWorker).not.toHaveBeenCalled()
+		expect(mockUpsertUpdateSchedulers).not.toHaveBeenCalled()
 	})
 })
 

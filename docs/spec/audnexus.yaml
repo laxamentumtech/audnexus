@@ -360,6 +360,29 @@ paths:
                     statusCode: 400
                     error: Bad Request
                     message: Bad ASIN
+        '409':
+          description: |
+            History mode only: an unresolved identity conflict for this
+            asin+region (duplicate exact-region rows, or an exact-region row
+            alongside a region-less or unsupported-region row) blocks a
+            forced `update=1` refresh. A stored book is served normally
+            without a forced update; legacy mode returns 200 with the stale
+            data instead.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+              example:
+                statusCode: 409
+                error: Conflict
+                message: Book history identity conflict for B000000000
       tags:
         - Books
     delete:
@@ -416,7 +439,10 @@ paths:
                     type: string
               examples: {}
         '404':
-          description: Book not found
+          description: |
+            Book not found. In history mode this also covers the concurrent
+            delete race: a book removed by a concurrent delete (or already
+            absent) is not deleted again by this request.
           content:
             application/json:
               schema:
@@ -434,6 +460,28 @@ paths:
                     error: Bad Request
                     message: Bad ASIN
               examples: {}
+        '409':
+          description: |
+            History mode only: an unresolved identity conflict for this
+            asin+region (duplicate exact-region rows, or an exact-region row
+            alongside a region-less or unsupported-region row) blocks the
+            delete. Legacy mode deletes the found row and returns 200
+            instead.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode:
+                    type: integer
+                  error:
+                    type: string
+                  message:
+                    type: string
+              example:
+                statusCode: 409
+                error: Conflict
+                message: Book history identity conflict for B000000000
       description: Deletes a single book
       tags:
         - Books
@@ -444,6 +492,321 @@ paths:
         in: path
         required: true
         description: Audible.com ID
+  '/books/{ASIN}/artwork':
+    get:
+      summary: Book artwork gallery
+      description: |
+        Returns the retained artwork gallery for one exact asin+region pair,
+        newest immutable sequence first. Parsed (Amazon image ID) and unparsed
+        references are both listed; unparsed entries carry a null imageId.
+        Live-observed references report the URL verbatim, and unparsed
+        live-observed entries expose their exact URL through their rendition
+        entries. Imported legacy references report the server-side stored URL
+        and import time via `legacy` with an empty `renditions` array — their
+        URL is not exposed through rendition entries.
+
+        Read-only: served from retained data, and may answer even when the
+        current book is deleted. 200 for a pending (no state yet) trusted
+        current book, returning empty items; 409 for an unresolved identity
+        conflict only while no established history state exists (an
+        established retained state always wins and reads 200); 404 for a
+        wholly unknown resource; 400 for invalid path/query input.
+      operationId: getBookArtwork
+      tags:
+        - Books
+      parameters:
+        - name: ASIN
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: region
+          in: query
+          required: false
+          description: Region code
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
+            default: us
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{1,3}$'
+            description: Page size, 1-100 (declared as a decimal digit string)
+            default: '50'
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 2048
+            description: |
+              Opaque keyset continuation cursor from a previous page. Bound
+              to the exact asin+region pair that issued it; reusing it for
+              any other pair returns 400 ("Cursor does not match").
+      responses:
+        '200':
+          description: Page of artwork (empty for a pending resource)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  asin:
+                    type: string
+                  region:
+                    type: string
+                  tracking:
+                    $ref: '#/components/schemas/HistoryTracking'
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assetId:
+                          type: string
+                        imageId:
+                          type: string
+                          nullable: true
+                        legacy:
+                          type: object
+                          nullable: true
+                          properties:
+                            storedUrl:
+                              type: string
+                            importedAt:
+                              type: string
+                              format: date-time
+                            observedAt:
+                              type: string
+                              nullable: true
+                              description: Always null for legacy imports.
+                            rendition:
+                              type: string
+                              nullable: true
+                              description: Always null for legacy imports.
+                        renditions:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              rendition:
+                                type: string
+                              firstSourceUrl:
+                                type: string
+                              sourceUrl:
+                                type: string
+                              firstObservedAt:
+                                type: string
+                                format: date-time
+                              observedAt:
+                                type: string
+                                format: date-time
+                  nextCursor:
+                    type: string
+                    nullable: true
+        '400':
+          description: Invalid path/query input (bad ASIN, bad limit, invalid or oversized or cross-book cursor, bad region, or unexpected keys)
+        '404':
+          description: No established history state and no trusted current book for this asin+region
+        '409':
+          description: Unresolved identity conflict for this asin+region (only while no established history state exists)
+  '/books/{ASIN}/history':
+    get:
+      summary: Book history
+      description: |
+        Returns stored metadata/artwork history for one exact asin+region
+        pair, newest revision first. Each item is a revision identity with
+        its changed-field names; use the detail endpoint for a revision's
+        full stored delta. The optional `field` filter narrows to revisions
+        that changed that field. Read-only, served from retained data and
+        may answer even when the current book is deleted. 200 for an
+        established (retained) resource and for a pending trusted current
+        book (empty items, pending tracking); 409 for an unresolved identity
+        conflict only while no established history state exists (an
+        established retained state always wins and reads 200); 404 for a
+        wholly unknown resource. An invalid cursor on an established
+        resource is 400; on an unknown resource the existence check runs
+        first and is 404.
+      operationId: getBookHistory
+      tags:
+        - Books
+      parameters:
+        - name: ASIN
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: region
+          in: query
+          required: false
+          description: Region code
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
+            default: us
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: string
+            pattern: '^\d{1,3}$'
+            description: Page size, 1-100 (declared as a decimal digit string)
+            default: '50'
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 2048
+            description: |
+              Opaque keyset continuation cursor from a previous page. Bound
+              to the exact asin+region pair (and `field` filter, if any)
+              that issued it; reusing it for a different pair or filter
+              returns 400 ("Cursor does not match").
+        - name: field
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - title
+              - subtitle
+              - authors
+              - narrators
+              - publisherName
+              - description
+              - summary
+              - isbn
+              - language
+              - formatType
+              - copyright
+              - releaseDate
+              - runtimeLengthMin
+              - seriesPrimary
+              - seriesSecondary
+              - genres
+              - literatureType
+              - isAdult
+              - artwork
+      responses:
+        '200':
+          description: Page of history revisions (empty for a pending resource)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  asin:
+                    type: string
+                  region:
+                    type: string
+                  tracking:
+                    $ref: '#/components/schemas/HistoryTracking'
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        revision:
+                          type: string
+                        observedAt:
+                          type: string
+                          format: date-time
+                        changedFields:
+                          type: array
+                          items:
+                            type: string
+                  nextCursor:
+                    type: string
+                    nullable: true
+        '400':
+          description: Invalid path/query input (bad ASIN, bad limit, invalid or oversized or cross-book cursor, bad region, bad field, or unexpected keys)
+        '404':
+          description: No established history state and no trusted current book for this asin+region
+        '409':
+          description: Unresolved identity conflict for this asin+region (only while no established history state exists)
+  '/books/{ASIN}/history/{revision}':
+    get:
+      summary: Book history revision detail
+      description: |
+        Returns the complete stored delta for one revision of an exact
+        asin+region pair. The revision number is exact (no 0, no leading
+        zeros, safe integer bound). An unknown, cross-book, cross-region, or
+        not-yet-existing revision is always 404, even for a pending
+        resource.
+      operationId: getBookHistoryRevision
+      tags:
+        - Books
+      parameters:
+        - name: ASIN
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: revision
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[1-9][0-9]*$'
+        - name: region
+          in: query
+          required: false
+          description: Region code
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
+            default: us
+      responses:
+        '200':
+          description: The stored revision delta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  asin:
+                    type: string
+                  region:
+                    type: string
+                  revision:
+                    type: number
+                  observedAt:
+                    type: string
+                    format: date-time
+                  changedFields:
+                    type: array
+                    items:
+                      type: string
+                  policies:
+                    type: object
+                    properties:
+                      fields:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      artwork:
+                        type: object
+                        additionalProperties:
+                          type: string
+                  changes:
+                    type: object
+                    description: |
+                      Editorial name keys each map to a before/after value
+                      envelope. An optional `artwork` key maps to the ordered
+                      rendition transitions, each entry carrying `rendition`,
+                      `before`, and `after`, both objects of `imageId` +
+                      `sourceUrl`. A first observation initializes baselines
+                      silently and produces no revision entry, so every
+                      recorded artwork transition has a non-null `before`.
+                    additionalProperties: true
+        '400':
+          description: Invalid path/query input (bad ASIN, revision format, bad region, or unexpected query keys)
+        '404':
+          description: No such revision for this book/region
   '/books/backfill-ratings':
     post:
       summary: Backfill ratings
@@ -457,7 +820,10 @@ paths:
         is logged, not returned. Pre-order books (releaseDate in the future)
         are reported as `skipped` — their refreshed data is not persisted
         while pre-release, so they cannot be counted as updated. Only one
-        backfill runs per process; concurrent requests receive `409`.
+        backfill can be queued or running at a time (queue-wide, durable
+        across API restarts); concurrent requests normally receive `409`,
+        though a racing request that is deduped on the job id before the
+        running check observes it receives `202` with the same job id.
       operationId: backfillRatings
       tags:
         - Books
@@ -480,8 +846,12 @@ paths:
                 properties:
                   message:
                     type: string
+                  id:
+                    type: string
+                    description: BullMQ job id of the queued backfill
                 example:
                   message: Ratings backfill started
+                  id: backfill-ratings
         '401':
           description: Missing or invalid admin token
           content:
@@ -497,7 +867,7 @@ paths:
                 error: Unauthorized
                 message: Invalid admin token
         '409':
-          description: A backfill is already running in the background
+          description: A backfill is already queued or running
           content:
             application/json:
               schema:
@@ -524,6 +894,24 @@ paths:
               example:
                 error: Not Found
                 message: Route not available
+        '503':
+          description: |
+            Redis is missing or not ready, so the backfill cannot be queued.
+            A Redis that is ready but erroring surfaces as 500 instead; and
+            a 503 from a queue-add deadline does not prove nothing was
+            queued, so a later 409 may follow a 503.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+              example:
+                error: Service Unavailable
+                message: Backfill requires a ready Redis connection
   '/books/{ASIN}/chapters':
     get:
       summary: Find chapters by ASIN
@@ -1138,6 +1526,51 @@ components:
         Set via `METRICS_ALLOWED_IPS` environment variable (comma-separated list, supports CIDR notation).
         Note: This is optional if `METRICS_AUTH_TOKEN` is configured for token-based access.
   schemas:
+    HistoryTracking:
+      type: object
+      description: |
+        Baseline coverage for a history resource. `pending` means no
+        comparable baseline is initialized yet (includes resources whose
+        state has not been established); `active` means at least one
+        field or rendition baseline exists. Absence of a rendition key in
+        `artwork` means unknown coverage, not deleted artwork.
+      properties:
+        status:
+          type: string
+          enum: [pending, active]
+        recordingEnabled:
+          type: boolean
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        fields:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              policy:
+                type: string
+                nullable: true
+              baselineAt:
+                type: string
+                format: date-time
+                nullable: true
+        artwork:
+          type: object
+          description: Initialized comparable renditions only, keyed by rendition.
+          additionalProperties:
+            type: object
+            properties:
+              policy:
+                type: string
+              baselineAt:
+                type: string
+                format: date-time
+      required:
+        - status
+        - recordingEnabled
+        - fields
     Author:
       type: object
       properties:

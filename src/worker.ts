@@ -1,8 +1,9 @@
 import type { FastifyBaseLogger } from 'fastify'
 import type { MongoClient } from 'mongodb'
 
+import { isBookHistoryEnabled } from '#config/bookHistory'
 import { createDefaultContext } from '#config/context'
-import { initialize } from '#config/papr'
+import { bookHistoryStore, initialize } from '#config/papr'
 import {
 	closeQueue,
 	createWorker,
@@ -48,6 +49,9 @@ async function ensureStaleWalkIndexes(client: MongoClient): Promise<void> {
 export async function startWorker(): Promise<void> {
 	validateEnv()
 	await initialize({ client: await ctx.client.connect() })
+	// Activation gate: enabled mode refuses to start without a
+	// transaction-capable replica set and prepared history indexes.
+	if (isBookHistoryEnabled()) await bookHistoryStore.assertHistoryPrerequisites()
 	await ensureStaleWalkIndexes(ctx.client)
 	// The worker owns the schedule: it creates/refreshes the repeatable
 	// per-collection update jobs, so the schedule survives API restarts.

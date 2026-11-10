@@ -38,12 +38,14 @@ describe('registerUpdateScheduler should', () => {
 		expect(mockUpsert).not.toHaveBeenCalled()
 	})
 
-	it('upsert the repeatable scheduler when REDIS_URL is set', async () => {
+	it('upsert the repeatable scheduler without boot passes when REDIS_URL is set', async () => {
 		const log = createMockLogger()
 		process.env.REDIS_URL = TEST_REDIS_URL
 		mockUpsert.mockResolvedValueOnce(undefined)
 		await registerUpdateScheduler(intervals, log)
-		expect(mockUpsert).toHaveBeenCalledWith(intervals)
+		// The API only (re)creates the repeatable jobs; the worker owns the
+		// boot passes, so skipBootPass must be set.
+		expect(mockUpsert).toHaveBeenCalledWith(intervals, { skipBootPass: true })
 		expect(log.info).toHaveBeenCalledWith(
 			'Update schedulers enqueued: authors/books every 7 days, chapters every 30 days'
 		)

@@ -39,30 +39,13 @@ function retryAfterToMs(error: AxiosError): number | undefined {
  * @returns {number} The delay in milliseconds
  */
 function calculateRetryDelay(retries: number, error: AxiosError): number {
-	// Honor Retry-After for any rate-limit status; parse delay-in-seconds and
-	// HTTP-date forms.
-	if (error.response?.headers) {
-		const retryAfter = error.response.headers['retry-after']
-		if (retryAfter) {
-			// Retry-After can be a delay in seconds or an HTTP-date
-			// Validate digits-only before parseInt to avoid accepting garbage
-			if (typeof retryAfter === 'string' && /^\d+$/.test(retryAfter)) {
-				const parsedAsNumber = parseInt(retryAfter, 10)
-				if (parsedAsNumber >= 0) {
-					return Math.min(parsedAsNumber * 1000, MAX_BACKOFF_MS)
-				}
-			}
-
-			// Try parsing as an HTTP-date
-			const parsedDate = new Date(retryAfter)
-			if (!isNaN(parsedDate.getTime())) {
-				const now = Date.now()
-				const delay = parsedDate.getTime() - now
-				if (delay > 0) {
-					return Math.min(delay, MAX_BACKOFF_MS)
-				}
-			}
-		}
+	// Honor Retry-After for any rate-limit status (delay-in-seconds or
+	// HTTP-date, shared with registerRateLimited via retryAfterToMs); a
+	// header-hinted window longer than MAX_BACKOFF_MS still clamps to the
+	// per-retry cap.
+	const retryAfterMs = retryAfterToMs(error)
+	if (retryAfterMs !== undefined) {
+		return Math.min(retryAfterMs, MAX_BACKOFF_MS)
 	}
 
 	// Exponential backoff (no Retry-After): 1s, 2s, 4s, capped at 8s

@@ -79,8 +79,13 @@ export function registerRateLimited(retryAfterMs?: number): number {
 	// value seen so far in this consecutive run, so a weaker signal cannot
 	// pull it down.
 	streakMs = Math.max(streakMs, candidate)
+	const previousMs = cooldownMs
 	cooldownMs = streakMs
-	notify?.(`Upstream rate limited; adaptive cooldown now ${Math.round(cooldownMs / 1000)}s`)
+	// Notify only on an actual growth: a headerless 503 inside a long streak
+	// repeats the outstanding cooldown and must not log a fresh growth event.
+	if (cooldownMs > previousMs) {
+		notify?.(`Upstream rate limited; adaptive cooldown now ${Math.round(cooldownMs / 1000)}s`)
+	}
 	return cooldownMs
 }
 
