@@ -215,6 +215,15 @@ async function audit(
  * index definition fails with the name and stops; indexes are never
  * replaced/dropped.
  */
+
+/** Same key pattern, order-independent field set. */
+function sameIndexKeys(a: Record<string, number>, b: Record<string, number>): boolean {
+	return (
+		Object.keys(a).length === Object.keys(b).length &&
+		Object.entries(b).every(([field, direction]) => a[field] === direction)
+	)
+}
+
 async function prepare(client: MongoClient): Promise<void> {
 	const { initialize } = await import('#config/papr')
 	await initialize({ client } as never)
@@ -267,6 +276,22 @@ async function prepare(client: MongoClient): Promise<void> {
 					continue
 				}
 				console.log(`index ${def.name}: exists`)
+				continue
+			}
+			// A pre-existing equivalent index satisfies the definition even
+			// under Mongo's auto-generated name (e.g. `asin_1_region_1` for
+			// the books asin+region lookup). The physical name is irrelevant
+			// to query planning, and creating a same-key index under a second
+			// name is rejected by the server.
+			const equivalent = indexes.find(
+				(idx) =>
+					sameIndexKeys(idx.key, def.keys) &&
+					JSON.stringify(idx.partialFilterExpression ?? null) ===
+						JSON.stringify(def.partialFilterExpression ?? null) &&
+					(def.unique !== true || idx.unique === true)
+			)
+			if (equivalent !== undefined) {
+				console.log(`index ${def.name}: exists as ${equivalent.name}`)
 				continue
 			}
 			await db.collection(def.collection).createIndex(def.keys, {

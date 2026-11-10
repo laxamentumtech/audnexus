@@ -1015,7 +1015,19 @@ export class BookHistoryStore {
 				}
 				throw error
 			}
-			const match = indexes.find((idx) => idx.name === def.name)
+			// The definition is satisfied by an equivalent index under any
+			// name: MongoDB rejects a second index with the same keys, and
+			// the physical name does not affect planning.
+			const match =
+				indexes.find((idx) => idx.name === def.name) ??
+				indexes.find(
+					(idx) =>
+						Object.keys(idx.key).length === Object.keys(def.keys).length &&
+						Object.entries(def.keys).every(([k, v]) => idx.key[k] === v) &&
+						JSON.stringify(idx.partialFilterExpression ?? null) ===
+							JSON.stringify(def.partialFilterExpression ?? null) &&
+						(def.unique !== true || idx.unique === true)
+				)
 			if (!match) throw failure()
 			const keysEqual =
 				Object.keys(match.key).length === Object.keys(def.keys).length &&
