@@ -23,17 +23,20 @@ class StitchHelper {
 	private captureHistory: boolean
 	private htmlReceivedAt: Date | undefined
 	private historyHtmlGenres: HtmlBook['genres'] | undefined
+	private skipHtml: boolean
 	logger?: FastifyBaseLogger
 
 	constructor(
 		asin: string,
 		region: string,
 		logger?: FastifyBaseLogger,
-		captureHistory: boolean = false
+		captureHistory: boolean = false,
+		skipHtml: boolean = false
 	) {
 		this.asin = asin
 		this.logger = logger
 		this.captureHistory = captureHistory
+		this.skipHtml = skipHtml
 		// Set up helpers
 		this.apiHelper = new ApiHelper(asin, region, logger, captureHistory)
 		this.sharedHelper = new SharedHelper()
@@ -167,8 +170,11 @@ class StitchHelper {
 		await this.fetchApiBook()
 		await this.parseApiResponse()
 
-		// Check if we need to scrape for genres
-		if (!this.apiResponse.product.category_ladders.length) {
+		// Check if we need to scrape for genres. Background passes (scheduler
+		// walk, ratings backfill) skip the scrape: the page only supplies
+		// genres/tags, and for ladder-less legacy rows it answers 404/503 —
+		// paying a product-page round trip per book for no data.
+		if (!this.skipHtml && !this.apiResponse.product.category_ladders.length) {
 			this.logger?.debug(NoticeChaptersFallback(this.asin))
 			// Fetch and parse scraper data
 			await this.fetchScraperBook()

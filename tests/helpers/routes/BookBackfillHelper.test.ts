@@ -149,6 +149,8 @@ describe('BookBackfillHelper should', () => {
 		for (const args of showConstructorArgs) {
 			expect(args[2]).toBeNull()
 			expect(args[4]).toBe(true)
+			// Ratings come from the API; the backfill skips the HTML scrape.
+			expect(args[5]).toBe(true)
 		}
 		expect(showConstructorArgs[0][1]).toEqual({ region: 'us', update: '1' })
 		expect(showConstructorArgs[1][1]).toEqual({ region: 'uk', update: '1' })

@@ -68,6 +68,9 @@ export default class BookBackfillHelper {
 						{ region: book.region ?? 'us', update: '1' },
 						this.redis as unknown as FastifyRedis | null,
 						this.logger,
+						true,
+						// Ratings come from the API; the product page only adds
+						// genres and would cost a 404/503 round trip per row.
 						true
 					)
 					let updatedBook: ApiAuthorProfile | ApiBook | ApiChapter | undefined

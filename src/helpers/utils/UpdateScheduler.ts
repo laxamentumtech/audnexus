@@ -171,7 +171,9 @@ class UpdateScheduler {
 					asin,
 					{ region, update: '1' },
 					this.redis as unknown as FastifyRedis | null,
-					this.logger
+					this.logger,
+					false,
+					true
 				),
 			'book',
 			book,
