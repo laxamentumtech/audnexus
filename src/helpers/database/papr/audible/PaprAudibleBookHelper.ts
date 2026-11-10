@@ -139,15 +139,17 @@ export default class PaprAudibleBookHelper {
 				}
 			}
 			// Check state of existing book
-			// Only update if either genres exist and can be checked
-			// -or if genres exist on new item but not old
-			if (data.genres || (!data.genres && this.bookData.genres)) {
-				// Only update if it's not nuked data
-				if (this.bookData.genres?.length) {
-					this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
-					// Update
-					return this.update()
-				}
+			// Update when the incoming data carries genre evidence, or when the
+			// stored row never had any: with no stored genres there is nothing
+			// the update could nuke, and refusing here froze genre-less legacy
+			// rows permanently — every other field, ratings included, stayed
+			// unreachable and the books validator rejects partial repairs.
+			const storedHasGenres = Boolean(data.genres)
+			const incomingHasGenres = Boolean(this.bookData.genres?.length)
+			if (incomingHasGenres || !storedHasGenres) {
+				this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
+				// Update
+				return this.update()
 			}
 			// No update performed, return original
 			return findInDb
