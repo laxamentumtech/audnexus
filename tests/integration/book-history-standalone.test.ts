@@ -1193,4 +1193,34 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			.countDocuments({ asin: eqAsin, region: REGION })
 		expect(revisions).toBe(0)
 	}, 30000)
+
+	test('accepts an update when neither side has genre evidence', async () => {
+		// Legacy rows never had category ladders. Rejecting genre-less
+		// updates froze every other field on them (the books validator
+		// refuses partial writes), so the safeguard must only fire when it
+		// would actually drop stored genres.
+		const noGenreAsin = 'B0GENRLESS1'
+		const db3 = collections()
+		const gen1 = await bookHistoryStore.reserveGeneration(noGenreAsin, REGION)
+		const first = await bookHistoryStore.persistObservation({
+			asin: noGenreAsin,
+			region: REGION,
+			generation: gen1,
+			book: book({ asin: noGenreAsin, title: 'No Genres', genres: [] }),
+			observation: observation({ title: 'No Genres', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		const gen2 = await bookHistoryStore.reserveGeneration(noGenreAsin, REGION)
+		const second = await bookHistoryStore.persistObservation({
+			asin: noGenreAsin,
+			region: REGION,
+			generation: gen2,
+			book: book({ asin: noGenreAsin, title: 'Still No Genres', genres: [] }),
+			observation: observation({ title: 'Still No Genres', imageId: IMG2 })
+		})
+		expect(second.disposition).toBe('accepted')
+		expect(second.modified).toBe(true)
+		const current = await db3.collection('books').findOne({ asin: noGenreAsin })
+		expect(current?.title).toBe('Still No Genres')
+	}, 30000)
 })

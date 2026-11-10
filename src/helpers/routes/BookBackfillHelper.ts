@@ -111,13 +111,13 @@ export default class BookBackfillHelper {
 						registerSuccess()
 						return
 					}
-					// The returned data can be the stored row: when the fresh
-					// data has no genre evidence, BookHistoryStore's
-					// genre safeguard rejects the full-document update and the
-					// handler resolves with the old record, which predates the
-					// ratings field. The validated block from the fresh fetch
-					// (helper.freshData) is still usable, so prefer the returned
-					// ratings and fall back to the fresh ones.
+					// The returned data can be the stored row: when the store
+					// declines the full-document update (stale generation,
+					// equal-projection short-circuit, or a guard rejection) the
+					// handler resolves with the old record, which may predate
+					// the ratings field. The validated block from the fresh
+					// fetch (helper.freshData) is still usable, so prefer the
+					// returned ratings and fall back to the fresh ones.
 					const returnedRatings =
 						updatedBook && 'ratings' in updatedBook ? updatedBook.ratings : undefined
 					const freshRatings =
