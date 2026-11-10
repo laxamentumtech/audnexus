@@ -57,9 +57,14 @@ export default class BookBackfillHelper {
 	 * Persist the terminal non-book marker with a conditional update: only a
 	 * row that still lacks ratings and is not yet marked is touched, and the
 	 * write is skipped rather than overwritten when another writer won. The
-	 * pipeline also backfills `createdAt` (required by the books validator)
-	 * from the ObjectId timestamp for pre-schema rows; without it the
-	 * validator rejects a marker-only update.
+	 * pipeline also backfills `createdAt` from the ObjectId timestamp so the
+	 * row keeps a sane timestamp for a later full write.
+	 *
+	 * Document validation is bypassed deliberately: the target rows are
+	 * legacy stubs that already lack validator-required content fields
+	 * (authors, description, releaseDate, ...), so a metadata-only update
+	 * would be rejected for unrelated missing data that this operation does
+	 * not touch. Content writes keep full validation.
 	 * @returns true when this call wrote the marker
 	 */
 	private async markNonBook(id: DocumentWithRegion['_id'], contentType: string): Promise<boolean> {
@@ -80,7 +85,8 @@ export default class BookBackfillHelper {
 						}
 					}
 				}
-			]
+			],
+			{ bypassDocumentValidation: true }
 		)
 		return result.modifiedCount === 1
 	}

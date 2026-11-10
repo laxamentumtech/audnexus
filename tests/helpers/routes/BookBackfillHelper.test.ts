@@ -336,7 +336,8 @@ describe('BookBackfillHelper should', () => {
 				ratings: { $exists: false },
 				ratingsBackfillSkip: { $exists: false }
 			},
-			expect.any(Array)
+			expect.any(Array),
+			{ bypassDocumentValidation: true }
 		)
 	})
 
