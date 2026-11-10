@@ -657,10 +657,19 @@ export class BookHistoryStore {
 					unset.seriesPrimary = 1
 				if ('seriesSecondary' in currentBook && clearedSeries.has('seriesSecondary'))
 					unset.seriesSecondary = 1
+				// The books validator requires createdAt (strict, action
+				// error). Rows written before that schema existed lack it, so
+				// an update leaves the resulting document invalid and every
+				// repair — the ratings backfill included — is rejected with
+				// "Document failed validation". Supply it once for those rows.
+				const createdAt = currentBook.createdAt as Date | undefined
 				await booksCol.updateOne(
 					{ _id: currentBook._id },
 					{
-						$set: { ...normBook },
+						$set: {
+							...normBook,
+							...(createdAt ? {} : { createdAt: new Date() })
+						},
 						...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
 						$currentDate: { updatedAt: true }
 					},
