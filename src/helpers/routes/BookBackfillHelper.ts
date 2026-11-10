@@ -122,6 +122,28 @@ export default class BookBackfillHelper {
 					if (!updatedBook || !('ratings' in updatedBook && updatedBook.ratings)) {
 						throw new Error(`Ratings were not populated for ${book.asin}`)
 					}
+					// The full-document update is rejected when the fresh data
+					// carries no genre evidence (genreSafeguardPasses in
+					// BookHistoryStore), and the old catalog rows this backfill
+					// targets commonly have no category ladders upstream. That
+					// guard exists to stop genre-nuking updates, not to block a
+					// pure field addition: write the ratings block directly when
+					// the handler could not persist, so the row converges out of
+					// the `ratings: {$exists: false}` target set.
+					if (!helper.persisted) {
+						// papr's model type omits updateOne; the runtime model
+						// has it (UpdateScheduler.markChecked relies on the same).
+						const bookModel = BookModel as unknown as {
+							updateOne: (filter: object, update: object) => Promise<unknown>
+						}
+						await bookModel.updateOne(
+							{ _id: book._id },
+							{
+								$set: { ratings: updatedBook.ratings },
+								$currentDate: { updatedAt: true }
+							}
+						)
+					}
 					// Got a fully-formed book with ratings: the only usable-success
 					// signal, so this (not a bare 200) relaxes the cooldown.
 					registerSuccess()

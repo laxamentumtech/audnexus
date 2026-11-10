@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, mock, test, vi } from 'bun:test'
 
 const mockBookFind = mock()
+const mockBookUpdateOne = mock()
 const mockProcessBatchByRegion = mock()
 const mockShowHandler = mock()
 const showConstructorArgs: unknown[][] = []
@@ -8,6 +9,7 @@ const showConstructorArgs: unknown[][] = []
 mock.module('#config/models/Book', () => ({
 	default: class BookModel {
 		static find = mockBookFind
+		static updateOne = mockBookUpdateOne
 	}
 }))
 
@@ -15,12 +17,17 @@ mock.module('#helpers/utils/batchProcessor', () => ({
 	processBatchByRegion: mockProcessBatchByRegion
 }))
 
+// Whether the stubbed show helper reports its full-document write as
+// persisted; the backfill falls back to a direct ratings write when false.
+let mockPersisted = false
+
 mock.module('#helpers/routes/BookShowHelper', () => ({
 	default: class MockBookShowHelper {
 		constructor(...args: unknown[]) {
 			showConstructorArgs.push(args)
 		}
 		handler = mockShowHandler
+		persisted = mockPersisted
 	}
 }))
 
@@ -80,6 +87,8 @@ describe('BookBackfillHelper should', () => {
 		mock.clearAllMocks()
 		mockSleepCooldown.mockResolvedValue(undefined)
 		mockJitteredSleep.mockResolvedValue(undefined)
+		mockBookUpdateOne.mockResolvedValue({ modified: 1 })
+		mockPersisted = false
 		showConstructorArgs.length = 0
 		helper = new BookBackfillHelper(createMockLogger())
 		// First call returns the batch, second returns empty to end pagation
@@ -243,6 +252,32 @@ describe('BookBackfillHelper should', () => {
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
 		expect(mockSleepCooldown).toHaveBeenCalledTimes(1)
 		expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
+	})
+
+	test('writes ratings directly when the full update was rejected', async () => {
+		// Old catalog rows have no category ladders upstream, so
+		// BookHistoryStore's genre safeguard rejects the full-document
+		// update. The ratings block is a pure addition and must still land,
+		// or the row never leaves the backfill's target set.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = false
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
+		expect(mockBookUpdateOne).toHaveBeenCalledWith(
+			{ _id: books[0]._id },
+			{
+				$set: { ratings: bookWithRatings.ratings },
+				$currentDate: { updatedAt: true }
+			}
+		)
+	})
+
+	test('does not rewrite ratings when the full update persisted them', async () => {
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = true
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
+		expect(mockBookUpdateOne).not.toHaveBeenCalled()
 	})
 
 	test('passes the injected cache client to BookShowHelper', async () => {
