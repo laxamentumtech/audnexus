@@ -111,25 +111,26 @@ export default class BookBackfillHelper {
 						registerSuccess()
 						return
 					}
-					// The releaseDate check (not `!helper.persisted`) is the
-					// skipped criterion: with the ratings gate below, a
-					// ratingless result that is not a pre-order (upstream
-					// failure, region unavailable, stored fallback) must
-					// count failed, and `!helper.persisted` would classify it
-					// as skipped instead. For data that carries ratings the
-					// two tests agree (the transient pre-order path is the
-					// only reachable no-write resolution returning ratings).
-					if (!updatedBook || !('ratings' in updatedBook && updatedBook.ratings)) {
+					// The returned data can be the stored row: when the fresh
+					// data has no genre evidence, BookHistoryStore's
+					// genre safeguard rejects the full-document update and the
+					// handler resolves with the old record, which predates the
+					// ratings field. The validated block from the fresh fetch
+					// (helper.freshData) is still usable, so prefer the returned
+					// ratings and fall back to the fresh ones.
+					const returnedRatings =
+						updatedBook && 'ratings' in updatedBook ? updatedBook.ratings : undefined
+					const freshRatings =
+						helper.freshData && 'ratings' in helper.freshData ? helper.freshData.ratings : undefined
+					const ratings = returnedRatings ?? freshRatings
+					if (!ratings) {
 						throw new Error(`Ratings were not populated for ${book.asin}`)
 					}
-					// The full-document update is rejected when the fresh data
-					// carries no genre evidence (genreSafeguardPasses in
-					// BookHistoryStore), and the old catalog rows this backfill
-					// targets commonly have no category ladders upstream. That
-					// guard exists to stop genre-nuking updates, not to block a
-					// pure field addition: write the ratings block directly when
-					// the handler could not persist, so the row converges out of
-					// the `ratings: {$exists: false}` target set.
+					// Write the ratings block directly when the handler could
+					// not persist: the genre guard exists to stop genre-nuking
+					// updates, not to block a pure field addition, and without
+					// this the row never leaves the `ratings: {$exists: false}`
+					// target set.
 					if (!helper.persisted) {
 						// papr's model type omits updateOne; the runtime model
 						// has it (UpdateScheduler.markChecked relies on the same).
@@ -139,7 +140,7 @@ export default class BookBackfillHelper {
 						await bookModel.updateOne(
 							{ _id: book._id },
 							{
-								$set: { ratings: updatedBook.ratings },
+								$set: { ratings },
 								$currentDate: { updatedAt: true }
 							}
 						)

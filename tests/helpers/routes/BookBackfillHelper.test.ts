@@ -20,6 +20,9 @@ mock.module('#helpers/utils/batchProcessor', () => ({
 // Whether the stubbed show helper reports its full-document write as
 // persisted; the backfill falls back to a direct ratings write when false.
 let mockPersisted = false
+// Fresh upstream data as the real helper exposes it; used when the handler
+// resolves with the stored row (genre-guard rejection) instead.
+let mockFreshData: unknown
 
 mock.module('#helpers/routes/BookShowHelper', () => ({
 	default: class MockBookShowHelper {
@@ -28,6 +31,7 @@ mock.module('#helpers/routes/BookShowHelper', () => ({
 		}
 		handler = mockShowHandler
 		persisted = mockPersisted
+		freshData = mockFreshData
 	}
 }))
 
@@ -89,6 +93,7 @@ describe('BookBackfillHelper should', () => {
 		mockJitteredSleep.mockResolvedValue(undefined)
 		mockBookUpdateOne.mockResolvedValue({ modified: 1 })
 		mockPersisted = false
+		mockFreshData = undefined
 		showConstructorArgs.length = 0
 		helper = new BookBackfillHelper(createMockLogger())
 		// First call returns the batch, second returns empty to end pagation
@@ -262,6 +267,24 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockPersisted = false
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
+		expect(mockBookUpdateOne).toHaveBeenCalledWith(
+			{ _id: books[0]._id },
+			{
+				$set: { ratings: bookWithRatings.ratings },
+				$currentDate: { updatedAt: true }
+			}
+		)
+	})
+
+	test('uses the fresh ratings when the handler resolved with the stored row', async () => {
+		// Genre-less rows make BookHistoryStore reject the full update and the
+		// handler returns the old stored record without ratings; the fresh
+		// fetch's ratings block must still be written.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockShowHandler.mockImplementation(async () => bookWithoutRatings)
+		mockFreshData = bookWithRatings
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
 		expect(mockBookUpdateOne).toHaveBeenCalledWith(
 			{ _id: books[0]._id },

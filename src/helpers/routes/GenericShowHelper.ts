@@ -50,6 +50,11 @@ export default class GenericShowHelper {
 	 * resolved item was a genuinely usable fetch (registerSuccess) or a no-op
 	 * that must not relax the cooldown. */
 	fetchedFreshData = false
+	/** The freshly fetched data before persistence. Exposed so repair jobs
+	 * (the ratings backfill) can salvage a field the full-document write
+	 * declined to persist — e.g. the genre safeguard rejects genre-less
+	 * updates, and the handler then returns the stored row instead. */
+	freshData?: ApiAuthorProfile | ApiBook | ApiChapter
 	/** True once the freshly fetched data was actually written to MongoDB.
 	 * False for the pre-order transient path (no persistence) and for the
 	 * chapter-without-chapters path — both must be marked checked by the
@@ -192,6 +197,7 @@ export default class GenericShowHelper {
 			generation = await bookHistoryStore.reserveGeneration(this.asin, this.options.region)
 		}
 		const newData = stitchHelper ? await stitchHelper.process() : await this.getNewData()
+		this.freshData = newData
 		// Special handling for chapter undefined
 		if (this.type == 'chapter' && !newData) return undefined
 
