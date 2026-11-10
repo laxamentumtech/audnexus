@@ -8,6 +8,7 @@ import type { ApiAuthorProfile, ApiBook, ApiChapter } from '#config/types'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
+import { jitteredSleep } from '#helpers/utils/jitteredSleep'
 import { ASIN_REGION_PROJECTION, iterateKeyset, keysetFindAdapter } from '#helpers/utils/keyset'
 import { withDeadline } from '#helpers/utils/withDeadline'
 import { NoticeUpdateScheduled } from '#static/messages'
@@ -79,6 +80,13 @@ export default class BookBackfillHelper {
 							`backfill book ${book.asin}`
 						)
 					} finally {
+						// Serial pacing, same ladder as the scheduler walk: the
+						// backfill used to run unjittered and drew 503s within
+						// seconds, driving the shared adaptive cooldown to its
+						// 7200 s ceiling and stalling every pass on the worker.
+						// Jitter first, then the cooldown — and in the finally so
+						// a rejected book still paces the next one.
+						await jitteredSleep()
 						// Adaptive upstream-pressure cooldown (see
 						// adaptiveCooldown.ts): the backfill shares the
 						// worker's single upstream reputation, so it must

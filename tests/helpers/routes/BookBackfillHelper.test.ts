@@ -34,6 +34,13 @@ mock.module('#helpers/utils/adaptiveCooldown', () => ({
 	registerSuccess: mockRegisterSuccess
 }))
 
+// Serial pacing sleeps real time; stub it so the pacing assertions do not wait.
+const mockJitteredSleep = mock()
+
+mock.module('#helpers/utils/jitteredSleep', () => ({
+	jitteredSleep: mockJitteredSleep
+}))
+
 import { ObjectId } from 'mongodb'
 
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
@@ -72,6 +79,7 @@ describe('BookBackfillHelper should', () => {
 	beforeEach(() => {
 		mock.clearAllMocks()
 		mockSleepCooldown.mockResolvedValue(undefined)
+		mockJitteredSleep.mockResolvedValue(undefined)
 		showConstructorArgs.length = 0
 		helper = new BookBackfillHelper(createMockLogger())
 		// First call returns the batch, second returns empty to end pagation
@@ -208,8 +216,25 @@ describe('BookBackfillHelper should', () => {
 			throw new Error('upstream 503')
 		})
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
+		expect(mockJitteredSleep).toHaveBeenCalledTimes(1)
 		expect(mockSleepCooldown).toHaveBeenCalledTimes(1)
 		expect(mockRegisterSuccess).not.toHaveBeenCalled()
+	})
+
+	test('paces every book with scheduler jitter, including failures', async () => {
+		// The unjittered backfill drew 503s within seconds and drove the shared
+		// adaptive cooldown to 7200 s, so each item must take the walk's jitter
+		// delay — and a rejected item must not skip the next one's pacing.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce(books).mockResolvedValueOnce([])
+		mockShowHandler.mockImplementation(async () => {
+			const asin = showConstructorArgs.at(-1)?.[0]
+			if (asin === 'B000000002') throw new Error('upstream 503')
+			return bookWithRatings
+		})
+		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 2, skipped: 0, failed: 1 })
+		expect(mockJitteredSleep).toHaveBeenCalledTimes(3)
+		expect(mockSleepCooldown).toHaveBeenCalledTimes(3)
 	})
 
 	test('sleeps the adaptive cooldown and registers success for a good book', async () => {
