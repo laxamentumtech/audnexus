@@ -204,6 +204,7 @@ describe('PaprAudibleBookHelper should', () => {
 			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
 			{
 				$set: { ...parsedBook, createdAt: bookWithoutProjection._id.getTimestamp() },
+				$unset: { ratingsBackfillSkip: '' },
 				$currentDate: { updatedAt: true }
 			}
 		)

@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, mock, test, vi } from 'bun:test
 
 const mockBookFind = mock()
 const mockBookUpdateOne = mock()
+const mockMarkUpdateOne = mock()
 const mockProcessBatchByRegion = mock()
 const mockShowHandler = mock()
 const showConstructorArgs: unknown[][] = []
@@ -10,6 +11,7 @@ mock.module('#config/models/Book', () => ({
 	default: class BookModel {
 		static find = mockBookFind
 		static updateOne = mockBookUpdateOne
+		static collection = { updateOne: mockMarkUpdateOne }
 	}
 }))
 
@@ -55,6 +57,7 @@ mock.module('#helpers/utils/jitteredSleep', () => ({
 import { ObjectId } from 'mongodb'
 
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
 import { createMockLogger } from '#tests/setup/mockLogger'
 import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
@@ -92,6 +95,7 @@ describe('BookBackfillHelper should', () => {
 		mockSleepCooldown.mockResolvedValue(undefined)
 		mockJitteredSleep.mockResolvedValue(undefined)
 		mockBookUpdateOne.mockResolvedValue({ modified: 1 })
+		mockMarkUpdateOne.mockResolvedValue({ modifiedCount: 1 })
 		mockPersisted = false
 		mockFreshData = undefined
 		showConstructorArgs.length = 0
@@ -133,12 +137,12 @@ describe('BookBackfillHelper should', () => {
 		expect(mockBookFind).toHaveBeenCalledTimes(2)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			1,
-			{ $and: [{ ratings: { $exists: false } }] },
+			{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }] },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-		{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
+		{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
 		{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
@@ -158,7 +162,7 @@ describe('BookBackfillHelper should', () => {
 	})
 
 	test('maps the batch summary to the backfill result', async () => {
-		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 3, skipped: 0, failed: 0 })
+		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 3, skipped: 0, terminalSkipped: 0, failed: 0 })
 	})
 
 	test('accumulates failures across multiple pages', async () => {
@@ -176,7 +180,7 @@ describe('BookBackfillHelper should', () => {
 			const asin = showConstructorArgs.at(-1)?.[0]
 			return asin === 'B000000002' ? bookWithoutRatings : bookPreOrder
 		})
-		await expect(helper.process()).resolves.toEqual({ total: 4, updated: 0, skipped: 3, failed: 1 })
+		await expect(helper.process()).resolves.toEqual({ total: 4, updated: 0, skipped: 3, terminalSkipped: 0, failed: 1 })
 	})
 
 	test('accumulates totals across multiple pages', async () => {
@@ -189,15 +193,15 @@ describe('BookBackfillHelper should', () => {
 			.mockResolvedValueOnce(books)
 			.mockResolvedValueOnce(secondPage)
 			.mockResolvedValueOnce([])
-		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, failed: 0 })
+		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, terminalSkipped: 0, failed: 0 })
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-			{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
+			{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			3,
-			{ $and: [{ ratings: { $exists: false } }, { _id: { $gt: secondPage[secondPage.length - 1]._id } }] },
+			{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }, { _id: { $gt: secondPage[secondPage.length - 1]._id } }] },
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
@@ -206,21 +210,21 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[1]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => bookWithoutRatings)
-		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, terminalSkipped: 0, failed: 1 })
 	})
 
 	test('counts a book as failed when the handler returns undefined', async () => {
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce(books).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => undefined)
-		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 0, skipped: 0, failed: 3 })
+		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 0, skipped: 0, terminalSkipped: 0, failed: 3 })
 	})
 
 	test('counts a pre-order book as skipped, not updated', async () => {
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[2]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => bookPreOrder)
-		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 1, failed: 0 })
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 1, terminalSkipped: 0, failed: 0 })
 	})
 
 	test('sleeps the adaptive cooldown even when the handler rejects', async () => {
@@ -231,7 +235,7 @@ describe('BookBackfillHelper should', () => {
 		mockShowHandler.mockImplementation(async () => {
 			throw new Error('upstream 503')
 		})
-		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, terminalSkipped: 0, failed: 1 })
 		expect(mockJitteredSleep).toHaveBeenCalledTimes(1)
 		expect(mockSleepCooldown).toHaveBeenCalledTimes(1)
 		expect(mockRegisterSuccess).not.toHaveBeenCalled()
@@ -248,7 +252,7 @@ describe('BookBackfillHelper should', () => {
 			if (asin === 'B000000002') throw new Error('upstream 503')
 			return bookWithRatings
 		})
-		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 2, skipped: 0, failed: 1 })
+		await expect(helper.process()).resolves.toEqual({ total: 3, updated: 2, skipped: 0, terminalSkipped: 0, failed: 1 })
 		expect(mockJitteredSleep).toHaveBeenCalledTimes(3)
 		expect(mockSleepCooldown).toHaveBeenCalledTimes(3)
 	})
@@ -256,7 +260,7 @@ describe('BookBackfillHelper should', () => {
 	test('sleeps the adaptive cooldown and registers success for a good book', async () => {
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
-		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
 		expect(mockSleepCooldown).toHaveBeenCalledTimes(1)
 		expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
 	})
@@ -269,11 +273,12 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockPersisted = false
-		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
 		expect(mockBookUpdateOne).toHaveBeenCalledWith(
 			{ _id: books[0]._id },
 			{
 				$set: { ratings: bookWithRatings.ratings },
+				$unset: { ratingsBackfillSkip: '' },
 				$currentDate: { updatedAt: true }
 			}
 		)
@@ -287,11 +292,12 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => bookWithoutRatings)
 		mockFreshData = bookWithRatings
-		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
 		expect(mockBookUpdateOne).toHaveBeenCalledWith(
 			{ _id: books[0]._id },
 			{
 				$set: { ratings: bookWithRatings.ratings },
+				$unset: { ratingsBackfillSkip: '' },
 				$currentDate: { updatedAt: true }
 			}
 		)
@@ -301,8 +307,94 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockPersisted = true
-		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, failed: 0 })
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
 		expect(mockBookUpdateOne).not.toHaveBeenCalled()
+	})
+
+	test('marks a non-book content type and counts it terminal', async () => {
+		// Comics/bundles/podcasts can never produce book ratings; marking them
+		// is what lets the keyset stop re-walking them.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockShowHandler.mockImplementation(async () => {
+			throw new ContentTypeMismatchError('Item is a SinglePartIssue, not a book.', {
+				asin: books[0].asin,
+				requestedType: 'book',
+				actualType: 'SinglePartIssue'
+			})
+		})
+		await expect(helper.process()).resolves.toEqual({
+			total: 1,
+			updated: 0,
+			skipped: 0,
+			terminalSkipped: 1,
+			failed: 0
+		})
+		expect(mockMarkUpdateOne).toHaveBeenCalledWith(
+			{
+				_id: books[0]._id,
+				ratings: { $exists: false },
+				ratingsBackfillSkip: { $exists: false }
+			},
+			expect.any(Array)
+		)
+	})
+
+	test('leaves retryable failures unmarked', async () => {
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockShowHandler.mockImplementation(async () => {
+			throw new NotFoundError('Product not available in region')
+		})
+		await expect(helper.process()).resolves.toEqual({
+			total: 1,
+			updated: 0,
+			skipped: 0,
+			terminalSkipped: 0,
+			failed: 1
+		})
+		expect(mockMarkUpdateOne).not.toHaveBeenCalled()
+	})
+
+	test('counts a raced marker write as neither updated nor failed', async () => {
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockMarkUpdateOne.mockResolvedValue({ modifiedCount: 0 })
+		mockShowHandler.mockImplementation(async () => {
+			throw new ContentTypeMismatchError('Item is a Bundle, not a book.', {
+				asin: books[0].asin,
+				requestedType: 'book',
+				actualType: 'Bundle'
+			})
+		})
+		await expect(helper.process()).resolves.toEqual({
+			total: 1,
+			updated: 0,
+			skipped: 0,
+			terminalSkipped: 0,
+			failed: 0
+		})
+		expect(mockMarkUpdateOne).toHaveBeenCalledTimes(1)
+	})
+
+	test('counts a failed marker write as a failure', async () => {
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockMarkUpdateOne.mockRejectedValue(new Error('Document failed validation'))
+		mockShowHandler.mockImplementation(async () => {
+			throw new ContentTypeMismatchError('Item is a SinglePartIssue, not a book.', {
+				asin: books[0].asin,
+				requestedType: 'book',
+				actualType: 'SinglePartIssue'
+			})
+		})
+		await expect(helper.process()).resolves.toEqual({
+			total: 1,
+			updated: 0,
+			skipped: 0,
+			terminalSkipped: 0,
+			failed: 1
+		})
 	})
 
 	test('passes the injected cache client to BookShowHelper', async () => {
@@ -325,7 +417,7 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[2]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => ratinglessPreOrder)
-		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 1, failed: 0 })
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 1, terminalSkipped: 0, failed: 0 })
 	})
 
 	test('counts a non-pre-order ratingless result as failed', async () => {
@@ -335,7 +427,7 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => ratinglessStale)
-		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, terminalSkipped: 0, failed: 1 })
 	})
 
 	test('rejects a book when the handler exceeds the item deadline', async () => {
@@ -352,7 +444,7 @@ describe('BookBackfillHelper should', () => {
 			const pending = helper.process()
 			await Promise.resolve() // let the walk reach the awaited deadline
 			vi.advanceTimersByTime(60)
-			await expect(pending).resolves.toEqual({ total: 1, updated: 0, skipped: 0, failed: 1 })
+			await expect(pending).resolves.toEqual({ total: 1, updated: 0, skipped: 0, terminalSkipped: 0, failed: 1 })
 		} finally {
 			vi.useRealTimers()
 			resetPerformanceConfig()

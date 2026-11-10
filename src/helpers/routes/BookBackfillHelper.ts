@@ -5,11 +5,17 @@ import type { Redis } from 'ioredis'
 import BookModel from '#config/models/Book'
 import { getPerformanceConfig } from '#config/performance'
 import type { ApiAuthorProfile, ApiBook, ApiChapter } from '#config/types'
+import { ContentTypeMismatchError } from '#helpers/errors/ApiErrors'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
 import { jitteredSleep } from '#helpers/utils/jitteredSleep'
-import { ASIN_REGION_PROJECTION, iterateKeyset, keysetFindAdapter } from '#helpers/utils/keyset'
+import {
+	ASIN_REGION_PROJECTION,
+	DocumentWithRegion,
+	iterateKeyset,
+	keysetFindAdapter
+} from '#helpers/utils/keyset'
 import { withDeadline } from '#helpers/utils/withDeadline'
 import { NoticeUpdateScheduled } from '#static/messages'
 
@@ -17,6 +23,7 @@ interface BackfillResult {
 	total: number
 	updated: number
 	skipped: number
+	terminalSkipped: number
 	failed: number
 }
 
@@ -46,11 +53,45 @@ export default class BookBackfillHelper {
 	 * Books are walked in `_id`-ordered batches so memory stays bounded to one
 	 * batch even on multi-million-document collections.
 	 */
+	/**
+	 * Persist the terminal non-book marker with a conditional update: only a
+	 * row that still lacks ratings and is not yet marked is touched, and the
+	 * write is skipped rather than overwritten when another writer won. The
+	 * pipeline also backfills `createdAt` (required by the books validator)
+	 * from the ObjectId timestamp for pre-schema rows; without it the
+	 * validator rejects a marker-only update.
+	 * @returns true when this call wrote the marker
+	 */
+	private async markNonBook(id: DocumentWithRegion['_id'], contentType: string): Promise<boolean> {
+		const result = await BookModel.collection.updateOne(
+			{
+				_id: id,
+				ratings: { $exists: false },
+				ratingsBackfillSkip: { $exists: false }
+			},
+			[
+				{
+					$set: {
+						createdAt: { $ifNull: ['$createdAt', { $toDate: '$_id' }] },
+						ratingsBackfillSkip: {
+							reason: 'non_book',
+							contentType,
+							markedAt: new Date()
+						}
+					}
+				}
+			]
+		)
+		return result.modifiedCount === 1
+	}
+
 	async process(): Promise<BackfillResult> {
 		const batchSize = getPerformanceConfig().SCHEDULER_BATCH_SIZE
 		let total = 0
 		let updated = 0
 		let skipped = 0
+		let terminalSkipped = 0
+		let raced = 0
 		let failed = 0
 
 		this.logger.info(NoticeUpdateScheduled('Ratings backfill'))
@@ -58,7 +99,12 @@ export default class BookBackfillHelper {
 			keysetFindAdapter(BookModel),
 			{
 				projection: ASIN_REGION_PROJECTION,
-				baseFilter: { ratings: { $exists: false } },
+				baseFilter: {
+					ratings: { $exists: false },
+					// Rows marked by an earlier pass are intentionally excluded:
+					// their upstream content type can never yield book ratings.
+					ratingsBackfillSkip: { $exists: false }
+				},
 				batchSize
 			},
 			async (books) => {
@@ -82,6 +128,29 @@ export default class BookBackfillHelper {
 							getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
 							`backfill book ${book.asin}`
 						)
+					} catch (error) {
+						// Terminal content-type rejection (comic/bundle/podcast):
+						// no book fetch will ever produce ratings for this row.
+						// Mark it so the keyset stops re-walking it; every other
+						// failure stays retryable.
+						if (error instanceof ContentTypeMismatchError) {
+							const contentType = error.details?.actualType
+							if (contentType) {
+								const marked = await this.markNonBook(book._id, contentType)
+								if (marked) {
+									terminalSkipped += 1
+									this.logger.info(
+										`Ratings backfill: marked ${book.asin} as non-book (${contentType})`
+									)
+								} else {
+									// Raced with another write (already rated or
+									// already marked): nothing left to do here.
+									raced += 1
+								}
+								return
+							}
+						}
+						throw error
 					} finally {
 						// Serial pacing, same ladder as the scheduler walk: the
 						// backfill used to run unjittered and drew 503s within
@@ -144,6 +213,7 @@ export default class BookBackfillHelper {
 							{ _id: book._id },
 							{
 								$set: { ratings },
+								$unset: { ratingsBackfillSkip: '' },
 								$currentDate: { updatedAt: true }
 							}
 						)
@@ -156,12 +226,18 @@ export default class BookBackfillHelper {
 				updated += summary.success
 				failed += summary.failures
 				this.logger.debug(
-					`Ratings backfill batch: total=${total} updated=${updated} skipped=${skipped} failed=${failed} lastId=${books[books.length - 1]._id}`
+					`Ratings backfill batch: total=${total} updated=${updated} skipped=${skipped} terminal=${terminalSkipped} failed=${failed} lastId=${books[books.length - 1]._id}`
 				)
 			}
 		)
-		// Pre-order books count as a batch success but are not persisted,
-		// so they are reported as skipped, not updated.
-		return { total, updated: updated - skipped, skipped, failed }
+		// Pre-order books, terminal non-book marks, and races count as batch
+		// successes but are not ratings completions.
+		return {
+			total,
+			updated: updated - skipped - terminalSkipped - raced,
+			skipped,
+			terminalSkipped,
+			failed
+		}
 	}
 }

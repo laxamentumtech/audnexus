@@ -589,12 +589,13 @@ export async function handleJob(
 			// read.
 			const summary = await new BookBackfillHelper(logger, getCacheRedis()).process()
 			logger.info(
-				`Ratings backfill complete: total=${summary.total} updated=${summary.updated} skipped=${summary.skipped} failed=${summary.failed}`
+				`Ratings backfill complete: total=${summary.total} updated=${summary.updated} skipped=${summary.skipped} terminalSkipped=${summary.terminalSkipped} failed=${summary.failed}`
 			)
 			return {
 				total: summary.total,
 				updated: summary.updated,
 				skipped: summary.skipped,
+				terminalSkipped: summary.terminalSkipped,
 				failed: summary.failed
 			}
 		}

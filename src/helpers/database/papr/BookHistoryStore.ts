@@ -657,6 +657,8 @@ export class BookHistoryStore {
 					unset.seriesPrimary = 1
 				if ('seriesSecondary' in currentBook && clearedSeries.has('seriesSecondary'))
 					unset.seriesSecondary = 1
+				// An accepted book write supersedes a backfill skip decision.
+				unset.ratingsBackfillSkip = 1
 				// The books validator requires createdAt (strict, action
 				// error). Rows written before that schema existed lack it, so
 				// an update leaves the resulting document invalid and every

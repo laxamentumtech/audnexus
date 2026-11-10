@@ -1210,6 +1210,21 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			observation: observation({ title: 'No Genres', imageId: IMG1 })
 		})
 		expect(first.disposition).toBe('accepted')
+		// An accepted book write must clear a prior backfill skip decision.
+		await db3
+			.collection('books')
+			.updateOne(
+				{ asin: noGenreAsin },
+				{
+					$set: {
+						ratingsBackfillSkip: {
+							reason: 'non_book',
+							contentType: 'SinglePartIssue',
+							markedAt: new Date()
+						}
+					}
+				}
+			)
 		const gen2 = await bookHistoryStore.reserveGeneration(noGenreAsin, REGION)
 		const second = await bookHistoryStore.persistObservation({
 			asin: noGenreAsin,
@@ -1222,5 +1237,6 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		expect(second.modified).toBe(true)
 		const current = await db3.collection('books').findOne({ asin: noGenreAsin })
 		expect(current?.title).toBe('Still No Genres')
+		expect(current).not.toHaveProperty('ratingsBackfillSkip')
 	}, 30000)
 })
