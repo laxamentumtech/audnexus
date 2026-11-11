@@ -42,7 +42,7 @@
 		"domhandler": "6.0.1",
 		"fastify": "^5.7.4",
 		"html-to-text": "10.0.1",
-		"ioredis": "5.11.1",
+		"ioredis": "6.0.0",
 		"ip-range-check": "^0.2.0",
 		"jsrsasign": "^11.0.0",
 		"lodash": "^4.17.21",
@@ -74,7 +74,7 @@
 		"typescript": "^5.9.3"
 	},
 	"overrides": {
-		"ioredis": "5.11.1"
+		"ioredis": "6.0.0"
 	},
 	"imports": {
 		"#config/*": "./dist/config/*.js",
