@@ -7,8 +7,9 @@ All notable changes to this project will be documented in this file. Releases ar
 
 ### Features
 
+- Reconcile a shared MongoDB index catalog before API and worker readiness, adopt equivalent existing indexes, and provide DB-only read-only checks and safe additive application.
 - Separate disposable document caching from durable queue/rate-limit Redis, with configurable cache TTL and health/shutdown handling for both roles.
-- Make bundled Redis persistence, cache eviction, database memory budgets and log rotation configurable without coupling them to machine-specific RAM allocations.
+- Make bundled Redis persistence, cache eviction, database memory budgets, startup grace, and log rotation configurable without coupling them to machine-specific RAM allocations.
 
 ### Bug Fixes
 

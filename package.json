@@ -17,6 +17,8 @@
 		"preinstall": "npx only-allow bun",
 		"serve": "bun run dist/server.js",
 		"worker": "bun run dist/worker.js",
+		"indexes": "bun run dist/indexes.js",
+		"test:indexes": "bun test --timeout 30000 --parallel=1 tests/database/indexes.test.ts tests/database/papr/initialize.test.ts tests/database/papr/BookHistoryStore.test.ts tests/database/serverIndexReadiness.test.ts tests/config/bookHistory.test.ts tests/worker.test.ts && bun test --timeout 300000 --parallel=1 tests/integration/database-indexes.test.ts",
 		"start": "bun run build && bun run serve",
 		"test": "bun test --timeout 30000 --parallel=1 tests/typing tests/static tests/helpers/errors tests/helpers/routes tests/helpers/jobs tests/helpers/utils tests/helpers/books tests/helpers/authors tests/database tests/config tests/audible tests/worker.test.ts tests/scripts",
 		"test:live": "bun test --timeout 60000 tests/live",

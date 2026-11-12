@@ -209,7 +209,7 @@ async function startServer() {
 		server.log.info('Connected to DB')
 	} catch (err) {
 		server.log.error(err)
-		process.exit(1)
+		return process.exit(1)
 	}
 	server.mongoClient = ctx.client
 

@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
-import { HISTORY_INDEX_DEFINITIONS, isBookHistoryEnabled } from '#config/bookHistory'
+import { isBookHistoryEnabled } from '#config/bookHistory'
+import { DATABASE_INDEXES } from '#config/databaseIndexes'
+
+const historyIndexes = DATABASE_INDEXES.filter((index) => index.requiredBy.includes('history')).map(({ collection, name, keys, options }) => ({ collection, name, keys, ...options }))
 
 describe('isBookHistoryEnabled', () => {
 	test('unset and blank values are disabled', () => {
@@ -26,9 +29,9 @@ describe('isBookHistoryEnabled', () => {
 	})
 })
 
-describe('HISTORY_INDEX_DEFINITIONS', () => {
+describe('historyIndexes', () => {
 	test('defines the expected named indexes on the history collections', () => {
-		const byName = new Map(HISTORY_INDEX_DEFINITIONS.map((d) => [d.name, d]))
+		const byName = new Map(historyIndexes.map((d) => [d.name, d]))
 		// The unique revision key: one revision per (asin, region, revision),
 		// the write path's at-most-one-revision guarantee.
 		expect(byName.get('history_revision')).toEqual({
@@ -84,7 +87,7 @@ describe('HISTORY_INDEX_DEFINITIONS', () => {
 			'history_revision'
 		])
 		expect(
-			HISTORY_INDEX_DEFINITIONS.filter((d) =>
+			historyIndexes.filter((d) =>
 				['book_history_states', 'book_history_seed_progress'].includes(d.collection)
 			)
 		).toEqual([])

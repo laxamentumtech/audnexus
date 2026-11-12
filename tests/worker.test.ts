@@ -110,7 +110,8 @@ beforeEach(() => {
 	// The disabled-case tests require the flag to be OFF under the runner,
 	// regardless of how the process was started (afterEach restores it).
 	delete process.env.BOOK_HISTORY_ENABLED
-	mockPaprInitialize.mockClear()
+	mockPaprInitialize.mockReset()
+	mockPaprInitialize.mockResolvedValue(undefined)
 	mockClientConnect.mockClear()
 	mockClientConnect.mockResolvedValue(mockClient)
 	mockClientClose.mockClear()
@@ -176,14 +177,6 @@ describe('worker startup', () => {
 		expect(mockClientConnect).toHaveBeenCalledTimes(1)
 		expect(mockPaprInitialize).toHaveBeenCalledTimes(1)
 		expect(mockPaprInitialize).toHaveBeenCalledWith({ client: connectedClient })
-		// The stale-walk index must target papr's explicit database, not the
-		// URI default.
-		expect(mockClientDb).toHaveBeenCalledWith('audnexus')
-		expect(mockCreateIndex).toHaveBeenCalledTimes(3)
-		expect(mockCreateIndex).toHaveBeenCalledWith(
-			{ updatedAt: 1, _id: 1 },
-			{ name: 'updatedAt_1__id_1' }
-		)
 		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledTimes(1)
 		expect(mockCreateWorker).toHaveBeenCalledTimes(1)
 		expect(mockClientConnect.mock.invocationCallOrder[0]).toBeLessThan(
@@ -195,6 +188,26 @@ describe('worker startup', () => {
 		expect(mockUpsertUpdateSchedulers.mock.invocationCallOrder[0]).toBeLessThan(
 			mockCreateWorker.mock.invocationCallOrder[0]
 		)
+	})
+
+	it('does not schedule or consume until shared index initialization commits', async () => {
+		const gate = Promise.withResolvers<void>()
+		mockPaprInitialize.mockReturnValueOnce(gate.promise)
+		const starting = worker.startWorker()
+		await Promise.resolve()
+		await Promise.resolve()
+		expect(mockUpsertUpdateSchedulers).not.toHaveBeenCalled()
+		expect(mockCreateWorker).not.toHaveBeenCalled()
+		gate.resolve()
+		await starting
+		expect(mockCreateWorker).toHaveBeenCalledTimes(1)
+	})
+
+	it('propagates initialization failures without scheduling or consuming', async () => {
+		mockPaprInitialize.mockRejectedValueOnce(new Error('index conflict'))
+		await expect(worker.startWorker()).rejects.toThrow('index conflict')
+		expect(mockUpsertUpdateSchedulers).not.toHaveBeenCalled()
+		expect(mockCreateWorker).not.toHaveBeenCalled()
 	})
 
 	it('upserts the update scheduler with the derived per-collection intervals', async () => {
