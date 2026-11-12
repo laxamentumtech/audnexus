@@ -133,10 +133,13 @@ import {
 import { TEST_REDIS_URL } from '#tests/setup/performanceConfig'
 
 let savedRedisUrl: string | undefined
+let savedRedisCacheUrl: string | undefined
 
 beforeEach(() => {
 	savedRedisUrl = process.env.REDIS_URL
+	savedRedisCacheUrl = process.env.REDIS_CACHE_URL
 	process.env.REDIS_URL = TEST_REDIS_URL
+	delete process.env.REDIS_CACHE_URL
 	mockRedisStatus = 'ready'
 	mockJobFromIdSequence = [null]
 	backfillConstructorArgs.length = 0
@@ -179,6 +182,11 @@ afterEach(() => {
 		delete process.env.REDIS_URL
 	} else {
 		process.env.REDIS_URL = savedRedisUrl
+	}
+	if (savedRedisCacheUrl === undefined) {
+		delete process.env.REDIS_CACHE_URL
+	} else {
+		process.env.REDIS_CACHE_URL = savedRedisCacheUrl
 	}
 })
 
@@ -1069,10 +1077,30 @@ describe('bullmq queue helpers', () => {
 		expect(a.disconnect).not.toHaveBeenCalled()
 	})
 
-	it('throws the cache-specific error when REDIS_URL is missing', () => {
+	it('uses REDIS_CACHE_URL for the cache connection when configured', () => {
+		redisConstructorCalls.length = 0
+		process.env.REDIS_CACHE_URL = 'redis://cache.example:6379'
+		mockRedisStatus = 'end'
+		const cache = getCacheRedis()
+		expect(cache).toBeDefined()
+		expect(redisConstructorCalls.at(-1)?.url).toBe('redis://cache.example:6379')
+		mockRedisStatus = 'ready'
+	})
+
+	it('falls back to REDIS_URL for existing external deployments', () => {
+		redisConstructorCalls.length = 0
+		delete process.env.REDIS_CACHE_URL
+		mockRedisStatus = 'end'
+		getCacheRedis()
+		expect(redisConstructorCalls.at(-1)?.url).toBe(TEST_REDIS_URL)
+		mockRedisStatus = 'ready'
+	})
+
+	it('throws the cache-specific error when both cache and control URLs are missing', () => {
 		mockRedisStatus = 'end' // force the re-create path so the URL is re-read
 		delete process.env.REDIS_URL
-		expect(() => getCacheRedis()).toThrow('REDIS_URL is required for update cache helpers')
+		delete process.env.REDIS_CACHE_URL
+		expect(() => getCacheRedis()).toThrow('REDIS_CACHE_URL or REDIS_URL is required for update cache helpers')
 	})
 
 	it('rejects unknown job names', async () => {
@@ -1091,7 +1119,13 @@ describe('bullmq queue helpers', () => {
 })
 
 afterAll(async () => {
+	process.env.REDIS_URL = TEST_REDIS_URL
+	process.env.REDIS_CACHE_URL = 'redis://cache.example:6379'
+	mockRedisStatus = 'end'
+	getCacheRedis()
+	mockRedisStatus = 'ready'
 	await closeQueue()
 	expect(mockQueueClose).toHaveBeenCalled()
-	expect(mockRedisQuit).toHaveBeenCalled()
+	// Queue/control and cache clients are independently owned and both close.
+	expect(mockRedisQuit).toHaveBeenCalledTimes(2)
 })

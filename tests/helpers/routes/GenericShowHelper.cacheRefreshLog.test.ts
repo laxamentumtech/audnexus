@@ -2,6 +2,8 @@ import type { FastifyRedis } from '@fastify/redis'
 import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import type { FastifyBaseLogger } from 'fastify'
 
+import { REDIS_CACHE_TTL_SECONDS } from '#config/redis'
+
 // This file deliberately does NOT mock `#helpers/database/redis/RedisHelper`:
 // the F9 single-log guarantee is about the interaction between the
 // `cacheBookBestEffort` wrapper (`log: false` opt-out) and the redis layer's
@@ -124,7 +126,9 @@ describe('GenericShowHelper history cache refresh failure emits one log line (re
 		expect(redisClient.set).toHaveBeenCalledTimes(1)
 		expect(redisClient.set).toHaveBeenCalledWith(
 			`${region}-book-${asin}`,
-			JSON.stringify(storedBook)
+			JSON.stringify(storedBook),
+			'EX',
+			REDIS_CACHE_TTL_SECONDS
 		)
 		// Exactly one error line: the wrapper's actionable message wrapping
 		// the redis-layer rethrow. Without `log: false`, the redis layer

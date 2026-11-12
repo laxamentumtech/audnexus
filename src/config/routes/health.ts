@@ -1,5 +1,4 @@
 import { FastifyInstance } from 'fastify'
-import { MongoClient } from 'mongodb'
 
 /**
  * Timeout duration in milliseconds for health check pings
@@ -36,14 +35,6 @@ export interface HealthCheckResponse {
 }
 
 /**
- * Extended FastifyInstance with MongoDB client
- */
-interface FastifyInstanceWithMongo extends FastifyInstance {
-	mongoClient?: MongoClient
-	mongoClientCleanup?: () => Promise<void>
-}
-
-/**
  * Health check route for monitoring service health
  * Checks server, database, and optionally Redis connectivity
  */
@@ -58,7 +49,7 @@ async function health(app: FastifyInstance) {
 		// Check server (always passes if the route is executing)
 
 		// Check MongoDB with timeout (only if mongoClient is available)
-		const mongoClient = (app as FastifyInstanceWithMongo).mongoClient
+		const mongoClient = app.mongoClient
 		if (mongoClient) {
 			try {
 				await withTimeout(mongoClient.db().command({ ping: 1 }), 'MongoDB ping')
@@ -69,18 +60,26 @@ async function health(app: FastifyInstance) {
 			}
 		}
 
-		// Check Redis (conditional on Redis being registered)
-		const redis = (app as unknown as { redis?: { ping: () => Promise<string> } }).redis
-		if (redis) {
-			try {
-				await withTimeout(redis.ping(), 'Redis ping')
-				checks.redis = true
-			} catch (error) {
-				checks.redis = false
-				request.log.error({ err: error }, 'Redis health check failed')
-			}
-		} else {
-			checks.redis = null
+		// The response keeps its single `redis` field, but health requires every
+		// configured role (document cache and durable control state) to respond.
+		const cacheRedis: { ping: () => Promise<string> } | undefined = app.redis
+		const { controlRedis } = app
+		const redisRoles: Array<[string, { ping: () => Promise<string> }]> = []
+		if (cacheRedis) redisRoles.push(['cache Redis', cacheRedis])
+		if (controlRedis) redisRoles.push(['control Redis', controlRedis])
+		if (redisRoles.length > 0) {
+			const roleResults = await Promise.all(
+				redisRoles.map(async ([name, client]) => {
+					try {
+						await withTimeout(client.ping(), `${name} ping`)
+						return true
+					} catch (error) {
+						request.log.error({ err: error }, `${name} health check failed`)
+						return false
+					}
+				})
+			)
+			checks.redis = roleResults.every(Boolean)
 		}
 
 		// Determine overall status

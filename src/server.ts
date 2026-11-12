@@ -3,6 +3,7 @@ import helmet from '@fastify/helmet'
 import rateLimit from '@fastify/rate-limit'
 import redis from '@fastify/redis'
 import { fastify, type FastifyBaseLogger } from 'fastify'
+import { Redis as IORedis } from 'ioredis'
 import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
 
@@ -10,14 +11,8 @@ import { isBookHistoryEnabled } from '#config/bookHistory'
 import { Context, createDefaultContext } from '#config/context'
 import { registerApiErrorHandler } from '#config/errorHandler'
 import { bookHistoryStore, initialize } from '#config/papr'
-
-// Extend FastifyInstance to include mongoClient for health check
-declare module 'fastify' {
-	interface FastifyInstance {
-		mongoClient?: MongoClient
-	}
-}
 import { registerPerformanceHooks } from '#config/performance/hooks'
+import { createRateLimitRedis, getCacheRedisUrl } from '#config/redis'
 import deleteAuthor from '#config/routes/authors/delete'
 import searchAuthor from '#config/routes/authors/search/show'
 import showAuthor from '#config/routes/authors/show'
@@ -32,9 +27,19 @@ import searchBook from '#config/routes/books/search/show'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
 import { registerMetricsRoute } from '#config/routes/metrics'
-import { getUpdateSchedulerIntervals } from '#helpers/jobs/bullmq'
+import { closeQueue, getUpdateSchedulerIntervals } from '#helpers/jobs/bullmq'
 import { registerUpdateScheduler } from '#helpers/jobs/schedule'
 import { getAllIps as getCloudflareIps } from '#helpers/utils/cloudflareIps'
+
+// Extend FastifyInstance with its MongoDB and control-Redis health clients.
+declare module 'fastify' {
+	interface FastifyInstance {
+		mongoClient?: MongoClient
+		controlRedis?: IORedis
+	}
+}
+
+let rateLimitRedis: IORedis | null = null
 
 // Heroku or local port
 const host = process.env.HOST || '0.0.0.0'
@@ -88,14 +93,24 @@ const ctx: Context = createDefaultContext(process.env.MONGODB_URI)
  * Should be called before registering routes
  */
 async function registerPlugins() {
-	// Register redis if it's present
-	if (process.env.REDIS_URL) {
-		server.log.info('Using Redis')
+	// Fastify's default Redis is only for disposable document-cache routes.
+	const cacheUrl = getCacheRedisUrl()
+	if (cacheUrl) {
+		server.log.info('Using document-cache Redis')
 		await server.register(redis, {
 			connectTimeout: 500,
 			maxRetriesPerRequest: 1,
-			url: process.env.REDIS_URL
+			url: cacheUrl
 		})
+	}
+
+	// Rate limits are control state and must never share the evictable cache.
+	rateLimitRedis = createRateLimitRedis()
+	if (rateLimitRedis) {
+		rateLimitRedis.on('error', (err) =>
+			server.log.warn({ err }, 'Rate-limit Redis connection error')
+		)
+		server.controlRedis = rateLimitRedis
 	}
 
 	// CORS
@@ -126,7 +141,7 @@ async function registerPlugins() {
 			return request.ip
 		},
 		max: Number(process.env.MAX_REQUESTS) || 100,
-		redis: process.env.REDIS_URL ? server.redis : undefined,
+		redis: rateLimitRedis ?? undefined,
 		timeWindow: '1 minute'
 	})
 	// Send 429 if rate limit is reached
@@ -227,6 +242,11 @@ async function stopServer() {
 	try {
 		await server.close()
 		server.log.info('HTTP server closed')
+		await closeQueue()
+		if (rateLimitRedis) {
+			await rateLimitRedis.quit()
+			rateLimitRedis = null
+		}
 		// Close Papr/mongo connection
 		await ctx.client.close()
 		server.log.info('DB connection closed')

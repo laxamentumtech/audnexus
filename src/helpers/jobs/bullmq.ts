@@ -7,6 +7,7 @@ import { Redis } from 'ioredis'
 import { randomUUID } from 'node:crypto'
 
 import { parseNonNegativeInt } from '#config/performance'
+import { getCacheRedisUrl } from '#config/redis'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
@@ -112,16 +113,13 @@ export function getQueueRedis(): Redis {
 
 /** Separate bounded connection for the per-item cache helpers (update/cache
  * path only — BullMQ machinery keeps using getQueueRedis). BullMQ's
- * maxRetriesPerRequest: null would make the cache helpers hang unbounded in
- * ioredis's offline queue when Redis is down, so this one fails instead:
- * bounded retries and a 10s command timeout, so an offline command errors
- * out rather than queueing forever — fail-fast per-command is what makes the
- * job retriable instead of hanging. The retryStrategy never gives up (it
- * always returns a bounded delay), so a short Redis outage heals in place —
- * important because the update pass hands this same instance to
- * UpdateScheduler for hours, and a permanent close would silently break every
- * later cache command. Dead singleton (out-of-band 'end' close) → re-create;
- * see the status check below for the end-only rule. */
+ * maxRetriesPerRequest: null would make cache commands wait in ioredis's
+ * offline queue indefinitely, so this client instead bounds each command with
+ * retries and a timeout. Its reconnect strategy continues trying after a
+ * transient outage because update passes hold the instance for hours. The
+ * worker targets REDIS_CACHE_URL, falling back to REDIS_URL for external
+ * deployments not yet split. Dead singleton ('end') → re-create; see the
+ * status check below for the end-only rule. */
 let cacheRedis: Redis | null = null
 export function getCacheRedis(): Redis {
 	// dead singleton (client-initiated 'end' close) → re-create. 'close' is
@@ -143,10 +141,11 @@ export function getCacheRedis(): Redis {
 		cacheRedis = null
 	}
 	if (!cacheRedis) {
-		if (!process.env.REDIS_URL) {
-			throw new Error('REDIS_URL is required for update cache helpers')
+		const url = getCacheRedisUrl()
+		if (!url) {
+			throw new Error('REDIS_CACHE_URL or REDIS_URL is required for update cache helpers')
 		}
-		cacheRedis = new Redis(process.env.REDIS_URL, {
+		cacheRedis = new Redis(url, {
 			maxRetriesPerRequest: CACHE_MAX_RETRIES_PER_REQUEST,
 			commandTimeout: CACHE_COMMAND_TIMEOUT_MS,
 			// Never returns null: ioredis must keep reconnecting in place,
