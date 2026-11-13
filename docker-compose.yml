@@ -108,7 +108,7 @@ services:
       start_period: 10s
 
   mongo:
-    image: ${MONGO_IMAGE:-mongo:7.0.45@sha256:8bb4442761a63a8dda452744082cdac9644b429807eb977b42324a63cef59ca4}
+    image: ${MONGO_IMAGE:-mongo:9.0.8@sha256:1444adda2e4b8d6a0d7f242a625d834a78d6e3aa6e4ed1b0b4c2dab2318c5e3d}
     restart: always
     command: ['mongod', '--wiredTigerCacheSizeGB', '${MONGO_WIREDTIGER_CACHE_GB:-1.0}']
     volumes:
