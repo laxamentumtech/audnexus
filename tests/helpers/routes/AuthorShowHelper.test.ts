@@ -10,7 +10,6 @@ const mockScrapeProcess = mock()
 const mockRedisFindOne = mock()
 const mockRedisFindOrCreate = mock()
 const mockRedisSetOne = mock()
-const mockRedisSetExpiration = mock()
 const mockRedisDeleteOne = mock()
 
 mock.module('#config/models/Author', () => ({
@@ -41,7 +40,6 @@ mock.module('#helpers/database/redis/RedisHelper', () => ({
 		findOne = mockRedisFindOne
 		findOrCreate = mockRedisFindOrCreate
 		setOne = mockRedisSetOne
-		setExpiration = mockRedisSetExpiration
 		deleteOne = mockRedisDeleteOne
 	}
 }))

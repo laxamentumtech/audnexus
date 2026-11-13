@@ -2,9 +2,11 @@ import type { FastifyRedis } from '@fastify/redis'
 import { beforeEach, describe, expect, mock, spyOn, test } from 'bun:test'
 import type { FastifyBaseLogger } from 'fastify'
 
+import { REDIS_CACHE_TTL_SECONDS } from '#config/redis'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import { parsedAuthor } from '#tests/datasets/helpers/authors'
 import { parsedBook } from '#tests/datasets/helpers/books'
+import { parsedChapters } from '#tests/datasets/helpers/chapters'
 import { createMockLogger } from '#tests/setup/mockLogger'
 
 type MockContext = {
@@ -22,7 +24,6 @@ const createMockContext = (): MockContext => {
 			del: mock(),
 			get: mock(),
 			set: mock(),
-			expire: mock(),
 			connect: mock(),
 			disconnect: mock(),
 			quit: mock(),
@@ -53,7 +54,6 @@ describe('RedisHelper should', () => {
 		await expect(helper.deleteOne()).resolves.toBeUndefined()
 		await expect(helper.findOne()).resolves.toBeUndefined()
 		await expect(helper.findOrCreate(parsedBook)).resolves.toBe(parsedBook)
-		await expect(helper.setExpiration()).resolves.toBeUndefined()
 		await expect(helper.setOne(parsedBook)).resolves.toBeUndefined()
 	})
 	test('deleteOne book', async () => {
@@ -68,7 +68,10 @@ describe('RedisHelper should', () => {
 	})
 	test('findOne book and return it', async () => {
 		ctx.client.get.mockResolvedValue(JSON.stringify(parsedBook))
-		await expect(helper.findOne()).resolves.toEqual(parsedBook)
+		const found = await helper.findOne()
+		expect(found).toEqual(parsedBook)
+		expect(found).toHaveProperty('releaseDate', parsedBook.releaseDate)
+		expect((found as typeof parsedBook | undefined)?.releaseDate).toBeInstanceOf(Date)
 		expect(ctx.client.get).toHaveBeenCalledWith(`${region}-book-${asin}`)
 	})
 	test('did not findOne book and return undefined', async () => {
@@ -83,6 +86,16 @@ describe('RedisHelper should', () => {
 		await expect(helper.findOne()).resolves.toEqual(parsedAuthor)
 		expect(ctx.client.get).toHaveBeenCalledWith(`${region}-author-${asin}`)
 	})
+	test('uses the configured document-cache TTL', async () => {
+		ctx.client.set.mockResolvedValue('OK')
+		await expect(helper.setOne(parsedBook)).resolves.toBe('OK')
+		expect(ctx.client.set).toHaveBeenCalledWith(
+			`${region}-book-${asin}`,
+			JSON.stringify(parsedBook),
+			'EX',
+			REDIS_CACHE_TTL_SECONDS
+		)
+	})
 	test('findOrCreate book and return it', async () => {
 		ctx.client.get.mockResolvedValue(JSON.stringify(parsedBook))
 		await expect(helper.findOrCreate(parsedBook)).resolves.toEqual(parsedBook)
@@ -93,16 +106,49 @@ describe('RedisHelper should', () => {
 		ctx.client.set.mockResolvedValue('OK')
 		await expect(helper.findOrCreate(parsedBook)).resolves.toEqual(parsedBook)
 		expect(ctx.client.get).toHaveBeenCalledWith(`${region}-book-${asin}`)
-		expect(ctx.client.set).toHaveBeenCalledWith(
-			`${region}-book-${asin}`,
-			JSON.stringify(parsedBook)
-		)
 	})
-	test('setExpiration', async () => {
-		ctx.client.expire.mockResolvedValue(1)
-		await expect(helper.setExpiration()).resolves.toBeUndefined()
-		expect(ctx.client.expire).toHaveBeenCalledWith(`${region}-book-${asin}`, 432000)
-	})
+})
+
+describe('RedisHelper document-cache consumers', () => {
+	for (const [type, data] of [
+		['book', parsedBook],
+		['author', parsedAuthor],
+		['chapter', parsedChapters]
+	] as const) {
+		test(`parses a cached ${type} only once`, async () => {
+			const cache = new RedisHelper(ctx.client, type, data.asin, region)
+			const serialized = JSON.stringify(data)
+			ctx.client.get.mockResolvedValue(serialized)
+			const parse = spyOn(JSON, 'parse')
+			let found: object | undefined
+			let parseCalls: number
+			try {
+				found = await cache.findOne()
+				parseCalls = parse.mock.calls.length
+			} finally {
+				parse.mockRestore()
+			}
+			expect(parseCalls).toBe(1)
+			expect(found).toEqual(data)
+			expect(ctx.client.get).toHaveBeenCalledWith(`${region}-${type}-${data.asin}`)
+		})
+
+		test(`sets the TTL atomically on ${type} inserts and overwrites`, async () => {
+			const cache = new RedisHelper(ctx.client, type, data.asin, region)
+			ctx.client.set.mockResolvedValue('OK')
+			await expect(cache.setOne(data)).resolves.toBe('OK')
+			await expect(cache.setOne(data)).resolves.toBe('OK')
+			expect(ctx.client.set).toHaveBeenCalledTimes(2)
+			for (const call of ctx.client.set.mock.calls) {
+				expect(call).toEqual([
+					`${region}-${type}-${data.asin}`,
+					JSON.stringify(data),
+					'EX',
+					REDIS_CACHE_TTL_SECONDS
+				])
+			}
+		})
+	}
 })
 
 describe('RedisHelper should catch error when', () => {
@@ -123,29 +169,20 @@ describe('RedisHelper should catch error when', () => {
 		await expect(helper.findOrCreate(parsedBook)).resolves.toBe(parsedBook)
 		expect(ctx.client.get).toHaveBeenCalledWith(`${region}-book-${asin}`)
 	})
-	test('findOrCreate set rejects', async () => {
-		ctx.client.get.mockResolvedValue('')
-		ctx.client.set.mockRejectedValue(new Error('Error'))
-		await expect(helper.findOrCreate(parsedBook)).rejects.toThrow(
+	test('setOne failure is reported as a Redis set error', async () => {
+		const mockLogger = createMockLogger()
+		const helperWithLogger = new RedisHelper(
+			ctx.client,
+			'book',
+			asin,
+			region,
+			mockLogger as unknown as FastifyBaseLogger
+		)
+		ctx.client.set.mockRejectedValue(new Error('Redis error'))
+		await expect(helperWithLogger.setOne(parsedBook)).rejects.toThrow(
 			`An error occurred while setting ${region}-book-${asin} in redis`
 		)
-		expect(ctx.client.get).toHaveBeenCalledWith(`${region}-book-${asin}`)
-		expect(ctx.client.set).toHaveBeenCalledWith(
-			`${region}-book-${asin}`,
-			JSON.stringify(parsedBook)
-		)
-	})
-	test('setExpiration rejects', async () => {
-		const mockLogger = createMockLogger()
-		const helperWithLogger = new RedisHelper(ctx.client, 'book', asin, region, mockLogger as unknown as FastifyBaseLogger)
-		ctx.client.expire.mockRejectedValue(
-			new Error(`An error occurred while setting expiration for ${region}-book-${asin} in redis`)
-		)
-		await expect(helperWithLogger.setExpiration()).resolves.toBeUndefined()
-		expect(ctx.client.expire).toHaveBeenCalledWith(`${region}-book-${asin}`, 432000)
-		expect(mockLogger.error).toHaveBeenCalledWith(
-			`An error occurred while setting expiration for ${region}-book-${asin} in redis`
-		)
+		expect(mockLogger.error).toHaveBeenCalledWith('Redis error')
 	})
 })
 
