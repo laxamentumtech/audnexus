@@ -130,7 +130,7 @@ services:
       start_period: 20s
 
   redis:
-    image: ${REDIS_IMAGE:-redis:8.6-alpine@sha256:91c71f9ea78fa3fe268ff832a985c48e592244f707993773f8b3e1b244ac1137}
+    image: ${REDIS_IMAGE:-redis:8.10-alpine@sha256:7958cfbb9d152f87dadfbc89f1b0b15938f0b81ff8982feb327476f4911935c3}
     restart: always
     # Durable queue/rate-limit state lives in the node-local `redis-data`
     # volume, which only exists on the node that first ran redis. Constrain
@@ -188,7 +188,7 @@ services:
       start_period: 10s
 
   redis-cache:
-    image: ${REDIS_CACHE_IMAGE:-redis:8.6-alpine@sha256:91c71f9ea78fa3fe268ff832a985c48e592244f707993773f8b3e1b244ac1137}
+    image: ${REDIS_CACHE_IMAGE:-redis:8.10-alpine@sha256:7958cfbb9d152f87dadfbc89f1b0b15938f0b81ff8982feb327476f4911935c3}
     restart: always
     command:
       - redis-server
