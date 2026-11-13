@@ -264,9 +264,11 @@ run the same commands as `node dist/history.js <command>`.
 
 By default, API and worker startup prepare the shared index catalog before
 readiness; `history prepare` is an optional pre-application step using the same
-initializer. With `DB_INDEX_MODE=verify`, required indexes must already be present
-before startup. Enabling `BOOK_HISTORY_ENABLED=true` also requires a
-transaction-capable replica set; index creation alone does not satisfy that gate.
+initializer. `DB_INDEX_MODE=verify` is a process startup policy: it gates API
+and worker boot, but `history prepare` always applies the catalog like
+`indexes apply` and ignores it. Enabling `BOOK_HISTORY_ENABLED=true` also
+requires a transaction-capable replica set; index creation alone does not
+satisfy that gate.
 
 ### Release identity
 

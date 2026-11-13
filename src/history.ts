@@ -3,7 +3,7 @@
 // Fastify):
 //
 //   node dist/history.js audit     report current-book readiness issues (NDJSON)
-//   node dist/history.js prepare   Papr schemas + complete application index catalog
+//   node dist/history.js prepare   Papr schemas + complete application index catalog (always applies; DB_INDEX_MODE=verify does not gate it)
 //   node dist/history.js seed      resumable per-row legacy artwork seed
 //   node dist/history.js seed --restart   supersede the run (new runId)
 //   node dist/history.js status    seed state + retained-data counts
@@ -209,11 +209,13 @@ async function audit(
  * Register the history models, run ordinary Papr schema preparation, and
  * reconcile the complete application index catalog. A same-name conflicting
  * index definition fails with the name and stops; indexes are never
- * replaced/dropped.
+ * replaced/dropped. Explicitly applies the catalog like `indexes apply`:
+ * `DB_INDEX_MODE=verify` is a process startup policy for API/worker boot,
+ * not a mode for this command, so prepare always creates missing indexes.
  */
 async function prepare(client: MongoClient): Promise<void> {
 	const { initialize } = await import('#config/papr')
-	await initialize({ client } as never)
+	await initialize({ client } as never, 'auto')
 
 	console.log('prepare complete')
 }

@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:tes
 import { type Db, MongoClient } from 'mongodb'
 import { randomUUID } from 'node:crypto'
 
+import { prepare } from '../../src/history'
 import { runIndexCommand } from '../../src/indexes'
 
 import { startReplicaSet, stopReplicaSet } from './mongo-rs'
@@ -115,6 +116,20 @@ describe('actual MongoDB application index lifecycle', () => {
 		const before = await metadata()
 		await runIndexCommand(client, 'check')
 		expect(await metadata()).toEqual(before)
+	}, 90000)
+
+	test('prepare applies the catalog under DB_INDEX_MODE=verify, same as indexes apply', async () => {
+		const startupMode = process.env.DB_INDEX_MODE
+		try {
+			process.env.DB_INDEX_MODE = 'verify'
+			await prepare(client)
+			const report = await inspectIndexes(db)
+			expect(report.outcomes).toHaveLength(12)
+			expect(report.outcomes.every((outcome) => outcome.status === 'present')).toBe(true)
+		} finally {
+			if (startupMode === undefined) delete process.env.DB_INDEX_MODE
+			else process.env.DB_INDEX_MODE = startupMode
+		}
 	}, 90000)
 
 	test('ordered compound and unique conflicts fail without destructive DDL', async () => {

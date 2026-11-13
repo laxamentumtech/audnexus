@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file. Releases ar
 
 ### Bug Fixes
 
+- `history prepare` now applies the required index catalog explicitly, the same as `indexes apply`; `DB_INDEX_MODE=verify` remains a startup policy for API and worker boot only.
 - Apply the five-day document-cache TTL atomically on every write, including overwrites; cache write failures retain the existing setter error contract.
 - Avoid parsing cached author and chapter JSON twice while preserving book release-date conversion.
 
