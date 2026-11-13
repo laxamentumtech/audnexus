@@ -20,7 +20,7 @@
 
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { once } from 'node:events'
-import { createServer, type Server, type ServerResponse } from 'node:http'
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import { createConnection, type Socket } from 'node:net'
 
 import { closeServerWithTimeout, createServerDrain, type ServerDrain } from '#helpers/utils/httpShutdown'
@@ -280,7 +280,24 @@ describe('createServerDrain + closeServerWithTimeout (real HTTP)', () => {
 		const b = createConnection({ host: '127.0.0.1', port })
 		b.once('error', () => {})
 		await nextAccepted
+		// Gate on B's request being PARSED at the listener (the 'request'
+		// event), not just its socket accepted: Server.prototype.close()
+		// sweeps closeIdleConnections() BEFORE it stops the listener, so a
+		// socket whose request header has not been parsed yet still looks
+		// idle and gets destroyed (client sees ECONNRESET — observed on
+		// Bun 1.4.4). A request that has fired 'request' is in flight and
+		// is swept-protected; completing it is then the DRAIN's job, which
+		// is the property under test.
+		const bInFlight = new Promise<void>((resolve) => {
+			const onReq = (req: IncomingMessage) => {
+				if (req.url !== '/ok') return
+				server.off('request', onReq)
+				resolve()
+			}
+			server.on('request', onReq)
+		})
 		b.write('GET /ok HTTP/1.1\r\nhost: localhost\r\nconnection: close\r\n\r\n')
+		await bInFlight
 		// NOW stop the listener, then complete BOTH requests.
 		server.close()
 		resA.end('a-ok')
