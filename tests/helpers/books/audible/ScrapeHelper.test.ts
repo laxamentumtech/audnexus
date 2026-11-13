@@ -57,6 +57,12 @@ describe('ScrapeHelper should', () => {
 	test('fetch book', async () => {
 		const book = await helper.fetchBook()
 		expect(book!.html()).toEqual(cheerio.load(htmlResponse).html())
+		// Any Accept-Encoding header on a /pd request is answered with 503 by
+		// Audible's edge (see ScrapeHelper.fetchBook); axios must not add its
+		// default gzip/br header.
+		expect(fetchPlus.default).toHaveBeenCalledWith(url, {
+			headers: { 'Accept-Encoding': null }
+		})
 	})
 
 	test('log no error message on 404 response', async () => {

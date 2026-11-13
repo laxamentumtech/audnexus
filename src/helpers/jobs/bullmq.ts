@@ -76,6 +76,11 @@ const WORKER_OPTIONS: Omit<WorkerOptions, 'connection'> = {
 	concurrency: 1,
 	lockDuration: LOCK_DURATION_MS,
 	stalledInterval: STALLED_CHECK_INTERVAL_MS,
+	// Bulk jobs (the ratings backfill) run for days. The default of 1 turns
+	// any deploy/restart into a hard job failure ("job stalled more than
+	// allowable limit"); with a higher budget the job is recovered and
+	// resumes instead of needing a manual re-enqueue.
+	maxStalledCount: 5,
 	removeOnComplete: { count: RETENTION_COMPLETED },
 	removeOnFail: { count: RETENTION_FAILED }
 }
@@ -589,12 +594,13 @@ export async function handleJob(
 			// read.
 			const summary = await new BookBackfillHelper(logger, getCacheRedis()).process()
 			logger.info(
-				`Ratings backfill complete: total=${summary.total} updated=${summary.updated} skipped=${summary.skipped} failed=${summary.failed}`
+				`Ratings backfill complete: total=${summary.total} updated=${summary.updated} skipped=${summary.skipped} terminalSkipped=${summary.terminalSkipped} failed=${summary.failed}`
 			)
 			return {
 				total: summary.total,
 				updated: summary.updated,
 				skipped: summary.skipped,
+				terminalSkipped: summary.terminalSkipped,
 				failed: summary.failed
 			}
 		}

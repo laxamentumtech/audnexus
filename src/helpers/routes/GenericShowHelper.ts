@@ -50,24 +50,35 @@ export default class GenericShowHelper {
 	 * resolved item was a genuinely usable fetch (registerSuccess) or a no-op
 	 * that must not relax the cooldown. */
 	fetchedFreshData = false
+	/** The freshly fetched data before persistence. Exposed so repair jobs
+	 * (the ratings backfill) can salvage a field the full-document write
+	 * declined to persist — e.g. the genre safeguard rejects genre-less
+	 * updates, and the handler then returns the stored row instead. */
+	freshData?: ApiAuthorProfile | ApiBook | ApiChapter
 	/** True once the freshly fetched data was actually written to MongoDB.
 	 * False for the pre-order transient path (no persistence) and for the
 	 * chapter-without-chapters path — both must be marked checked by the
 	 * scheduler, so they must not be reported as `updated`. */
 	persisted = false
+	/** Skip the product-page HTML scrape. Set by background passes: the page
+	 * only contributes genres/tags, which the API already supplies when it
+	 * returns category ladders, and ladder-less legacy rows answer 404/503. */
+	skipHtml: boolean
 	constructor(
 		asin: string,
 		options: ApiQueryString,
 		redis: FastifyRedis | null,
 		type: 'author' | 'book' | 'chapter',
 		logger?: FastifyBaseLogger,
-		forceUpdate?: boolean
+		forceUpdate?: boolean,
+		skipHtml: boolean = false
 	) {
 		this.asin = asin
 		this.options = options
 		this.type = type
 		this.logger = logger
 		this.forceUpdate = forceUpdate
+		this.skipHtml = skipHtml
 		this.paprHelper = this.setupPaprHelper()
 		this.redisHelper = new RedisHelper(redis, type, asin, options.region, logger)
 		this.schema = this.setupSchema()
@@ -94,7 +105,13 @@ export default class GenericShowHelper {
 			const helper = new ScrapeHelper(this.asin, this.options.region, this.logger)
 			return helper.process()
 		} else if (this.type === 'book') {
-			const helper = new StitchHelper(this.asin, this.options.region, this.logger)
+			const helper = new StitchHelper(
+				this.asin,
+				this.options.region,
+				this.logger,
+				false,
+				this.skipHtml
+			)
 			return helper.process()
 		} else {
 			const helper = new ChapterHelper(this.asin, this.options.region, this.logger)
@@ -192,6 +209,7 @@ export default class GenericShowHelper {
 			generation = await bookHistoryStore.reserveGeneration(this.asin, this.options.region)
 		}
 		const newData = stitchHelper ? await stitchHelper.process() : await this.getNewData()
+		this.freshData = newData
 		// Special handling for chapter undefined
 		if (this.type == 'chapter' && !newData) return undefined
 
