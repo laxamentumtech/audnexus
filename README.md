@@ -377,6 +377,8 @@ The stack defaults to 15 replicas for the node-server container. Customize this 
 
 Both bundled Compose files separate durable queue/rate-limit state (`redis`) from disposable document data (`redis-cache`). Control Redis persists `/data`, enables AOF with `appendfsync everysec`, and uses `noeviction`. Cache Redis uses `allkeys-lfu` with neither AOF nor RDB persistence. API and worker use the same role URLs. A cache restart may require repopulation; it must not remove queue jobs, schedulers, or rate-limit counters.
 
+**Operator precondition for Swarm deploys: the durable Redis is node-local.** The `redis-data` volume lives only on the node that first ran `redis`, so the compose constrains the service to the node labeled `audnexus-redis=true`. Label exactly one node before `docker stack deploy` (for example `docker node update --label-add audnexus-redis=true <node>`); with no labeled node the `redis` service stays pending and the stack reports it. Labeling a second node is not safe: Swarm can reschedule `redis` there, where the node-local volume is empty, and queue/rate-limit state is lost. If you must move the label to another node, first restore or migrate the existing `redis-data` volume, because the label only picks the node and does not move the data. The compose uses the list form of `depends_on` (no `condition`), which is what Swarm's legacy v3 schema accepts for `docker stack deploy`.
+
 Compose sizing knobs are independent of application behavior:
 
 | Variable | Default | Purpose |

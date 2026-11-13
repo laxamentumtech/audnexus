@@ -6,10 +6,14 @@ import { createDefaultContext } from '#config/context'
 import { bookHistoryStore, initialize } from '#config/papr'
 import {
 	closeQueue,
+	closeWithTimeout,
 	createWorker,
+	getQueueRedisClient,
 	getUpdateSchedulerIntervals,
 	getWorker,
 	QUEUE_NAME,
+	remainingShutdownBudget,
+	startShutdownBudget,
 	upsertUpdateSchedulers
 } from '#helpers/jobs/bullmq'
 import { setCooldownLogger } from '#helpers/utils/adaptiveCooldown'
@@ -67,8 +71,33 @@ export async function startWorker(): Promise<void> {
 export async function shutdown(): Promise<void> {
 	logger.info('Shutting down worker...')
 	try {
-		await getWorker().close()
-		await closeQueue()
+		// One aggregate wall-clock budget across the Redis-phase closes:
+		// the BullMQ worker close and closeQueue each draw from the
+		// REMAINING budget, so the sequential closes cannot multiply their
+		// per-close deadlines past it. closeQueue receives the remainder
+		// explicitly (its budgetMs option): an exhausted deadline would
+		// otherwise read as "no budget" and closeQueue would start a
+		// fresh one — exactly the case when this worker close consumed
+		// the budget by hitting its deadline. The Mongo close runs
+		// afterwards with no deadline of its own, so this bounds the
+		// Redis phase — not the total teardown.
+		startShutdownBudget()
+		// BullMQ's close rides on the shared queue Redis connection; if it
+		// hangs behind an offline command, hard-disconnecting that connection
+		// releases it, and closeQueue then finds the connection already down.
+		// The non-creating accessor: a shutdown fallback must not open a new
+		// client on its way out. propagateRejection keeps the existing
+		// contract: a worker close that genuinely FAILS aborts shutdown (the
+		// Mongo close is not run), while a HUNG close is force-cleaned on the
+		// deadline and shutdown continues.
+		await closeWithTimeout(
+			() => getWorker().close(),
+			() => getQueueRedisClient()?.disconnect(),
+			'worker',
+			remainingShutdownBudget(),
+			{ propagateRejection: true }
+		)
+		await closeQueue({ budgetMs: remainingShutdownBudget() })
 		await ctx.client.close()
 	} finally {
 		process.exit(0)

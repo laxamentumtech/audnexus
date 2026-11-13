@@ -1,5 +1,12 @@
 import { afterAll, afterEach, describe, expect, mock, test } from 'bun:test'
 
+// The ioredis mock would otherwise leak past mock.restore() into later test
+// files of the same bun process: module-mock restoration only resets call
+// state, so the real-socket redisBlackhole and rateLimitRedisRecovery tests
+// would receive the mock (no `on` method). Capture the real module before
+// the mock and re-mock it in afterAll to hand the real client back.
+const realRedisModule = await import('ioredis')
+
 const constructorCalls: Array<{ url: string; options: Record<string, unknown>; client: object }> = []
 mock.module('ioredis', () => ({
 	Redis: class {
@@ -9,7 +16,12 @@ mock.module('ioredis', () => ({
 	}
 }))
 
-import { createRateLimitRedis, getCacheRedisUrl } from '#config/redis'
+import {
+	createRateLimitRedis,
+	getCacheRedisUrl,
+	RATE_LIMIT_RETRY_BASE_MS,
+	RATE_LIMIT_RETRY_CAP_MS
+} from '#config/redis'
 
 const savedRedisUrl = process.env.REDIS_URL
 const savedCacheUrl = process.env.REDIS_CACHE_URL
@@ -37,7 +49,13 @@ describe('Redis role configuration', () => {
 			maxRetriesPerRequest: 1,
 			retryStrategy: expect.any(Function)
 		})
-		expect((constructorCalls[0]?.options.retryStrategy as (attempt: number) => null)(1)).toBeNull()
+		// Bounded reconnect: the strategy returns a capped delay (never null,
+		// which would terminal-disconnect and leave rate limiting broken until
+		// restart). The cap keeps a flapping link from retrying too fast.
+		const strategy = constructorCalls[0]?.options.retryStrategy as (attempt: number) => number | null
+		expect(strategy(1)).toBe(RATE_LIMIT_RETRY_BASE_MS)
+		expect(strategy(1000)).toBe(RATE_LIMIT_RETRY_CAP_MS)
+		expect(strategy(100000)).toBe(RATE_LIMIT_RETRY_CAP_MS)
 	})
 
 	test('uses REDIS_CACHE_URL and falls back to REDIS_URL for legacy deployments', () => {
@@ -57,4 +75,7 @@ describe('Redis role configuration', () => {
 	})
 })
 
-afterAll(() => mock.restore())
+afterAll(() => {
+	mock.module('ioredis', () => ({ Redis: realRedisModule.Redis }))
+	mock.restore()
+})

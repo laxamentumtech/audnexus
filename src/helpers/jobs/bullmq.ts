@@ -111,6 +111,12 @@ export function getQueueRedis(): Redis {
 	return queueRedis
 }
 
+/** The shared queue Redis connection WITHOUT creating it: shutdown
+ * fallbacks must not open a new client on their way out. */
+export function getQueueRedisClient(): Redis | null {
+	return queueRedis
+}
+
 /** Separate bounded connection for the per-item cache helpers (update/cache
  * path only — BullMQ machinery keeps using getQueueRedis). BullMQ's
  * maxRetriesPerRequest: null would make cache commands wait in ioredis's
@@ -625,18 +631,117 @@ export function getWorker(): Worker {
 	return worker
 }
 
-/** Shutdown only (worker process exit). */
-export async function closeQueue(): Promise<void> {
+/** Aggregate wall-clock budget for every queue/Redis close in one shutdown.
+ * The closes run sequentially, so each close is bounded by the REMAINING
+ * budget: the sum of the per-close deadlines is at most this value, no
+ * matter how many clients are owned. It must fit the supported deployment
+ * (the 10s Docker/Swarm default stop grace) together with the worker close
+ * (API only: HTTP + Mongo closes), so the Mongo close is always reached. */
+export const SHUTDOWN_REDIS_BUDGET_MS = 9000
+
+/** Resolve when `close` settles, or after `timeoutMs` with `fallback` run —
+ * whichever comes first. The timer is always cleared. A hung close (an
+ * offline-blocked client) is force-cleaned on the deadline; a close that
+ * settles in time wins. By default a close rejection is swallowed (the Redis
+ * client quits never meaningfully reject on shutdown). Pass
+ * `propagateRejection` (worker BullMQ close) so a genuine close failure
+ * aborts the remaining teardown instead of silently proceeding. Shared with
+ * the rate-limit client close in src/server.ts. */
+export function closeWithTimeout(
+	close: () => Promise<unknown>,
+	fallback: () => void,
+	label: string,
+	timeoutMs: number,
+	options: { propagateRejection?: boolean } = {}
+): Promise<void> {
+	let settledByDeadline = false
+	let timer!: NodeJS.Timeout
+	const deadline = new Promise<void>((resolve) => {
+		timer = setTimeout(() => {
+			settledByDeadline = true
+			console.warn(`closeQueue: ${label} did not close in ${timeoutMs}ms; forcing disconnect`)
+			fallback()
+			resolve()
+		}, timeoutMs)
+	})
+	// A close that rejects after the deadline already won the race must not
+	// surface as an unhandled rejection; swallow it, and the race outcome is
+	// unchanged. A pre-deadline rejection propagates only when asked to.
+	// Invoke `close` lazily (deferred) and discard its return value so the
+	// candidate is Promise<void>; the deadline is the race's void side.
+	const candidate = Promise.resolve()
+		.then(async () => {
+			await close()
+		})
+		.catch((err: unknown) => {
+			if (settledByDeadline || !options.propagateRejection) return undefined
+			throw err
+		})
+	return Promise.race([candidate, deadline]).finally(() => {
+		clearTimeout(timer)
+	})
+}
+
+/** Aggregate wall-clock deadline for the whole shutdown, not per close.
+ * `closeQueue` draws its three per-close deadlines from it, and the API's
+ * rate-limit close draws from the remainder (`stopServer` in src/server.ts),
+ * so sequential per-close deadlines cannot multiply past it and push the
+ * Mongo close past the 10s Docker stop grace. */
+let shutdownBudgetDeadline = 0
+
+export function startShutdownBudget(budgetMs: number = SHUTDOWN_REDIS_BUDGET_MS): void {
+	shutdownBudgetDeadline = Date.now() + budgetMs
+}
+
+/** Remaining aggregate budget (min 1ms so a deadline always exists); 0 when
+ * no shutdown budget has been started, meaning the caller bounds the close
+ * with its own per-close deadline. */
+export function remainingShutdownBudget(): number {
+	return shutdownBudgetDeadline ? Math.max(1, shutdownBudgetDeadline - Date.now()) : 0
+}
+
+/** Shutdown only (worker process exit). The queue and both Redis clients are
+ * closed under one aggregate wall-clock budget (SHUTDOWN_REDIS_BUDGET_MS by
+ * default): each close is bounded by the REMAINING budget, so the sequential
+ * closes cannot multiply their per-close deadlines past it. A clean close
+ * takes no fallback; a client blocked behind an offline command is
+ * hard-disconnected on the deadline and shutdown continues to the Mongo
+ * close. When a shutdown budget is already active (worker/API shutdown
+ * starts one before this call) the remainder is used, so the caller's
+ * earlier closes are charged against the same aggregate; otherwise a fresh
+ * budget (SHUTDOWN_REDIS_BUDGET_MS) starts here. An explicit `budgetMs`
+ * always starts its own budget (tests). */
+export async function closeQueue(options: { budgetMs?: number } = {}): Promise<void> {
+	if (options.budgetMs !== undefined) {
+		startShutdownBudget(options.budgetMs)
+	} else if (shutdownBudgetDeadline <= Date.now()) {
+		startShutdownBudget()
+	}
 	if (queue) {
-		await queue.close()
+		await closeWithTimeout(
+			() => queue!.close(),
+			() => queueRedis?.disconnect(),
+			'queue',
+			remainingShutdownBudget()
+		)
 		queue = null
 	}
 	if (queueRedis) {
-		await queueRedis.quit()
+		await closeWithTimeout(
+			() => queueRedis!.quit(),
+			() => queueRedis!.disconnect(),
+			'queue Redis',
+			remainingShutdownBudget()
+		)
 		queueRedis = null
 	}
 	if (cacheRedis) {
-		await cacheRedis.quit()
+		await closeWithTimeout(
+			() => cacheRedis!.quit(),
+			() => cacheRedis!.disconnect(),
+			'cache Redis',
+			remainingShutdownBudget()
+		)
 		cacheRedis = null
 	}
 }

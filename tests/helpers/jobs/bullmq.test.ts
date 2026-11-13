@@ -33,6 +33,11 @@ const mockSchedulerUpdateBooks = mock()
 const mockSchedulerUpdateChapters = mock()
 const mockBackfillProcess = mock()
 
+// Capture the real ioredis module before the mock: the mock would otherwise
+// leak past mock.restore() into later test files of the same bun process
+// (the real-socket tests under tests/config expect the real client).
+const realRedisModule = await import('ioredis')
+
 // No real ioredis sockets: CI has no Redis service, and ioredis connects
 // eagerly and retries forever, which would keep the test process alive.
 // `status` reads from `mockRedisStatus` so tests can flip it to exercise the
@@ -112,6 +117,7 @@ import {
 	BACKFILL_ENQUEUE_LOCK_KEY,
 	BACKFILL_ENQUEUE_LOCK_TTL_MS,
 	closeQueue,
+	closeWithTimeout,
 	COMMAND_TIMEOUT_MS,
 	countBackfillJobsInFlight,
 	createWorker,
@@ -125,6 +131,9 @@ import {
 	LEGACY_UPDATE_SCHEDULER_ID,
 	QUEUE_NAME,
 	QueueUnavailableError,
+	remainingShutdownBudget,
+	SHUTDOWN_REDIS_BUDGET_MS,
+	startShutdownBudget,
 	UPDATE_SCHEDULER_IDS,
 	UPDATE_SCHEDULERS,
 	upsertUpdateSchedulers,
@@ -1116,16 +1125,239 @@ describe('bullmq queue helpers', () => {
 		expect(events).toContain('completed')
 		expect(events).toContain('failed')
 	})
+
+	it('bounds closeQueue when queue and both Redis clients hang offline, so shutdown continues', async () => {
+		const hanging = new Promise<never>(() => {})
+		// Ensure all three singletons (queue + both Redis clients) exist so
+		// the close exercises every bound close, independent of test order.
+		await countBackfillJobsInFlight()
+		const queueRedis = getQueueRedis()
+		const cacheRedis = getCacheRedis()
+		const queueDisconnectsBefore = (queueRedis.disconnect as unknown as Mock).mock.calls.length
+		const cacheDisconnectsBefore = (cacheRedis.disconnect as unknown as Mock).mock.calls.length
+		// Simulate the offline-blocked shutdown: every close is queued behind
+		// a pending command and never settles.
+		mockQueueClose.mockReturnValue(hanging)
+		mockRedisQuit.mockReturnValue(hanging)
+		const started = Date.now()
+		// The three per-close deadlines are carved from ONE 600ms budget
+		// (remaining budget per close), so the aggregate is ~600ms — not
+		// 3 x the per-close bound. A serial sum of the per-close defaults
+		// (15s) would exceed this margin by an order of magnitude, so the
+		// bound that keeps the Mongo close inside the Docker stop grace is
+		// the real assertion; the margin only absorbs scheduling jitter.
+		await closeQueue({ budgetMs: 600 })
+		expect(Date.now() - started).toBeLessThan(3000)
+		// The deadline forced a hard disconnect of both clients instead of
+		// waiting on the blocked quit. queueRedis is hit twice: the stuck
+		// queue close and the stuck queue-redis quit both fall back to it
+		// (the queue rides on the queue-redis connection).
+		expect((queueRedis.disconnect as unknown as Mock).mock.calls.length).toBe(queueDisconnectsBefore + 2)
+		expect((cacheRedis.disconnect as unknown as Mock).mock.calls.length).toBe(cacheDisconnectsBefore + 1)
+		// Singletons are released: shutdown is complete and a re-connection
+		// (or the Mongo close in stopServer) is not behind dead clients.
+		expect(getQueueRedis()).not.toBe(queueRedis)
+		expect(getCacheRedis()).not.toBe(cacheRedis)
+		// Leave the close mocks resolving: the hanging stand-ins must not
+		// leak into afterAll's closeQueue (each hang would eat a full 5s
+		// deadline there).
+		mockQueueClose.mockResolvedValue(undefined)
+		mockRedisQuit.mockResolvedValue(undefined)
+	})
+
+	it('closes cleanly without the fallback when clients settle in time', async () => {
+		await countBackfillJobsInFlight()
+		const queueRedis = getQueueRedis()
+		const cacheRedis = getCacheRedis()
+		const queueDisconnectsBefore = (queueRedis.disconnect as unknown as Mock).mock.calls.length
+		const cacheDisconnectsBefore = (cacheRedis.disconnect as unknown as Mock).mock.calls.length
+		mockQueueClose.mockResolvedValue(undefined)
+		mockRedisQuit.mockResolvedValue(undefined)
+		await closeQueue()
+		// No deadline was hit, so neither client was force-disconnected.
+		expect((queueRedis.disconnect as unknown as Mock).mock.calls.length).toBe(queueDisconnectsBefore)
+		expect((cacheRedis.disconnect as unknown as Mock).mock.calls.length).toBe(cacheDisconnectsBefore)
+		expect(getQueueRedis()).not.toBe(queueRedis)
+		expect(getCacheRedis()).not.toBe(cacheRedis)
+	})
+
+	it('starts a fresh budget when closeQueue is the first close, so a delayed graceful close does not hit the deadline', async () => {
+		// Production path: stopServer (src/server.ts) calls closeQueue()
+		// with no (active) budget — the fresh SHUTDOWN_REDIS_BUDGET_MS
+		// branch inside closeQueue is what bounds the API shutdown. An
+		// expired budget (startShutdownBudget(0)) is the same state: the
+		// branch must start a fresh one. Removing it leaves
+		// remainingShutdownBudget() at the 1 ms floor, so each per-close
+		// deadline beats even a DELAYED close. This test makes every close
+		// delayed-but-graceful (a real 400 ms close, well inside the 9000 ms
+		// budget): the fresh-budget code resolves them cleanly; the mutation
+		// force-disconnects all three clients on the premature deadline —
+		// the same force-disconnect-every-shutdown regression the existing
+		// instant-resolved tests cannot catch (a clean close leaves a 9 s
+		// budget active, so the expired budget above is what makes the
+		// branch — not a leftover from the previous test — the subject).
+		// Real wall-clock delays are deliberate here: the point is that the
+		// fresh 9000 ms budget (a real platform clock) beats a 400 ms close,
+		// so deterministic fake timers cannot substitute.
+		// Each close gets its OWN 400 ms delay: a promise resolves once, so
+		// sharing one object across the three closes would resolve the
+		// second and third immediately and break the elapsed lower bound.
+		const closeDelay = () => new Promise<void>((resolve) => setTimeout(resolve, 400))
+		const hanging = new Promise<never>(() => {})
+		// Expired (0 ms) budget = "no active budget": closeQueue must start
+		// its own fresh one. (0 works where an unset budget is not: a clean
+		// close earlier in the file leaves a 9 s budget active.)
+		startShutdownBudget(0)
+		await countBackfillJobsInFlight()
+		const queueRedis = getQueueRedis()
+		const cacheRedis = getCacheRedis()
+		const queueDisconnectsBefore = (queueRedis.disconnect as unknown as Mock).mock.calls.length
+		const cacheDisconnectsBefore = (cacheRedis.disconnect as unknown as Mock).mock.calls.length
+		// Lazy per-invocation delays: the factory runs when each close
+		// actually starts, so the three 400 ms windows run sequentially
+		// (eager closeDelay() args would all start at once and overlap,
+		// collapsing the elapsed lower bound).
+		mockQueueClose.mockImplementationOnce(closeDelay)
+		mockRedisQuit
+			.mockImplementationOnce(closeDelay) // queue-redis quit
+			.mockImplementationOnce(closeDelay) // cache-redis quit
+			.mockReturnValue(hanging) // any 4th close hangs: the fresh budget is spent
+		const started = Date.now()
+		await closeQueue() // no budget started beforehand: closeQueue must start its own
+		// Every close won its race inside the fresh budget: no deadline fired,
+		// so no force-disconnect (queueRedis's fallback would otherwise hit
+		// it twice — the queue close and the queue-redis quit).
+		expect((queueRedis.disconnect as unknown as Mock).mock.calls.length).toBe(queueDisconnectsBefore)
+		expect((cacheRedis.disconnect as unknown as Mock).mock.calls.length).toBe(cacheDisconnectsBefore)
+		// The owned singletons are released exactly once, as a clean close does.
+		expect(getQueueRedis()).not.toBe(queueRedis)
+		expect(getCacheRedis()).not.toBe(cacheRedis)
+		// Sanity: the whole clean close stayed inside the fresh budget with
+		// margin, not inside a 0 ms per-close deadline.
+		expect(Date.now() - started).toBeGreaterThanOrEqual(3 * 400 - 150)
+		expect(Date.now() - started).toBeLessThan(SHUTDOWN_REDIS_BUDGET_MS)
+		// Leave the close mocks resolving: the hanging stand-in must not
+		// leak into afterAll's closeQueue (it would eat a full 5s deadline).
+		mockQueueClose.mockResolvedValue(undefined)
+		mockRedisQuit.mockResolvedValue(undefined)
+	})
+
+	it('charges a caller-started budget across the queue and rate-limit closes', async () => {
+		// Mirrors the API/worker shutdown sequence: the caller starts ONE
+		// budget, closeQueue consumes the remainder, and a later close (the
+		// rate-limit quit in stopServer) draws from the SAME aggregate — so
+		// the two stages cannot each spend a full per-close bound.
+		const hanging = new Promise<never>(() => {})
+		await countBackfillJobsInFlight()
+		mockQueueClose.mockReturnValue(hanging)
+		mockRedisQuit.mockReturnValue(hanging)
+		startShutdownBudget(600)
+		try {
+			const started = Date.now()
+			await closeQueue() // reuses the caller's budget, no fresh start
+			// The rate-limit close gets whatever of the budget is left.
+			await closeWithTimeout(
+				() => hanging,
+				() => {},
+				'rate-limit Redis',
+				remainingShutdownBudget()
+			)
+			// The whole sequence (three queue closes + the rate-limit close)
+			// is charged against the ONE 600ms budget. If the rate-limit
+			// close ignored the budget and took a fresh 5s per-close bound,
+			// the sequence would run to ~5.6s and exceed this margin.
+			expect(Date.now() - started).toBeLessThan(3000)
+		} finally {
+			mockQueueClose.mockResolvedValue(undefined)
+			mockRedisQuit.mockResolvedValue(undefined)
+		}
+	})
+
+	it('keeps the aggregate shutdown budget within the 10s Docker stop grace', () => {
+		// The budget is the WHOLE Redis-close phase; it must stay under the
+		// default 10s stop grace so the Mongo close (which follows) is
+		// reached before SIGKILL. Pin the relationship, not a magic value.
+		expect(SHUTDOWN_REDIS_BUDGET_MS).toBeLessThan(10_000)
+		expect(SHUTDOWN_REDIS_BUDGET_MS).toBeGreaterThan(0)
+	})
+
+	it('charges every sequential close from one remaining-budget deadline', async () => {
+		// Meaningful regression: the aggregate deadline is the budget itself,
+		// not N x the per-close bound. With every close hanging, the three
+		// remaining-budget deadlines must sum to at most the budget, so a
+		// 300ms budget finishes in well under the 3 x per-close default.
+		// (A serial implementation would take 3 x 5000ms here.)
+		const hanging = new Promise<never>(() => {})
+		await countBackfillJobsInFlight()
+		mockQueueClose.mockReturnValue(hanging)
+		mockRedisQuit.mockReturnValue(hanging)
+		try {
+			const started = Date.now()
+			await closeQueue({ budgetMs: 300 })
+			// A serial sum of the per-close defaults (15s) would exceed this
+			// by an order of magnitude; the margin only absorbs jitter.
+			expect(Date.now() - started).toBeLessThan(3000)
+		} finally {
+			mockQueueClose.mockResolvedValue(undefined)
+			mockRedisQuit.mockResolvedValue(undefined)
+		}
+		// The remainder drains to the floor (1ms), never negative/zero.
+		expect(remainingShutdownBudget()).toBeGreaterThanOrEqual(1)
+	})
+
+	it('propagates a pre-deadline close rejection only with propagateRejection', async () => {
+		// The worker shutdown relies on this contract: a genuine close
+		// FAILURE must abort the remaining teardown, while a hung close is
+		// only force-cleaned on the deadline (src/worker.ts). The worker
+		// test mocks the helper, so pin the REAL implementation here.
+		const fail = new Error('real close failed')
+		const fallback = mock()
+		await expect(
+			closeWithTimeout(
+				() => Promise.reject(fail),
+				fallback,
+				'real close',
+				5000,
+				{ propagateRejection: true }
+			)
+		).rejects.toBe(fail)
+		expect(fallback).not.toHaveBeenCalled()
+		// Default: the rejection is swallowed (Redis quits never meaningfully
+		// reject on shutdown), the close resolves, and the deadline fallback
+		// is still not needed.
+		await closeWithTimeout(() => Promise.reject(fail), fallback, 'real close', 5000)
+		expect(fallback).not.toHaveBeenCalled()
+	})
 })
 
 afterAll(async () => {
+	// REDIS_CACHE_URL is restored (not left on the fake cache host): this
+	// file's beforeEach/afterEach save and restore it, and afterAll must not
+	// leak the fake value into later test files.
+	const savedRedisUrl = process.env.REDIS_URL
+	const savedRedisCacheUrl = process.env.REDIS_CACHE_URL
 	process.env.REDIS_URL = TEST_REDIS_URL
 	process.env.REDIS_CACHE_URL = 'redis://cache.example:6379'
 	mockRedisStatus = 'end'
 	getCacheRedis()
 	mockRedisStatus = 'ready'
+	// The shutdown-bound tests above nulled the singletons; this lightweight
+	// call re-creates the queue (and queue-redis) singleton so the close
+	// below exercises all three clients, as it always has.
+	await countBackfillJobsInFlight()
+	// The shutdown-bound tests above already quit both clients (and
+	// mockRedisQuit is never reset between tests), so assert by DELTA: this
+	// close alone must quit both independently owned clients.
+	const quitsBefore = mockRedisQuit.mock.calls.length
 	await closeQueue()
 	expect(mockQueueClose).toHaveBeenCalled()
-	// Queue/control and cache clients are independently owned and both close.
-	expect(mockRedisQuit).toHaveBeenCalledTimes(2)
+	expect(mockRedisQuit.mock.calls.length).toBe(quitsBefore + 2)
+	if (savedRedisUrl === undefined) delete process.env.REDIS_URL
+	else process.env.REDIS_URL = savedRedisUrl
+	if (savedRedisCacheUrl === undefined) delete process.env.REDIS_CACHE_URL
+	else process.env.REDIS_CACHE_URL = savedRedisCacheUrl
+	// Hand the real client back last: closeQueue above ran against the
+	// mocked clients, and later files in the same bun process must not
+	// inherit the ioredis mock.
+	mock.module('ioredis', () => ({ Redis: realRedisModule.Redis }))
 })

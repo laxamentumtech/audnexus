@@ -27,7 +27,13 @@ import searchBook from '#config/routes/books/search/show'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
 import { registerMetricsRoute } from '#config/routes/metrics'
-import { closeQueue, getUpdateSchedulerIntervals } from '#helpers/jobs/bullmq'
+import {
+	closeQueue,
+	closeWithTimeout,
+	getCacheRedis,
+	getUpdateSchedulerIntervals,
+	remainingShutdownBudget
+} from '#helpers/jobs/bullmq'
 import { registerUpdateScheduler } from '#helpers/jobs/schedule'
 import { getAllIps as getCloudflareIps } from '#helpers/utils/cloudflareIps'
 
@@ -94,13 +100,20 @@ const ctx: Context = createDefaultContext(process.env.MONGODB_URI)
  */
 async function registerPlugins() {
 	// Fastify's default Redis is only for disposable document-cache routes.
+	// The plugin is handed the SHARED bounded cache client (getCacheRedis)
+	// rather than letting it create its own: the plugin's built-in close hook
+	// would quit its own client with an UNBOUNDED quit() inside server.close(),
+	// which a blackholed cache socket can hang past the 10s stop grace. On a
+	// supplied `client` the plugin registers no close hook, so the cache
+	// client is closed — under the shutdown budget, like every other owned
+	// client — by closeQueue in stopServer. The document-cache role (bounded
+	// retries, capped reconnect, evictable) is unchanged; the update-scheduler
+	// and health route already use this same client.
 	const cacheUrl = getCacheRedisUrl()
 	if (cacheUrl) {
 		server.log.info('Using document-cache Redis')
 		await server.register(redis, {
-			connectTimeout: 500,
-			maxRetriesPerRequest: 1,
-			url: cacheUrl
+			client: getCacheRedis()
 		})
 	}
 
@@ -242,9 +255,23 @@ async function stopServer() {
 	try {
 		await server.close()
 		server.log.info('HTTP server closed')
+		// Bounded: a queue client blocked behind an offline command must not
+		// prevent the Mongo close and process exit below. closeQueue starts
+		// one aggregate budget for its three closes and the rate-limit quit
+		// below draws the REMAINDER, so the sequential deadlines cannot
+		// multiply past it and push the Mongo close past the 10s Docker stop
+		// grace.
 		await closeQueue()
 		if (rateLimitRedis) {
-			await rateLimitRedis.quit()
+			// quit() is queued behind pending offline commands; bound it with
+			// the REMAINING aggregate budget so a blackholed rate-limit client
+			// cannot block SIGTERM handling.
+			await closeWithTimeout(
+				() => rateLimitRedis!.quit(),
+				() => rateLimitRedis!.disconnect(),
+				'rate-limit Redis',
+				remainingShutdownBudget()
+			)
 			rateLimitRedis = null
 		}
 		// Close Papr/mongo connection
