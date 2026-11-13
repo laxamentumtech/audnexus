@@ -294,7 +294,9 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
 
    **Core Configuration:**
    - `MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`) [required]
-   - `REDIS_URL`: Redis connection URL (e.g., `redis://redis:6379`) [required for deployments that run a worker — the worker rejects startup without it; optional for an API-only deployment. Compose supplies a default (`redis://redis:6379`)]
+   - `REDIS_URL`: Durable control Redis for BullMQ and shared rate limiting (e.g., `redis://redis:6379`). Required for workers; optional for an API-only deployment. Keep this instance on `noeviction`.
+   - `REDIS_CACHE_URL`: Disposable document-cache Redis. Defaults to `REDIS_URL` for existing external deployments; set a separate instance before enabling cache eviction. Different logical database numbers on one Redis server do not isolate eviction or memory pressure.
+   - `REDIS_CACHE_TTL_SECONDS`: Positive integer document-cache TTL (default: `432000`, five days), applied atomically on inserts and overwrites.
    - `HOST`: Server host address (default: `0.0.0.0`)
    - `PORT`: Server port (default: `3000`)
    - `LOG_LEVEL`: Log level - `trace`, `debug`, `info`, `warn`, `error`, `fatal` (default: `info`)
@@ -370,6 +372,32 @@ Once you have Docker Swarm setup, grab the `docker-compose.yml` from this repo, 
 **Note:** The bundled standalone `mongo:7.0.45` service is single-node and can never satisfy the book history replica-set gate, so enabling `BOOK_HISTORY_ENABLED` against the bundled stack is a guaranteed boot crash by design — point `MONGODB_URI` at a replica set first.
 
 The stack defaults to 15 replicas for the node-server container. Customize this as needed.
+
+#### Redis durability and machine-specific sizing
+
+Both bundled Compose files separate durable queue/rate-limit state (`redis`) from disposable document data (`redis-cache`). Control Redis persists `/data`, enables AOF with `appendfsync everysec`, and uses `noeviction`. Cache Redis uses `allkeys-lfu` with neither AOF nor RDB persistence. API and worker use the same role URLs. A cache restart may require repopulation; it must not remove queue jobs, schedulers, or rate-limit counters.
+
+**Operator precondition for Swarm deploys: the durable Redis is node-local.** The `redis-data` volume lives only on the node that first ran `redis`, so the compose constrains the service to the node labeled `audnexus-redis=true`. Label exactly one node before `docker stack deploy` (for example `docker node update --label-add audnexus-redis=true <node>`); with no labeled node the `redis` service stays pending and the stack reports it. Labeling a second node is not safe: Swarm can reschedule `redis` there, where the node-local volume is empty, and queue/rate-limit state is lost. If you must move the label to another node, first restore or migrate the existing `redis-data` volume, because the label only picks the node and does not move the data. The compose uses the list form of `depends_on` (no `condition`), which is what Swarm's legacy v3 schema accepts for `docker stack deploy`.
+
+Compose sizing knobs are independent of application behavior:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `REDIS_CONTROL_MAXMEMORY` | `128mb` | Logical control-state budget; never an eviction allowance |
+| `REDIS_CACHE_MAXMEMORY` | `512mb` | Disposable cache budget |
+| `MONGO_WIREDTIGER_CACHE_GB` | `1.0` | WiredTiger cache, not total MongoDB RSS |
+| `CONTAINER_LOG_MAX_SIZE` | `10m` | Maximum size of each rotated container log |
+| `CONTAINER_LOG_MAX_FILES` | `3` | Retained log files per container |
+
+`MONGO_IMAGE`, `REDIS_IMAGE`, and `REDIS_CACHE_IMAGE` override the bundled database image pins; use immutable references and validate the selected versions separately from memory tuning.
+
+These are portable defaults, not capacity guarantees or container memory limits. Size each machine for allocator/client overhead, MongoDB non-cache memory, index builds, and Redis fork/copy-on-write persistence peaks without counting swap as sustainable capacity. Keep logs bounded and monitor filesystem space for RDB/AOF rewrite generations as well as database growth.
+
+**Existing single-Redis deployments need an ordered migration.** Deploy routing-compatible code, set `REDIS_CACHE_URL` to a separate private cache, and verify document callers have moved before reducing the original Redis budget. Preserve queue/rate-limit state; never enable eviction on the old shared instance or flush its database. Before rolling back to code that ignores `REDIS_CACHE_URL`, restore a compatible shared-Redis budget first.
+
+For an existing Redis with AOF disabled, merely adding `appendonly yes` and recreating its container is not a safe persistence migration. Quiesce writers, preserve a recoverable snapshot, enable AOF on the running instance, wait for successful rewrite/fsync, and verify the complete persisted data on the intended volume before replacing the container. AOF every second still permits a recent-write loss window; it is not a substitute for tested backups.
+
+Compose database pins and external managed-database versions have separate deployment owners. A repository dependency update does not update an independently managed database. Keep deployment image references immutable, verify the running digest, and separate database upgrades from memory tuning; do not replace a newer application image with an older one to obtain different resource settings.
 
 The app image is supplied by the required `AUDNEXUS_IMAGE` variable — set it to an immutable release version tag (e.g., `ghcr.io/laxamentumtech/audnexus:v1.15.0`) or a digest (e.g., `ghcr.io/laxamentumtech/audnexus@sha256:...`); never use `:latest`. Bare versions like `v1.15.0` are rejected: Docker would resolve them as mutable Docker Hub library names. Compose enforces this with `${AUDNEXUS_IMAGE:?...}`, which refuses to render the file when the variable is unset; before deploying, prove the value is immutable with the preflight validator (it rejects unset/empty values, `:latest`, and untagged repos, and accepts version tags and digest pins):
 

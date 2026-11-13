@@ -9,7 +9,6 @@ const mockStitchProcess = mock()
 const mockRedisFindOne = mock()
 const mockRedisFindOrCreate = mock()
 const mockRedisSetOne = mock()
-const mockRedisSetExpiration = mock()
 const mockRedisDeleteOne = mock()
 const mockFetchPlus = mock()
 
@@ -40,7 +39,6 @@ mock.module('#helpers/database/redis/RedisHelper', () => ({
 		findOne = mockRedisFindOne
 		findOrCreate = mockRedisFindOrCreate
 		setOne = mockRedisSetOne
-		setExpiration = mockRedisSetExpiration
 		deleteOne = mockRedisDeleteOne
 	}
 }))
