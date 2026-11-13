@@ -225,13 +225,14 @@ bun run build-docs
 ### History operations
 
 The book history feature (stored metadata/artwork change tracking) is gated
-off by default. When enabled, the database needs one preparation step and a
-one-time legacy artwork seed. The DB-only operational CLI runs directly
-against `MONGODB_URI` — it starts no server, Redis, or queue:
+off by default. Startup prepares its indexes automatically; enabling recording
+still requires a transaction-capable replica set. Legacy artwork needs a
+one-time seed. The DB-only operational CLI runs directly against `MONGODB_URI`
+without starting a server, Redis, or queue:
 
 ```bash
-# Create the named history indexes (idempotent; a same-name conflicting
-# definition fails and is never replaced)
+# Prepare collection validators and the complete index catalog (idempotent;
+# conflicting definitions fail and are never replaced)
 bun src/history.ts prepare
 
 # Report current-book readiness issues: one NDJSON row per book with an
@@ -261,10 +262,13 @@ bun src/history.ts status
 In the deployed container image (which ships `dist/`, not the source tree)
 run the same commands as `node dist/history.js <command>`.
 
-Index creation is CLI-only. With `BOOK_HISTORY_ENABLED=true`, the server and
-worker fail closed at startup if the required history indexes (and a
-transaction-capable replica set) are not present — `prepare` is therefore a
-prerequisite of enabling history in any deployment.
+By default, API and worker startup prepare the shared index catalog before
+readiness; `history prepare` is an optional pre-application step using the same
+initializer. `DB_INDEX_MODE=verify` is a process startup policy: it gates API
+and worker boot, but `history prepare` always applies the catalog like
+`indexes apply` and ignores it. Enabling `BOOK_HISTORY_ENABLED=true` also
+requires a transaction-capable replica set; index creation alone does not
+satisfy that gate.
 
 ### Release identity
 
@@ -384,6 +388,7 @@ Compose sizing knobs are independent of application behavior:
 | `REDIS_CONTROL_MAXMEMORY` | `128mb` | Logical control-state budget; never an eviction allowance |
 | `REDIS_CACHE_MAXMEMORY` | `512mb` | Disposable cache budget |
 | `MONGO_WIREDTIGER_CACHE_GB` | `1.0` | WiredTiger cache, not total MongoDB RSS |
+| `STARTUP_GRACE_PERIOD` | `30m` | Startup health-check grace for required index builds |
 | `CONTAINER_LOG_MAX_SIZE` | `10m` | Maximum size of each rotated container log |
 | `CONTAINER_LOG_MAX_FILES` | `3` | Retained log files per container |
 
@@ -418,29 +423,28 @@ Once the stack is up, test an API call with
 https://${TRAEFIK_DOMAIN}/books/${ASIN}
 ```
 
-### Set up DB indexes to keep item lookups fast and to support searches.
+### Database indexes and startup readiness
 
-1. Connect to the DB either from inside the mongodb container terminal or a MongoDB Compass/MongoSH session.
+The API and worker share an application-owned index catalog. Startup prepares collection validators, then creates missing indexes sequentially and waits for required builds before accepting HTTP traffic or scheduling jobs. This also applies to existing MongoDB volumes and externally managed databases; a first-boot container script is not required.
 
-2. Switch to the correct DB:
+The catalog includes ASIN/region lookups, author-name text search, stale-document walks, and book-history indexes. An equivalent existing index is adopted even when its physical name differs. ASIN/region lookups remain non-unique: this does not deduplicate legacy records or change book-identity rules.
 
-   ```
-   use audnexus
-   ```
+- `DB_INDEX_MODE=auto` (default): create missing indexes and await completion.
+- `DB_INDEX_MODE=verify`: require completed matching indexes without issuing index DDL. Use this when a deployment job owns index creation. Startup still prepares collection schemas and needs `createCollection`/`collMod` privileges; use the DB-only `check` command for inspection with read-only credentials.
+- `DB_INDEX_BUILD_WAIT_MS=1800000` (default): bound startup waiting for required builds. Allow sufficient container health-check startup grace; bundled Compose uses `STARTUP_GRACE_PERIOD=30m`.
 
-3. Create the recommended indexes:
-   ```
-   db.authors.createIndex( { asin: 1, region: 1 } )
-   ```
-   ```
-   db.books.createIndex( { asin: 1, region: 1 } )
-   ```
-   ```
-   db.chapters.createIndex( { asin: 1, region: 1 } )
-   ```
-   ```
-   db.authors.createIndex( { name: "text" } )
-   ```
+For a large existing database, pre-apply the catalog with the same application version before rolling out API/worker replicas:
+
+```sh
+bun run build-ts
+MONGODB_URI='mongodb://mongo:27017/audnexus' bun dist/indexes.js check
+MONGODB_URI='mongodb://mongo:27017/audnexus' bun dist/indexes.js apply
+```
+
+Both commands target the `audnexus` database. `check` is read-only: it does not prepare schemas, create collections, connect to Redis, or start jobs. `apply` uses the shared schema/index initializer without starting HTTP or jobs. Startup and CLI reports identify adopted/created indexes and actionable conflicts; a building index is not ready. `/health` checks service connectivity, not continuous index drift.
+
+**Automatic upgrades are additive, not destructive repair.** A new catalog entry is built on the next startup. Changed ordinary access paths use a new versioned physical name and retain the old index during mixed-version deployment. Unknown, redundant, and legacy indexes are reported but never automatically deleted. Same-name specification conflicts, changed uniqueness/partial/collation/TTL semantics, and text-index replacements require an explicit release-owned migration with compatibility and data preconditions. MongoDB permits only one text index per collection, so a changed search index cannot use a blind build-new/drop-old sequence.
+
 
 ## ⛏️ Built Using <a name = "built_using"></a>
 

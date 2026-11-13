@@ -8,6 +8,8 @@ services:
     environment:
       ADP_TOKEN: ${ADP_TOKEN}
       BOOK_HISTORY_ENABLED: ${BOOK_HISTORY_ENABLED:-false}
+      DB_INDEX_BUILD_WAIT_MS: ${DB_INDEX_BUILD_WAIT_MS:-1800000}
+      DB_INDEX_MODE: ${DB_INDEX_MODE:-auto}
       MAX_REQUESTS: ${MAX_REQUESTS:-300}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/audnexus}
       PRIVATE_KEY: ${PRIVATE_KEY}
@@ -48,7 +50,7 @@ services:
       interval: 30s
       timeout: 6s
       retries: 3
-      start_period: 10s
+      start_period: ${STARTUP_GRACE_PERIOD:-30m}
 
   # BullMQ and rate limiting use durable control Redis; document responses use
   # the separately bounded disposable cache service.
@@ -59,6 +61,8 @@ services:
     environment:
       ADP_TOKEN: ${ADP_TOKEN}
       BOOK_HISTORY_ENABLED: ${BOOK_HISTORY_ENABLED:-false}
+      DB_INDEX_BUILD_WAIT_MS: ${DB_INDEX_BUILD_WAIT_MS:-1800000}
+      DB_INDEX_MODE: ${DB_INDEX_MODE:-auto}
       MONGODB_URI: ${MONGODB_URI:-mongodb://mongo:27017/audnexus}
       PRIVATE_KEY: ${PRIVATE_KEY}
       REDIS_CACHE_URL: ${REDIS_CACHE_URL:-redis://redis-cache:6379}
@@ -96,7 +100,7 @@ services:
       interval: 30s
       timeout: 6s
       retries: 3
-      start_period: 10s
+      start_period: ${STARTUP_GRACE_PERIOD:-30m}
 
   mongo:
     image: ${MONGO_IMAGE:-mongo:7.0.45@sha256:8bb4442761a63a8dda452744082cdac9644b429807eb977b42324a63cef59ca4}

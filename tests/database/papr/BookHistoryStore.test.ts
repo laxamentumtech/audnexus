@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from 'bun:test'
 
-import { HISTORY_INDEX_DEFINITIONS } from '#config/bookHistory'
+import { DATABASE_INDEXES } from '#config/databaseIndexes'
 import { BookHistoryStore } from '#helpers/database/papr/BookHistoryStore'
 
 const FAILURE =
@@ -13,26 +13,28 @@ const FAILURE =
 
 interface IndexDoc {
 	name: string
-	key: Record<string, number>
+	key: Record<string, number | 'text'>
 	unique?: boolean
 	partialFilterExpression?: Record<string, unknown>
 }
 
 /** All prepared index definitions exactly as `prepare` creates them. */
 const preparedIndexes: Record<string, IndexDoc[]> = {}
-for (const def of HISTORY_INDEX_DEFINITIONS) {
+for (const def of DATABASE_INDEXES.filter((index) => index.requiredBy.includes('history'))) {
 	preparedIndexes[def.collection] ??= []
 	preparedIndexes[def.collection].push({
 		name: def.name,
 		key: { ...def.keys },
-		...(def.unique === true ? { unique: true } : {}),
-		...(def.partialFilterExpression ? { partialFilterExpression: def.partialFilterExpression } : {})
+		...(def.options.unique === true ? { unique: true } : {}),
+		...(def.options.partialFilterExpression ? { partialFilterExpression: def.options.partialFilterExpression } : {})
 	})
 }
 
 interface MongoShape {
 	db(name: string): {
 		command(cmd: object): Promise<{ setName?: string } | never>
+		listCollections(filter: { name: string }): { toArray(): Promise<unknown[]> }
+		runCursorCommand(cmd: { listIndexes: string }): { toArray(): Promise<IndexDoc[]> }
 		collection(name: string): {
 			listIndexes(): { toArray(): Promise<IndexDoc[]> }
 			insertOne(doc: object, opts?: object): Promise<unknown>
@@ -67,6 +69,8 @@ function clientWith(options: {
 				if (name === 'admin') return { setName: 'rs0' }
 				return {}
 			},
+			listCollections: () => ({ toArray: async () => [] }),
+			runCursorCommand: (cmd) => ({ toArray: async () => indexes[cmd.listIndexes] ?? [] }),
 			collection: (collectionName: string) => ({
 				listIndexes: () => ({
 					toArray: async () => (indexes[collectionName] ?? []).map((idx) => ({ ...idx }))
@@ -118,10 +122,16 @@ describe('assertHistoryPrerequisites', () => {
 
 	test('fails when a prepared index is missing', async () => {
 		const indexes = mutateIndex('book_history_revisions', 'history_revision', (idx) => {
-			idx.name = 'renamed-away'
+			idx.key = { missing: 1 }
 		})
 		const { store } = clientWith({ indexes })
 		await expect(store.assertHistoryPrerequisites()).rejects.toThrow(FAILURE)
+	})
+
+	test('adopts equivalent production book lookup names', async () => {
+		const indexes = mutateIndex('books', 'history_book_lookup', (idx) => { idx.name = 'asin_1_region_1' })
+		const { store } = clientWith({ indexes })
+		await expect(store.assertHistoryPrerequisites()).resolves.toBeUndefined()
 	})
 
 	test('fails on a key mismatch for a same-name index', async () => {

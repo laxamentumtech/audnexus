@@ -7,11 +7,13 @@ All notable changes to this project will be documented in this file. Releases ar
 
 ### Features
 
+- Reconcile a shared MongoDB index catalog before API and worker readiness, adopt equivalent existing indexes, and provide DB-only read-only checks and safe additive application.
 - Separate disposable document caching from durable queue/rate-limit Redis, with configurable cache TTL and health/shutdown handling for both roles.
-- Make bundled Redis persistence, cache eviction, database memory budgets and log rotation configurable without coupling them to machine-specific RAM allocations.
+- Make bundled Redis persistence, cache eviction, database memory budgets, startup grace, and log rotation configurable without coupling them to machine-specific RAM allocations.
 
 ### Bug Fixes
 
+- `history prepare` now applies the required index catalog explicitly, the same as `indexes apply`; `DB_INDEX_MODE=verify` remains a startup policy for API and worker boot only.
 - Apply the five-day document-cache TTL atomically on every write, including overwrites; cache write failures retain the existing setter error contract.
 - Avoid parsing cached author and chapter JSON twice while preserving book release-date conversion.
 

@@ -50,6 +50,7 @@ export async function startReplicaSet(options: {
 	container?: string
 	image?: string
 	port?: number
+	enableTestCommands?: boolean
 } = {}): Promise<string> {
 	const container = options.container ?? CONTAINER
 	const image = options.image ?? IMAGE
@@ -59,8 +60,8 @@ export async function startReplicaSet(options: {
 	// container-internal hostname unreachable from the host.
 	const uri = `mongodb://127.0.0.1:${port}?directConnection=true&replicaSet=${RS_NAME}`
 
+	let owned = false
 	try {
-		await docker(['rm', '-f', container]).catch(() => {})
 		await docker([
 			'run',
 			'-d',
@@ -70,9 +71,11 @@ export async function startReplicaSet(options: {
 			`127.0.0.1:${port}:27017`,
 			image,
 			'--replSet',
-			RS_NAME
+			RS_NAME,
+			...(options.enableTestCommands ? ['--setParameter', 'enableTestCommands=1'] : [])
 		])
 
+		owned = true
 		const client = new MongoClient(uri, { serverSelectionTimeoutMS: 2000 })
 		const deadline = Date.now() + PRIMARY_TIMEOUT_MS
 		let initiated = false
@@ -115,7 +118,7 @@ export async function startReplicaSet(options: {
 			await client.close().catch(() => {})
 		}
 	} catch (error) {
-		await docker(['rm', '-f', container]).catch(() => {})
+		if (owned) await docker(['rm', '-f', container]).catch(() => {})
 		throw error
 	}
 }
