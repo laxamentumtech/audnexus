@@ -19,13 +19,23 @@ services:
       UPDATE_THRESHOLD: ${UPDATE_THRESHOLD:-7}
     ports:
       - '3000:3000'
+    # List form (no conditions): the mapping form with `condition` is
+    # invalid under Swarm's legacy v3 schema and fails `docker stack deploy`.
+    # Swarm starts services in parallel; readiness is covered by the
+    # healthchecks, the app's bounded startup attempts, and the container
+    # restart policies:
+    #   node-server: @fastify/redis registers the shared cache client and
+    #     re-tries it in place (ioredis capped reconnection) until it is
+    #     ready; if it is still not ready within Fastify's 10s plugin
+    #     timeout, the container exits and `restart: always` retries boot.
+    #   node-worker: the BullMQ readiness probe polls for up to 5s, then the
+    #     process exits and `restart: unless-stopped` retries the container
+    #     until Redis answers.
+    # Neither service depends on a hard Redis-first boot order.
     depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      redis-cache:
-        condition: service_healthy
+      - mongo
+      - redis
+      - redis-cache
     networks:
       - traefik-overlay
       - internal
@@ -74,13 +84,12 @@ services:
       RATE_LIMIT_COOLDOWN_BASE_MS: ${RATE_LIMIT_COOLDOWN_BASE_MS:-120000}
       RATE_LIMIT_COOLDOWN_MAX_MS: ${RATE_LIMIT_COOLDOWN_MAX_MS:-7200000}
       JITTER_MS: ${JITTER_MS:-0-5000}
+    # List form (no conditions): valid under both Compose and Swarm legacy v3;
+    # see the node-server note for why `condition` is not used.
     depends_on:
-      mongo:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      redis-cache:
-        condition: service_healthy
+      - mongo
+      - redis
+      - redis-cache
     networks:
       - internal
     logging:
@@ -123,6 +132,22 @@ services:
   redis:
     image: ${REDIS_IMAGE:-redis:8.6-alpine@sha256:91c71f9ea78fa3fe268ff832a985c48e592244f707993773f8b3e1b244ac1137}
     restart: always
+    # Durable queue/rate-limit state lives in the node-local `redis-data`
+    # volume, which only exists on the node that first ran redis. Constrain
+    # the service to the node that hosts it: a Swarm reschedule onto a node
+    # without the volume would start empty and lose that state.
+    # Operator precondition: EXACTLY ONE node carries the
+    # `audnexus-redis=true` label, for example
+    #   docker node update --label-add audnexus-redis=true <node>
+    # If no node carries the label, the service stays pending: add the label
+    # to a node, then deploy. Labeling a second node is NOT safe: Swarm may
+    # reschedule redis there, where the node-local volume is empty, losing
+    # queue/rate-limit state. Moving the label to another node requires
+    # restoring/migrating the existing `redis-data` volume first.
+    deploy:
+      placement:
+        constraints:
+          - node.labels.audnexus-redis == true
     command:
       - redis-server
       - --appendonly

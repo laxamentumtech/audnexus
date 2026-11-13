@@ -2,6 +2,10 @@ import type { Mock } from 'bun:test'
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 
 const mockPaprInitialize = mock()
+// Inert stand-in for the default-exported Papr instance: the real models call
+// `papr.model(name, schema)` at module load; returning the collection name
+// keeps the mock observable without any model behavior.
+const mockPaprModel = mock((name: string) => name)
 const mockClientConnect = mock()
 const mockClientClose = mock()
 const mockCreateIndex = mock(() => Promise.resolve())
@@ -12,6 +16,11 @@ const mockClient = { connect: mockClientConnect, close: mockClientClose, db: moc
 const mockCreateWorker = mock()
 const mockGetWorker = mock()
 const mockCloseQueue = mock()
+const mockQueueRedisDisconnect = mock()
+// The forced-disconnect fallbacks (the worker's, and the closeQueue
+// collaborator's queue phase) both target the shared queue Redis client;
+// the tests observe the disconnects on it, not on any close's internals.
+const mockGetQueueRedisClient = mock(() => ({ disconnect: mockQueueRedisDisconnect }))
 const mockUpsertUpdateSchedulers = mock()
 const mockAssertHistoryPrerequisites = mock()
 // Mirrors the real helper (strict `\d+` parse: explicit 0 disables, anything
@@ -31,6 +40,15 @@ const mockGetUpdateSchedulerIntervals = mock(() => {
 	return { authors: base, books: base, chapters }
 })
 const mockWorkerClose = mock()
+// Deadline the test's startShutdownBudget wrapper installs into the REAL
+// budget state (see the '#helpers/jobs/bullmq' mock below): the closeQueue
+// collaborator uses it to apply the helper's expired-budget branch.
+let testBudgetDeadline = 0
+// Opt-in for the closeQueue collaborator's queue phase (reset per test):
+// true only in the exhausted-budget test, where the queue close hangs behind
+// an offline command and the remaining ~1 ms budget force-cleans it. Default
+// false: a healthy queue settles promptly, within its remaining budget.
+let queuePhaseHangs = false
 
 // No real MongoDB/Redis/papr clients: CI has no services, and the worker
 // module executes its import-time side effects (env guards, context creation),
@@ -51,6 +69,10 @@ const mockWorkerClose = mock()
 // run this file under default parallel `bun test` alongside other suites.
 mock.module('#config/papr', () => ({
 	initialize: mockPaprInitialize,
+	// The real helper import below pulls the real module graph, whose models
+	// default-import this mock and call `papr.model` at load; a bare factory
+	// keeps registration inert (the tests never touch the models).
+	default: { model: mockPaprModel },
 	// The worker's activation gate calls assertHistoryPrerequisites only when
 	// BOOK_HISTORY_ENABLED is true; the mock doubles as the gate's assertion
 	// seam for the history-enabled tests below.
@@ -60,14 +82,77 @@ mock.module('#config/context', () => ({
 	// matches the real Context shape: { client: MongoClient }
 	createDefaultContext: mock(() => ({ client: mockClient }))
 }))
+// Capture the REAL helper's closeWithTimeout + shutdown-budget functions
+// AFTER the papr/context mocks (so the real module's model deps load with
+// the mocks, not the real papr) and BEFORE the bullmq mock below shadows it:
+// the shutdown tests wire these real values into the mock, so shutdown()
+// exercises the real deadline/budget semantics (only worker.close,
+// closeQueue, and the queue Redis client stay mocked). Dynamic import is a
+// deliberate module-loading-boundary capture: a static import would hoist
+// above the mocks and pull in the real papr/models.
+// Snapshot the REAL helper's function values into a PLAIN object at capture
+// time, not the live ESM namespace: mock.module below mutates the namespace
+// in place, so a namespace property accessed after the mock (e.g. inside the
+// startShutdownBudget wrapper) would resolve to the wrapper itself and
+// recurse. The values captured here are the real functions, stable for the
+// life of the process.
+const realBullmqModule = await import('#helpers/jobs/bullmq')
+const realBullmq = {
+	closeWithTimeout: realBullmqModule.closeWithTimeout,
+	remainingShutdownBudget: realBullmqModule.remainingShutdownBudget,
+	startShutdownBudget: realBullmqModule.startShutdownBudget
+}
+
+// closeWithTimeout / startShutdownBudget / remainingShutdownBudget are the
+// REAL helper values (captured above): shutdown() runs the real deadline and
+// budget semantics, so a removed or reordered startShutdownBudget hands the
+// worker close a 0–1 ms deadline that force-disconnects before the graceful
+// close finishes.
 mock.module('#helpers/jobs/bullmq', () => ({
 	QUEUE_NAME: 'audnexus',
 	closeQueue: mockCloseQueue,
+	closeWithTimeout: realBullmq.closeWithTimeout,
 	createWorker: mockCreateWorker,
+	getQueueRedisClient: mockGetQueueRedisClient,
 	getUpdateSchedulerIntervals: mockGetUpdateSchedulerIntervals,
 	getWorker: mockGetWorker,
+	remainingShutdownBudget: realBullmq.remainingShutdownBudget,
+	// The real budget state, with the DEFAULT fresh budget shortened from
+	// 9000ms to 600ms: the budget-exhaustion test needs the worker close to
+	// hit its deadline on a real wall clock in seconds. Explicit arguments
+	// (the graceful-close test's 0) pass through unchanged, and 600ms still
+	// beats that test's 300ms close with margin.
+	startShutdownBudget: (budgetMs?: number) => {
+		const fresh = budgetMs ?? 600
+		testBudgetDeadline = Date.now() + fresh
+		realBullmq.startShutdownBudget(fresh)
+	},
 	upsertUpdateSchedulers: mockUpsertUpdateSchedulers
 }))
+
+// closeQueue collaborator: honors the helper's public budget contract —
+// an explicit `budgetMs` is the aggregate for the queue phase, while an
+// expired (or never-started) real deadline means a fresh 9000ms, mirroring
+// closeQueue's own expired-budget branch. By default the queue close settles
+// promptly (a healthy queue closes gracefully inside its remaining budget,
+// no disconnect). Only when `queuePhaseHangs` is set does the queue close
+// hang behind an offline command, force-cleaned by the REAL closeWithTimeout
+// deadline via the queue Redis disconnect — there the budget is observable
+// in wall time and the forced cleanup, not in call wiring.
+const queuePhaseClose = (options?: { budgetMs?: number }) => {
+	const deadlineMs =
+		options?.budgetMs !== undefined
+			? options.budgetMs
+			: testBudgetDeadline <= Date.now()
+				? 9000
+				: testBudgetDeadline - Date.now()
+	return realBullmq.closeWithTimeout(
+		() => (queuePhaseHangs ? new Promise<never>(() => {}) : Promise.resolve()),
+		() => mockQueueRedisDisconnect(),
+		'queue',
+		deadlineMs
+	)
+}
 
 // src/worker.ts runs its env guards at module load, so the required env must
 // be set before the module is imported; static imports would hoist above this
@@ -119,12 +204,22 @@ beforeEach(() => {
 	mockGetWorker.mockReset()
 	mockGetWorker.mockReturnValue({ close: mockWorkerClose })
 	mockCloseQueue.mockClear()
-	mockCloseQueue.mockResolvedValue(undefined)
+	mockCloseQueue.mockImplementation(queuePhaseClose)
+	queuePhaseHangs = false
+	testBudgetDeadline = 0
+	mockQueueRedisDisconnect.mockClear()
 	mockUpsertUpdateSchedulers.mockClear()
 	mockWorkerClose.mockClear()
 	mockWorkerClose.mockResolvedValue(undefined)
 	mockAssertHistoryPrerequisites.mockClear()
 	mockAssertHistoryPrerequisites.mockResolvedValue(undefined)
+	// Deliberately NO budget is started here: the helper module's budget
+	// state is real in this file (shutdown() calls the real
+	// startShutdownBudget), and the delayed-close test below relies on it
+	// being unset beforehand so a removed/reordered startShutdownBudget is
+	// observable as a 0 ms deadline. The existing shutdown tests keep
+	// passing without it: their worker close settles in a microtask, which
+	// wins a 0 ms (macrotask) deadline.
 
 	// The shutdown handler ends with process.exit(0); stub it so the test
 	// process survives.
@@ -294,8 +389,10 @@ describe('worker shutdown', () => {
 
 		fireAndRemove()
 
-		// worker.close is called synchronously; the rest of the chain settles
-		// on microtask turns (no timers).
+		// worker.close is deferred one microtask turn by closeWithTimeout
+		// (mirrored by the mock), so flush that turn before asserting the
+		// call; the rest of the chain settles on later microtask turns.
+		await Promise.resolve()
 		expect(mockWorkerClose).toHaveBeenCalledTimes(1)
 		await gate.promise
 		expect(mockCloseQueue).toHaveBeenCalledTimes(1)
@@ -307,6 +404,60 @@ describe('worker shutdown', () => {
 		expect(mockCloseQueue.mock.invocationCallOrder[0]).toBeLessThan(
 			mockClientClose.mock.invocationCallOrder[0]
 		)
+	})
+
+	it('bounds a DELAYED graceful worker close with the aggregate budget, not a 0 ms deadline', async () => {
+		// startShutdownBudget is REAL here: the expired budget (0 ms) set
+		// below means shutdown() itself must start the fresh aggregate,
+		// leaving ~9000 ms for the worker close. Removing or moving
+		// startShutdownBudget after the close hands closeWithTimeout the
+		// 1 ms floor, and the deadline force-disconnects the shared queue
+		// Redis client at 1 ms — BEFORE the graceful 300 ms close finishes
+		// (skipping the in-flight drain the budget exists to protect). The
+		// assertion is the observable disconnect, not the call wiring.
+		// Real wall-clock time is deliberate: closeWithTimeout's deadline
+		// is a real platform timer, so fake timers cannot substitute.
+		realBullmq.startShutdownBudget(0) // expired: shutdown must start its own
+		mockWorkerClose.mockImplementationOnce(
+			() => new Promise<void>((resolve) => setTimeout(resolve, 300))
+		)
+		const started = Date.now()
+		await worker.shutdown()
+		expect(mockWorkerClose).toHaveBeenCalledTimes(1)
+		// No premature deadline: the graceful close won, so nothing was
+		// force-disconnected and the queue/Mongo closes ran.
+		expect(mockQueueRedisDisconnect).not.toHaveBeenCalled()
+		expect(mockCloseQueue).toHaveBeenCalledTimes(1)
+		expect(mockClientClose).toHaveBeenCalledTimes(1)
+		expect(exitSpy).toHaveBeenCalledWith(0)
+		// The shutdown actually WAITED for the graceful close (a 0 ms
+		// deadline would have exited this well before 300 ms).
+		expect(Date.now() - started).toBeGreaterThanOrEqual(300 - 50)
+	})
+
+	it('bounds closeQueue with the REMAINING budget when the worker close exhausts it', async () => {
+		// The worker close hangs: it hits the full 600ms aggregate deadline
+		// and is force-cleaned (observable on the queue Redis disconnect).
+		// The queue phase hangs too (offline-blocked behind the dead
+		// connection): with the budget EXHAUSTED, closeQueue must NOT restart
+		// a fresh 9000ms budget — the helper's expired-budget branch, which is
+		// what `await closeQueue()` without a forwarded remainder triggers —
+		// whose forced queue cleanup would land ~9s out, past the 10s stop
+		// grace. Forwarding remainingShutdownBudget() charges the queue phase
+		// against the aggregate: total elapsed stays ~600ms, not ~9.6s.
+		mockWorkerClose.mockImplementationOnce(() => new Promise<never>(() => {}))
+		queuePhaseHangs = true
+		const started = Date.now()
+		await worker.shutdown()
+		const elapsed = Date.now() - started
+		expect(elapsed).toBeLessThan(3000)
+		// The worker close hit its deadline: forced disconnect ran.
+		expect(mockQueueRedisDisconnect).toHaveBeenCalled()
+		// The queue phase still ran and the Mongo close followed, all inside
+		// the original aggregate budget.
+		expect(mockCloseQueue).toHaveBeenCalledTimes(1)
+		expect(mockClientClose).toHaveBeenCalledTimes(1)
+		expect(exitSpy).toHaveBeenCalledWith(0)
 	})
 
 	it('still exits 0 via the finally path when a close() call rejects', async () => {
