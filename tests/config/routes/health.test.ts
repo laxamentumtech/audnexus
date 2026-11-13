@@ -188,6 +188,25 @@ describe('health route should', () => {
 		expect(mockReply.status).toHaveBeenCalledWith(503)
 	})
 
+	test('return 503 when the control Redis role is down even if cache Redis is healthy', async () => {
+		app.redis = { ping: mock().mockResolvedValue('PONG') }
+		app.controlRedis = { ping: mock().mockRejectedValue(new Error('control Redis connection failed')) }
+
+		await health(app)
+		const routeHandler = getRouteHandler()
+		const mockRequest = createMockRequest()
+		const mockReply = createMockReply((data) => {
+			expect(data.status).toBe('unhealthy')
+			expect(data.checks.redis).toBe(false)
+		})
+
+		await routeHandler(mockRequest, mockReply)
+
+		expect(app.redis.ping).toHaveBeenCalledTimes(1)
+		expect(app.controlRedis.ping).toHaveBeenCalledTimes(1)
+		expect(mockReply.status).toHaveBeenCalledWith(503)
+	})
+
 	test('return 200 and redis as null when Redis is not registered', async () => {
 
 		mockMongoCommand.mockResolvedValue({ ok: 1 })

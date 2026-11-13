@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file. Releases are automated via the [annalist](https://github.com/djdembeck/annalist) GitHub App with fill_after mode for AI-generated release notes.
 
 
+## Unreleased
+
+### Features
+
+- Separate disposable document caching from durable queue/rate-limit Redis, with configurable cache TTL and health/shutdown handling for both roles.
+- Make bundled Redis persistence, cache eviction, database memory budgets and log rotation configurable without coupling them to machine-specific RAM allocations.
+
+### Bug Fixes
+
+- Make the bundled compose valid for `docker stack deploy` (Swarm legacy v3) by using the list form of `depends_on`, and constrain the durable Redis to exactly one `audnexus-redis=true` labeled node so its node-local control volume cannot be rescheduled empty.
+- Reconnect the rate-limit Redis client after a dropped link with a capped backoff instead of terminal-disconnecting, and bound every close on shutdown — the API's HTTP drain (force-closing stalled connections at the deadline) plus all queue/Redis closes — under one aggregate budget so a blocked client or stalled request cannot push the Mongo close past the container stop grace.
+- Apply the five-day document-cache TTL atomically on every write, including overwrites; cache write failures retain the existing setter error contract.
+- Avoid parsing cached author and chapter JSON twice while preserving book release-date conversion.
+
 ## [1.15.0](https://github.com/laxamentumtech/audnexus/compare/audnexus-v1.14.0...audnexus-v1.15.0) (2026-07-25)
 
 
