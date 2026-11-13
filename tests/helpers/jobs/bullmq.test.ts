@@ -10,6 +10,7 @@ import {
 	vi
 } from 'bun:test'
 
+import { closeServerWithTimeout } from '#helpers/utils/httpShutdown'
 import { createMockLogger } from '#tests/setup/mockLogger'
 
 const mockQueueAdd = mock()
@@ -33,10 +34,14 @@ const mockSchedulerUpdateBooks = mock()
 const mockSchedulerUpdateChapters = mock()
 const mockBackfillProcess = mock()
 
-// Capture the real ioredis module before the mock: the mock would otherwise
-// leak past mock.restore() into later test files of the same bun process
-// (the real-socket tests under tests/config expect the real client).
-const realRedisModule = await import('ioredis')
+// Capture the real ioredis CONSTRUCTOR value before the mock: the mock would
+// otherwise leak past mock.restore() into later test files of the same bun
+// process (the real-socket tests under tests/config expect the real client).
+// Snapshot the value, not the live namespace: mock.module mutates the
+// namespace in place, so a property read from it after the mock (as in the
+// afterAll re-mock below) would resolve to the mock, not the real client —
+// the same hazard documented in tests/worker.test.ts.
+const realRedis = (await import('ioredis')).Redis
 
 // No real ioredis sockets: CI has no Redis service, and ioredis connects
 // eagerly and retries forever, which would keep the test process alive.
@@ -1182,9 +1187,8 @@ describe('bullmq queue helpers', () => {
 	})
 
 	it('starts a fresh budget when closeQueue is the first close, so a delayed graceful close does not hit the deadline', async () => {
-		// Production path: stopServer (src/server.ts) calls closeQueue()
-		// with no (active) budget — the fresh SHUTDOWN_REDIS_BUDGET_MS
-		// branch inside closeQueue is what bounds the API shutdown. An
+		// The fresh SHUTDOWN_REDIS_BUDGET_MS branch inside closeQueue
+		// covers any caller that reaches it with no (active) budget. An
 		// expired budget (startShutdownBudget(0)) is the same state: the
 		// branch must start a fresh one. Removing it leaves
 		// remainingShutdownBudget() at the 1 ms floor, so each per-close
@@ -1274,11 +1278,54 @@ describe('bullmq queue helpers', () => {
 	})
 
 	it('keeps the aggregate shutdown budget within the 10s Docker stop grace', () => {
-		// The budget is the WHOLE Redis-close phase; it must stay under the
+		// The budget is the WHOLE close phase (the API charges its HTTP
+		// drain + queue/Redis closes + rate-limit quit against it; the
+		// worker its BullMQ close + queue closes); it must stay under the
 		// default 10s stop grace so the Mongo close (which follows) is
 		// reached before SIGKILL. Pin the relationship, not a magic value.
 		expect(SHUTDOWN_REDIS_BUDGET_MS).toBeLessThan(10_000)
 		expect(SHUTDOWN_REDIS_BUDGET_MS).toBeGreaterThan(0)
+	})
+
+	it('charges the stalled HTTP drain and the queue phase against ONE budget, so the Mongo close is reached with ~zero left', async () => {
+		// The API stopServer sequence (src/server.ts): startShutdownBudget,
+		// closeServerWithTimeout with the remaining budget, then
+		// closeQueue({ budgetMs: remainingShutdownBudget() }). A STALLED
+		// drain (a request stuck on a dying socket — the unbounded
+		// server.close() that once pushed the Mongo close past the 10s
+		// Docker stop grace) consumes the whole budget, force-closes the
+		// connections, and the queue phase then runs with only the
+		// remainder: its forced cleanup lands ~immediately, not on a fresh
+		// 9s budget. If the drain did not draw from the shared budget, the
+		// sequence would run to 600ms (drain) + 9000ms (queue) and blow
+		// this margin by an order of magnitude. Real wall clock, as in
+		// the other shutdown-bound tests: the deadlines are real timers.
+		const hanging = new Promise<never>(() => {})
+		await countBackfillJobsInFlight()
+		const queueRedis = getQueueRedis()
+		const force = mock()
+		startShutdownBudget(600)
+		try {
+			mockQueueClose.mockReturnValue(hanging)
+			mockRedisQuit.mockReturnValue(hanging)
+			const started = Date.now()
+			// Stalled drain: the listener never closes; the deadline wins
+			// and the force-close runs.
+			await closeServerWithTimeout(hanging, force, remainingShutdownBudget())
+			expect(force).toHaveBeenCalledTimes(1)
+			// The queue phase draws the REMAINDER (~0ms floor): with every
+			// close hanging, all three forced cleanups land at the floor.
+			await closeQueue({ budgetMs: remainingShutdownBudget() })
+			expect(Date.now() - started).toBeLessThan(3000)
+			// The teardown completed: singletons released, so the Mongo
+			// close that follows is not behind dead clients, and the queue
+			// phase consumed ~zero of the 10s stop grace.
+			expect(getQueueRedis()).not.toBe(queueRedis)
+			expect(remainingShutdownBudget()).toBeGreaterThanOrEqual(1)
+		} finally {
+			mockQueueClose.mockResolvedValue(undefined)
+			mockRedisQuit.mockResolvedValue(undefined)
+		}
 	})
 
 	it('charges every sequential close from one remaining-budget deadline', async () => {
@@ -1359,5 +1406,5 @@ afterAll(async () => {
 	// Hand the real client back last: closeQueue above ran against the
 	// mocked clients, and later files in the same bun process must not
 	// inherit the ioredis mock.
-	mock.module('ioredis', () => ({ Redis: realRedisModule.Redis }))
+	mock.module('ioredis', () => ({ Redis: realRedis }))
 })

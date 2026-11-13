@@ -3,9 +3,13 @@ import { afterAll, afterEach, describe, expect, mock, test } from 'bun:test'
 // The ioredis mock would otherwise leak past mock.restore() into later test
 // files of the same bun process: module-mock restoration only resets call
 // state, so the real-socket redisBlackhole and rateLimitRedisRecovery tests
-// would receive the mock (no `on` method). Capture the real module before
-// the mock and re-mock it in afterAll to hand the real client back.
-const realRedisModule = await import('ioredis')
+// would receive the mock (no `on` method). Capture the real CONSTRUCTOR
+// value before the mock and re-mock it in afterAll to hand the real client
+// back. Snapshot the value, not the live namespace: mock.module mutates the
+// namespace in place, so a property read from it after the mock (as in the
+// afterAll below) would resolve to the mock, not the real client — the same
+// hazard documented in tests/worker.test.ts.
+const realRedis = (await import('ioredis')).Redis
 
 const constructorCalls: Array<{ url: string; options: Record<string, unknown>; client: object }> = []
 mock.module('ioredis', () => ({
@@ -76,6 +80,6 @@ describe('Redis role configuration', () => {
 })
 
 afterAll(() => {
-	mock.module('ioredis', () => ({ Redis: realRedisModule.Redis }))
+	mock.module('ioredis', () => ({ Redis: realRedis }))
 	mock.restore()
 })

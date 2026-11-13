@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file. Releases ar
 ### Bug Fixes
 
 - Make the bundled compose valid for `docker stack deploy` (Swarm legacy v3) by using the list form of `depends_on`, and constrain the durable Redis to exactly one `audnexus-redis=true` labeled node so its node-local control volume cannot be rescheduled empty.
-- Reconnect the rate-limit Redis client after a dropped link with a capped backoff instead of terminal-disconnecting, and bound every queue/Redis close on shutdown under one aggregate budget so a blocked client cannot push the Mongo close past the container stop grace.
+- Reconnect the rate-limit Redis client after a dropped link with a capped backoff instead of terminal-disconnecting, and bound every close on shutdown — the API's HTTP drain (force-closing stalled connections at the deadline) plus all queue/Redis closes — under one aggregate budget so a blocked client or stalled request cannot push the Mongo close past the container stop grace.
 - Apply the five-day document-cache TTL atomically on every write, including overwrites; cache write failures retain the existing setter error contract.
 - Avoid parsing cached author and chapter JSON twice while preserving book release-date conversion.
 

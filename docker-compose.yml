@@ -22,7 +22,16 @@ services:
     # List form (no conditions): the mapping form with `condition` is
     # invalid under Swarm's legacy v3 schema and fails `docker stack deploy`.
     # Swarm starts services in parallel; readiness is covered by the
-    # healthchecks and by the app's bounded connect/retry behavior.
+    # healthchecks, the app's bounded startup attempts, and the container
+    # restart policies:
+    #   node-server: @fastify/redis registers the shared cache client and
+    #     re-tries it in place (ioredis capped reconnection) until it is
+    #     ready; if it is still not ready within Fastify's 10s plugin
+    #     timeout, the container exits and `restart: always` retries boot.
+    #   node-worker: the BullMQ readiness probe polls for up to 5s, then the
+    #     process exits and `restart: unless-stopped` retries the container
+    #     until Redis answers.
+    # Neither service depends on a hard Redis-first boot order.
     depends_on:
       - mongo
       - redis

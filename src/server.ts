@@ -32,10 +32,16 @@ import {
 	closeWithTimeout,
 	getCacheRedis,
 	getUpdateSchedulerIntervals,
-	remainingShutdownBudget
+	remainingShutdownBudget,
+	startShutdownBudget
 } from '#helpers/jobs/bullmq'
 import { registerUpdateScheduler } from '#helpers/jobs/schedule'
 import { getAllIps as getCloudflareIps } from '#helpers/utils/cloudflareIps'
+import {
+	closeServerWithTimeout,
+	createServerDrain,
+	type ServerDrain
+} from '#helpers/utils/httpShutdown'
 
 // Extend FastifyInstance with its MongoDB and control-Redis health clients.
 declare module 'fastify' {
@@ -46,6 +52,7 @@ declare module 'fastify' {
 }
 
 let rateLimitRedis: IORedis | null = null
+let serverDrain: ServerDrain | null = null
 
 // Heroku or local port
 const host = process.env.HOST || '0.0.0.0'
@@ -205,6 +212,10 @@ async function startServer() {
 		trustProxy: trustedProxies
 	})
 
+	// Track accepted sockets from the start so the shutdown drain can force-
+	// close them; the tracker releases everything when the server closes.
+	serverDrain = createServerDrain(server.server)
+
 	server.log.info(`Trusted proxies configured: ${trustedProxies.length} ranges`)
 
 	// Register plugins (rate limiting and the shared structured error
@@ -244,6 +255,32 @@ async function startServer() {
 	}
 }
 
+/** Bounded HTTP drain under the shared shutdown budget: the listener stops
+ * accepting, and the drain settles when every in-flight request has
+ * FINISHED — its response delivered (`res` finish), not when idle keep-
+ * alive sockets close, so a healthy response does not burn the budget. On
+ * the deadline the tracked sockets are force-destroyed (a stalled request's
+ * in-flight queue job is reaped at the next boot), so a stalled request
+ * cannot push the queue/Redis closes — and the Mongo close they gate — past
+ * the container stop grace. The force is the tracked-socket drain, NOT
+ * server.closeAllConnections(): on Bun 1.4.0 that native call is a no-op
+ * once close() has started (native handle cleared), and on the same runtime
+ * close() settles WITHOUT waiting for in-flight requests — so request-
+ * completion tracking is the portable drain-complete signal. */
+function closeHttpServer(): Promise<void> {
+	const drain = serverDrain
+	const drained = drain?.done() ?? Promise.resolve()
+	server.close()
+	return closeServerWithTimeout(
+		drained,
+		() => {
+			server.log.warn('HTTP drain hit the shutdown deadline; force-closing connections')
+			drain?.forceClose()
+		},
+		remainingShutdownBudget()
+	)
+}
+
 /**
  * Shuts down the server and closes the DB connection
  */
@@ -253,15 +290,25 @@ async function stopServer() {
 	}
 	server.log.info('Closing HTTP server')
 	try {
-		await server.close()
+		// ONE aggregate wall-clock budget across every remaining close —
+		// the HTTP drain, the queue/Redis closes, and the rate-limit quit —
+		// so the sequential per-close deadlines cannot multiply past it and
+		// push the Mongo close past the 10s Docker stop grace. The Mongo
+		// close itself runs on whatever is left (its own duration is not
+		// budgeted); the guarantee is that it is REACHED before the grace.
+		startShutdownBudget()
+		await closeHttpServer()
 		server.log.info('HTTP server closed')
 		// Bounded: a queue client blocked behind an offline command must not
-		// prevent the Mongo close and process exit below. closeQueue starts
-		// one aggregate budget for its three closes and the rate-limit quit
-		// below draws the REMAINDER, so the sequential deadlines cannot
-		// multiply past it and push the Mongo close past the 10s Docker stop
-		// grace.
-		await closeQueue()
+		// prevent the Mongo close and process exit below. closeQueue draws
+		// its three per-close deadlines from the budget REMAINING after the
+		// HTTP drain, and the rate-limit quit below draws from what is left
+		// after that. The remainder is forwarded explicitly: a deadline the
+		// drain consumed in full would otherwise read as "no budget" and
+		// closeQueue would start a fresh SHUTDOWN_REDIS_BUDGET_MS on top of
+		// the spent one — exactly the exhausted-budget case the worker
+		// guards (src/worker.ts).
+		await closeQueue({ budgetMs: remainingShutdownBudget() })
 		if (rateLimitRedis) {
 			// quit() is queued behind pending offline commands; bound it with
 			// the REMAINING aggregate budget so a blackholed rate-limit client

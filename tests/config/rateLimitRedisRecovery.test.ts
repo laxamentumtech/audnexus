@@ -153,11 +153,17 @@ describe('rate-limit Redis reconnection', () => {
 			// in place (capped backoff), never terminal-disconnect.
 			const initial = await redis.ping()
 			expect(initial).toBe('PONG')
+			// Capture the close listener BEFORE stopServer destroys the
+			// socket: ioredis emits 'close' on process.nextTick after the
+			// stream closes, so the event can fire during the stopServer
+			// await and a listener installed afterwards would miss it
+			// (events.once would then reject on the next reconnect 'error').
+			const closed = once(redis, 'close')
 			await stopServer(responder.server, responder.sockets)
 			// Await the real close event so the next command is issued while
 			// the client is definitely reconnecting (offline-queued), not on
 			// a dying socket.
-			await once(redis, 'close')
+			await closed
 			expect(redis.status).not.toBe('end')
 
 			// A command issued while the link is down sits in ioredis's

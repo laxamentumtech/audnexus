@@ -631,12 +631,15 @@ export function getWorker(): Worker {
 	return worker
 }
 
-/** Aggregate wall-clock budget for every queue/Redis close in one shutdown.
- * The closes run sequentially, so each close is bounded by the REMAINING
- * budget: the sum of the per-close deadlines is at most this value, no
- * matter how many clients are owned. It must fit the supported deployment
- * (the 10s Docker/Swarm default stop grace) together with the worker close
- * (API only: HTTP + Mongo closes), so the Mongo close is always reached. */
+/** Aggregate wall-clock budget for every close in one shutdown. The API
+ * charges its HTTP drain, queue/Redis closes, and rate-limit quit against it
+ * (src/server.ts startShutdownBudget); the worker charges its BullMQ close
+ * and queue closes (src/worker.ts). The closes run sequentially, so each is
+ * bounded by the REMAINING budget: the sum of the per-close deadlines is at
+ * most this value, no matter how many clients are owned. It must fit the
+ * supported deployment (the 10s Docker/Swarm default stop grace) together
+ * with the UNBUDGETED Mongo close that follows it, so the Mongo close is
+ * always REACHED before the grace — its own duration is not budgeted. */
 export const SHUTDOWN_REDIS_BUDGET_MS = 9000
 
 /** Resolve when `close` settles, or after `timeoutMs` with `fallback` run —
