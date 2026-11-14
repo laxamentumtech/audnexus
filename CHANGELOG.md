@@ -14,6 +14,10 @@ All notable changes to this project will be documented in this file. Releases ar
 ### Bug Fixes
 
 - `history prepare` now applies the required index catalog explicitly, the same as `indexes apply`; `DB_INDEX_MODE=verify` remains a startup policy for API and worker boot only.
+- Pin the author search text index to the simple collation so catalog preparation also succeeds on collections with a non-simple default collation.
+- Report the canonical index name when an equivalent index already carries it, keeping redundant copies in the extras report.
+- Log each pending index build once per index instead of once per poll.
+- Give each history integration-test replica set a unique container name and free port so an interrupted run can no longer block the next one.
 - Apply the five-day document-cache TTL atomically on every write, including overwrites; cache write failures retain the existing setter error contract.
 - Avoid parsing cached author and chapter JSON twice while preserving book release-date conversion.
 

@@ -56,7 +56,10 @@ export const DATABASE_INDEXES: readonly ManagedIndex[] = [
 		collection: 'authors',
 		name: 'name_text',
 		keys: { name: 'text' },
-		options: {},
+		// Text indexes cannot inherit a non-simple collection collation, so
+		// pin simple explicitly: creation must succeed (and adoption must not
+		// report a diff) on collections whose default is, e.g., locale en.
+		options: { collation: { locale: 'simple' } },
 		requiredBy: ['search']
 	},
 	...['authors', 'books', 'chapters'].map(

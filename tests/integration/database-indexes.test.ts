@@ -1,11 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
 import { type Db, MongoClient } from 'mongodb'
+import { execFileSync, spawnSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 
 import { prepare } from '../../src/history'
 import { runIndexCommand } from '../../src/indexes'
 
-import { startReplicaSet, stopReplicaSet } from './mongo-rs'
+import { type HistoryMongo, resolveHistoryMongo } from './env'
+import { CONTAINER_PREFIX, startReplicaSet, stopReplicaSet } from './mongo-rs'
 
 import { DATABASE_INDEXES } from '#config/databaseIndexes'
 import { initialize } from '#config/papr'
@@ -16,7 +18,7 @@ let client: MongoClient
 let db: Db
 let owned = false
 beforeAll(async () => {
-	const uri = await startReplicaSet({ container, enableTestCommands: true })
+	const { uri } = await startReplicaSet({ container, enableTestCommands: true })
 	owned = true
 	client = await MongoClient.connect(uri)
 	db = client.db('audnexus')
@@ -132,6 +134,36 @@ describe('actual MongoDB application index lifecycle', () => {
 		}
 	}, 90000)
 
+	test('text index pins simple collation on collections with a non-simple default', async () => {
+		// MongoDB refuses to create a text index on a collection whose
+		// default collation is not simple unless the index specifies a
+		// simple collation explicitly (the collection collation is
+		// inherited into the spec, which is rejected). A dedicated
+		// collection keeps this independent of earlier catalog tests.
+		const collection = 'collated_authors'
+		const definition = { ...DATABASE_INDEXES.find((index) => index.id === 'authors.search')!, collection }
+		await db.createCollection(collection, { collation: { locale: 'en' } })
+		await expect(
+			db.collection(collection).createIndex({ name: 'text' }, { name: 'naive_text' })
+		).rejects.toThrow()
+		await reconcileIndexes(db, { selection: [definition] })
+		// Mongo omits the collation field from text indexes that use the
+		// simple collation, so readiness (no diff against the definition) is
+		// the observable pin.
+		expect((await inspectIndexes(db, [definition])).outcomes[0].status).toBe('present')
+		// Adoption: an existing simple-collation text index under any name is
+		// adopted, not re-created, and the collection's own default
+		// collation is left untouched. MongoDB allows one text index per
+		// collection, so the replacement is dropped first, never built
+		// beside it.
+		const collectionBefore = (await db.listCollections({ name: collection }).toArray())[0]
+		await db.collection(collection).dropIndex('name_text')
+		await db.collection(collection).createIndex({ name: 'text' }, { name: 'legacy_author_search', collation: { locale: 'simple' } })
+		const report = await reconcileIndexes(db, { selection: [definition] })
+		expect(report.outcomes[0]).toMatchObject({ status: 'adopted', actualName: 'legacy_author_search' })
+		expect((await db.listCollections({ name: collection }).toArray())[0]).toEqual(collectionBefore)
+	}, 90000)
+
 	test('ordered compound and unique conflicts fail without destructive DDL', async () => {
 		const definition = DATABASE_INDEXES[0]
 		await db.collection('books').createIndex({ region: 1, asin: 1 }, { name: definition.name })
@@ -174,4 +206,58 @@ describe('actual MongoDB application index lifecycle', () => {
 		await Promise.all([runIndexCommand(client, 'apply'), runIndexCommand(client, 'apply')])
 		await expect(reconcileIndexes(db, { mode: 'verify' })).resolves.toMatchObject({ outcomes: expect.arrayContaining([expect.objectContaining({ id: 'books.lookup', status: 'present' })]) })
 	}, 90000)
+
+	test('an interrupted run can never block the next replica set resolution', async () => {
+		// Reproduce the interrupted-run consumer failure with the exact
+		// fixture an interrupted old-harness run left behind: a leftover
+		// container under the old fixed name `audnexus-history-rs-<suite>`
+		// (name collision) plus a bound host port. With a fixed name the
+		// next `docker run` rejects the name before the harness owns it, so
+		// the consumer skipped a whole suite even with a healthy Docker
+		// daemon.
+		const docker = (args: string[]) => execFileSync('docker', args, { encoding: 'utf8' })
+		// Force the Docker path: an exported HISTORY_TEST_MONGODB_URI would
+		// make the consumer return the explicit URI and skip the harness
+		// this test exercises.
+		const explicitUri = process.env.HISTORY_TEST_MONGODB_URI
+		try {
+			delete process.env.HISTORY_TEST_MONGODB_URI
+			// Unique per invocation: the legacy fixed name for this suite is
+			// the exact old-harness collision, but a constant name would
+			// itself collide across simultaneous invocations or a prior
+			// interrupted test, defeating full-suite isolation.
+			const suite = `interrupted-run-${randomUUID()}`
+			const leftover = `${CONTAINER_PREFIX}-${suite}`
+			const image = 'mongo:7.0.45'
+			const started = spawnSync('docker', [
+				'run', '-d', '--name', leftover, '-p', '127.0.0.1::27017', image, '--replSet', 'rs0'
+			])
+			expect(started.status).toBe(0)
+			const first = String(started.stdout).trim()
+			let resolution: HistoryMongo | null
+			try {
+				// `docker port` renders `27017/tcp -> 127.0.0.1:42945`; normalize
+				// each mapping to the bare host port so the non-reuse check
+				// compares comparable values.
+				const firstPorts = new Set(
+					docker(['port', first]).trim().split('\n')
+						.map((line) => line.trim().match(/:(\d+)$/)?.[1])
+						.filter((port): port is string => Boolean(port))
+				)
+				expect(firstPorts.size).toBeGreaterThan(0)
+				expect([...firstPorts].every((port) => /^\d+$/.test(port)), 'normalized docker port output must be bare host ports').toBe(true)
+				resolution = await resolveHistoryMongo(suite)
+				expect(resolution, 'consumer must resolve a replica set despite the leftover container').not.toBeNull()
+				const newPort = resolution!.uri.match(/^mongodb:\/\/127\.0\.0\.1:(\d+)/)![1]
+				expect(firstPorts.has(newPort), 'consumer must not reuse a port owned by the leftover container').toBe(false)
+				expect(docker(['inspect', first, '--format', '{{.State.Running}}']).trim()).toBe('true')
+			} finally {
+				await resolution?.stop()
+				docker(['rm', '-f', first])
+			}
+		} finally {
+			if (explicitUri === undefined) delete process.env.HISTORY_TEST_MONGODB_URI
+			else process.env.HISTORY_TEST_MONGODB_URI = explicitUri
+		}
+	}, 300000)
 })

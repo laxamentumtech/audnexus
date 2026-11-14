@@ -4,14 +4,19 @@
 // server cannot run multi-document transactions).
 //
 // `startReplicaSet` never leaks the container: on any failure (or when the
-// primary never elected) it removes the container before rethrowing.
+// primary never elected) it removes the container before rethrowing. Each
+// invocation uses a unique container name (override with `options.container`)
+// and a free host port, so a container left behind by an interrupted run can
+// never block the next one, and teardown only ever targets the name the
+// invocation returned.
 
 import { MongoClient } from 'mongodb'
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:net'
 
 const IMAGE = 'mongo:7.0.45'
-export const CONTAINER = 'audnexus-history-rs'
+export const CONTAINER_PREFIX = 'audnexus-history-rs'
 const RS_NAME = 'rs0'
 const PRIMARY_TIMEOUT_MS = 30_000
 
@@ -44,15 +49,16 @@ function docker(args: string[]): Promise<string> {
 
 /**
  * Start a single-node replica set in Docker and wait until it elects a
- * primary. Returns the transaction-capable connection URI.
+ * primary. Returns the transaction-capable connection URI and the exact
+ * container name that was started; teardown must use the returned name.
  */
 export async function startReplicaSet(options: {
 	container?: string
 	image?: string
 	port?: number
 	enableTestCommands?: boolean
-} = {}): Promise<string> {
-	const container = options.container ?? CONTAINER
+} = {}): Promise<{ uri: string; container: string }> {
+	const container = options.container ?? `${CONTAINER_PREFIX}-${randomUUID()}`
 	const image = options.image ?? IMAGE
 	const port = options.port ?? (await freePort())
 	// directConnection=true in the URI so every client (harness and test
@@ -107,7 +113,7 @@ export async function startReplicaSet(options: {
 						setName?: string
 						isWritablePrimary?: boolean
 					}
-					if (hello.setName === RS_NAME && hello.isWritablePrimary) return uri
+					if (hello.setName === RS_NAME && hello.isWritablePrimary) return { uri, container }
 				} catch {
 					// Server not answering yet.
 				}
@@ -123,7 +129,11 @@ export async function startReplicaSet(options: {
 	}
 }
 
-/** Stop and remove the container (idempotent). */
-export async function stopReplicaSet(container: string = CONTAINER): Promise<void> {
+/**
+ * Stop and remove one container (idempotent). Only pass names a harness
+ * invocation returned; cleanup must never delete another invocation's
+ * container.
+ */
+export async function stopReplicaSet(container: string): Promise<void> {
 	await docker(['rm', '-f', container]).catch(() => {})
 }

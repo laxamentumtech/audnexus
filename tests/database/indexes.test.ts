@@ -96,6 +96,33 @@ describe('consumer-visible reconciliation', () => {
 		expect(f.createIndex).not.toHaveBeenCalled()
 		expect(report.extras).toContainEqual({ collection: 'books', name: 'extra' })
 	})
+	test('reports the canonical name when equivalent indexes coexist in any listIndexes order', async () => {
+		// The legacy name sorts first, so name-order dependent selection used
+		// to report it as the actual index and the canonical one as an extra.
+		const f = fixture([{ name: 'asin_1_region_1', key: lookup.keys }, { name: 'history_book_lookup', key: lookup.keys }])
+		const report = await reconcileIndexes(f.db as never, { selection: [lookup] })
+		expect(report.outcomes[0]).toMatchObject({ status: 'present', actualName: 'history_book_lookup' })
+		expect(report.extras).toContainEqual({ collection: 'books', name: 'asin_1_region_1', duplicateOf: 'books.lookup' })
+		expect(f.createIndex).not.toHaveBeenCalled()
+	})
+	test('emits a building outcome once per index, not once per poll', async () => {
+		const pending: Document = { name: lookup.name, key: lookup.keys, buildUUID: 'pending' }
+		const f = fixture([pending])
+		// The poll loop may emit at most one building outcome; the deadline
+		// failure emits the final building outcome once more. The old code
+		// emitted on every 250 ms poll, so this count is ~5 for 1200 ms.
+		let buildingEmits = 0
+		await expect(
+			reconcileIndexes(f.db as never, {
+				selection: [lookup],
+				buildWaitMs: 1200,
+				emit: (outcome) => {
+					if (outcome.status === 'building') buildingEmits += 1
+				}
+			})
+		).rejects.toThrow('building')
+		expect(buildingEmits).toBe(2)
+	})
 	test('verify and inspection are read-only and a missing requirement fails', async () => {
 		const f = fixture()
 		expect((await inspectIndexes(f.db as never, [lookup])).outcomes[0].status).toBe('missing')

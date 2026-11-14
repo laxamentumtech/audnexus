@@ -248,7 +248,13 @@ export async function inspectIndexes(
 			const equivalent = state.indexes.filter(
 				(index) => indexDifferences(def, index, state.collation).length === 0
 			)
-			const actual = equivalent.find((index) => !index.buildUUID) ?? equivalent[0]
+			// Prefer the canonical name when it is already equivalent so the
+			// reported status does not depend on listIndexes order; the
+			// redundant equivalent copy then stays in extras, which is accurate.
+			const actual =
+				(named && indexDifferences(def, named, state.collation).length === 0 ? named : undefined) ??
+				equivalent.find((index) => !index.buildUUID) ??
+				equivalent[0]
 			const conflict =
 				named && indexDifferences(def, named, state.collation).length > 0
 					? named
@@ -317,6 +323,7 @@ export async function reconcileIndexes(
 		const start = Date.now()
 		const deadline = start + buildWaitMs
 		let created = false
+		let buildingEmitted = false
 		let raceError: unknown
 		for (;;) {
 			let report: IndexReport
@@ -367,7 +374,13 @@ export async function reconcileIndexes(
 				)
 			}
 			if (outcome.status === 'building') {
-				options.emit?.(outcome)
+				// One line per index, not one per 250 ms poll: a build that
+				// stays pending until the deadline would otherwise emit
+				// thousands of identical records through startup logging.
+				if (!buildingEmitted) {
+					options.emit?.(outcome)
+					buildingEmitted = true
+				}
 				const { promise, resolve } = Promise.withResolvers<void>()
 				setTimeout(resolve, Math.min(250, Math.max(1, deadline - Date.now())))
 				await promise

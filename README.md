@@ -433,7 +433,7 @@ The catalog includes ASIN/region lookups, author-name text search, stale-documen
 
 - `DB_INDEX_MODE=auto` (default): create missing indexes and await completion.
 - `DB_INDEX_MODE=verify`: require completed matching indexes without issuing index DDL. Use this when a deployment job owns index creation. Startup still prepares collection schemas and needs `createCollection`/`collMod` privileges; use the DB-only `check` command for inspection with read-only credentials.
-- `DB_INDEX_BUILD_WAIT_MS=1800000` (default): bound startup waiting for required builds. Allow sufficient container health-check startup grace; bundled Compose uses `STARTUP_GRACE_PERIOD=30m`.
+- `DB_INDEX_BUILD_WAIT_MS=1800000` (default): bound how long startup waits for each required build. The limit applies independently to every catalog entry, not to the complete preparation: indexes build sequentially, so total startup time can exceed one limit per pending build. Size `STARTUP_GRACE_PERIOD` for the full sequential preparation time (bundled Compose uses `STARTUP_GRACE_PERIOD=30m`), or pre-apply the catalog before rollout.
 
 For a large existing database, pre-apply the catalog with the same application version before rolling out API/worker replicas:
 
