@@ -1,6 +1,7 @@
 import type { FastifyRedis } from '@fastify/redis'
 import type { FastifyBaseLogger } from 'fastify'
 
+import { REDIS_CACHE_TTL_SECONDS } from '#config/redis'
 import { ApiBook } from '#config/types'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import { ErrorMessageRedisDelete, ErrorMessageRedisSet } from '#static/messages'
@@ -70,7 +71,7 @@ export default class RedisHelper {
 			if (parsed.releaseDate) {
 				return this.convertStringToDate(parsed)
 			}
-			return JSON.parse(found)
+			return parsed
 		} catch (error) {
 			const message = getErrorMessage(error)
 			this.logger?.error(message)
@@ -96,19 +97,6 @@ export default class RedisHelper {
 	}
 
 	/**
-	 * Set TTL expiration to 5 days
-	 * @returns {void}
-	 */
-	async setExpiration(): Promise<void> {
-		try {
-			await this.instance?.expire(this.key, 432000)
-		} catch (error) {
-			const message = getErrorMessage(error)
-			this.logger?.error(message)
-		}
-	}
-
-	/**
 	 * Set one key in Redis
 	 * @param {object} data - Data to set
 	 * @param {object} [options] - `log: false` suppresses the redis-layer error
@@ -119,9 +107,7 @@ export default class RedisHelper {
 	 */
 	async setOne(data: object, options?: { log?: boolean }): Promise<string | undefined> {
 		try {
-			const set = await this.instance?.set(this.key, JSON.stringify(data))
-			this.setExpiration()
-			return set
+			return await this.instance?.set(this.key, JSON.stringify(data), 'EX', REDIS_CACHE_TTL_SECONDS)
 		} catch (error) {
 			if (options?.log !== false) this.logger?.error(getErrorMessage(error))
 			throw new Error(ErrorMessageRedisSet(this.key), { cause: error })

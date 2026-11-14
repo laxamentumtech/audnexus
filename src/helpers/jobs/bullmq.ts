@@ -7,7 +7,14 @@ import { Redis } from 'ioredis'
 import { randomUUID } from 'node:crypto'
 
 import { parseNonNegativeInt } from '#config/performance'
+import { getCacheRedisUrl } from '#config/redis'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
+import {
+	closeWithTimeout,
+	isShutdownBudgetExpired,
+	remainingShutdownBudget,
+	startShutdownBudget
+} from '#helpers/utils/shutdownBudget'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
 export const QUEUE_NAME = 'audnexus'
@@ -110,18 +117,21 @@ export function getQueueRedis(): Redis {
 	return queueRedis
 }
 
+/** The shared queue Redis connection WITHOUT creating it: shutdown
+ * fallbacks must not open a new client on their way out. */
+export function getQueueRedisClient(): Redis | null {
+	return queueRedis
+}
+
 /** Separate bounded connection for the per-item cache helpers (update/cache
  * path only — BullMQ machinery keeps using getQueueRedis). BullMQ's
- * maxRetriesPerRequest: null would make the cache helpers hang unbounded in
- * ioredis's offline queue when Redis is down, so this one fails instead:
- * bounded retries and a 10s command timeout, so an offline command errors
- * out rather than queueing forever — fail-fast per-command is what makes the
- * job retriable instead of hanging. The retryStrategy never gives up (it
- * always returns a bounded delay), so a short Redis outage heals in place —
- * important because the update pass hands this same instance to
- * UpdateScheduler for hours, and a permanent close would silently break every
- * later cache command. Dead singleton (out-of-band 'end' close) → re-create;
- * see the status check below for the end-only rule. */
+ * maxRetriesPerRequest: null would make cache commands wait in ioredis's
+ * offline queue indefinitely, so this client instead bounds each command with
+ * retries and a timeout. Its reconnect strategy continues trying after a
+ * transient outage because update passes hold the instance for hours. The
+ * worker targets REDIS_CACHE_URL, falling back to REDIS_URL for external
+ * deployments not yet split. Dead singleton ('end') → re-create; see the
+ * status check below for the end-only rule. */
 let cacheRedis: Redis | null = null
 export function getCacheRedis(): Redis {
 	// dead singleton (client-initiated 'end' close) → re-create. 'close' is
@@ -143,10 +153,11 @@ export function getCacheRedis(): Redis {
 		cacheRedis = null
 	}
 	if (!cacheRedis) {
-		if (!process.env.REDIS_URL) {
-			throw new Error('REDIS_URL is required for update cache helpers')
+		const url = getCacheRedisUrl()
+		if (!url) {
+			throw new Error('REDIS_CACHE_URL or REDIS_URL is required for update cache helpers')
 		}
-		cacheRedis = new Redis(process.env.REDIS_URL, {
+		cacheRedis = new Redis(url, {
 			maxRetriesPerRequest: CACHE_MAX_RETRIES_PER_REQUEST,
 			commandTimeout: CACHE_COMMAND_TIMEOUT_MS,
 			// Never returns null: ioredis must keep reconnecting in place,
@@ -626,18 +637,48 @@ export function getWorker(): Worker {
 	return worker
 }
 
-/** Shutdown only (worker process exit). */
-export async function closeQueue(): Promise<void> {
+/** Shutdown only (worker process exit). The queue and both Redis clients are
+ * closed under one aggregate wall-clock budget (SHUTDOWN_REDIS_BUDGET_MS by
+ * default): each close is bounded by the REMAINING budget, so the sequential
+ * closes cannot multiply their per-close deadlines past it. A clean close
+ * takes no fallback; a client blocked behind an offline command is
+ * hard-disconnected on the deadline and shutdown continues to the Mongo
+ * close. When a shutdown budget is already active (worker/API shutdown
+ * starts one before this call) the remainder is used, so the caller's
+ * earlier closes are charged against the same aggregate; otherwise a fresh
+ * budget (SHUTDOWN_REDIS_BUDGET_MS) starts here. An explicit `budgetMs`
+ * always starts its own budget (tests). */
+export async function closeQueue(options: { budgetMs?: number } = {}): Promise<void> {
+	if (options.budgetMs !== undefined) {
+		startShutdownBudget(options.budgetMs)
+	} else if (isShutdownBudgetExpired()) {
+		startShutdownBudget()
+	}
 	if (queue) {
-		await queue.close()
+		await closeWithTimeout(
+			() => queue!.close(),
+			() => queueRedis?.disconnect(),
+			'queue',
+			remainingShutdownBudget()
+		)
 		queue = null
 	}
 	if (queueRedis) {
-		await queueRedis.quit()
+		await closeWithTimeout(
+			() => queueRedis!.quit(),
+			() => queueRedis!.disconnect(),
+			'queue Redis',
+			remainingShutdownBudget()
+		)
 		queueRedis = null
 	}
 	if (cacheRedis) {
-		await cacheRedis.quit()
+		await closeWithTimeout(
+			() => cacheRedis!.quit(),
+			() => cacheRedis!.disconnect(),
+			'cache Redis',
+			remainingShutdownBudget()
+		)
 		cacheRedis = null
 	}
 }
