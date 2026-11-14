@@ -1,22 +1,25 @@
 import type { FastifyBaseLogger } from 'fastify'
 import type { MongoClient } from 'mongodb'
+import { pathToFileURL } from 'node:url'
 
 import { isBookHistoryEnabled } from '#config/bookHistory'
 import { createDefaultContext } from '#config/context'
 import { bookHistoryStore, initialize } from '#config/papr'
 import {
 	closeQueue,
-	closeWithTimeout,
 	createWorker,
 	getQueueRedisClient,
 	getUpdateSchedulerIntervals,
 	getWorker,
 	QUEUE_NAME,
-	remainingShutdownBudget,
-	startShutdownBudget,
 	upsertUpdateSchedulers
 } from '#helpers/jobs/bullmq'
 import { setCooldownLogger } from '#helpers/utils/adaptiveCooldown'
+import {
+	closeWithTimeout,
+	remainingShutdownBudget,
+	startShutdownBudget
+} from '#helpers/utils/shutdownBudget'
 
 // console satisfies the FastifyBaseLogger subset the batch path uses
 // (info/debug/error); cast matches the existing CLI convention of passing
@@ -68,7 +71,9 @@ export async function startWorker(): Promise<void> {
 	)
 }
 
-export async function shutdown(): Promise<void> {
+let shuttingDown: Promise<void> | null = null
+
+async function doShutdown(): Promise<void> {
 	logger.info('Shutting down worker...')
 	try {
 		// One aggregate wall-clock budget across the Redis-phase closes:
@@ -100,8 +105,27 @@ export async function shutdown(): Promise<void> {
 		await closeQueue({ budgetMs: remainingShutdownBudget() })
 		await ctx.client.close()
 	} finally {
+		// Teardown is done (success or failure): clear the single-flight
+		// guard so a later call starts fresh. In production process.exit(0)
+		// terminates the process immediately after, making the reset
+		// unreachable; where exit is stubbed (tests) it lets each call
+		// exercise a full teardown.
+		shuttingDown = null
 		process.exit(0)
 	}
+}
+
+/** Single-flight entry for the signal handlers: a second SIGTERM/SIGINT
+ * during teardown must not re-call the teardown — it would re-arm the
+ * shutdown budget and double-close the queue/Redis clients. The in-flight
+ * promise is kept (not awaited by the handler) so a failure is logged once
+ * and the process exit below still runs. Returns the in-flight promise so
+ * callers can await the exact teardown outcome. */
+export function shutdown(): Promise<void> {
+	if (shuttingDown) return shuttingDown
+	shuttingDown = doShutdown()
+	shuttingDown.catch((err: unknown) => logger.error(err))
+	return shuttingDown
 }
 
 export function registerShutdownHandlers(): void {
@@ -113,9 +137,11 @@ export function registerShutdownHandlers(): void {
 // `bun run dist/worker.js`, or a direct `bun src/worker.ts`. Importing this
 // module (e.g. tests) executes only the env guards and context creation;
 // handler registration and startup (registerShutdownHandlers + startWorker)
-// run only under the import.meta.main gate, which is false for any module
-// that is imported (dynamically-imported modules under bun test included).
-if (import.meta.main) {
+// run only when the entry script is THIS file. `import.meta.main` is not
+// portable — it is undefined (falsy) on Node < 24.2.0 — and this worker is
+// Bun-only today, so the argv[1]/pathToFileURL comparison mirrors
+// src/server.ts for parity/portability rather than a live fix.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).toString()) {
 	registerShutdownHandlers()
 
 	startWorker().catch((err) => {

@@ -108,6 +108,37 @@ describe('health route should', () => {
 		expect(mockReply.status).toHaveBeenCalledWith(200)
 	})
 
+	test('return 200 when both cache and control Redis roles are healthy, with one ping per role', async () => {
+		mockMongoCommand.mockResolvedValue({ ok: 1 })
+
+		app.redis = {
+			ping: mock().mockResolvedValue('PONG')
+		}
+		app.controlRedis = {
+			ping: mock().mockResolvedValue('PONG')
+		}
+
+		await health(app)
+		const routeHandler = getRouteHandler()
+
+		const mockRequest = createMockRequest()
+		const mockReply = createMockReply((data) => {
+			expect(data.status).toBe('healthy')
+			expect(data.checks.server).toBe(true)
+			expect(data.checks.database).toBe(true)
+			expect(data.checks.redis).toBe(true)
+			expect(data.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+		})
+
+		await routeHandler(mockRequest, mockReply)
+
+		// Every configured role is probed exactly once (a regression that
+		// pings a role twice, or one per check, surfaces here).
+		expect(app.redis.ping).toHaveBeenCalledTimes(1)
+		expect(app.controlRedis.ping).toHaveBeenCalledTimes(1)
+		expect(mockReply.status).toHaveBeenCalledWith(200)
+	})
+
 	test('return 503 and unhealthy status when MongoDB is down', async () => {
 
 		mockMongoCommand.mockRejectedValue(new Error('MongoDB connection failed'))
