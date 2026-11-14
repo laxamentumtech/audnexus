@@ -6,6 +6,7 @@ import { fastify, type FastifyBaseLogger } from 'fastify'
 import { Redis as IORedis } from 'ioredis'
 import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
+import { pathToFileURL } from 'node:url'
 
 import { isBookHistoryEnabled } from '#config/bookHistory'
 import { Context, createDefaultContext } from '#config/context'
@@ -348,21 +349,27 @@ async function doStopServer(): Promise<void> {
  * during teardown must not re-call the teardown — it would re-arm the
  * shutdown budget and double-close the queue/Redis clients. The in-flight
  * promise is kept (not awaited by the handler) so a failure is logged once
- * and the process exit below still runs. Exported so tests can drive the
- * exact single-flight entry (src/worker.ts does the same with shutdown()). */
-export function stopServer(): void {
-	if (shuttingDown) return
+ * and the process exit below still runs. Returns the in-flight promise so
+ * callers can await the exact teardown outcome (src/worker.ts does the
+ * same with shutdown()). */
+export function stopServer(): Promise<void> {
+	if (shuttingDown) return shuttingDown
 	shuttingDown = doStopServer()
 	shuttingDown.catch((err: unknown) => server.log.error(err))
+	return shuttingDown
 }
 
 // Auto-execution only when running as the server entry — `bun run serve` →
 // `bun run dist/server.js`, or a direct `bun src/server.ts`. Importing this
 // module (e.g. tests) executes only the env guard and context creation;
 // startup and handler registration (startServer + signal listeners) run
-// only under the import.meta.main gate, which is false for any module that
-// is imported (dynamically-imported modules under bun test included).
-if (import.meta.main) {
+// only when the entry script is THIS file. `import.meta.main` is not
+// portable — it is undefined (falsy) on Node < 24.2.0, which would keep
+// the production image (node:22-alpine, `node ./dist/server.js`) from
+// ever starting the server — so the entry check compares import.meta.url
+// against process.argv[1] (file-URL vs path via pathToFileURL), which is
+// false for any imported module.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).toString()) {
 	// Start the server
 	void startServer()
 

@@ -178,10 +178,11 @@ const listenersBeforeImport = {
 	int: process.listeners('SIGINT').length
 }
 const serverModule = await import('../src/server')
-// The import.meta.main gate in src/server.ts must be OFF under the test
-// runner: importing the module must add no signal listeners and must not
-// trigger startup. The booleans are read once at the import boundary — a
-// mockClear() in beforeEach cannot retroactively falsify them.
+// The entry-script gate in src/server.ts (import.meta.url vs
+// process.argv[1]) must be OFF under the test runner: importing the module
+// must add no signal listeners and must not trigger startup. The booleans
+// are read once at the import boundary — a mockClear() in beforeEach cannot
+// retroactively falsify them.
 const startedAtImport = mockPaprInitialize.mock.calls.length > 0 || mockClientConnect.mock.calls.length > 0
 
 const savedEnv: Record<string, string | undefined> = {}
@@ -239,7 +240,7 @@ function pluginRegistrations(): Array<FakeRegisterRecord & { options: Record<str
 }
 
 describe('server import side effects', () => {
-	it('starts nothing and registers no signal handlers on import (import.meta.main gate)', () => {
+	it('starts nothing and registers no signal handlers on import (entry-script gate)', () => {
 		expect(startedAtImport).toBe(false)
 		expect(process.listeners('SIGTERM').length).toBe(listenersBeforeImport.term)
 		expect(process.listeners('SIGINT').length).toBe(listenersBeforeImport.int)
@@ -291,18 +292,6 @@ describe('server rate-limit wiring', () => {
 	})
 })
 
-/** Flush the microtask turns from stopServer()'s synchronous entry to the
- * teardown parking on its first awaited close. Bounded and timer-free: each
- * `await` in the chain is one or two turns, and the chain (drain promise →
- * race → finally → closeQueue) is a fixed handful — a wall-clock sleep
- * would guess at that distance, and an interval gate would keep the event
- * loop busy for no reason the mock call-counts don't already give. */
-const flushMicrotasks = async (turns = 10): Promise<void> => {
-	for (let i = 0; i < turns; i++) {
-		await Promise.resolve()
-	}
-}
-
 describe('server shutdown', () => {
 	it('is single-flight: a second stopServer during pending teardown re-calls nothing', async () => {
 		const closeResolvers = Promise.withResolvers<void>()
@@ -311,10 +300,27 @@ describe('server shutdown', () => {
 			await serverModule.startServer()
 			// Both calls land inside the first teardown's pending window:
 			// call 1 starts the teardown (it parks on the controllable
-			// closeQueue), call 2 hits the in-flight guard.
-			serverModule.stopServer()
-			serverModule.stopServer()
-			await flushMicrotasks()
+			// closeQueue), call 2 hits the in-flight guard and returns the
+			// SAME in-flight promise — the single-flight contract is also
+			// identity.
+			const teardown1 = serverModule.stopServer()
+			const teardown2 = serverModule.stopServer()
+			expect(teardown2).toBe(teardown1)
+			// The barrier is the returned teardown promise's identity (the
+			// toBe above: a second doStopServer would have created a second
+			// promise) plus one macrotask tick: the chain from stopServer()
+			// to the closeQueue call (drain done → race → finally →
+			// closeQueue) is pure microtasks — inFlight is 0, so the drain
+			// resolves immediately — and setImmediate fires only AFTER the
+			// microtask queue is empty, so by the time it runs the teardown
+			// is provably parked on the controllable closeQueue. The real
+			// teardown cannot be awaited end-to-end here — it ends in
+			// process.exit, stubbed by the exit spy — so the barrier stays
+			// a slice of the chain, but a deterministic one (one tick), not
+			// a 10-hop count.
+			const parked = Promise.withResolvers<void>()
+			setImmediate(parked.resolve)
+			await parked.promise
 			// Assert from the mocks WITHOUT settling the controllable
 			// promise: the teardown reached the queue close exactly once —
 			// a second doStopServer would have re-armed the budget and a

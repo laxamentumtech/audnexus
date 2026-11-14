@@ -1,4 +1,5 @@
 import { afterAll, afterEach, describe, expect, mock, test } from 'bun:test'
+import { fileURLToPath } from 'node:url'
 
 // The ioredis mock would otherwise leak past mock.restore() into later test
 // files of the same bun process: module-mock restoration only resets call
@@ -48,7 +49,7 @@ const ttlSubprocess = async (ttlValue: string, script: string): Promise<{ exitCo
 	// Repo root: relative to THIS file's directory (tests/config/), two
 	// levels up.
 	const child = Bun.spawn(['bun', '-e', script], {
-		cwd: new URL('../..', import.meta.url).pathname,
+		cwd: fileURLToPath(new URL('../..', import.meta.url)),
 		env: { ...process.env, REDIS_CACHE_TTL_SECONDS: ttlValue },
 		stdout: 'pipe',
 		stderr: 'pipe'

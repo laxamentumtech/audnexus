@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from 'fastify'
 import type { MongoClient } from 'mongodb'
+import { pathToFileURL } from 'node:url'
 
 import { isBookHistoryEnabled } from '#config/bookHistory'
 import { createDefaultContext } from '#config/context'
@@ -136,9 +137,11 @@ export function registerShutdownHandlers(): void {
 // `bun run dist/worker.js`, or a direct `bun src/worker.ts`. Importing this
 // module (e.g. tests) executes only the env guards and context creation;
 // handler registration and startup (registerShutdownHandlers + startWorker)
-// run only under the import.meta.main gate, which is false for any module
-// that is imported (dynamically-imported modules under bun test included).
-if (import.meta.main) {
+// run only when the entry script is THIS file. `import.meta.main` is not
+// portable — it is undefined (falsy) on Node < 24.2.0 — and this worker is
+// Bun-only today, so the argv[1]/pathToFileURL comparison mirrors
+// src/server.ts for parity/portability rather than a live fix.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).toString()) {
 	registerShutdownHandlers()
 
 	startWorker().catch((err) => {
