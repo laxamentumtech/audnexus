@@ -27,14 +27,7 @@ import searchBook from '#config/routes/books/search/show'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
 import { registerMetricsRoute } from '#config/routes/metrics'
-import {
-	closeQueue,
-	closeWithTimeout,
-	getCacheRedis,
-	getUpdateSchedulerIntervals,
-	remainingShutdownBudget,
-	startShutdownBudget
-} from '#helpers/jobs/bullmq'
+import { closeQueue, getCacheRedis, getUpdateSchedulerIntervals } from '#helpers/jobs/bullmq'
 import { registerUpdateScheduler } from '#helpers/jobs/schedule'
 import { getAllIps as getCloudflareIps } from '#helpers/utils/cloudflareIps'
 import {
@@ -42,6 +35,11 @@ import {
 	createServerDrain,
 	type ServerDrain
 } from '#helpers/utils/httpShutdown'
+import {
+	closeWithTimeout,
+	remainingShutdownBudget,
+	startShutdownBudget
+} from '#helpers/utils/shutdownBudget'
 
 // Extend FastifyInstance with its MongoDB and control-Redis health clients.
 declare module 'fastify' {
@@ -200,7 +198,7 @@ async function registerRoutes() {
  * Starts the server
  * Should be called after registering plugins and routes
  */
-async function startServer() {
+export async function startServer() {
 	// Build trusted proxies list (includes Cloudflare IPs)
 	trustedProxies = await buildTrustedProxies()
 
@@ -270,7 +268,13 @@ async function startServer() {
 function closeHttpServer(): Promise<void> {
 	const drain = serverDrain
 	const drained = drain?.done() ?? Promise.resolve()
-	server.close()
+	// Fastify v5's close() rejects when an onClose hook throws; observing
+	// the promise keeps that failure logged instead of an unhandled
+	// rejection. The bounded drain stays authoritative for the budget: the
+	// tracked-request race decides when shutdown proceeds, and a stalled
+	// close() cannot stall it — it is only OBSERVED here.
+	const closed = server.close()
+	closed.catch((err: unknown) => server.log.error(err))
 	return closeServerWithTimeout(
 		drained,
 		() => {
@@ -281,10 +285,12 @@ function closeHttpServer(): Promise<void> {
 	)
 }
 
+let shuttingDown: Promise<void> | null = null
+
 /**
  * Shuts down the server and closes the DB connection
  */
-async function stopServer() {
+async function doStopServer(): Promise<void> {
 	if (!server) {
 		process.exit(0)
 	}
@@ -328,12 +334,39 @@ async function stopServer() {
 	} catch (err) {
 		server.log.error(err)
 		process.exit(1)
+	} finally {
+		// Teardown is done (success or failure): clear the single-flight
+		// guard so a later call starts fresh. In production process.exit(0)
+		// terminates the process immediately after, making the reset
+		// unreachable; where exit is stubbed (tests) it lets each call
+		// exercise a full teardown (the same reset as src/worker.ts).
+		shuttingDown = null
 	}
 }
 
-// Start the server
-startServer()
+/** Single-flight entry for the signal handlers: a second SIGTERM/SIGINT
+ * during teardown must not re-call the teardown — it would re-arm the
+ * shutdown budget and double-close the queue/Redis clients. The in-flight
+ * promise is kept (not awaited by the handler) so a failure is logged once
+ * and the process exit below still runs. Exported so tests can drive the
+ * exact single-flight entry (src/worker.ts does the same with shutdown()). */
+export function stopServer(): void {
+	if (shuttingDown) return
+	shuttingDown = doStopServer()
+	shuttingDown.catch((err: unknown) => server.log.error(err))
+}
 
-// Handle SIGTERM and SIGINT
-process.on('SIGTERM', stopServer)
-process.on('SIGINT', stopServer)
+// Auto-execution only when running as the server entry — `bun run serve` →
+// `bun run dist/server.js`, or a direct `bun src/server.ts`. Importing this
+// module (e.g. tests) executes only the env guard and context creation;
+// startup and handler registration (startServer + signal listeners) run
+// only under the import.meta.main gate, which is false for any module that
+// is imported (dynamically-imported modules under bun test included).
+if (import.meta.main) {
+	// Start the server
+	void startServer()
+
+	// Handle SIGTERM and SIGINT
+	process.on('SIGTERM', stopServer)
+	process.on('SIGINT', stopServer)
+}

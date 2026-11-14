@@ -288,21 +288,37 @@ describe('createServerDrain + closeServerWithTimeout (real HTTP)', () => {
 		// Bun 1.4.4). A request that has fired 'request' is in flight and
 		// is swept-protected; completing it is then the DRAIN's job, which
 		// is the property under test.
-		const bInFlight = new Promise<void>((resolve) => {
-			const onReq = (req: IncomingMessage) => {
-				if (req.url !== '/ok') return
+		const bInFlight = new Promise<ServerResponse>((resolve) => {
+			const onReq = (req: IncomingMessage, res: ServerResponse) => {
+				if (req.url !== '/gate') return
 				server.off('request', onReq)
-				resolve()
+				resolve(res)
 			}
 			server.on('request', onReq)
 		})
-		b.write('GET /ok HTTP/1.1\r\nhost: localhost\r\nconnection: close\r\n\r\n')
-		await bInFlight
-		// NOW stop the listener, then complete BOTH requests.
+		// B targets /gate, so it is held behind its OWN gate: the handler
+		// never responds, and the test releases it only AFTER A finishes.
+		// B must therefore keep the drain pending on its own — a drain that
+		// tracked only A would settle the moment A ends, and the listener
+		// close would then kill B's request mid-flight.
+		b.write('GET /gate HTTP/1.1\r\nhost: localhost\r\nconnection: close\r\n\r\n')
+		const resB = await bInFlight
+		// NOW stop the listener, then finish A.
 		server.close()
 		resA.end('a-ok')
 		const bodyA = await a
-		const bodyB = await new Promise<string>((resolve, reject) => {
+		// (1) A finishing alone must NOT settle the drain: B is still in
+		// flight behind its own gate, so the drain stays pending — proven
+		// against a short wall-clock race (a drain that tracked only A
+		// would have settled the instant A's response finished).
+		const settledAfterA = await Promise.race([
+			drained.then(() => true),
+			new Promise<false>((resolve) => setTimeout(() => resolve(false), 100))
+		])
+		expect(settledAfterA).toBe(false)
+		// (2) Releasing B must settle the drain, with no force.
+		resB.end('b-ok')
+		const bodyB = new Promise<string>((resolve, reject) => {
 			let buf = ''
 			b.once('data', (chunk: Buffer) => {
 				buf += chunk
@@ -319,7 +335,7 @@ describe('createServerDrain + closeServerWithTimeout (real HTTP)', () => {
 		// included — inside the budget, with no force.
 		await closeServerWithTimeout(drained, force, 500)
 		expect(bodyA).toBe('a-ok')
-		expect(bodyB).toBe('ok')
+		expect(await bodyB).toBe('b-ok')
 		expect(force).not.toHaveBeenCalled()
 		expect(Date.now() - started).toBeLessThan(500)
 		// The paired listener close settles once both sockets are gone.
@@ -327,6 +343,115 @@ describe('createServerDrain + closeServerWithTimeout (real HTTP)', () => {
 			once(server, 'close'),
 			new Promise<void>((resolve) => setTimeout(resolve, 500))
 		])
+	})
+
+	test('a pipelined second request on the same socket keeps the drain pending: released after the first response, both bodies intact', async () => {
+		// Regression guard for req.socket (not res.socket) tracking in the
+		// drain: on a pipelined socket the SECOND request is already
+		// dispatched while the first response is in flight, and its
+		// res.socket is still null until that preceding response
+		// finishes — tracking res.socket would drop the second request
+		// from the drain entirely, settling it the moment the first
+		// response ends and letting the listener close kill the second
+		// request mid-flight. The test drives one raw socket with two
+		// pipelined /gate writes: the handler never responds on its own,
+		// so the test holds both requests pending and releases them
+		// explicitly, asserting on the drain's real fate (pending vs
+		// settled) and the client's full bodies.
+		const socket = createConnection({ host: '127.0.0.1', port })
+		try {
+			let buf = ''
+			// Reads the next complete response (headers +
+			// Content-Length body) off the accumulating buffer: the two
+			// responses share one socket, so each reader consumes exactly
+			// its own bytes and leaves the rest for the next.
+			const readResponse = (): Promise<string> =>
+				new Promise<string>((resolve, reject) => {
+					const onData = (chunk: Buffer) => {
+						buf += chunk
+						const i = buf.indexOf('\r\n\r\n')
+						if (i < 0) return
+						const head = buf.slice(0, i)
+						const cl = /content-length: (\d+)/i.exec(head)
+						const bodyLen = cl ? Number(cl[1]) : -1
+						if (bodyLen < 0 || buf.length < i + 4 + bodyLen) return
+						const body = buf.slice(i + 4, i + 4 + bodyLen)
+						buf = buf.slice(i + 4 + bodyLen)
+						socket.off('data', onData)
+						resolve(body)
+					}
+					socket.on('data', onData)
+					socket.once('error', reject)
+				})
+			// Gate on BOTH requests being dispatched at the listener
+			// (the drain's onRequest has seen each — inFlight is 2 — so
+			// a getConnections gate would only prove the socket was
+			// accepted). The handler holds both: /gate never responds.
+			const gated: ServerResponse[] = []
+			const bothDispatched = new Promise<void>((resolve, reject) => {
+				const onReq = (req: IncomingMessage, res: ServerResponse) => {
+					if (req.url !== '/gate') return
+					gated.push(res)
+					if (gated.length === 2) {
+						socket.off('error', reject)
+						server.off('request', onReq)
+						resolve()
+					}
+				}
+				socket.once('error', reject)
+				server.on('request', onReq)
+			})
+			socket.write('GET /gate HTTP/1.1\r\nhost: localhost\r\n\r\n')
+			socket.write('GET /gate HTTP/1.1\r\nhost: localhost\r\n\r\n')
+			await bothDispatched
+			const [resA, resB] = gated
+			// The production sequence: the drain snapshot and the listener
+			// stop happen back-to-back, before any response completes.
+			const drained = drain.done()
+			server.close()
+			// Finish the FIRST response: with req.socket tracking the drain
+			// must stay PENDING — the second request on this same socket is
+			// still in flight. A short wall-clock race proves non-settlement
+			// (a drain that tracked res.socket would have settled the
+			// instant the first response finished, dropping the second).
+			const bodyA = readResponse()
+			resA.end('a-ok')
+			const settledAfterA = await Promise.race([
+				drained.then(() => true),
+				new Promise<false>((resolve) => setTimeout(() => resolve(false), 100))
+			])
+			expect(settledAfterA).toBe(false)
+			expect(await bodyA).toBe('a-ok')
+			// Release the SECOND request: the drain must settle when BOTH
+			// responses have finished — inside the budget, with no force.
+			const bodyB = readResponse()
+			resB.end('b-ok')
+			const force = mock()
+			const started = Date.now()
+			await closeServerWithTimeout(drained, force, 500)
+			expect(await bodyB).toBe('b-ok')
+			expect(force).not.toHaveBeenCalled()
+			expect(Date.now() - started).toBeLessThan(500)
+			// The paired listener close settles once the socket is gone.
+			await Promise.race([
+				once(server, 'close'),
+				new Promise<void>((resolve) => setTimeout(resolve, 500))
+			])
+		} finally {
+			socket.destroy()
+			// Isolated cleanup: stop the listener (bounded, in case a
+			// regression left the socket behind) so nothing leaks between
+			// tests.
+			try {
+				server.close()
+			} catch {
+				// already closing
+			}
+			await Promise.race([
+				once(server, 'close'),
+				new Promise<void>((resolve) => setTimeout(resolve, 500))
+			])
+		}
 	})
 
 	test('forceClose is idempotent and safe after the server closed (no tracked sockets left to keep alive)', async () => {
@@ -375,15 +500,18 @@ describe('closeServerWithTimeout on a real Fastify app', () => {
 		const drain = createServerDrain(app.server)
 		const stalled = stallFetch(port)
 		try {
-			// Gate on the stalled socket arriving.
+			// Gate on DISPATCH, not socket acceptance: the server's
+			// 'request' event for /stall proves the request reached the
+			// listener (the drain's onRequest has seen it, so inFlight is
+			// already 1) — a getConnections >= 1 gate would only prove the
+			// socket was accepted, before the header was even parsed.
 			await new Promise<void>((resolve) => {
-				const tick = () => {
-					app.server.getConnections((err, n) => {
-						if (!err && n >= 1) resolve()
-						else setTimeout(tick, 5)
-					})
+				const onReq = (req: IncomingMessage) => {
+					if (req.url !== '/stall') return
+					app.server.off('request', onReq)
+					resolve()
 				}
-				setTimeout(tick, 5)
+				app.server.on('request', onReq)
 			})
 			const drained = drain.done()
 			const appClose = app.close()
@@ -414,8 +542,15 @@ describe('closeServerWithTimeout on a real Fastify app', () => {
 	test('a healthy in-flight request finishes under shutdown: intact body, paired drain + app.close settle before the deadline, no force', async () => {
 		const { fastify } = await import('fastify')
 		const app = fastify({ logger: false, disableRequestLogging: true })
+		// Gate on DISPATCH, not socket acceptance: the signal is emitted
+		// from INSIDE the /slow handler, which only runs once the request
+		// is fully dispatched (the drain's onRequest has seen it, so
+		// inFlight is already 1) — a getConnections >= 1 gate would only
+		// prove the socket was accepted, before the header was parsed.
+		const { promise: slowEntered, resolve: markSlowEntered } = Promise.withResolvers<void>()
 		let resolveSlow: (() => void) | null = null
 		app.get('/slow', async () => {
+			markSlowEntered()
 			await new Promise<void>((r) => {
 				resolveSlow = r
 			})
@@ -426,16 +561,7 @@ describe('closeServerWithTimeout on a real Fastify app', () => {
 		const drain = createServerDrain(app.server)
 		const force = mock()
 		const res = fetch(`http://127.0.0.1:${port}/slow`)
-		// Gate on the request being in flight at the listener.
-		await new Promise<void>((resolve) => {
-			const tick = () => {
-				app.server.getConnections((err, n) => {
-					if (!err && n >= 1) resolve()
-					else setTimeout(tick, 5)
-				})
-			}
-			setTimeout(tick, 5)
-		})
+		await slowEntered
 		// The production sequence: done() and close() back-to-back.
 		const drained = drain.done()
 		const appClose = app.close()

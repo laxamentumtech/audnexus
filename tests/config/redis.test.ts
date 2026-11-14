@@ -38,6 +38,58 @@ afterEach(() => {
 	else process.env.REDIS_CACHE_URL = savedCacheUrl
 })
 
+// REDIS_CACHE_TTL_SECONDS is read and validated ONCE at module import — the
+// validation cannot be exercised in this process (the module is already
+// loaded, with the env-dependent top-level already run), so the invalid-
+// value cases run in a fresh `bun -e` subprocess with the env set (the
+// repo root is the spawn cwd, so the `#config/redis` alias resolves), and
+// the valid value is asserted in-process on RedisHelper.setOne's EX arg.
+const ttlSubprocess = async (ttlValue: string, script: string): Promise<{ exitCode: number | null; output: string }> => {
+	// Repo root: relative to THIS file's directory (tests/config/), two
+	// levels up.
+	const child = Bun.spawn(['bun', '-e', script], {
+		cwd: new URL('../..', import.meta.url).pathname,
+		env: { ...process.env, REDIS_CACHE_TTL_SECONDS: ttlValue },
+		stdout: 'pipe',
+		stderr: 'pipe'
+	})
+	const [stdout, stderr] = await Promise.all([
+		new Response(child.stdout).text(),
+		new Response(child.stderr).text()
+	])
+	const exitCode = await child.exited
+	return { exitCode, output: stdout + stderr }
+}
+
+describe('REDIS_CACHE_TTL_SECONDS validation (module import)', () => {
+	test.each(['abc', '0', '1.5'])(
+		'throws for REDIS_CACHE_TTL_SECONDS=%s (non-integer / non-positive)',
+		async (ttlValue) => {
+			const { exitCode, output } = await ttlSubprocess(ttlValue, "await import('#config/redis')")
+			expect(exitCode).not.toBe(0)
+			expect(output).toContain('REDIS_CACHE_TTL_SECONDS must be a positive integer')
+		}
+	)
+
+	test('a valid custom value reaches setOne EX argument and the exported constant', async () => {
+		const { exitCode, output } = await ttlSubprocess(
+			'7200',
+			`
+			const m = await import('#config/redis')
+			const RedisHelper = (await import('#helpers/database/redis/RedisHelper')).default
+			const calls = []
+			const helper = new RedisHelper({ set: (...args) => { calls.push(args); return Promise.resolve('OK') } }, 'k', 'id', 'region')
+			await helper.setOne({ a: 1 })
+			console.log('EX_ARG=' + calls[0][3])
+			console.log('TTL_CONST=' + m.REDIS_CACHE_TTL_SECONDS)
+			`
+		)
+		expect(exitCode).toBe(0)
+		expect(output).toContain('EX_ARG=7200')
+		expect(output).toContain('TTL_CONST=7200')
+	})
+})
+
 describe('Redis role configuration', () => {
 	test('routes rate limiting to bounded control Redis, not the cache URL', () => {
 		process.env.REDIS_URL = 'redis://control.example:6379'

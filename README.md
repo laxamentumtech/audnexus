@@ -397,8 +397,6 @@ These are portable defaults, not capacity guarantees or container memory limits.
 
 For an existing Redis with AOF disabled, merely adding `appendonly yes` and recreating its container is not a safe persistence migration. Quiesce writers, preserve a recoverable snapshot, enable AOF on the running instance, wait for successful rewrite/fsync, and verify the complete persisted data on the intended volume before replacing the container. AOF every second still permits a recent-write loss window; it is not a substitute for tested backups.
 
-Compose database pins and external managed-database versions have separate deployment owners. A repository dependency update does not update an independently managed database. Keep deployment image references immutable, verify the running digest, and separate database upgrades from memory tuning; do not replace a newer application image with an older one to obtain different resource settings.
-
 The app image is supplied by the required `AUDNEXUS_IMAGE` variable — set it to an immutable release version tag (e.g., `ghcr.io/laxamentumtech/audnexus:v1.15.0`) or a digest (e.g., `ghcr.io/laxamentumtech/audnexus@sha256:...`); never use `:latest`. Bare versions like `v1.15.0` are rejected: Docker would resolve them as mutable Docker Hub library names. Compose enforces this with `${AUDNEXUS_IMAGE:?...}`, which refuses to render the file when the variable is unset; before deploying, prove the value is immutable with the preflight validator (it rejects unset/empty values, `:latest`, and untagged repos, and accepts version tags and digest pins):
 
 ```sh

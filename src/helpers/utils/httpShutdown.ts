@@ -65,14 +65,14 @@ export function createServerDrain(server: Server): ServerDrain {
 	// socket to close is exactly the idle-socket budget burn the drain must
 	// not do.
 	const onRequest = (req: IncomingMessage, res: ServerResponse) => {
-		const socket = res.socket
-		// res.socket is typed Socket | null: on a normal request it is the
-		// accepted connection, which the 'connection' listener has already
-		// tracked. A null (connection torn down before the response object
-		// is fully wired) has no tracked socket, so there is nothing to
-		// drain or force-close on it — skipping the tracking is exactly the
-		// same as that socket's 'close' handler deleting itself from `open`.
-		if (socket === null) return
+		// req.socket (not res.socket): a request dispatched on a pipelined
+		// socket has res.socket === null until the PRECEDING response on
+		// that socket finishes, so res.socket would skip tracking the
+		// request entirely — and the shared socket could be ended (or
+		// force-destroyed by the drain) while the handler is still pending.
+		// req.socket is the accepted connection for EVERY dispatched
+		// request, already tracked by the 'connection' listener.
+		const socket = req.socket
 		inFlight++
 		inflightBySocket.set(socket, (inflightBySocket.get(socket) ?? 0) + 1)
 		const settled = { done: false }
