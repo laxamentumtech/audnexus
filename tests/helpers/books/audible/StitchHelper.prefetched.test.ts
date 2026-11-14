@@ -45,7 +45,7 @@ beforeEach(() => {
 describe('StitchHelper prefetched product', () => {
 	test('parses without a per-book API request', async () => {
 		const receivedAt = new Date('2026-11-14T12:00:00Z')
-		const helper = new StitchHelper('B079LRSMNN', 'us', undefined, true, {
+		const helper = new StitchHelper('B079LRSMNN', 'us', undefined, true, true, {
 			product: deepCopy((apiResponse as AudibleProduct).product),
 			responseGroups: ['rating', 'product_desc'],
 			receivedAt

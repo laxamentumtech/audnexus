@@ -158,12 +158,29 @@ describe('BookBackfillHelper should', () => {
 		expect(mockBookFind).toHaveBeenCalledTimes(2)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			1,
-			{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }] },
+			{
+				$and: [
+					{
+						ratings: { $exists: false },
+						ratingsBackfillSkip: { $exists: false },
+						rating: { $nin: ['0.0', '0'] }
+					}
+				]
+			},
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-		{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
+		{
+			$and: [
+				{
+					ratings: { $exists: false },
+					ratingsBackfillSkip: { $exists: false },
+					rating: { $nin: ['0.0', '0'] }
+				},
+				{ _id: { $gt: books[books.length - 1]._id } }
+			]
+		},
 		{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
@@ -217,12 +234,30 @@ describe('BookBackfillHelper should', () => {
 		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, terminalSkipped: 0, failed: 0 })
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-			{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
+			{
+				$and: [
+					{
+						ratings: { $exists: false },
+						ratingsBackfillSkip: { $exists: false },
+						rating: { $nin: ['0.0', '0'] }
+					},
+					{ _id: { $gt: books[books.length - 1]._id } }
+				]
+			},
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			3,
-			{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }, { _id: { $gt: secondPage[secondPage.length - 1]._id } }] },
+			{
+				$and: [
+					{
+						ratings: { $exists: false },
+						ratingsBackfillSkip: { $exists: false },
+						rating: { $nin: ['0.0', '0'] }
+					},
+					{ _id: { $gt: secondPage[secondPage.length - 1]._id } }
+				]
+			},
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
@@ -515,7 +550,6 @@ describe('BookBackfillHelper should', () => {
 
 	test('prefetches multi-ASIN products when AUDIBLE_BATCH_SIZE >= 2', async () => {
 		process.env.AUDIBLE_BATCH_SIZE = '50'
-		const receivedAt = new Date('2026-11-14T12:00:00Z')
 		mockFetch.mockResolvedValue({
 			data: {
 				products: [{ ...deepCopyProduct, asin: 'B000000001' }],

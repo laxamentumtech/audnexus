@@ -129,7 +129,13 @@ export default class BookBackfillHelper {
 					ratings: { $exists: false },
 					// Rows marked by an earlier pass are intentionally excluded:
 					// their upstream content type can never yield book ratings.
-					ratingsBackfillSkip: { $exists: false }
+					ratingsBackfillSkip: { $exists: false },
+					// `rating: "0.0"` means upstream has no ratings: there is no
+					// distribution payload to fetch, so re-selecting those rows on
+					// every pass only burns requests (400k of them on the live DB).
+					// A book that later gains ratings changes `rating` away from 0.0
+					// and re-enters this walk.
+					rating: { $nin: ['0.0', '0'] }
 				},
 				batchSize
 			},
