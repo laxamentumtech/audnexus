@@ -9,6 +9,12 @@ import { randomUUID } from 'node:crypto'
 import { parseNonNegativeInt } from '#config/performance'
 import { getCacheRedisUrl } from '#config/redis'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
+import {
+	closeWithTimeout,
+	isShutdownBudgetExpired,
+	remainingShutdownBudget,
+	startShutdownBudget
+} from '#helpers/utils/shutdownBudget'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 
 export const QUEUE_NAME = 'audnexus'
@@ -108,6 +114,12 @@ export function getQueueRedis(): Redis {
 		// fail-fast guards below can translate it into QueueUnavailableError.
 		queueRedis.on('error', (err) => console.warn('queue Redis connection error:', err.message))
 	}
+	return queueRedis
+}
+
+/** The shared queue Redis connection WITHOUT creating it: shutdown
+ * fallbacks must not open a new client on their way out. */
+export function getQueueRedisClient(): Redis | null {
 	return queueRedis
 }
 
@@ -625,18 +637,48 @@ export function getWorker(): Worker {
 	return worker
 }
 
-/** Shutdown only (worker process exit). */
-export async function closeQueue(): Promise<void> {
+/** Shutdown only (worker process exit). The queue and both Redis clients are
+ * closed under one aggregate wall-clock budget (SHUTDOWN_REDIS_BUDGET_MS by
+ * default): each close is bounded by the REMAINING budget, so the sequential
+ * closes cannot multiply their per-close deadlines past it. A clean close
+ * takes no fallback; a client blocked behind an offline command is
+ * hard-disconnected on the deadline and shutdown continues to the Mongo
+ * close. When a shutdown budget is already active (worker/API shutdown
+ * starts one before this call) the remainder is used, so the caller's
+ * earlier closes are charged against the same aggregate; otherwise a fresh
+ * budget (SHUTDOWN_REDIS_BUDGET_MS) starts here. An explicit `budgetMs`
+ * always starts its own budget (tests). */
+export async function closeQueue(options: { budgetMs?: number } = {}): Promise<void> {
+	if (options.budgetMs !== undefined) {
+		startShutdownBudget(options.budgetMs)
+	} else if (isShutdownBudgetExpired()) {
+		startShutdownBudget()
+	}
 	if (queue) {
-		await queue.close()
+		await closeWithTimeout(
+			() => queue!.close(),
+			() => queueRedis?.disconnect(),
+			'queue',
+			remainingShutdownBudget()
+		)
 		queue = null
 	}
 	if (queueRedis) {
-		await queueRedis.quit()
+		await closeWithTimeout(
+			() => queueRedis!.quit(),
+			() => queueRedis!.disconnect(),
+			'queue Redis',
+			remainingShutdownBudget()
+		)
 		queueRedis = null
 	}
 	if (cacheRedis) {
-		await cacheRedis.quit()
+		await closeWithTimeout(
+			() => cacheRedis!.quit(),
+			() => cacheRedis!.disconnect(),
+			'cache Redis',
+			remainingShutdownBudget()
+		)
 		cacheRedis = null
 	}
 }

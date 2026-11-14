@@ -39,7 +39,7 @@ services:
       start_period: ${STARTUP_GRACE_PERIOD:-30m}
 
   # Queue and rate-limit state remain durable/control Redis; document cache is
-  # separate and disposable. Both roles are checked before worker readiness.
+  # separate and disposable. The worker health check probes both roles.
   node-worker:
     image: ${AUDNEXUS_IMAGE:-ghcr.io/laxamentumtech/audnexus:develop}
     restart: unless-stopped

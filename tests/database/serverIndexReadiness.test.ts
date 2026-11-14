@@ -2,6 +2,7 @@
 // Module mocks are isolated by the repository's --parallel=1 test contract.
 import { expect, mock, test } from 'bun:test'
 import { createRequire } from 'node:module'
+import { Server } from 'node:net'
 
 const requireFromTest = createRequire(import.meta.url)
 
@@ -15,7 +16,11 @@ const server = {
 	register,
 	printRoutes: () => '',
 	listen,
-	close: mock(async () => {})
+	close: mock(async () => {}),
+	// The shutdown drain (src/server.ts) attaches its connection/request
+	// listeners to the RAW listener handle; the inert handle accepts the
+	// listeners without binding a port.
+	server: new Server()
 }
 register.mockReturnValue(server)
 const schedule = mock(async () => {})
@@ -29,7 +34,7 @@ mock.module('#config/papr', () => ({
 mock.module('#config/errorHandler', () => ({ registerApiErrorHandler: mock() }))
 mock.module('#config/performance/hooks', () => ({ registerPerformanceHooks: mock() }))
 mock.module('#config/routes/metrics', () => ({ registerMetricsRoute: mock() }))
-mock.module('#helpers/jobs/bullmq', () => ({ closeQueue: mock(), getUpdateSchedulerIntervals: () => ({ authors: 0, books: 0, chapters: 0 }) }))
+mock.module('#helpers/jobs/bullmq', () => ({ closeQueue: mock(), getCacheRedis: mock(), getUpdateSchedulerIntervals: () => ({ authors: 0, books: 0, chapters: 0 }) }))
 mock.module('#helpers/jobs/schedule', () => ({ registerUpdateScheduler: schedule }))
 mock.module('#helpers/utils/cloudflareIps', () => ({ getAllIps: async () => [] }))
 for (const route of [
@@ -47,8 +52,10 @@ test('API neither schedules nor opens its listener before shared index initializ
 	delete process.env.REDIS_CACHE_URL
 	delete process.env.BOOK_HISTORY_ENABLED
 	try {
-		// Intentional import-boundary test: importing the real entry starts it.
-		await import('../../src/server')
+		// Importing the real entry no longer auto-starts it (#963 entry gate):
+		// drive the exported startup path explicitly.
+		const serverModule = await import('../../src/server')
+		void serverModule.startServer()
 		await entered.promise
 		expect(listen).not.toHaveBeenCalled()
 		expect(schedule).not.toHaveBeenCalled()
@@ -88,7 +95,8 @@ test('API initialization rejection exits with status 1 without scheduling or lis
 		// strings, so evict the cached entry to execute the real entry point
 		// again rather than reusing the startup cached by the previous test.
 		delete requireFromTest.cache[requireFromTest.resolve('../../src/server.ts')]
-		await import('../../src/server.ts')
+		const serverModule = await import('../../src/server.ts')
+		void serverModule.startServer()
 		expect(await exited.promise).toBe(1)
 		await Promise.resolve()
 		expect(exit).toHaveBeenCalledTimes(1)
