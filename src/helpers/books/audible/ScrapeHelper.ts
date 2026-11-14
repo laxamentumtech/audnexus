@@ -27,7 +27,17 @@ class ScrapeHelper {
 	 * @returns {Promise<cheerio.CheerioAPI | undefined>} return text from the html page
 	 */
 	async fetchBook(): Promise<cheerio.CheerioAPI | undefined> {
-		return fetch(this.reqUrl)
+		// Audible's edge answers every /pd product page that carries an
+		// Accept-Encoding header with a 503 CloudFront error page
+		// (`vary: User-Agent,Accept-Encoding`, `x-cache: Error from
+		// cloudfront`) — reproducible with curl for any ASIN and any header
+		// value, including identity. The same request without the header is
+		// 301→200. axios adds a default gzip/br header to every request, so
+		// it must be nulled here to suppress it; otherwise the scrape 503s
+		// on every book and the shared adaptive cooldown climbs to its
+		// 2-hour ceiling even though the upstream is not rate limiting.
+		// Verified against live and dead ASINs on 2026-11-10.
+		return fetch(this.reqUrl, { headers: { 'Accept-Encoding': null } })
 			.then(async (response) => {
 				const text = await response.data
 				return cheerio.load(text)

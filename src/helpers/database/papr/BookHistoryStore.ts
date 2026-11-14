@@ -129,9 +129,17 @@ function isPreOrderBook(book: ApiBook): boolean {
  * incoming genres are non-empty (no "nuked data" updates).
  */
 function genreSafeguardPasses(oldDoc: Document, newBook: ApiBook): boolean {
-	const oldGenres = oldDoc.genres
-	const newGenres = newBook.genres
-	return Boolean(oldGenres || (!oldGenres && newGenres)) && Boolean(newGenres?.length)
+	const oldHasGenres = Boolean(oldDoc.genres)
+	const newHasGenres = Boolean(newBook.genres?.length)
+	// Neither side carries genre evidence: there is nothing to protect from
+	// being nuked. Rejecting here permanently froze legacy rows that never
+	// had category ladders — every other field, including ratings, was
+	// blocked along with the empty genre list (the `books` validator then
+	// refuses partial repair writes, so the row could never converge).
+	if (!oldHasGenres && !newHasGenres) return true
+	// Stored genres may only be dropped by an update that supplies its own
+	// genre evidence; storing genres and refreshing them stays allowed.
+	return newHasGenres
 }
 
 /** Deep structural equality over the sanitized public projections. */
@@ -654,10 +662,21 @@ export class BookHistoryStore {
 					unset.seriesPrimary = 1
 				if ('seriesSecondary' in currentBook && clearedSeries.has('seriesSecondary'))
 					unset.seriesSecondary = 1
+				// An accepted book write supersedes a backfill skip decision.
+				unset.ratingsBackfillSkip = 1
+				// The books validator requires createdAt (strict, action
+				// error). Rows written before that schema existed lack it, so
+				// an update leaves the resulting document invalid and every
+				// repair — the ratings backfill included — is rejected with
+				// "Document failed validation". Supply it once for those rows.
+				const createdAt = currentBook.createdAt as Date | undefined
 				await booksCol.updateOne(
 					{ _id: currentBook._id },
 					{
-						$set: { ...normBook },
+						$set: {
+							...normBook,
+							...(createdAt ? {} : { createdAt: new Date() })
+						},
 						...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
 						$currentDate: { updatedAt: true }
 					},

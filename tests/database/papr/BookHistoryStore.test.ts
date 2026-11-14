@@ -120,9 +120,12 @@ describe('assertHistoryPrerequisites', () => {
 		await expect(store.assertHistoryPrerequisites()).rejects.toThrow(FAILURE)
 	})
 
-	test('fails when a prepared index is missing', async () => {
+	test('fails when a prepared index is missing entirely', async () => {
+		// Rename AND break the keys: an equivalent index under another name
+		// satisfies the definition, so a genuinely missing one must differ.
 		const indexes = mutateIndex('book_history_revisions', 'history_revision', (idx) => {
-			idx.key = { missing: 1 }
+			idx.name = 'renamed-away'
+			idx.key = { asin: 1, region: 1, revision: -1 }
 		})
 		const { store } = clientWith({ indexes })
 		await expect(store.assertHistoryPrerequisites()).rejects.toThrow(FAILURE)
@@ -130,6 +133,14 @@ describe('assertHistoryPrerequisites', () => {
 
 	test('adopts equivalent production book lookup names', async () => {
 		const indexes = mutateIndex('books', 'history_book_lookup', (idx) => { idx.name = 'asin_1_region_1' })
+		const { store } = clientWith({ indexes })
+		await expect(store.assertHistoryPrerequisites()).resolves.toBeUndefined()
+	})
+
+	test('passes when an equivalent index exists under another name', async () => {
+		const indexes = mutateIndex('book_history_revisions', 'history_revision', (idx) => {
+			idx.name = 'generated-name'
+		})
 		const { store } = clientWith({ indexes })
 		await expect(store.assertHistoryPrerequisites()).resolves.toBeUndefined()
 	})

@@ -213,10 +213,10 @@ async function audit(
  * `DB_INDEX_MODE=verify` is a process startup policy for API/worker boot,
  * not a mode for this command, so prepare always creates missing indexes.
  */
+
 async function prepare(client: MongoClient): Promise<void> {
 	const { initialize } = await import('#config/papr')
 	await initialize({ client } as never, 'auto')
-
 	console.log('prepare complete')
 }
 
