@@ -670,11 +670,17 @@ export class BookHistoryStore {
 				// repair — the ratings backfill included — is rejected with
 				// "Document failed validation". Supply it once for those rows.
 				const createdAt = currentBook.createdAt as Date | undefined
+				// `$currentDate` owns `updatedAt`; a `$set` entry on the same
+				// path is rejected by the server (code 40), so omit it here.
+				const contentBook: Record<string, unknown> = {
+					...(normBook as unknown as Record<string, unknown>)
+				}
+				delete contentBook.updatedAt
 				await booksCol.updateOne(
 					{ _id: currentBook._id },
 					{
 						$set: {
-							...normBook,
+							...contentBook,
 							...(createdAt ? {} : { createdAt: new Date() })
 						},
 						...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
