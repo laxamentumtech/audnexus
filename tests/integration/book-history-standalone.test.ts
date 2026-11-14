@@ -42,6 +42,8 @@ const GENRES = [{ type: 'genre', asin: '1234567890', name: 'Fiction' }] as const
 
 function book(overrides: Record<string, unknown> = {}) {
 	return {
+		createdAt: new Date('2020-01-01T00:00:00.000Z'),
+		updatedAt: new Date('2020-01-01T00:00:00.000Z'),
 		asin: ASIN,
 		authors: [{ asin: 'B0AUTHOR01', name: 'Smith, Doe' }],
 		description: 'desc',
@@ -387,12 +389,16 @@ test('legacy capture on first touch does not collide with the next asset sequenc
 	// assets must continue at sequence 2, not reuse 1.
 	const legacyAsin = 'B0LEGACY01'
 	const db2 = collections()
+	// Simulate retained partial metadata, while preserving the stored dates
+	// that an accepted refresh must retain (ApiBook normalization omits them).
 	await db2.collection('books').insertOne({
 		asin: legacyAsin,
 		region: REGION,
 		title: 'Legacy Row',
+		createdAt: new Date('2020-01-01T00:00:00.000Z'),
+		updatedAt: new Date('2020-01-01T00:00:00.000Z'),
 		image: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
-	} as never)
+	} as never, { bypassDocumentValidation: true })
 	const result = await bookHistoryStore.persistObservation({
 		asin: legacyAsin,
 		region: REGION,
@@ -428,13 +434,15 @@ test('deleteCurrent on a string-_id trusted row retains the image as an identity
 	// loses no image.
 	const stringId = 'audit-string-id-1'
 	const db2 = collections()
+	// This retained legacy identity is intentionally incompatible with the
+	// current ObjectId validator; only its fixture insertion bypasses it.
 	await db2.collection('books').insertOne({
 		_id: stringId,
 		asin: 'B0NONOID01',
 		region: REGION,
 		title: 'String Id Row',
 		image: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
-	} as never)
+	} as never, { bypassDocumentValidation: true })
 	const result = await bookHistoryStore.deleteCurrent('B0NONOID01', REGION)
 	expect(result.modified).toBe(true)
 	expect(await db2.collection('books').findOne({ asin: 'B0NONOID01' })).toBeNull()
@@ -555,9 +563,11 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 	// Now add a null-region competitor for the same identity.
 	const rows = await db2.collection('books').find({ asin: conflictAsin }).toArray()
 	expect(rows).toHaveLength(1)
+	// Reproduce retained legacy null-region data without weakening the validator.
 	await db2.collection('books').updateOne(
 		{ _id: rows[0]._id },
-		{ $set: { region: null } }
+		{ $set: { region: null } },
+		{ bypassDocumentValidation: true }
 	)
 	await expect(
 		bookHistoryStore.persistObservation({
@@ -582,20 +592,15 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		const conflictAsin = 'B0CONFLICT2'
 		const db2 = collections()
 		const stateId = `${REGION}:${conflictAsin}`
-		await db2.collection('books').insertMany([
-			{
-				asin: conflictAsin,
-				region: REGION,
-				title: 'Exact Row',
-				image: `https://m.media-amazon.com/images/I/${IMG1}.jpg`
-			},
-			{
-				asin: conflictAsin,
-				region: null,
-				title: 'Regionless Row',
-				image: `https://m.media-amazon.com/images/I/${IMG2}.jpg`
-			}
-		] as never)
+		await db2.collection('books').insertOne(
+			book({ asin: conflictAsin, title: 'Exact Row', image: `https://m.media-amazon.com/images/I/${IMG1}.jpg` }) as never
+		)
+		// The null-region competitor represents an invalid retained legacy
+		// document; the normal exact-region fixture above is fully validated.
+		await db2.collection('books').insertOne(
+			book({ asin: conflictAsin, region: null, title: 'Regionless Row', image: `https://m.media-amazon.com/images/I/${IMG2}.jpg` }) as never,
+			{ bypassDocumentValidation: true }
+		)
 		await expect(
 			bookHistoryStore.persistObservation({
 				asin: conflictAsin,

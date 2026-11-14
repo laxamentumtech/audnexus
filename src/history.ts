@@ -3,7 +3,7 @@
 // Fastify):
 //
 //   node dist/history.js audit     report current-book readiness issues (NDJSON)
-//   node dist/history.js prepare   Papr schema prep + named history indexes
+//   node dist/history.js prepare   Papr schemas + complete application index catalog (always applies; DB_INDEX_MODE=verify does not gate it)
 //   node dist/history.js seed      resumable per-row legacy artwork seed
 //   node dist/history.js seed --restart   supersede the run (new runId)
 //   node dist/history.js status    seed state + retained-data counts
@@ -19,11 +19,7 @@
 import { MongoClient, ObjectId } from 'mongodb'
 import { pathToFileURL } from 'node:url'
 
-import {
-	HISTORY_INDEX_DEFINITIONS,
-	isSupportedRegionValue,
-	SEED_PROGRESS_ID
-} from '#config/bookHistory'
+import { isSupportedRegionValue, SEED_PROGRESS_ID } from '#config/bookHistory'
 import { bookHistoryStore } from '#config/papr'
 import { asin10Regex } from '#config/types'
 import { parseArtworkReference } from '#helpers/books/audible/BookObservation'
@@ -211,106 +207,16 @@ async function audit(
 
 /**
  * Register the history models, run ordinary Papr schema preparation, and
- * create the named history indexes idempotently. A same-name conflicting
+ * reconcile the complete application index catalog. A same-name conflicting
  * index definition fails with the name and stops; indexes are never
- * replaced/dropped.
+ * replaced/dropped. Explicitly applies the catalog like `indexes apply`:
+ * `DB_INDEX_MODE=verify` is a process startup policy for API/worker boot,
+ * not a mode for this command, so prepare always creates missing indexes.
  */
-
-/** Same key pattern, order-independent field set. */
-function sameIndexKeys(a: Record<string, number>, b: Record<string, number>): boolean {
-	return (
-		Object.keys(a).length === Object.keys(b).length &&
-		Object.entries(b).every(([field, direction]) => a[field] === direction)
-	)
-}
 
 async function prepare(client: MongoClient): Promise<void> {
 	const { initialize } = await import('#config/papr')
-	await initialize({ client } as never)
-	let failed = false
-	const db = client.db('audnexus')
-	for (const def of HISTORY_INDEX_DEFINITIONS) {
-		try {
-			let indexes: Array<{
-				name: string
-				key: Record<string, number>
-				unique?: boolean
-				partialFilterExpression?: Record<string, unknown>
-			}>
-			try {
-				indexes = (await db.collection(def.collection).listIndexes().toArray()) as Array<{
-					name: string
-					key: Record<string, number>
-					unique?: boolean
-					partialFilterExpression?: Record<string, unknown>
-				}>
-			} catch (probeError) {
-				// Namespace does not exist (code 26): no indexes; createIndex
-				// creates the namespace itself.
-				if ((probeError as { code?: number }).code !== 26) throw probeError
-				indexes = []
-			}
-			const existing = indexes.find((idx) => idx.name === def.name)
-			if (existing !== undefined) {
-				const sameKeys =
-					Object.keys(existing.key).length === Object.keys(def.keys).length &&
-					Object.entries(def.keys).every(([k, v]) => existing.key[k] === v)
-				const isIdIndex =
-					Object.keys(def.keys).length === 1 && (def.keys as Record<string, 1>)._id === 1
-				// A missing partial filter (absent on both sides) is `null` on
-				// both sides; a same-name index whose partial filter is
-				// missing/different is a conflicting definition.
-				const samePartialFilter =
-					JSON.stringify(existing.partialFilterExpression ?? null) ===
-					JSON.stringify(def.partialFilterExpression ?? null)
-				if (
-					!sameKeys ||
-					!samePartialFilter ||
-					(def.unique === true && !existing.unique && !isIdIndex) ||
-					(def.unique !== true && existing.unique && !isIdIndex)
-				) {
-					console.error(
-						`index '${def.name}' on ${def.collection}: conflicting definition; refusing to replace it`
-					)
-					failed = true
-					continue
-				}
-				console.log(`index ${def.name}: exists`)
-				continue
-			}
-			// A pre-existing equivalent index satisfies the definition even
-			// under Mongo's auto-generated name (e.g. `asin_1_region_1` for
-			// the books asin+region lookup). The physical name is irrelevant
-			// to query planning, and creating a same-key index under a second
-			// name is rejected by the server.
-			const equivalent = indexes.find(
-				(idx) =>
-					sameIndexKeys(idx.key, def.keys) &&
-					JSON.stringify(idx.partialFilterExpression ?? null) ===
-						JSON.stringify(def.partialFilterExpression ?? null) &&
-					(def.unique !== true || idx.unique === true)
-			)
-			if (equivalent !== undefined) {
-				console.log(`index ${def.name}: exists as ${equivalent.name}`)
-				continue
-			}
-			await db.collection(def.collection).createIndex(def.keys, {
-				name: def.name,
-				...(def.unique === true &&
-				!(Object.keys(def.keys).length === 1 && (def.keys as Record<string, 1>)._id === 1)
-					? { unique: true }
-					: {}),
-				...(def.partialFilterExpression && {
-					partialFilterExpression: def.partialFilterExpression
-				})
-			})
-			console.log(`index ${def.name}: created`)
-		} catch (error) {
-			console.error(`index ${def.name}: ${String((error as Error).message)}`)
-			failed = true
-		}
-	}
-	if (failed) process.exit(1)
+	await initialize({ client } as never, 'auto')
 	console.log('prepare complete')
 }
 
