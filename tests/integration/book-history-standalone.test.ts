@@ -111,7 +111,7 @@ run('BookHistoryStore against a replica set', () => {
 	beforeAll(async () => {
 		history = await resolveHistoryMongo('standalone')
 		if (!history) throw new Error('no transaction-capable replica set available')
-		client = new MongoClient(history.uri, { serverSelectionTimeoutMS: 5000 })
+		client = new MongoClient(history.uri, { serverSelectionTimeoutMS: 5000, ignoreUndefined: true })
 		await client.connect()
 		// Papr validators first (the store's reads/writes go through papr
 		// models).
@@ -1192,5 +1192,70 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 			.collection('book_history_revisions')
 			.countDocuments({ asin: eqAsin, region: REGION })
 		expect(revisions).toBe(0)
+	}, 30000)
+
+	test('omits an explicitly undefined optional field instead of nulling it', async () => {
+		// ApiHelper sets optional keys to undefined when Audible omits them
+		// (e.g. subtitle). Driving the update without `ignoreUndefined` writes
+		// null, and the strict books validator types those fields as strings.
+		const undefAsin = 'B0UNDEFSUB1'
+		const db4 = collections()
+		const gen1 = await bookHistoryStore.reserveGeneration(undefAsin, REGION)
+		const first = await bookHistoryStore.persistObservation({
+			asin: undefAsin,
+			region: REGION,
+			generation: gen1,
+			book: book({ asin: undefAsin, title: 'Undefined Subtitle', subtitle: undefined }),
+			observation: observation({ title: 'Undefined Subtitle', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		const current = await db4.collection('books').findOne({ asin: undefAsin })
+		expect(current).not.toHaveProperty('subtitle')
+	}, 30000)
+
+	test('accepts an update when neither side has genre evidence', async () => {
+		// Legacy rows never had category ladders. Rejecting genre-less
+		// updates froze every other field on them (the books validator
+		// refuses partial writes), so the safeguard must only fire when it
+		// would actually drop stored genres.
+		const noGenreAsin = 'B0GENRLESS1'
+		const db3 = collections()
+		const gen1 = await bookHistoryStore.reserveGeneration(noGenreAsin, REGION)
+		const first = await bookHistoryStore.persistObservation({
+			asin: noGenreAsin,
+			region: REGION,
+			generation: gen1,
+			book: book({ asin: noGenreAsin, title: 'No Genres', genres: [] }),
+			observation: observation({ title: 'No Genres', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		// An accepted book write must clear a prior backfill skip decision.
+		await db3
+			.collection('books')
+			.updateOne(
+				{ asin: noGenreAsin },
+				{
+					$set: {
+						ratingsBackfillSkip: {
+							reason: 'non_book',
+							contentType: 'SinglePartIssue',
+							markedAt: new Date()
+						}
+					}
+				}
+			)
+		const gen2 = await bookHistoryStore.reserveGeneration(noGenreAsin, REGION)
+		const second = await bookHistoryStore.persistObservation({
+			asin: noGenreAsin,
+			region: REGION,
+			generation: gen2,
+			book: book({ asin: noGenreAsin, title: 'Still No Genres', genres: [] }),
+			observation: observation({ title: 'Still No Genres', imageId: IMG2 })
+		})
+		expect(second.disposition).toBe('accepted')
+		expect(second.modified).toBe(true)
+		const current = await db3.collection('books').findOne({ asin: noGenreAsin })
+		expect(current?.title).toBe('Still No Genres')
+		expect(current).not.toHaveProperty('ratingsBackfillSkip')
 	}, 30000)
 })

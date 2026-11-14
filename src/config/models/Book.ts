@@ -65,6 +65,14 @@ const bookSchema = schema(
 				one: types.number({ required: true })
 			})
 		}),
+		/** Internal: set by the ratings backfill when upstream reports a
+		 * non-book content type. Never part of the public ApiBook shape; it
+		 * only excludes the row from the backfill's target set. */
+		ratingsBackfillSkip: types.object({
+			reason: types.string({ enum: ['non_book'], required: true }),
+			contentType: types.string({ required: true }),
+			markedAt: types.date({ required: true })
+		}),
 		region: types.string({
 			enum: Object.keys(regions),
 			pattern: regionRegex,

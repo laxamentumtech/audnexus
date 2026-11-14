@@ -181,8 +181,10 @@ describe('PaprAudibleBookHelper should', () => {
 		helper.setData(parsedBookWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
-	test('createOrUpdate no genres on new or old', async () => {
-		const obj = { data: parsedBookWithoutGenres, modified: false }
+	test('createOrUpdate updates when neither side has genres', async () => {
+		// Genre-less legacy rows must still accept other fields (ratings):
+		// with no stored genres there is nothing the update could nuke.
+		const obj = { data: parsedBookWithoutGenres, modified: true }
 		mockIsEqualData.mockReturnValue(false)
 		mockFindOne
 			.mockResolvedValueOnce(parsedBookWithoutGenres as unknown as BookDocument)
@@ -190,6 +192,7 @@ describe('PaprAudibleBookHelper should', () => {
 			.mockResolvedValue(parsedBookWithoutGenres as unknown as BookDocument)
 		helper.setData(parsedBookWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
 	})
 	test('update', async () => {
 		const obj = { data: parsedBook, modified: true }
@@ -201,6 +204,7 @@ describe('PaprAudibleBookHelper should', () => {
 			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
 			{
 				$set: { ...parsedBook, createdAt: bookWithoutProjection._id.getTimestamp() },
+				$unset: { ratingsBackfillSkip: '' },
 				$currentDate: { updatedAt: true }
 			}
 		)

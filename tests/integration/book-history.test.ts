@@ -39,7 +39,7 @@ run('history CLI protocol against a replica set', () => {
 	beforeAll(async () => {
 		history = await resolveHistoryMongo('rollout')
 		if (!history) throw new Error('no transaction-capable replica set available')
-		client = new MongoClient(history.uri, { serverSelectionTimeoutMS: 5000 })
+		client = new MongoClient(history.uri, { serverSelectionTimeoutMS: 5000, ignoreUndefined: true })
 		await client.connect()
 		bookHistoryStore.configure(client)
 		db = client.db('audnexus')
