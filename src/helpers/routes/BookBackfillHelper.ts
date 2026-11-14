@@ -2,9 +2,15 @@ import type { FastifyRedis } from '@fastify/redis'
 import type { FastifyBaseLogger } from 'fastify'
 import type { Redis } from 'ioredis'
 
+import { isBookHistoryEnabled } from '#config/bookHistory'
 import BookModel from '#config/models/Book'
+import { bookHistoryStore } from '#config/papr'
 import { getPerformanceConfig } from '#config/performance'
 import type { ApiAuthorProfile, ApiBook, ApiChapter } from '#config/types'
+import {
+	fetchProductsByAsin,
+	type PrefetchedApiProduct
+} from '#helpers/books/audible/ApiBatchHelper'
 import { ContentTypeMismatchError } from '#helpers/errors/ApiErrors'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
@@ -18,6 +24,20 @@ import {
 } from '#helpers/utils/keyset'
 import { withDeadline } from '#helpers/utils/withDeadline'
 import { NoticeUpdateScheduled } from '#static/messages'
+
+/** Per-request ASIN cap for the undocumented multi-ASIN endpoint. */
+const MAX_BULK_ASINS = 50
+
+/**
+ * Read `AUDIBLE_BATCH_SIZE`. Unset or < 2 keeps the proven per-book path;
+ * values above the endpoint cap are clamped. Batching is opt-in so a
+ * deployment can measure it before making it the default.
+ */
+function bulkBatchSize(): number {
+	const raw = Number(process.env.AUDIBLE_BATCH_SIZE)
+	if (!Number.isFinite(raw) || raw < 2) return 1
+	return Math.min(Math.floor(raw), MAX_BULK_ASINS)
+}
 
 interface BackfillResult {
 	total: number
@@ -114,16 +134,101 @@ export default class BookBackfillHelper {
 				batchSize
 			},
 			async (books) => {
+				// Optional multi-ASIN prefetch: one request per 50 books instead of
+				// one per book. Stubs/failed chunks fall back to the per-book path
+				// (undefined prefetched), so failure classification is unchanged.
+				const prefetched = new Map<string, PrefetchedApiProduct>()
+				const reservedGenerations = new Map<string, number>()
+				const batchSize = bulkBatchSize()
+				if (batchSize > 1) {
+					const byRegion = new Map<string, typeof books>()
+					for (const book of books) {
+						const region = book.region ?? 'us'
+						const list = byRegion.get(region) ?? []
+						list.push(book)
+						byRegion.set(region, list)
+					}
+					const historyEnabled = isBookHistoryEnabled()
+					let chunks = 0
+					let failures = 0
+					let stubs = 0
+					// A failed chunk means the endpoint is unhealthy for this page;
+					// stop probing and let the proven per-book path carry the rest.
+					let disabled = false
+					for (const [region, regionBooks] of byRegion) {
+						for (let i = 0; i < regionBooks.length && !disabled; i += batchSize) {
+							const chunk = regionBooks.slice(i, i + batchSize)
+							const keys = chunk.map((book) => `${region}:${book.asin}`)
+							if (historyEnabled) {
+								// Reserve before the fetch so a concurrent refresh cannot
+								// win the generation fence with a later start time.
+								for (let k = 0; k < chunk.length; k += 1) {
+									try {
+										reservedGenerations.set(
+											keys[k],
+											await bookHistoryStore.reserveGeneration(chunk[k].asin, region)
+										)
+									} catch (error) {
+										this.logger.debug(
+											`[AUDIBLE BATCH] generation not reserved for ${keys[k]}: ${error instanceof Error ? error.message : error}`
+										)
+									}
+								}
+							}
+							await sleepCooldown()
+							try {
+								const result = await fetchProductsByAsin(
+									chunk.map((b) => b.asin),
+									region,
+									this.logger
+								)
+								chunks += 1
+								stubs += result.stubs.size
+								// One upstream success signal per accepted batch request,
+								// at request time: consuming pre-throttle data later must
+								// not relax a cooldown raised in between.
+								if (result.found.size > 0) registerSuccess()
+								for (const [asin, product] of result.found) {
+									const key = `${region}:${asin}`
+									// A prefetched product may only be consumed when its
+									// generation was reserved before this fetch; otherwise
+									// persistence would reserve after the fact and could
+									// accept a stale snapshot. Unreserved ASINs fall back to
+									// the single path, which reserves before its own fetch.
+									if (!historyEnabled || reservedGenerations.has(key)) {
+										prefetched.set(key, product)
+									}
+								}
+							} catch (error) {
+								failures += 1
+								disabled = true
+								this.logger.warn(
+									`[AUDIBLE BATCH] ${region}: disabling batching for this page after ${chunk.length} books: ${error instanceof Error ? error.message : error}`
+								)
+								await sleepCooldown()
+							}
+						}
+					}
+					if (chunks > 0 || failures > 0) {
+						this.logger.info(
+							`[AUDIBLE BATCH] chunks=${chunks} prefetched=${prefetched.size} stubs=${stubs} failures=${failures}`
+						)
+					}
+				}
+
 				const { summary } = await processBatchByRegion(books, async (book) => {
+					const region = book.region ?? 'us'
 					const helper = new BookShowHelper(
 						book.asin,
-						{ region: book.region ?? 'us', update: '1' },
+						{ region, update: '1' },
 						this.redis as unknown as FastifyRedis | null,
 						this.logger,
 						true,
 						// Ratings come from the API; the product page only adds
 						// genres and would cost a 404/503 round trip per row.
-						true
+						true,
+						prefetched.get(`${region}:${book.asin}`),
+						reservedGenerations.get(`${region}:${book.asin}`)
 					)
 					let updatedBook: ApiAuthorProfile | ApiBook | ApiChapter | undefined
 					try {
@@ -186,7 +291,7 @@ export default class BookBackfillHelper {
 					// fallback always carries a past releaseDate).
 					if (updatedBook && 'releaseDate' in updatedBook && updatedBook.releaseDate > new Date()) {
 						skipped += 1
-						registerSuccess()
+						if (!prefetched.get(`${region}:${book.asin}`)) registerSuccess()
 						return
 					}
 					// The returned data can be the stored row: when the store
@@ -231,8 +336,9 @@ export default class BookBackfillHelper {
 						)
 					}
 					// Got a fully-formed book with ratings: the only usable-success
-					// signal, so this (not a bare 200) relaxes the cooldown.
-					registerSuccess()
+					// signal, so this (not a bare 200) relaxes the cooldown. Batch
+					// requests already registered one success at fetch time.
+					if (!prefetched.get(`${region}:${book.asin}`)) registerSuccess()
 				})
 				total += summary.total
 				updated += summary.success

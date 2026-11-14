@@ -19,6 +19,23 @@ mock.module('#helpers/utils/batchProcessor', () => ({
 	processBatchByRegion: mockProcessBatchByRegion
 }))
 
+const mockFetch = mock()
+
+let historyEnabled = false
+const mockReserveGeneration = mock()
+
+mock.module('#config/bookHistory', () => ({
+	isBookHistoryEnabled: () => historyEnabled
+}))
+
+mock.module('#config/papr', () => ({
+	bookHistoryStore: { reserveGeneration: mockReserveGeneration }
+}))
+
+mock.module('#helpers/utils/fetchPlus', () => ({
+	default: mockFetch
+}))
+
 // Whether the stubbed show helper reports its full-document write as
 // persisted; the backfill falls back to a direct ratings write when false.
 let mockPersisted = false
@@ -59,8 +76,11 @@ import { ObjectId } from 'mongodb'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
+import { apiResponse } from '#tests/datasets/helpers/books'
 import { createMockLogger } from '#tests/setup/mockLogger'
 import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
+
+const deepCopyProduct = JSON.parse(JSON.stringify(apiResponse.product)) as Record<string, unknown>
 
 const books = [
 	{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f01'), asin: 'B000000001', region: 'us' },
@@ -92,6 +112,7 @@ describe('BookBackfillHelper should', () => {
 
 	beforeEach(() => {
 		mock.clearAllMocks()
+		historyEnabled = false
 		mockSleepCooldown.mockResolvedValue(undefined)
 		mockJitteredSleep.mockResolvedValue(undefined)
 		mockBookUpdateOne.mockResolvedValue({ modified: 1 })
@@ -431,6 +452,86 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => ratinglessStale)
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, terminalSkipped: 0, failed: 1 })
+	})
+
+	test('falls back to the per-book path when the batch request fails', async () => {
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		mockFetch.mockRejectedValue(new Error('503'))
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+		}
+
+		expect(mockFetch).toHaveBeenCalled()
+		for (const args of showConstructorArgs) expect(args[6]).toBeUndefined()
+	})
+
+	test('carries a pre-reserved generation with the prefetched product', async () => {
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		historyEnabled = true
+		mockReserveGeneration.mockResolvedValue(7)
+		mockFetch.mockResolvedValue({
+			data: {
+				products: [{ ...deepCopyProduct, asin: 'B000000001' }],
+				response_groups: ['rating'],
+				total_results: 1
+			}
+		})
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+			historyEnabled = false
+		}
+
+		const firstCall = showConstructorArgs.find((args) => args[0] === 'B000000001')
+		expect(firstCall?.[6]).toBeDefined()
+		expect(firstCall?.[7]).toBe(7)
+	})
+
+	test('drops a prefetched product whose generation could not be reserved', async () => {
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		historyEnabled = true
+		mockReserveGeneration.mockRejectedValue(new Error('identity conflict'))
+		mockFetch.mockResolvedValue({
+			data: {
+				products: [{ ...deepCopyProduct, asin: 'B000000001' }],
+				response_groups: ['rating'],
+				total_results: 1
+			}
+		})
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+			historyEnabled = false
+		}
+
+		const firstCall = showConstructorArgs.find((args) => args[0] === 'B000000001')
+		expect(firstCall?.[6]).toBeUndefined()
+		expect(firstCall?.[7]).toBeUndefined()
+	})
+
+	test('prefetches multi-ASIN products when AUDIBLE_BATCH_SIZE >= 2', async () => {
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		const receivedAt = new Date('2026-11-14T12:00:00Z')
+		mockFetch.mockResolvedValue({
+			data: {
+				products: [{ ...deepCopyProduct, asin: 'B000000001' }],
+				response_groups: ['rating'],
+				total_results: 1
+			}
+		})
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+		}
+
+		expect(mockFetch).toHaveBeenCalled()
+		const firstCall = showConstructorArgs.find((args) => args[0] === 'B000000001')
+		expect(firstCall?.[6]).toMatchObject({ receivedAt: expect.any(Date) })
 	})
 
 	test('rejects a book when the handler exceeds the item deadline', async () => {

@@ -327,6 +327,7 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
    - `SCHEDULER_ITEM_TIMEOUT_MS`: Hard deadline for a single scheduler item in milliseconds (default: 120000; `0` disables the guard). Bounds the wait for the handler, not the work itself — a late handler can keep running after the deadline elapses, and its writes can still land.
    - `SCHEDULER_MAX_ITEMS`: Hard cap on documents one pass visits (default: 0 = unlimited)
    - `JITTER_MS`: Randomized pacing wait range in milliseconds for batch workers, as `min-max` or bare `max` (default: `0-5000`)
+   - `AUDIBLE_BATCH_SIZE`: Ratings-backfill only. Books per multi-ASIN request (default: `1` = disabled; max `50`). Values `>=2` batch same-region books into Audible's undocumented multi-ASIN endpoint; stubs and failed chunks fall back to the per-book path.
 
    **Feature Flags (Boolean - supports `true`, `True`, `TRUE`, `1`):**
    - `USE_PARALLEL_SCHEDULER`: Enable parallel UpdateScheduler (default: `false`) - HIGH RISK, requires testing

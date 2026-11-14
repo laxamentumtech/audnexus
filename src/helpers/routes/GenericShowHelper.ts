@@ -17,6 +17,7 @@ import {
 	ApiQueryString
 } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import type { PrefetchedApiProduct } from '#helpers/books/audible/ApiBatchHelper'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
@@ -42,6 +43,13 @@ export default class GenericShowHelper {
 	type: 'author' | 'book' | 'chapter'
 	logger?: FastifyBaseLogger
 	forceUpdate?: boolean
+	/** Product already fetched by the multi-ASIN endpoint; consumed once by
+	 * the next StitchHelper creation instead of a per-book HTTP request. */
+	prefetched?: PrefetchedApiProduct
+	/** History generation reserved before a batched fetch. Reusing it keeps
+	 * the fence ordered by fetch start, not by when the batch result was
+	 * consumed. */
+	reservedGeneration?: number
 	/** True after handler() resolved with data that came from a fresh upstream
 	 * fetch (including the pre-order transient path). False when the handler
 	 * returned stored/projection data without hitting upstream — the recency
@@ -71,7 +79,9 @@ export default class GenericShowHelper {
 		type: 'author' | 'book' | 'chapter',
 		logger?: FastifyBaseLogger,
 		forceUpdate?: boolean,
-		skipHtml: boolean = false
+		skipHtml: boolean = false,
+		prefetched?: PrefetchedApiProduct,
+		reservedGeneration?: number
 	) {
 		this.asin = asin
 		this.options = options
@@ -79,6 +89,8 @@ export default class GenericShowHelper {
 		this.logger = logger
 		this.forceUpdate = forceUpdate
 		this.skipHtml = skipHtml
+		this.prefetched = prefetched
+		this.reservedGeneration = reservedGeneration
 		this.paprHelper = this.setupPaprHelper()
 		this.redisHelper = new RedisHelper(redis, type, asin, options.region, logger)
 		this.schema = this.setupSchema()
@@ -110,7 +122,8 @@ export default class GenericShowHelper {
 				this.options.region,
 				this.logger,
 				false,
-				this.skipHtml
+				this.skipHtml,
+				this.prefetched
 			)
 			return helper.process()
 		} else {
@@ -205,8 +218,17 @@ export default class GenericShowHelper {
 		let stitchHelper: StitchHelper | null = null
 		let generation: number | undefined
 		if (this.type === 'book' && isBookHistoryEnabled()) {
-			stitchHelper = new StitchHelper(this.asin, this.options.region, this.logger, true)
-			generation = await bookHistoryStore.reserveGeneration(this.asin, this.options.region)
+			stitchHelper = new StitchHelper(
+				this.asin,
+				this.options.region,
+				this.logger,
+				true,
+				this.skipHtml,
+				this.prefetched
+			)
+			generation =
+				this.reservedGeneration ??
+				(await bookHistoryStore.reserveGeneration(this.asin, this.options.region))
 		}
 		const newData = stitchHelper ? await stitchHelper.process() : await this.getNewData()
 		this.freshData = newData
