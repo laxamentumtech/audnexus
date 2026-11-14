@@ -122,13 +122,13 @@ import {
 	BACKFILL_ENQUEUE_LOCK_KEY,
 	BACKFILL_ENQUEUE_LOCK_TTL_MS,
 	closeQueue,
-	closeWithTimeout,
 	COMMAND_TIMEOUT_MS,
 	countBackfillJobsInFlight,
 	createWorker,
 	enqueueBackfillRatings,
 	getCacheRedis,
 	getQueueRedis,
+	getQueueRedisClient,
 	getUpdateSchedulerIntervals,
 	handleJob,
 	JOB_NAMES,
@@ -136,14 +136,17 @@ import {
 	LEGACY_UPDATE_SCHEDULER_ID,
 	QUEUE_NAME,
 	QueueUnavailableError,
-	remainingShutdownBudget,
-	SHUTDOWN_REDIS_BUDGET_MS,
-	startShutdownBudget,
 	UPDATE_SCHEDULER_IDS,
 	UPDATE_SCHEDULERS,
 	upsertUpdateSchedulers,
 	withCommandTimeout
 } from '#helpers/jobs/bullmq'
+import {
+	closeWithTimeout,
+	remainingShutdownBudget,
+	SHUTDOWN_REDIS_BUDGET_MS,
+	startShutdownBudget
+} from '#helpers/utils/shutdownBudget'
 import { TEST_REDIS_URL } from '#tests/setup/performanceConfig'
 
 let savedRedisUrl: string | undefined
@@ -157,6 +160,7 @@ beforeEach(() => {
 	mockRedisStatus = 'ready'
 	mockJobFromIdSequence = [null]
 	backfillConstructorArgs.length = 0
+	redisConstructorCalls.length = 0
 	// mockReset (not mockClear) so the per-test once-queues never leak:
 	// a leftover resolved/rejected-once on add/remove would be consumed by a
 	// later test before its own stubbing.
@@ -208,6 +212,18 @@ describe('bullmq queue helpers', () => {
 	it('requires REDIS_URL before creating the shared connection', () => {
 		delete process.env.REDIS_URL
 		expect(() => getQueueRedis()).toThrow('REDIS_URL is required for background job queues')
+	})
+
+	it('returns null without creating a connection before any queue use', () => {
+		// The shutdown fallbacks (worker close, closeQueue's queue phase)
+		// must be able to observe the shared client WITHOUT opening one on
+		// their way out — a non-creating accessor that returns null before
+		// any queue use, and no ioredis construction as a side effect.
+		// The singletons were released by an earlier closeQueue, so this
+		// exercises the fresh-process shape; the constructor-capture mock
+		// (redisConstructorCalls) is cleared in beforeEach.
+		expect(getQueueRedisClient()).toBeNull()
+		expect(redisConstructorCalls).toHaveLength(0)
 	})
 
 	it('returns the same connection on repeat calls', () => {

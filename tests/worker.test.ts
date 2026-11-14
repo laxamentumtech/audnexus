@@ -61,7 +61,7 @@ let queuePhaseHangs = false
 // does). Bun's mock.module is process-wide and sticky: under the default
 // shared-process runner these PARTIAL module mocks (each exposing only the
 // exports this file exercises) leak into sibling test files. In particular the
-// 5-export '#helpers/jobs/bullmq' mock here would shadow the real module's
+// '#helpers/jobs/bullmq' mock here would shadow the real module's
 // full export surface for tests/helpers/jobs/bullmq.test.ts, which imports
 // exports this partial mock omits (e.g. BACKFILL_ENQUEUE_LOCK_TTL_MS) and
 // would fail with a missing-export SyntaxError. --parallel=1 runs each test
@@ -82,40 +82,36 @@ mock.module('#config/context', () => ({
 	// matches the real Context shape: { client: MongoClient }
 	createDefaultContext: mock(() => ({ client: mockClient }))
 }))
-// Capture the REAL helper's closeWithTimeout + shutdown-budget functions
-// AFTER the papr/context mocks (so the real module's model deps load with
-// the mocks, not the real papr) and BEFORE the bullmq mock below shadows it:
-// the shutdown tests wire these real values into the mock, so shutdown()
-// exercises the real deadline/budget semantics (only worker.close,
-// closeQueue, and the queue Redis client stay mocked). Dynamic import is a
-// deliberate module-loading-boundary capture: a static import would hoist
-// above the mocks and pull in the real papr/models.
-// Snapshot the REAL helper's function values into a PLAIN object at capture
-// time, not the live ESM namespace: mock.module below mutates the namespace
-// in place, so a namespace property accessed after the mock (e.g. inside the
-// startShutdownBudget wrapper) would resolve to the wrapper itself and
-// recurse. The values captured here are the real functions, stable for the
-// life of the process.
-const realBullmqModule = await import('#helpers/jobs/bullmq')
+// Capture the REAL shutdown module's closeWithTimeout + shutdown-budget
+// functions (src/helpers/utils/shutdownBudget) AFTER the papr/context mocks
+// (so the real module's model deps load with the mocks, not the real papr)
+// and BEFORE the bullmq mock below shadows it: the shutdown tests wire
+// these real values into the mock, so shutdown() exercises the real
+// deadline/budget semantics (only worker.close, closeQueue, and the queue
+// Redis client stay mocked). Dynamic import is a deliberate
+// module-loading-boundary capture: a static import would hoist above the
+// mocks and pull in the real papr/models.
+// Snapshot the REAL module's function values into a PLAIN object at capture
+// time, not the live ESM namespace: the bullmq mock below mutates a
+// namespace in place, so a namespace property accessed after the mock (e.g.
+// inside the startShutdownBudget wrapper) could resolve to the wrapper
+// itself and recurse. The values captured here are the real functions,
+// stable for the life of the process.
+const realShutdownModule = await import('#helpers/utils/shutdownBudget')
 const realBullmq = {
-	closeWithTimeout: realBullmqModule.closeWithTimeout,
-	remainingShutdownBudget: realBullmqModule.remainingShutdownBudget,
-	startShutdownBudget: realBullmqModule.startShutdownBudget
+	closeWithTimeout: realShutdownModule.closeWithTimeout,
+	remainingShutdownBudget: realShutdownModule.remainingShutdownBudget,
+	startShutdownBudget: realShutdownModule.startShutdownBudget
 }
 
 // closeWithTimeout / startShutdownBudget / remainingShutdownBudget are the
 // REAL helper values (captured above): shutdown() runs the real deadline and
 // budget semantics, so a removed or reordered startShutdownBudget hands the
 // worker close a 0–1 ms deadline that force-disconnects before the graceful
-// close finishes.
-mock.module('#helpers/jobs/bullmq', () => ({
-	QUEUE_NAME: 'audnexus',
-	closeQueue: mockCloseQueue,
+// close finishes. Mocked HERE (the module src/worker.ts imports them from,
+// not bullmq): the worker draws its per-close deadlines from this module.
+mock.module('#helpers/utils/shutdownBudget', () => ({
 	closeWithTimeout: realBullmq.closeWithTimeout,
-	createWorker: mockCreateWorker,
-	getQueueRedisClient: mockGetQueueRedisClient,
-	getUpdateSchedulerIntervals: mockGetUpdateSchedulerIntervals,
-	getWorker: mockGetWorker,
 	remainingShutdownBudget: realBullmq.remainingShutdownBudget,
 	// The real budget state, with the DEFAULT fresh budget shortened from
 	// 9000ms to 600ms: the budget-exhaustion test needs the worker close to
@@ -127,6 +123,17 @@ mock.module('#helpers/jobs/bullmq', () => ({
 		testBudgetDeadline = Date.now() + fresh
 		realBullmq.startShutdownBudget(fresh)
 	},
+	SHUTDOWN_REDIS_BUDGET_MS: realShutdownModule.SHUTDOWN_REDIS_BUDGET_MS,
+	isShutdownBudgetExpired: realShutdownModule.isShutdownBudgetExpired
+}))
+
+mock.module('#helpers/jobs/bullmq', () => ({
+	QUEUE_NAME: 'audnexus',
+	closeQueue: mockCloseQueue,
+	createWorker: mockCreateWorker,
+	getQueueRedisClient: mockGetQueueRedisClient,
+	getUpdateSchedulerIntervals: mockGetUpdateSchedulerIntervals,
+	getWorker: mockGetWorker,
 	upsertUpdateSchedulers: mockUpsertUpdateSchedulers
 }))
 
