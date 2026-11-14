@@ -6,6 +6,7 @@ import { fastify, type FastifyBaseLogger } from 'fastify'
 import { Redis as IORedis } from 'ioredis'
 import ipRangeCheck from 'ip-range-check'
 import { MongoClient } from 'mongodb'
+import { pathToFileURL } from 'node:url'
 
 import { isBookHistoryEnabled } from '#config/bookHistory'
 import { Context, createDefaultContext } from '#config/context'
@@ -27,14 +28,7 @@ import searchBook from '#config/routes/books/search/show'
 import showBook from '#config/routes/books/show'
 import health from '#config/routes/health'
 import { registerMetricsRoute } from '#config/routes/metrics'
-import {
-	closeQueue,
-	closeWithTimeout,
-	getCacheRedis,
-	getUpdateSchedulerIntervals,
-	remainingShutdownBudget,
-	startShutdownBudget
-} from '#helpers/jobs/bullmq'
+import { closeQueue, getCacheRedis, getUpdateSchedulerIntervals } from '#helpers/jobs/bullmq'
 import { registerUpdateScheduler } from '#helpers/jobs/schedule'
 import { getAllIps as getCloudflareIps } from '#helpers/utils/cloudflareIps'
 import {
@@ -42,6 +36,11 @@ import {
 	createServerDrain,
 	type ServerDrain
 } from '#helpers/utils/httpShutdown'
+import {
+	closeWithTimeout,
+	remainingShutdownBudget,
+	startShutdownBudget
+} from '#helpers/utils/shutdownBudget'
 
 // Extend FastifyInstance with its MongoDB and control-Redis health clients.
 declare module 'fastify' {
@@ -200,7 +199,7 @@ async function registerRoutes() {
  * Starts the server
  * Should be called after registering plugins and routes
  */
-async function startServer() {
+export async function startServer() {
 	// Build trusted proxies list (includes Cloudflare IPs)
 	trustedProxies = await buildTrustedProxies()
 
@@ -270,7 +269,13 @@ async function startServer() {
 function closeHttpServer(): Promise<void> {
 	const drain = serverDrain
 	const drained = drain?.done() ?? Promise.resolve()
-	server.close()
+	// Fastify v5's close() rejects when an onClose hook throws; observing
+	// the promise keeps that failure logged instead of an unhandled
+	// rejection. The bounded drain stays authoritative for the budget: the
+	// tracked-request race decides when shutdown proceeds, and a stalled
+	// close() cannot stall it — it is only OBSERVED here.
+	const closed = server.close()
+	closed.catch((err: unknown) => server.log.error(err))
 	return closeServerWithTimeout(
 		drained,
 		() => {
@@ -281,10 +286,12 @@ function closeHttpServer(): Promise<void> {
 	)
 }
 
+let shuttingDown: Promise<void> | null = null
+
 /**
  * Shuts down the server and closes the DB connection
  */
-async function stopServer() {
+async function doStopServer(): Promise<void> {
 	if (!server) {
 		process.exit(0)
 	}
@@ -328,12 +335,45 @@ async function stopServer() {
 	} catch (err) {
 		server.log.error(err)
 		process.exit(1)
+	} finally {
+		// Teardown is done (success or failure): clear the single-flight
+		// guard so a later call starts fresh. In production process.exit(0)
+		// terminates the process immediately after, making the reset
+		// unreachable; where exit is stubbed (tests) it lets each call
+		// exercise a full teardown (the same reset as src/worker.ts).
+		shuttingDown = null
 	}
 }
 
-// Start the server
-startServer()
+/** Single-flight entry for the signal handlers: a second SIGTERM/SIGINT
+ * during teardown must not re-call the teardown — it would re-arm the
+ * shutdown budget and double-close the queue/Redis clients. The in-flight
+ * promise is kept (not awaited by the handler) so a failure is logged once
+ * and the process exit below still runs. Returns the in-flight promise so
+ * callers can await the exact teardown outcome (src/worker.ts does the
+ * same with shutdown()). */
+export function stopServer(): Promise<void> {
+	if (shuttingDown) return shuttingDown
+	shuttingDown = doStopServer()
+	shuttingDown.catch((err: unknown) => server.log.error(err))
+	return shuttingDown
+}
 
-// Handle SIGTERM and SIGINT
-process.on('SIGTERM', stopServer)
-process.on('SIGINT', stopServer)
+// Auto-execution only when running as the server entry — `bun run serve` →
+// `bun run dist/server.js`, or a direct `bun src/server.ts`. Importing this
+// module (e.g. tests) executes only the env guard and context creation;
+// startup and handler registration (startServer + signal listeners) run
+// only when the entry script is THIS file. `import.meta.main` is not
+// portable — it is undefined (falsy) on Node < 24.2.0, which would keep
+// the production image (node:22-alpine, `node ./dist/server.js`) from
+// ever starting the server — so the entry check compares import.meta.url
+// against process.argv[1] (file-URL vs path via pathToFileURL), which is
+// false for any imported module.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).toString()) {
+	// Start the server
+	void startServer()
+
+	// Handle SIGTERM and SIGINT
+	process.on('SIGTERM', stopServer)
+	process.on('SIGINT', stopServer)
+}
