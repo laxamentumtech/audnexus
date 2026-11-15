@@ -613,6 +613,62 @@ paths:
           description: No established history state and no trusted current book for this asin+region
         '409':
           description: Unresolved identity conflict for this asin+region (only while no established history state exists)
+  '/books/{ASIN}/similar':
+    get:
+      summary: Similar books
+      description: |
+        Returns the upstream RawSimilarities ASINs for a book, deduplicated
+        and capped at 50. With `expand=books` the ASINs are bulk-expanded
+        into compact book summaries; an empty similar list short-circuits
+        the expansion and returns `books: []` without the bulk fetch.
+      operationId: getBookSimilar
+      tags:
+        - Books
+      parameters:
+        - name: ASIN
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: region
+          in: query
+          required: false
+          description: Region code
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
+            default: us
+        - name: expand
+          in: query
+          required: false
+          description: Expand the similar ASINs into book summaries
+          schema:
+            type: string
+            enum: [books]
+      responses:
+        '200':
+          description: Similar ASINs (and summaries when expanded)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  asin:
+                    type: string
+                  region:
+                    type: string
+                  similarAsins:
+                    type: array
+                    items:
+                      type: string
+                  expanded:
+                    type: boolean
+                  books:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Book_summary'
+        '400':
+          description: Invalid path/query input (bad ASIN, bad region, bad expand, or unexpected keys)
   '/books/{ASIN}/history':
     get:
       summary: Book history
@@ -688,6 +744,7 @@ paths:
               - seriesPrimary
               - seriesSecondary
               - genres
+              - tags
               - literatureType
               - isAdult
               - artwork
@@ -1676,6 +1733,17 @@ components:
               $ref: '#/components/schemas/RatingDistribution'
             storyDistribution:
               $ref: '#/components/schemas/RatingDistribution'
+            goodreads:
+              type: object
+              description: Goodreads rating (US catalog only)
+              properties:
+                value:
+                  type: number
+                numRatings:
+                  type: number
+              required:
+                - value
+                - numRatings
           required:
             - value
             - numRatings
@@ -1708,6 +1776,10 @@ components:
           type: string
         summary:
           type: string
+        tags:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tag'
         title:
           type: string
       required:
@@ -1717,12 +1789,69 @@ components:
         - formatType
         - language
         - publisherName
-        - rating
         - region
         - releaseDate
         - runtimeLengthMin
         - summary
         - title
+    Tag:
+      type: object
+      properties:
+        tagId:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - mood
+            - theme
+            - topic
+            - editorial
+            - goodreads
+            - award
+            - social
+            - franchise
+            - duration
+            - instareads
+            - other
+      required:
+        - tagId
+        - name
+        - type
+    Book_summary:
+      type: object
+      description: Compact book projection for list/related views
+      properties:
+        asin:
+          type: string
+        title:
+          type: string
+        authors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+        narrators:
+          type: array
+          items:
+            $ref: '#/components/schemas/Person'
+        image:
+          type: string
+          format: uri
+        rating:
+          type: string
+        releaseDate:
+          type: string
+        runtimeLengthMin:
+          type: number
+        seriesPrimary:
+          $ref: '#/components/schemas/Series'
+      required:
+        - asin
+        - title
+        - authors
+        - narrators
+        - releaseDate
     Chapter:
       required:
         - asin

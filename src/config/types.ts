@@ -355,7 +355,6 @@ export type AudibleChapter = z.infer<typeof AudibleChapterSchema>
 
 // Requests
 export const ApiQueryStringSchema = z.object({
-	expand: z.enum(['books']).optional(),
 	name: NameSchema.optional(),
 	region: RegionSchema,
 	seedAuthors: z.enum(['0', '1']).optional(),

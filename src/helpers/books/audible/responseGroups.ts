@@ -32,6 +32,25 @@ export function isInvalidTagsGroupError(error: unknown): boolean {
 }
 
 /**
+ * One-shot fail-open for the `tags` response group. Runs `fetchOnce` on the
+ * original URL; when the upstream 400 rejects the `tags` group, retries
+ * exactly once on the group-stripped URL. Any other error — and a failed
+ * fallback fetch — passes through untouched so the caller wraps it with
+ * its own message specifics.
+ */
+export async function fetchWithTagsFallback<T>(
+	fetchOnce: (url: string) => Promise<T>,
+	requestUrl: string
+): Promise<T> {
+	try {
+		return await fetchOnce(requestUrl)
+	} catch (error) {
+		if (!isInvalidTagsGroupError(error)) throw error
+		return fetchOnce(withoutResponseGroup(requestUrl, 'tags'))
+	}
+}
+
+/**
  * Remove one exact group from a `response_groups` URL parameter.
  * Returns the original URL when the parameter or group is absent.
  */

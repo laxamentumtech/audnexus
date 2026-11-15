@@ -236,7 +236,7 @@ describe('buildFieldObservations', () => {
 		delete (product as Record<string, unknown>)['merchandising_summary']
 		delete (product as Record<string, unknown>)['narrators']
 		const fields = buildFieldObservations(makeInputs({ product }))
-		const fieldsPresent = new Set(fields.map((f) => [f.field, f.value]))
+		const fieldsPresent = new Set(fields.map((f) => f.field))
 		expect(fieldsPresent.has('description')).toBe(false)
 		expect(fieldsPresent.has('narrators')).toBe(false)
 	})

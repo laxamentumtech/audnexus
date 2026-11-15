@@ -256,6 +256,38 @@ describe('PaprAudibleBookHelper should', () => {
 		)
 	})
 
+	test('update keeps a concurrent refresh: stale T0 snapshot does not restore', async () => {
+		// Interleaving: createOrUpdate reads T0 (no tags), a concurrent
+		// refresh commits T1 (adds tags) before update() runs. The write
+		// must be built against the fresh T1 read, so T1's tags survive
+		// and only the incoming title changes.
+		const newTags = [{ tagId: 't2', name: 'Feel-Good', type: 'mood' as const }]
+		const t1 = {
+			...parsedBook,
+			title: 'Changed Title',
+			tags: newTags
+		} as unknown as Record<string, unknown>
+		const incoming = { ...parsedBook, title: 'Changed Title' }
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(parsedBook as unknown as BookDocument) // T0 read
+			.mockResolvedValueOnce({ ...bookWithoutProjection, tags: newTags }) // T1 read
+			.mockResolvedValue(t1 as unknown as BookDocument) // post-update read
+		helper.setData(incoming as typeof parsedBook)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		expect(result.data?.tags).toEqual(newTags)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{
+				$set: {
+					...t1,
+					createdAt: bookWithoutProjection._id.getTimestamp()
+				},
+				$currentDate: { updatedAt: true }
+			}
+		)
+	})
 	test('createOrUpdate with stored empty genres is a no-op update', async () => {
 		// A stored `genres: []` is a real key the database retains, so the
 		// effective write must keep it: the write equals the stored row and

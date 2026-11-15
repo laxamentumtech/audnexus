@@ -141,10 +141,12 @@ export default class PaprAudibleBookHelper {
 				}
 			}
 			this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
-			// Write the effective object so evidence-free fields (rating,
-			// series, stored tags/Goodreads) are $set with their stored
-			// values instead of being dropped.
-			this.bookData = effective
+			// update() re-reads the row and rebuilds the effective write
+			// against that fresh read, so evidence-free fields (rating,
+			// series, stored tags/Goodreads) are $set with the current
+			// stored values, and a concurrent refresh that lands between
+			// this read and the write is not restored from a stale
+			// snapshot.
 			return this.update()
 		}
 
@@ -164,13 +166,24 @@ export default class PaprAudibleBookHelper {
 			if (!found.data) {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Book'))
 			}
+			// Rebuild the effective write against THIS fresh read, not a
+			// snapshot the caller took on an earlier read: a concurrent
+			// refresh that committed in between is not clobbered, and
+			// retained evidence-free fields take their values from the
+			// current row.
+			const storedParsed = ApiBookSchema.safeParse(found.data)
+			const { book: effective } = buildEffectiveWrite(
+				storedParsed.success ? storedParsed.data : null,
+				this.bookData,
+				{}
+			)
 			await BookModel.updateOne(
 				{
 					asin: this.asin,
 					$or: [{ region: { $exists: false } }, { region: this.options.region }]
 				},
 				{
-					$set: { ...this.bookData, createdAt: found.data._id.getTimestamp() },
+					$set: { ...effective, createdAt: found.data._id.getTimestamp() },
 					$currentDate: { updatedAt: true }
 				}
 			)

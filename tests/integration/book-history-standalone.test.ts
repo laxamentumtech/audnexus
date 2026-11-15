@@ -18,6 +18,7 @@ import { prepare } from '../../src/history'
 import { type HistoryMongo,resolveHistoryMongo } from './env'
 
 import { bookHistoryStore, initialize } from '#config/papr'
+import { ApiBookSchema } from '#config/types'
 import type { PersistInput } from '#helpers/database/papr/BookHistoryStore'
 
 const available = (() => {
@@ -211,7 +212,7 @@ run('BookHistoryStore against a replica set', () => {
 		// asserted by neighbouring tests, so this flow cannot reuse them.
 		// Contract: a field's first observation initializes its baseline
 		// silently; a later value change records the revision.
-		const tagsAsin = 'B0TAGSHIST1'
+		const tagsAsin = 'B0TAGHIST1'
 		const tagsKey = `${REGION}:${tagsAsin}`
 		const tagsBook = book({ asin: tagsAsin, title: 'Tags Base' })
 		const baseObs = observation({ title: 'Tags Base', imageId: IMG1 })
@@ -295,6 +296,10 @@ run('BookHistoryStore against a replica set', () => {
 			{ tagId: 'adbl_rec_tag_0-2-2', name: 'Feel-Good', type: 'mood' },
 			{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }
 		])
+		// The persisted row is the public response contract: it must parse
+		// against ApiBookSchema (an 11-char fixture ASIN would fail the 10-char
+		// AsinSchema and would have masked this).
+		expect(ApiBookSchema.safeParse(result.data).success).toBe(true)
 	})
 
 	test('an equal accepted observation bumps the watermark without a revision', async () => {

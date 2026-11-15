@@ -3,7 +3,6 @@ import { afterAll, beforeEach, describe, expect, type Mock,mock, test } from 'bu
 
 import BookSimilarHelper from '#helpers/books/audible/BookSimilarHelper'
 import * as fetchPlus from '#helpers/utils/fetchPlus'
-import { createMockLogger } from '#tests/setup/mockLogger'
 
 mock.module('#helpers/utils/fetchPlus', () => ({
 	default: mock()
@@ -12,7 +11,6 @@ mock.module('#helpers/utils/fetchPlus', () => ({
 const mockFetch = fetchPlus.default as Mock
 
 const ASIN = 'B079LRSMNN'
-const mockLogger = createMockLogger()
 
 const similarResponse = (products: unknown) => ({
 	data: { similar_products: products },
@@ -46,7 +44,7 @@ beforeEach(() => {
 describe('BookSimilarHelper', () => {
 	test('fetchSimilar requests RawSimilarities with a 50-result cap', async () => {
 		mockFetch.mockResolvedValue(similarResponse([]) as AxiosResponse)
-		const helper = new BookSimilarHelper(ASIN, 'us', mockLogger)
+		const helper = new BookSimilarHelper(ASIN, 'us')
 		await helper.fetchSimilar()
 		const url = mockFetch.mock.calls[0][0] as string
 		expect(url).toBe(
@@ -56,14 +54,14 @@ describe('BookSimilarHelper', () => {
 
 	test('fetchSimilar uses the region TLD', async () => {
 		mockFetch.mockResolvedValue(similarResponse([]) as AxiosResponse)
-		const helper = new BookSimilarHelper(ASIN, 'uk', mockLogger)
+		const helper = new BookSimilarHelper(ASIN, 'uk')
 		await helper.fetchSimilar()
 		expect(mockFetch.mock.calls[0][0]).toContain('https://api.audible.co.uk/')
 	})
 
 	test('fetchSimilar wraps upstream failures', async () => {
 		mockFetch.mockRejectedValue({ status: 500 })
-		const helper = new BookSimilarHelper(ASIN, 'us', mockLogger)
+		const helper = new BookSimilarHelper(ASIN, 'us')
 		await expect(helper.fetchSimilar()).rejects.toThrow(
 			`An error occured while fetching data from Audible API. Response: 500, ASIN: ${ASIN}`
 		)
@@ -82,7 +80,7 @@ describe('BookSimilarHelper', () => {
 			}))
 		]
 		mockFetch.mockResolvedValue(similarResponse(products) as AxiosResponse)
-		const helper = new BookSimilarHelper(ASIN, 'us', mockLogger)
+		const helper = new BookSimilarHelper(ASIN, 'us')
 		const asins = await helper.getSimilarAsins()
 		expect(asins).toHaveLength(50)
 		expect(asins[0]).toBe('B01AAAAAAA1')
@@ -100,7 +98,7 @@ describe('BookSimilarHelper', () => {
 
 	test('expand maps products to summaries', async () => {
 		mockFetch.mockResolvedValue(bulkResponse([fullProduct]) as AxiosResponse)
-		const helper = new BookSimilarHelper(ASIN, 'us', mockLogger)
+		const helper = new BookSimilarHelper(ASIN, 'us')
 		const [summary] = await helper.expand(['B010000001'])
 		expect(summary).toEqual({
 			asin: 'B010000001',

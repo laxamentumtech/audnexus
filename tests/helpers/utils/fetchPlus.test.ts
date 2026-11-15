@@ -229,6 +229,19 @@ describe('fetchPlus should', () => {
 		expect(sleepDelays).toEqual([])
 	})
 
+	test('retries 408: request timeout is transient', async () => {
+		const response = { status: 408 }
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+		mockGet
+			.mockImplementationOnce(() => Promise.reject(Object.assign(new Error('408'), { response })))
+			.mockResolvedValueOnce(successResponse)
+
+		const result = await fetchPlus('test.com')
+		expect(result).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays).toEqual([])
+	})
+
 	test('still retries 429', async () => {
 		const mockError = {
 			response: {

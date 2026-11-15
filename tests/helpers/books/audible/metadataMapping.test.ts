@@ -47,6 +47,18 @@ describe('mapAudibleTags', () => {
 		])
 	})
 
+	test('maps inherited Object.prototype names to other', () => {
+		// A tag type named `constructor` (or `toString`) is an inherited
+		// key of TAG_TYPE_MAP, not an own entry: it must not surface the
+		// inherited function/value, which ApiTagSchema would reject.
+		expect(mapAudibleTags([entry({ type: 'constructor' })])).toEqual([
+			{ tagId: 'adbl_rec_tag_0-2-172', name: 'Witty', type: 'other' }
+		])
+		expect(mapAudibleTags([entry({ type: 'toString' })])).toEqual([
+			{ tagId: 'adbl_rec_tag_0-2-172', name: 'Witty', type: 'other' }
+		])
+	})
+
 	test('deduplicates by tagId keeping first occurrence and upstream order', () => {
 		expect(
 			mapAudibleTags([

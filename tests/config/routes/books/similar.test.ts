@@ -135,4 +135,16 @@ describe('GET /books/:asin/similar', () => {
 		})
 		expect(response.statusCode).toBe(400)
 	})
+
+	test('padded ASINs are trimmed before the upstream fetch', async () => {
+		mockSimilarFetch.mockResolvedValue(similarResponse([]))
+		const response = await app.inject({
+			method: 'GET',
+			url: `/books/%20${ASIN}%20/similar`
+		})
+		expect(response.statusCode).toBe(200)
+		expect(response.json().asin).toBe(ASIN)
+		expect(mockSimilarFetch.mock.calls[0][0]).toContain(`products/${ASIN}/sims`)
+		expect(mockSimilarFetch.mock.calls[0][0]).not.toContain(`products/${ASIN} /sims`)
+	})
 })

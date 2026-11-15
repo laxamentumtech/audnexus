@@ -2,11 +2,7 @@ import type { FastifyBaseLogger } from 'fastify'
 
 import { ApiBook, AudibleProduct } from '#config/types'
 import ApiHelper, { REQUESTED_IMAGE_SIZES } from '#helpers/books/audible/ApiHelper'
-import {
-	fetchStatus,
-	isInvalidTagsGroupError,
-	withoutResponseGroup
-} from '#helpers/books/audible/responseGroups'
+import { fetchStatus, fetchWithTagsFallback } from '#helpers/books/audible/responseGroups'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageHTTPFetch } from '#static/messages'
@@ -52,24 +48,10 @@ class BookSearchApiHelper {
 		const fetchOnce = (url: string) =>
 			fetch(url).then((response) => response.data as { products: AudibleProduct['product'][] })
 		try {
-			return await fetchOnce(this.requestUrl)
-		} catch (error) {
 			// One-shot fail-open: when Audible rejects the `tags` response
-			// group, retry exactly once without it.
-			if (isInvalidTagsGroupError(error)) {
-				try {
-					return await fetchOnce(withoutResponseGroup(this.requestUrl, 'tags'))
-				} catch (fallbackError) {
-					throw new Error(
-						ErrorMessageHTTPFetch(
-							'Audible book search API',
-							fetchStatus(fallbackError),
-							'Audible API'
-						),
-						{ cause: fallbackError }
-					)
-				}
-			}
+			// group, fetchWithTagsFallback retries exactly once without it.
+			return await fetchWithTagsFallback(fetchOnce, this.requestUrl)
+		} catch (error) {
 			throw new Error(
 				ErrorMessageHTTPFetch('Audible book search API', fetchStatus(error), 'Audible API'),
 				{ cause: error }

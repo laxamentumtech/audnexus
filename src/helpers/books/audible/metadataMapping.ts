@@ -52,7 +52,10 @@ export function mapAudibleTags(raw: unknown): ApiTag[] | undefined {
 		tags.push({
 			tagId: id,
 			name: displayText,
-			type: TAG_TYPE_MAP[type] ?? 'other'
+			// Own-property lookup: inherited Object.prototype keys (e.g. a
+			// tag type named `constructor`) must map to `other`, not to an
+			// inherited value that fails ApiTagSchema validation.
+			type: Object.hasOwn(TAG_TYPE_MAP, type) ? TAG_TYPE_MAP[type] : 'other'
 		})
 	}
 	return tags.length > 0 ? tags : undefined

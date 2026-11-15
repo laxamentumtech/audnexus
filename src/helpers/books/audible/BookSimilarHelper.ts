@@ -1,5 +1,3 @@
-import type { FastifyBaseLogger } from 'fastify'
-
 import type { ApiBookSummary, ApiSeries } from '#config/types'
 import { ApiBookSummarySchema, AudibleSeriesSchema } from '#config/types'
 import { fetchStatus } from '#helpers/books/audible/responseGroups'
@@ -40,14 +38,10 @@ interface SimilarResponse {
 
 class BookSimilarHelper {
 	asin: string
-	region: string
-	logger?: FastifyBaseLogger
 	private baseDomain: string
 
-	constructor(asin: string, region: string, logger?: FastifyBaseLogger) {
+	constructor(asin: string, region: string) {
 		this.asin = asin
-		this.region = region
-		this.logger = logger
 		this.baseDomain = `https://api.audible.${regions[region].tld}`
 	}
 

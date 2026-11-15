@@ -34,11 +34,7 @@ import {
 } from '#helpers/books/audible/BookObservation'
 import literatureTypeFromProduct from '#helpers/books/audible/literatureType'
 import { mapAudibleTags, parseGoodreadsRating } from '#helpers/books/audible/metadataMapping'
-import {
-	fetchStatus,
-	isInvalidTagsGroupError,
-	withoutResponseGroup
-} from '#helpers/books/audible/responseGroups'
+import { fetchStatus, fetchWithTagsFallback } from '#helpers/books/audible/responseGroups'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
@@ -581,9 +577,6 @@ class ApiHelper {
 	private async fetchOnce(url: string): Promise<AudibleProduct> {
 		const response = await fetch(url)
 		const json: AudibleProduct = response.data
-		// Receipt time recorded immediately after the successful
-		// product response, before any parsing or fallback rights
-		// requests. Collection-only: disabled paths allocate nothing.
 		if (this.captureHistory) this.apiReceivedAt = new Date()
 		return json
 	}
@@ -595,21 +588,12 @@ class ApiHelper {
 	 */
 	async fetchBook(): Promise<AudibleProduct> {
 		try {
-			return await this.fetchOnce(this.requestUrl)
-		} catch (error) {
 			// Audible occasionally rejects the `tags` response group with a
-			// 400. Retry exactly once without that group so the book is
-			// still fetchable; the fallback response simply lacks tags.
-			if (isInvalidTagsGroupError(error)) {
-				try {
-					return await this.fetchOnce(withoutResponseGroup(this.requestUrl, 'tags'))
-				} catch (fallbackError) {
-					throw new Error(
-						ErrorMessageHTTPFetch(this.asin, fetchStatus(fallbackError), 'Audible API'),
-						{ cause: fallbackError }
-					)
-				}
-			}
+			// 400: fetchWithTagsFallback retries exactly once without that
+			// group so the book is still fetchable; the fallback response
+			// simply lacks tags.
+			return await fetchWithTagsFallback((url) => this.fetchOnce(url), this.requestUrl)
+		} catch (error) {
 			throw new Error(ErrorMessageHTTPFetch(this.asin, fetchStatus(error), 'Audible API'), {
 				cause: error
 			})
