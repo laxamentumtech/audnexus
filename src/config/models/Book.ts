@@ -35,7 +35,7 @@ const bookSchema = schema(
 			})
 		),
 		publisherName: types.string({ required: true }),
-		rating: types.string({ required: true }),
+		rating: types.string(),
 		ratings: types.object({
 			value: types.string({ required: true }),
 			numRatings: types.number({ required: true }),
@@ -63,6 +63,10 @@ const bookSchema = schema(
 				three: types.number({ required: true }),
 				two: types.number({ required: true }),
 				one: types.number({ required: true })
+			}),
+			goodreads: types.object({
+				value: types.number({ required: true }),
+				numRatings: types.number({ required: true })
 			})
 		}),
 		region: types.string({
@@ -84,6 +88,30 @@ const bookSchema = schema(
 		}),
 		subtitle: types.string(),
 		summary: types.string({ required: true }),
+		tags: types.array(
+			types.object({
+				tagId: types.string({ required: true }),
+				name: types.string({ required: true }),
+				// types.enum (not types.string + enum) so the document type
+				// narrows to the union and stays compatible with ApiBook.
+				type: types.enum(
+					[
+						'mood',
+						'theme',
+						'topic',
+						'editorial',
+						'goodreads',
+						'award',
+						'social',
+						'franchise',
+						'duration',
+						'instareads',
+						'other'
+					] as const,
+					{ required: true }
+				)
+			})
+		),
 		title: types.string({ required: true })
 	},
 	{

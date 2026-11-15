@@ -171,9 +171,11 @@ describe('PaprAudibleBookHelper should', () => {
 		helper.setData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
-	test('createOrUpdate genres on old, but not on new', async () => {
+	test('createOrUpdate empty incoming genres keep stored row', async () => {
+		// No genre gate: the effective write retains stored genres, so the
+		// projection is unchanged and no update is performed.
 		const obj = { data: parsedBook, modified: false }
-		mockIsEqualData.mockReturnValue(false)
+		mockIsEqualData.mockReturnValue(true)
 		mockFindOne
 			.mockResolvedValueOnce(parsedBook as unknown as BookDocument)
 			.mockResolvedValueOnce(bookWithoutProjection)
@@ -181,9 +183,10 @@ describe('PaprAudibleBookHelper should', () => {
 		helper.setData(parsedBookWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
-	test('createOrUpdate no genres on new or old', async () => {
+	test('createOrUpdate identical book without genres', async () => {
+		// No genre gate: identical projections short-circuit to no update.
 		const obj = { data: parsedBookWithoutGenres, modified: false }
-		mockIsEqualData.mockReturnValue(false)
+		mockIsEqualData.mockReturnValue(true)
 		mockFindOne
 			.mockResolvedValueOnce(parsedBookWithoutGenres as unknown as BookDocument)
 			.mockResolvedValueOnce(bookWithoutGenresWithoutProjection)
@@ -203,6 +206,53 @@ describe('PaprAudibleBookHelper should', () => {
 				$set: { ...parsedBook, createdAt: bookWithoutProjection._id.getTimestamp() },
 				$currentDate: { updatedAt: true }
 			}
+		)
+	})
+	test('createOrUpdate tags-only change persists the effective write', async () => {
+		// A tags-only change is a real update even when genres are unchanged:
+		// the effective write $sets the new tags and every other stored value.
+		const stored = parsedBook as unknown as Record<string, unknown>
+		const newTags = [{ tagId: 't1', name: 'Witty', type: 'mood' as const }]
+		const incoming = { ...parsedBook, tags: newTags }
+		const expectedSet = {
+			...stored,
+			tags: newTags,
+			createdAt: bookWithoutProjection._id.getTimestamp()
+		}
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(stored as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutProjection)
+			.mockResolvedValue(stored as unknown as BookDocument)
+		helper.setData(incoming as typeof parsedBook)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{ $set: expectedSet, $currentDate: { updatedAt: true } }
+		)
+	})
+	test('createOrUpdate empty incoming genres keep stored genres in the write', async () => {
+		// Genres retention: an empty incoming genres array never nukes the
+		// stored genres; a title change still triggers the effective write.
+		const stored = parsedBook as unknown as Record<string, unknown>
+		const incoming = { ...parsedBook, title: 'New Title', genres: [] }
+		const expectedSet = {
+			...stored,
+			title: 'New Title',
+			createdAt: bookWithoutProjection._id.getTimestamp()
+		}
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(stored as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutProjection)
+			.mockResolvedValue(stored as unknown as BookDocument)
+		helper.setData(incoming as typeof parsedBook)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{ $set: expectedSet, $currentDate: { updatedAt: true } }
 		)
 	})
 })

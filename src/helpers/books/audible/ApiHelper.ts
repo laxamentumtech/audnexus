@@ -33,6 +33,12 @@ import {
 	seriesEvidence
 } from '#helpers/books/audible/BookObservation'
 import literatureTypeFromProduct from '#helpers/books/audible/literatureType'
+import { mapAudibleTags, parseGoodreadsRating } from '#helpers/books/audible/metadataMapping'
+import {
+	fetchStatus,
+	isInvalidTagsGroupError,
+	withoutResponseGroup
+} from '#helpers/books/audible/responseGroups'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import cleanupDescription from '#helpers/utils/cleanupDescription'
 import fetch from '#helpers/utils/fetchPlus'
@@ -54,7 +60,7 @@ const DELISTED_STATES: readonly string[] = ['NOT_AVAILABLE_FOR_PURCHASE']
 /** The image renditions requested from the product API (`image_sizes`),
  * mirrored verbatim in the history evidence so the observation and the
  * request can never drift. */
-const REQUESTED_IMAGE_SIZES = ['500', '1024']
+export const REQUESTED_IMAGE_SIZES = ['500', '1024']
 
 interface HistoryEvidence {
 	apiReceivedAt: Date
@@ -107,8 +113,11 @@ class ApiHelper {
 			'product_extended_attrs',
 			'rating',
 			'series',
-			`image_sizes=${REQUESTED_IMAGE_SIZES.join(',')}`
+			'tags'
 		]
+		// Goodreads ratings are only requested for the US catalog
+		if (region === 'us') paramArr.push('goodreads_ratings')
+		paramArr.push(`image_sizes=${REQUESTED_IMAGE_SIZES.join(',')}`)
 		const paramStr = helper.getParamString(paramArr)
 		const params = `response_groups=${paramStr}`
 		this.requestUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
@@ -441,6 +450,7 @@ class ApiHelper {
 			product: evidence.product,
 			copyrightYear: evidence.copyrightYear,
 			apiGenres: evidence.apiGenres,
+			apiTags: book.tags,
 			literatureTypeJustified: isLiteratureTypeJustified(
 				evidence.ladders.length > 0
 					? evidence.ladders.map((ladder) => ({ ladder, root: '' }))
@@ -494,6 +504,13 @@ class ApiHelper {
 			series2 = this.getSeriesSecondary(this.audibleResponse.series)
 		}
 		const ratings = this.getRatings()
+		// Non-genre tags and the US-only Goodreads rating are mapped
+		// independently of the category-ladder genres.
+		const tags = mapAudibleTags(this.audibleResponse.tags)
+		const goodreads = parseGoodreadsRating(this.audibleResponse.goodreads_ratings)
+		// Goodreads rides the Audible ratings block; no Audible ratings →
+		// no ratings object at all, Goodreads included.
+		const ratingsData = ratings ? { ...ratings, ...(goodreads ? { goodreads } : {}) } : undefined
 		// Parse final data
 		const data = ApiBookSchema.parse({
 			asin: this.audibleResponse.asin,
@@ -535,8 +552,8 @@ class ApiHelper {
 			...(this.audibleResponse.rating && {
 				rating: this.audibleResponse.rating.overall_distribution.display_average_rating.toString()
 			}),
-			...(ratings && {
-				ratings
+			...(ratingsData && {
+				ratings: ratingsData
 			}),
 			region: this.region,
 			releaseDate: this.getReleaseDate(),
@@ -549,10 +566,26 @@ class ApiHelper {
 			}),
 			subtitle: this.audibleResponse.subtitle,
 			summary: this.audibleResponse.publisher_summary ?? '',
+			...(tags !== undefined && { tags }),
 			title: this.audibleResponse.title
 		})
 		this.finalData = data
 		return data
+	}
+
+	/**
+	 * One product fetch. The receipt time is recorded immediately after the
+	 * successful response, before any parsing. Collection-only: disabled
+	 * paths allocate nothing.
+	 */
+	private async fetchOnce(url: string): Promise<AudibleProduct> {
+		const response = await fetch(url)
+		const json: AudibleProduct = response.data
+		// Receipt time recorded immediately after the successful
+		// product response, before any parsing or fallback rights
+		// requests. Collection-only: disabled paths allocate nothing.
+		if (this.captureHistory) this.apiReceivedAt = new Date()
+		return json
 	}
 
 	/**
@@ -561,18 +594,26 @@ class ApiHelper {
 	 * @returns {Promise<AudibleProduct>} response from Audible API
 	 */
 	async fetchBook(): Promise<AudibleProduct> {
-		return fetch(this.requestUrl)
-			.then(async (response) => {
-				const json: AudibleProduct = response.data
-				// Receipt time recorded immediately after the successful
-				// product response, before any parsing or fallback rights
-				// requests. Collection-only: disabled paths allocate nothing.
-				if (this.captureHistory) this.apiReceivedAt = new Date()
-				return json
+		try {
+			return await this.fetchOnce(this.requestUrl)
+		} catch (error) {
+			// Audible occasionally rejects the `tags` response group with a
+			// 400. Retry exactly once without that group so the book is
+			// still fetchable; the fallback response simply lacks tags.
+			if (isInvalidTagsGroupError(error)) {
+				try {
+					return await this.fetchOnce(withoutResponseGroup(this.requestUrl, 'tags'))
+				} catch (fallbackError) {
+					throw new Error(
+						ErrorMessageHTTPFetch(this.asin, fetchStatus(fallbackError), 'Audible API'),
+						{ cause: fallbackError }
+					)
+				}
+			}
+			throw new Error(ErrorMessageHTTPFetch(this.asin, fetchStatus(error), 'Audible API'), {
+				cause: error
 			})
-			.catch((error) => {
-				throw new Error(ErrorMessageHTTPFetch(this.asin, error.status, 'Audible API'))
-			})
+		}
 	}
 	/**
 	 * Fetches the product_state from the customer_rights response group.

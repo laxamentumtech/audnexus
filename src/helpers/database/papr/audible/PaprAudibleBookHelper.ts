@@ -4,6 +4,7 @@ import BookModel, { BookDocument } from '#config/models/Book'
 import { ApiBook, ApiBookSchema, ApiQueryString } from '#config/types'
 import { isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
+import { buildEffectiveWrite } from '#helpers/database/bookWriteProjection'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -118,11 +119,11 @@ export default class PaprAudibleBookHelper {
 	/**
 	 * Creates a book if it doesn't exist.
 	 *
-	 * Updates a existing book if:
-	 *
-	 * 1. `options.update` is 1 and the book exists
-	 * 2. The incoming data is different from the existing data
-	 * 3. Genres exist or are different
+	 * Updates an existing book when `options.update` is 1 and the
+	 * effective write (stored projection + incoming evidence, retention
+	 * rules for evidence-free fields) differs from the stored row. A
+	 * tags/ratings-only change persists; empty incoming genres no
+	 * longer block an update.
 	 */
 	async createOrUpdate(): Promise<PaprBookReturn> {
 		const findInDb = await this.findOneWithProjection()
@@ -130,27 +131,21 @@ export default class PaprAudibleBookHelper {
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
-			// If the objects are the exact same return right away
-			const isEqual = this.sharedHelper.isEqualData(data, this.bookData)
+			const { book: effective } = buildEffectiveWrite(data, this.bookData, {})
+			// If the effective write is the exact same row return right away
+			const isEqual = this.sharedHelper.isEqualData(data, effective)
 			if (isEqual) {
 				return {
 					data: data,
 					modified: false
 				}
 			}
-			// Check state of existing book
-			// Only update if either genres exist and can be checked
-			// -or if genres exist on new item but not old
-			if (data.genres || (!data.genres && this.bookData.genres)) {
-				// Only update if it's not nuked data
-				if (this.bookData.genres?.length) {
-					this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
-					// Update
-					return this.update()
-				}
-			}
-			// No update performed, return original
-			return findInDb
+			this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
+			// Write the effective object so evidence-free fields (rating,
+			// series, stored tags/Goodreads) are $set with their stored
+			// values instead of being dropped.
+			this.bookData = effective
+			return this.update()
 		}
 
 		// Create

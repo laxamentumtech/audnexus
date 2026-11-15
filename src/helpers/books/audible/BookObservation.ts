@@ -23,9 +23,10 @@ import {
 	GENRES_API_POLICY,
 	GENRES_HTML_POLICY,
 	RELEASE_DATE_ISSUE_POLICY,
-	RELEASE_DATE_RELEASE_POLICY
+	RELEASE_DATE_RELEASE_POLICY,
+	TAGS_API_POLICY
 } from '#config/bookHistory'
-import type { ApiBook, ApiGenre, AudibleSeries, baseShape } from '#config/types'
+import type { ApiBook, ApiGenre, ApiTag, AudibleSeries, baseShape } from '#config/types'
 
 /**
  * The raw own product shape (base, pre-fallback), extended with the
@@ -99,6 +100,29 @@ export function canonicalGenres(genres: ApiGenre[]): JsonValue {
 	return result
 }
 
+/**
+ * Canonicalize history tags for comparison/storage only: deduplicate and
+ * sort the `(tagId, name, type)` tuples. Does not reorder the current
+ * public response.
+ */
+export function canonicalTags(tags: ApiTag[]): JsonValue {
+	const tuples = tags
+		.map((t) => ({
+			key: `${t.tagId}\u0000${t.name}\u0000${t.type}`,
+			value: [t.tagId, t.name, t.type]
+		}))
+		.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+	const seen = new Set<string>()
+	const result: JsonValue[] = []
+	for (const tuple of tuples) {
+		if (!seen.has(tuple.key)) {
+			seen.add(tuple.key)
+			result.push(tuple.value)
+		}
+	}
+	return result
+}
+
 /** Outcome of the mapper's series selection for a book-shaped product. */
 export type SeriesOutcome = 'unavailable' | 'selected' | 'absent' | 'failed'
 
@@ -115,6 +139,9 @@ export interface ObservationInputs {
 	copyrightYear: number | undefined
 	/** Nonempty mapped genres from the API path (empty when never mapped). */
 	apiGenres: ApiGenre[]
+	/** Mapped tags from the API path (`undefined` when the group was not
+	 * fetched; `[]` for an explicitly empty array). */
+	apiTags: ApiTag[] | undefined
 	/** Which classification inputs justified the derived literature type. */
 	literatureTypeJustified: boolean
 	/** Raw `series` key present on a book-shaped content type. */
@@ -133,6 +160,7 @@ export function buildFieldObservations(input: ObservationInputs): FieldObservati
 		product,
 		copyrightYear,
 		apiGenres,
+		apiTags,
 		literatureTypeJustified,
 		seriesKeyPresent,
 		seriesOutcome
@@ -214,6 +242,13 @@ export function buildFieldObservations(input: ObservationInputs): FieldObservati
 	// explicit "genres removed" observation — so no `ABSENT` is pushed here.
 	if (apiGenres.length > 0) {
 		push('genres', GENRES_API_POLICY, asValue(canonicalGenres(apiGenres)))
+	}
+
+	// Tags: same asymmetry as genres — `undefined` means the tags group
+	// was not fetched (evidence absent → omit, retain any old baseline),
+	// while `[]` is the explicit "no tags" value and is observed.
+	if (apiTags !== undefined) {
+		push('tags', TAGS_API_POLICY, asValue(canonicalTags(apiTags)))
 	}
 
 	if (literatureTypeJustified && book.literatureType) {

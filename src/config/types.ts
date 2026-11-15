@@ -84,6 +84,30 @@ export const ApiNarratorOnBookSchema = z.object({
 })
 export type ApiNarratorOnBook = z.infer<typeof ApiNarratorOnBookSchema>
 
+// Tags
+// Non-genre tag namespaces from the product API `tags` response group
+export const ApiTagTypeSchema = z.enum([
+	'mood',
+	'theme',
+	'topic',
+	'editorial',
+	'goodreads',
+	'award',
+	'social',
+	'franchise',
+	'duration',
+	'instareads',
+	'other'
+])
+export type ApiTagType = z.infer<typeof ApiTagTypeSchema>
+
+export const ApiTagSchema = z.object({
+	tagId: z.string(),
+	name: z.string(),
+	type: ApiTagTypeSchema
+})
+export type ApiTag = z.infer<typeof ApiTagSchema>
+
 // Book ratings
 // Star distribution counts derived from Audible's rating response group
 export const ApiRatingDistributionSchema = z.object({
@@ -101,7 +125,8 @@ export const ApiRatingsSchema = z.object({
 	numReviews: z.number(),
 	distribution: ApiRatingDistributionSchema,
 	performanceDistribution: ApiRatingDistributionSchema.optional(),
-	storyDistribution: ApiRatingDistributionSchema.optional()
+	storyDistribution: ApiRatingDistributionSchema.optional(),
+	goodreads: z.object({ value: z.number(), numRatings: z.number() }).optional()
 })
 export type ApiRatings = z.infer<typeof ApiRatingsSchema>
 
@@ -125,7 +150,7 @@ export const ApiBookSchema = z.object({
 	narrators: z.array(ApiNarratorOnBookSchema).optional(),
 	publisherName: z.string(),
 	ratings: ApiRatingsSchema.optional(),
-	rating: z.string(),
+	rating: z.string().optional(),
 	region: RegionSchema,
 	releaseDate: z.date(),
 	runtimeLengthMin: z.number().default(0),
@@ -133,9 +158,27 @@ export const ApiBookSchema = z.object({
 	seriesSecondary: ApiSeriesSchema.optional(),
 	subtitle: z.string().optional(),
 	summary: z.string(),
+	tags: z.array(ApiTagSchema).optional(),
 	title: TitleSchema
 })
 export type ApiBook = z.infer<typeof ApiBookSchema>
+
+/**
+ * Compact book projection for list/related views (e.g. the
+ * `/books/{ASIN}/similar` expansion).
+ */
+export const ApiBookSummarySchema = z.object({
+	asin: AsinSchema,
+	title: TitleSchema,
+	authors: z.array(ApiAuthorOnBookSchema),
+	narrators: z.array(ApiAuthorOnBookSchema),
+	image: z.string().url().optional(),
+	rating: z.string().optional(),
+	releaseDate: z.string(),
+	runtimeLengthMin: z.number().optional(),
+	seriesPrimary: ApiSeriesSchema.optional()
+})
+export type ApiBookSummary = z.infer<typeof ApiBookSummarySchema>
 
 // What we expect to keep from Audible's HTML pages
 export const HtmlBookSchema = z.object({
@@ -222,6 +265,11 @@ export const baseShape = z.object({
 	rating: AudibleRatingSchema.optional(),
 	// Audible passes this as a string, but it's a boolean in the string
 	read_along_support: z.coerce.boolean().optional(),
+	// Raw non-genre tag namespaces (moods, themes, editorial, ...) —
+	// validated per-entry by mapAudibleTags, not by this schema.
+	tags: z.unknown().optional(),
+	// US-only Goodreads rating block from the goodreads_ratings group.
+	goodreads_ratings: z.unknown().optional(),
 	release_date: z.string(),
 	runtime_length_min: z.number().or(z.literal(0)).optional(),
 	sku: z.string().optional(),
@@ -307,6 +355,7 @@ export type AudibleChapter = z.infer<typeof AudibleChapterSchema>
 
 // Requests
 export const ApiQueryStringSchema = z.object({
+	expand: z.enum(['books']).optional(),
 	name: NameSchema.optional(),
 	region: RegionSchema,
 	seedAuthors: z.enum(['0', '1']).optional(),

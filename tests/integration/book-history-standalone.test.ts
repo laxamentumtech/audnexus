@@ -65,21 +65,31 @@ function observation(overrides: {
 	title?: string
 	imageId?: string | null
 	imageUrl?: string
+	tags?: Array<[string, string, string]>
 } = {}) {
 	const imageId = overrides.imageId !== undefined ? overrides.imageId : IMG1
+	const fields = [
+		{
+			field: 'title',
+			policy: 'editorial:title:v1',
+			value: { state: 'value', value: overrides.title ?? 'Original Title' },
+			source: 'audible_api'
+		}
+	]
+	if (overrides.tags) {
+		fields.push({
+			field: 'tags',
+			policy: 'tags:api:v1',
+			value: { state: 'value', value: overrides.tags },
+			source: 'audible_api'
+		})
+	}
 	return {
 		observedAt: new Date(),
 		apiReceivedAt: new Date(),
 		responseGroups: ['default'],
 		requestedRenditions: ['default'],
-		fields: [
-			{
-				field: 'title',
-				policy: 'editorial:title:v1',
-				value: { state: 'value', value: overrides.title ?? 'Original Title' },
-				source: 'audible_api'
-			}
-		],
+		fields,
 		artwork: [
 			{
 				rendition: 'default',
@@ -196,6 +206,97 @@ run('BookHistoryStore against a replica set', () => {
 		expect(currentBook?.title).toBe('Changed Title')
 	})
 
+	test('a tags-only change produces exactly one revision with the tags delta', async () => {
+		// Dedicated ASIN: the shared state's generations and baselines are
+		// asserted by neighbouring tests, so this flow cannot reuse them.
+		// Contract: a field's first observation initializes its baseline
+		// silently; a later value change records the revision.
+		const tagsAsin = 'B0TAGSHIST1'
+		const tagsKey = `${REGION}:${tagsAsin}`
+		const tagsBook = book({ asin: tagsAsin, title: 'Tags Base' })
+		const baseObs = observation({ title: 'Tags Base', imageId: IMG1 })
+		await bookHistoryStore.reserveGeneration(tagsAsin, REGION)
+		await bookHistoryStore.persistObservation({
+			asin: tagsAsin,
+			region: REGION,
+			generation: 1,
+			book: tagsBook,
+			observation: baseObs
+		})
+		const initialTags = [['adbl_rec_tag_0-2-1', 'Witty', 'mood']]
+		const seeded = await bookHistoryStore.persistObservation({
+			asin: tagsAsin,
+			region: REGION,
+			generation: 2,
+			book: {
+				...tagsBook,
+				tags: [{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }]
+			},
+			observation: observation({
+				title: 'Tags Base',
+				imageId: IMG1,
+				tags: initialTags
+			})
+		})
+		expect(seeded.disposition).toBe('accepted')
+		expect(seeded.modified).toBe(true)
+		const stateAfterSeed = await collections()
+			.collection('book_history_states')
+			.findOne({ _id: tagsKey })
+		expect(stateAfterSeed?.revision).toBe(0)
+		const seededBaseline = (stateAfterSeed?.fields ?? []).find(
+			(f: { field: string }) => f.field === 'tags'
+		)
+		expect(seededBaseline).toMatchObject({
+			policy: 'tags:api:v1',
+			value: { state: 'value', value: initialTags }
+		})
+
+		const changedTags = [
+			['adbl_rec_tag_0-2-1', 'Witty', 'mood'],
+			['adbl_rec_tag_0-2-2', 'Feel-Good', 'mood']
+		]
+		const result = await bookHistoryStore.persistObservation({
+			asin: tagsAsin,
+			region: REGION,
+			generation: 3,
+			book: {
+				...tagsBook,
+				tags: [
+					{ tagId: 'adbl_rec_tag_0-2-2', name: 'Feel-Good', type: 'mood' },
+					{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }
+				]
+			},
+			observation: observation({
+				title: 'Tags Base',
+				imageId: IMG1,
+				tags: changedTags
+			})
+		})
+		expect(result.disposition).toBe('accepted')
+		expect(result.modified).toBe(true)
+
+		const state = await collections()
+			.collection('book_history_states')
+			.findOne({ _id: tagsKey })
+		expect(state?.revision).toBe(1)
+
+		const revisions = await collections()
+			.collection('book_history_revisions')
+			.find({ asin: tagsAsin, region: REGION, revision: 1 })
+			.toArray()
+		expect(revisions).toHaveLength(1)
+		expect(revisions[0].changedFields).toEqual(['tags'])
+		expect(revisions[0].changes.tags.before).toEqual({ state: 'value', value: initialTags })
+		expect(revisions[0].changes.tags.after).toEqual({ state: 'value', value: changedTags })
+
+		const currentBook = await collections().collection('books').findOne({ asin: tagsAsin })
+		expect(currentBook?.tags).toEqual([
+			{ tagId: 'adbl_rec_tag_0-2-2', name: 'Feel-Good', type: 'mood' },
+			{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }
+		])
+	})
+
 	test('an equal accepted observation bumps the watermark without a revision', async () => {
 		const before = (
 			await collections().collection('book_history_states').findOne({ _id: KEY })
@@ -237,7 +338,9 @@ run('BookHistoryStore against a replica set', () => {
 		expect(current?.title).toBe('Changed Title')
 	})
 
-	test('the genre safeguard rejects a book that empties its genres', async () => {
+	test('an empty incoming genres update keeps stored genres', async () => {
+		// No genre gate: a title change with empty incoming genres is an
+		// accepted update; the effective write retains the stored genres.
 		const withGenres = book({ title: 'Genres Book' })
 		await bookHistoryStore.persistObservation(
 			persistInput({
@@ -246,23 +349,25 @@ run('BookHistoryStore against a replica set', () => {
 				observation: observation({ title: 'Genres Book', imageId: IMG2 })
 			})
 		)
-		const rejected = await bookHistoryStore.persistObservation(
+		const updated = await bookHistoryStore.persistObservation(
 			persistInput({
 				generation: 5,
 				book: book({ title: 'Genres Stripped', genres: [] }),
 				observation: observation({ title: 'Genres Stripped', imageId: IMG2 })
 			})
 		)
-		expect(rejected.disposition).toBe('rejected')
+		expect(updated.disposition).toBe('accepted')
+		expect(updated.modified).toBe(true)
 		const current = await collections().collection('books').findOne({ asin: ASIN })
-		expect(current?.title).toBe('Genres Book')
+		expect(current?.title).toBe('Genres Stripped')
+		expect(current?.genres).toEqual([...GENRES])
 	})
 
-	test('a genre rejection after first-touch capture continues at sequence 2', async () => {
-		// First-touch legacy capture runs inside the same transaction as a
-		// genre-rejected observation: the captured asset advances the
-		// assetSequence to 1, so the next accepted observation must continue
-		// at sequence 2 and not re-insert at 1 (artwork_order unique index).
+	test('an equal observation after first-touch capture continues at sequence 2', async () => {
+		// First-touch legacy capture runs inside the same transaction as an
+		// equal observation: the captured asset advances the assetSequence
+		// to 1, so the next accepted observation must continue at sequence
+		// 2 and not re-insert at 1 (artwork_order unique index).
 		const seqAsin = 'B0GENRSEQ1'
 		const db2 = collections()
 		await db2.collection('books').insertOne({
@@ -273,16 +378,18 @@ run('BookHistoryStore against a replica set', () => {
 		// any observation is persisted.
 		await bookHistoryStore.reserveGeneration(seqAsin, REGION)
 
-		const rejected = await bookHistoryStore.persistObservation({
+		const equal = await bookHistoryStore.persistObservation({
 			asin: seqAsin,
 			region: REGION,
 			generation: 1,
 			book: book({ asin: seqAsin, title: 'Seq Book', genres: [] }),
 			observation: observation({ title: 'Seq Book', imageId: IMG1 })
 		})
-		expect(rejected.disposition).toBe('rejected')
+		expect(equal.disposition).toBe('accepted')
+		expect(equal.modified).toBe(false)
 		// The first-touch capture archived the stored image at sequence 1 and
-		// the rejection persisted the legacyCaptured watermark in-transaction.
+		// the equal observation persisted the legacyCaptured watermark
+		// in-transaction.
 		const legacy = await db2
 			.collection('book_artwork')
 			.findOne({ asin: seqAsin, region: REGION, legacy: { $ne: null } })
@@ -306,27 +413,6 @@ run('BookHistoryStore against a replica set', () => {
 			.collection('book_history_states')
 			.findOne({ _id: `${REGION}:${seqAsin}` })
 		expect(stateAfterAccept?.assetSequence).toBe(2)
-	}, 30000)
-
-	test('a genre rejection with no state row throws the defensive missing-state error', async () => {
-		// The `if (!state) throw` guard: reserveGeneration is the sole
-		// caller's precondition, so a genre-rejected first observation with no
-		// state doc is unreachable in production — the defensive throw must
-		// still guard the (trusted row, absent state) combination.
-		const guardAsin = 'B0GENRSEQ2'
-		const db2 = collections()
-		await db2.collection('books').insertOne({
-			...book({ asin: guardAsin, title: 'Guard Book' })
-		} as never)
-		await expect(
-			bookHistoryStore.persistObservation({
-				asin: guardAsin,
-				region: REGION,
-				generation: 1,
-				book: book({ asin: guardAsin, title: 'Guard Book', genres: [] }),
-				observation: observation({ title: 'Guard Book', imageId: IMG1 })
-			})
-		).rejects.toThrow('History state missing')
 	}, 30000)
 
 	test('deleteCurrent keeps history and re-creation triggers legacy capture', async () => {

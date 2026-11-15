@@ -276,13 +276,6 @@ export default class GenericShowHelper {
 			book: newData,
 			observation
 		})
-		if (result.disposition === 'rejected') {
-			// Same outcome class as the disabled-mode genre safeguard: the
-			// update is refused and the stored projection stands with 200.
-			const stored = (await this.getDataWithProjection()) as ApiBook
-			await this.cacheBookBestEffort(stored)
-			return stored
-		}
 		if (result.disposition === 'stale' && result.data === null) {
 			// A concurrent delete left the generation stale with no current
 			// row: the book is gone.

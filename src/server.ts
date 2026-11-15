@@ -26,6 +26,7 @@ import bookHistory from '#config/routes/books/history'
 import bookHistoryDetail from '#config/routes/books/historyDetail'
 import searchBook from '#config/routes/books/search/show'
 import showBook from '#config/routes/books/show'
+import similarBook from '#config/routes/books/similar'
 import health from '#config/routes/health'
 import { registerMetricsRoute } from '#config/routes/metrics'
 import { closeQueue, getCacheRedis, getUpdateSchedulerIntervals } from '#helpers/jobs/bullmq'
@@ -175,6 +176,7 @@ async function registerRoutes() {
 	await server
 		.register(searchBook)
 		.register(showBook)
+		.register(similarBook)
 		.register(deleteBook)
 		.register(bookHistory)
 		.register(bookHistoryDetail)

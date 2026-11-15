@@ -38,6 +38,7 @@ export const EDITORIAL_HISTORY_FIELDS = [
 	'seriesPrimary',
 	'seriesSecondary',
 	'genres',
+	'tags',
 	'literatureType',
 	'isAdult'
 ] as const
@@ -120,6 +121,7 @@ export const HistorySourceSchema = z.enum(['audible_api', 'audible_html'])
 export const ARTWORK_POLICY = 'artwork:amazon-id:v1'
 export const GENRES_API_POLICY = 'genres:api:v1'
 export const GENRES_HTML_POLICY = 'genres:html:v1'
+export const TAGS_API_POLICY = 'tags:api:v1'
 export const RELEASE_DATE_RELEASE_POLICY = 'releaseDate:release:v1'
 export const RELEASE_DATE_ISSUE_POLICY = 'releaseDate:issue:v1'
 export const LITERATURE_TYPE_POLICY_ID = LITERATURE_TYPE_POLICY
@@ -141,6 +143,7 @@ export const EDITORIAL_FIELD_POLICIES: Record<EditorialHistoryField, string> = {
 	seriesPrimary: 'editorial:seriesPrimary:v1',
 	seriesSecondary: 'editorial:seriesSecondary:v1',
 	genres: GENRES_API_POLICY,
+	tags: TAGS_API_POLICY,
 	literatureType: LITERATURE_TYPE_POLICY,
 	isAdult: 'editorial:isAdult:v1'
 }

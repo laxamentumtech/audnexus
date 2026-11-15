@@ -34,6 +34,7 @@ import { ApiBookSchema, asin10Regex } from '#config/types'
 import { parseArtworkReference } from '#helpers/books/audible/BookObservation'
 import type { ComparisonResult } from '#helpers/books/BookHistoryComparison'
 import { compareBookObservation } from '#helpers/books/BookHistoryComparison'
+import { buildEffectiveWrite } from '#helpers/database/bookWriteProjection'
 import { ConflictError } from '#helpers/errors/ApiErrors'
 
 const COLLECTIONS = {
@@ -48,7 +49,7 @@ const COLLECTIONS = {
 /** Hard cap on the per-key generation counter (a JS safe integer). */
 const GENERATION_LIMIT = Number.MAX_SAFE_INTEGER
 
-export type PersistDisposition = 'accepted' | 'rejected' | 'stale' | 'transient'
+export type PersistDisposition = 'accepted' | 'stale' | 'transient'
 
 export interface PersistInput {
 	asin: string
@@ -111,22 +112,22 @@ function toApiBook(doc: Document | null | undefined): ApiBook | null {
 	return parsed.success ? parsed.data : null
 }
 
+/**
+ * Fallback stored source for a row that fails the public parse: the raw
+ * document with its internal keys stripped. Preserves every stored value
+ * (including series keys) so the effective write retains it.
+ */
+function stripDocMeta(doc: Document): ApiBook {
+	const rest: Record<string, unknown> = { ...doc }
+	delete rest._id
+	delete rest.createdAt
+	delete rest.updatedAt
+	return rest as unknown as ApiBook
+}
+
 /** Pre-order: a freshly fetched releaseDate strictly in the future. */
 function isPreOrderBook(book: ApiBook): boolean {
 	return book.releaseDate > new Date()
-}
-
-/**
- * The existing update flow's genre safeguard, reproduced exactly
- * (`PaprAudibleBookHelper.createOrUpdate`): an unequal update is only
- * allowed when genre evidence exists — the stored genres are present, or
- * the stored genres are absent and the incoming genres are — and the
- * incoming genres are non-empty (no "nuked data" updates).
- */
-function genreSafeguardPasses(oldDoc: Document, newBook: ApiBook): boolean {
-	const oldGenres = oldDoc.genres
-	const newGenres = newBook.genres
-	return Boolean(oldGenres || (!oldGenres && newGenres)) && Boolean(newGenres?.length)
 }
 
 /** Deep structural equality over the sanitized public projections. */
@@ -150,42 +151,6 @@ function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
 		}
 	}
 	return true
-}
-
-/** The series fields the store may $unset on an explicit removal. */
-const SERIES_FIELDS: readonly string[] = ['seriesPrimary', 'seriesSecondary']
-
-/** Equality for the update flow's equal short-circuit: series keys present
- * ONLY on the stored side are ignored when the incoming observation carries
- * no series evidence at all — neither a seriesPrimary/seriesSecondary key
- * on the book nor a series field in the observation. The write path retains
- * unknown-evidence series on the row (it never clears them without an
- * explicit removal observation), so such stored-only keys must not force an
- * unequal result and a redundant write with `modified: true` on every
- * accepted fetch. Any series evidence (including an explicit null value,
- * the producer's vanished-series signal) is compared as usual. */
-function deepEqualBookIgnoringStoredOnlySeries(
-	a: ApiBook,
-	b: ApiBook,
-	incomingHasSeriesEvidence: boolean
-): boolean {
-	if (incomingHasSeriesEvidence) return deepEqualBook(a, b)
-	const aObj = a as unknown as Record<string, unknown>
-	const bObj = b as unknown as Record<string, unknown>
-	const storedHasSeriesOnly = SERIES_FIELDS.some((field) => field in aObj)
-	if (!storedHasSeriesOnly) return deepEqualBook(a, b)
-	return deepEqualBook(
-		omitSeriesKeys(aObj) as unknown as ApiBook,
-		omitSeriesKeys(bObj) as unknown as ApiBook
-	)
-}
-
-function omitSeriesKeys(obj: Record<string, unknown>): Record<string, unknown> {
-	const out: Record<string, unknown> = {}
-	for (const key of Object.keys(obj)) {
-		if (!SERIES_FIELDS.includes(key)) out[key] = obj[key]
-	}
-	return out
 }
 
 function sha256Hex(value: string): string {
@@ -505,82 +470,72 @@ export class BookHistoryStore {
 			const parsedBook = ApiBookSchema.safeParse(book)
 			const normBook = parsedBook.success ? parsedBook.data : book
 			const oldApi = toApiBook(currentBook)
-			if (currentBook && oldApi) {
-				// Series keys present only on the stored side are not changes
-				// when the incoming observation has no series evidence at
-				// all: the write path retains them (unknown evidence), so the
-				// equality result must match the write and stay in the equal
-				// short-circuit. Any series evidence in the book or
-				// observation (including explicit null-value removals) falls
-				// back to full comparison.
-				const incomingHasSeriesEvidence =
-					SERIES_FIELDS.some(
-						(field) => field in (normBook as unknown as Record<string, unknown>)
-					) ||
-					observation.fields.some(
-						(f) => f.field === 'seriesPrimary' || f.field === 'seriesSecondary'
+			// Per-field explicit series-removal evidence: an observation
+			// declaring a series key ABSENT or carrying an explicit null
+			// value (the producer's signal for a vanished series). Mixed
+			// evidence removes only the declared-absent field.
+			const isRemoval = (v: { state: string; value?: unknown }) =>
+				v.state === 'absent' || (v.state === 'value' && v.value === null)
+			const seriesRemoval = Object.fromEntries(
+				observation.fields
+					.filter(
+						(f) =>
+							(f.field === 'seriesPrimary' || f.field === 'seriesSecondary') && isRemoval(f.value)
 					)
-				if (deepEqualBookIgnoringStoredOnlySeries(oldApi, normBook, incomingHasSeriesEvidence)) {
-					// Equal public projection is still an accepted
-					// observation: rendition transitions can change without
-					// touching any public field, and an established state
-					// with empty baselines (seeded pre-history row) must be
-					// initialised from this observation.
-					const equalBaselines = this.decodeBaselines(state)
-					const equalComparison = compareBookObservation(equalBaselines, observation)
-					const equalSequence = await this.upsertArtworkRefs(
+					.map((f) => [f.field, true])
+			)
+			// One effective write object: the stored public row plus the
+			// incoming book's defined values, with retention for
+			// evidence-free fields. The same projection drives the equality
+			// check, the $set, and the returned/cached book, so a row and
+			// its response never drift. A legacy row that fails the public
+			// parse (e.g. no `language`) falls back to the raw document with
+			// its internal keys stripped, so its stored values are retained
+			// exactly as before.
+			const storedSource = currentBook ? (oldApi ?? stripDocMeta(currentBook)) : null
+			const { book: writeBook, unset } = buildEffectiveWrite(storedSource, normBook, seriesRemoval)
+			if (currentBook && oldApi && deepEqualBook(oldApi, writeBook)) {
+				// Equal public projection is still an accepted
+				// observation: rendition transitions can change without
+				// touching any public field, and an established state
+				// with empty baselines (seeded pre-history row) must be
+				// initialised from this observation.
+				const equalBaselines = this.decodeBaselines(state)
+				const equalComparison = compareBookObservation(equalBaselines, observation)
+				const equalSequence = await this.upsertArtworkRefs(
+					session,
+					asin,
+					region,
+					observation,
+					baseSequence
+				)
+				const revisionAdvance =
+					equalComparison.changedFields.length > 0 ? (state?.revision ?? 0) + 1 : 0
+				if (revisionAdvance > 0) {
+					// Rendition-only transition: one revision document.
+					await this.insertRevision(
 						session,
 						asin,
 						region,
-						observation,
-						baseSequence
-					)
-					const revisionAdvance =
-						equalComparison.changedFields.length > 0 ? (state?.revision ?? 0) + 1 : 0
-					if (revisionAdvance > 0) {
-						// Rendition-only transition: one revision document.
-						await this.insertRevision(
-							session,
-							asin,
-							region,
-							revisionAdvance,
-							generation,
-							observation.observedAt,
-							equalComparison
-						)
-					}
-					await this.applyWatermark(
-						session,
-						asin,
-						region,
-						state,
+						revisionAdvance,
 						generation,
 						observation.observedAt,
-						equalComparison,
-						legacyCaptured,
-						revisionAdvance > 0 ? revisionAdvance : undefined,
-						equalSequence
+						equalComparison
 					)
-					return { data: oldApi, modified: false, disposition: 'accepted' }
 				}
-				if (!genreSafeguardPasses(currentBook, book)) {
-					// Step 3's first-touch legacy capture already persisted
-					// its assetSequence advance to the state row in this
-					// transaction, so a later accepted observation cannot
-					// re-insert at the same sequence and trip the unique
-					// artwork_order index; only the legacyCaptured watermark
-					// and the stateVersion bump are non-redundant here.
-					// reserveGeneration (the sole caller's precondition)
-					// inserts the state doc and state docs are never deleted,
-					// so `state` is always present.
-					if (!state) throw new Error(`History state missing for ${key}`)
-					await stateCol.updateOne(
-						{ _id: state._id },
-						{ $set: { legacyCaptured, stateVersion: state.stateVersion + 1 } },
-						{ session }
-					)
-					return { data: oldApi, modified: false, disposition: 'rejected' }
-				}
+				await this.applyWatermark(
+					session,
+					asin,
+					region,
+					state,
+					generation,
+					observation.observedAt,
+					equalComparison,
+					legacyCaptured,
+					revisionAdvance > 0 ? revisionAdvance : undefined,
+					equalSequence
+				)
+				return { data: oldApi, modified: false, disposition: 'accepted' }
 			}
 
 			// 5. Compare against same-policy baselines (validated at the
@@ -628,54 +583,27 @@ export class BookHistoryStore {
 				returned = toApiBook(book) ?? book
 			} else {
 				// `$set` alone cannot clear a field the observation explicitly
-				// removed: an observation declaring a series key ABSENT or
-				// carrying an explicit null value (the producer's signal for a
-				// vanished series) normalizes to an absent key, so explicitly
-				// unset the cleared series fields that are still present on the
-				// stored row to keep the baseline and the row in step. A
-				// series-less observation is UNKNOWN evidence — the comparison
-				// contract retains unknown evidence — so it must NOT unset:
-				// the row keeps its stored series until a removal is observed.
-				const unset: Record<string, 1> = {}
-				const clearedSeries = new Set(
-					observation.fields
-						.filter(
-							(f) =>
-								f.value.state === 'absent' || (f.value.state === 'value' && f.value.value === null)
-						)
-						.map((f) => f.field)
-				)
-				if ('seriesPrimary' in currentBook && clearedSeries.has('seriesPrimary'))
-					unset.seriesPrimary = 1
-				if ('seriesSecondary' in currentBook && clearedSeries.has('seriesSecondary'))
-					unset.seriesSecondary = 1
+				// removed: explicit series-removal evidence already deleted
+				// the series keys from `writeBook` (see buildEffectiveWrite),
+				// so $unset those keys on the stored row to keep the baseline
+				// and the row in step. A series-less observation is UNKNOWN
+				// evidence — `writeBook` carries the stored series, so no
+				// unset is emitted and the row keeps them.
+				const unsetDoc: Record<string, 1> = {}
+				for (const field of unset) unsetDoc[field] = 1
 				await booksCol.updateOne(
 					{ _id: currentBook._id },
 					{
-						$set: { ...normBook },
-						...(Object.keys(unset).length > 0 ? { $unset: unset } : {}),
+						$set: { ...writeBook },
+						...(Object.keys(unsetDoc).length > 0 ? { $unset: unsetDoc } : {}),
 						$currentDate: { updatedAt: true }
 					},
 					{ session }
 				)
-				// The returned/cached projection must reflect the row's
-				// resulting state: a series key that is retained (not
-				// declared absent) but absent from the incoming book keeps its
-				// stored value, so the API serves the series that the row
-				// still carries.
-				const retained: Record<string, unknown> = {
-					...(normBook as unknown as Record<string, unknown>)
-				}
-				for (const field of ['seriesPrimary', 'seriesSecondary'] as const) {
-					if (
-						!unset[field] &&
-						!(field in retained) &&
-						field in (currentBook as Record<string, unknown>)
-					) {
-						retained[field] = (currentBook as Record<string, unknown>)[field]
-					}
-				}
-				returned = toApiBook(retained as Document) ?? (retained as ApiBook)
+				// Return the same effective projection that was written:
+				// evidence-free fields (rating, stored tags/Goodreads,
+				// unknown-evidence series) are already merged in.
+				returned = toApiBook(writeBook) ?? writeBook
 			}
 
 			// 9. Watermark. A fresh state must retain the counter the
