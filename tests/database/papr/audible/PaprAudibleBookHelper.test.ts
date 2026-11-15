@@ -194,6 +194,19 @@ describe('PaprAudibleBookHelper should', () => {
 		helper.setData(parsedBookWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
+	test('createOrUpdate updates when neither side has genres', async () => {
+		// Genre-less legacy rows must still accept other fields (ratings):
+		// with no stored genres there is nothing the update could nuke.
+		const obj = { data: parsedBookWithoutGenres, modified: true }
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(parsedBookWithoutGenres as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutGenresWithoutProjection)
+			.mockResolvedValue(parsedBookWithoutGenres as unknown as BookDocument)
+		helper.setData(parsedBookWithoutGenres)
+		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+	})
 	test('update', async () => {
 		const obj = { data: parsedBook, modified: true }
 		helper.setData(parsedBook)
@@ -204,6 +217,7 @@ describe('PaprAudibleBookHelper should', () => {
 			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
 			{
 				$set: { ...parsedBook, createdAt: bookWithoutProjection._id.getTimestamp() },
+				$unset: { ratingsBackfillSkip: '' },
 				$currentDate: { updatedAt: true }
 			}
 		)
@@ -229,7 +243,7 @@ describe('PaprAudibleBookHelper should', () => {
 		expect(result.modified).toBe(true)
 		expect(mockUpdateOne).toHaveBeenCalledWith(
 			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{ $set: expectedSet, $currentDate: { updatedAt: true } }
+			{ $set: expectedSet, $unset: { ratingsBackfillSkip: '' }, $currentDate: { updatedAt: true } }
 		)
 	})
 	test('createOrUpdate empty incoming genres keep stored genres in the write', async () => {
@@ -252,7 +266,7 @@ describe('PaprAudibleBookHelper should', () => {
 		expect(result.modified).toBe(true)
 		expect(mockUpdateOne).toHaveBeenCalledWith(
 			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{ $set: expectedSet, $currentDate: { updatedAt: true } }
+			{ $set: expectedSet, $unset: { ratingsBackfillSkip: '' }, $currentDate: { updatedAt: true } }
 		)
 	})
 
@@ -284,6 +298,7 @@ describe('PaprAudibleBookHelper should', () => {
 					...t1,
 					createdAt: bookWithoutProjection._id.getTimestamp()
 				},
+				$unset: { ratingsBackfillSkip: '' },
 				$currentDate: { updatedAt: true }
 			}
 		)

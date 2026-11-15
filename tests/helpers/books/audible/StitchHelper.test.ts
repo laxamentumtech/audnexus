@@ -124,6 +124,22 @@ describe('SitchHelper should handle fallback', () => {
 		expect(helper.scraperParsed).toEqual(genresObject)
 	})
 
+	test('skip the scrape when skipHtml is set', async () => {
+		// Background passes opt out of the product-page fetch: it only supplies
+		// genres/tags and ladder-less rows answer 404/503.
+		const obj = { data: mockApiResponse }
+		obj.data.product.category_ladders = []
+		const skipHelper = new StitchHelper(asin, region, undefined, false, true)
+		spyOn(skipHelper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(obj.data))
+		spyOn(skipHelper.apiHelper, 'parseResponse').mockImplementation(() =>
+			Promise.resolve(parsedBook)
+		)
+		const scrapeFetch = spyOn(skipHelper.scrapeHelper, 'fetchBook')
+		await skipHelper.process()
+		expect(scrapeFetch).not.toHaveBeenCalled()
+		expect(skipHelper.scraperParsed).toBeUndefined()
+	})
+
 	test('and include no genres', async () => {
 		const obj = { data: mockApiResponse }
 		obj.data.product.category_ladders = []

@@ -23,18 +23,23 @@ import type {
 } from '#config/bookHistory'
 import {
 	bookKey,
-	HISTORY_INDEX_DEFINITIONS,
 	HistoryValueSchema,
 	isSupportedRegionValue,
 	SEED_PROGRESS_ID,
 	SUPPORTED_REGIONS
 } from '#config/bookHistory'
+import { DATABASE_INDEXES } from '#config/databaseIndexes'
 import type { ApiBook } from '#config/types'
 import { ApiBookSchema, asin10Regex } from '#config/types'
 import { parseArtworkReference } from '#helpers/books/audible/BookObservation'
 import type { ComparisonResult } from '#helpers/books/BookHistoryComparison'
 import { compareBookObservation } from '#helpers/books/BookHistoryComparison'
 import { buildEffectiveWrite } from '#helpers/database/bookWriteProjection'
+import {
+	assertRequiredIndexes,
+	IndexRequirementError,
+	inspectIndexes
+} from '#helpers/database/indexes'
 import { ConflictError } from '#helpers/errors/ApiErrors'
 
 const COLLECTIONS = {
@@ -591,11 +596,28 @@ export class BookHistoryStore {
 				// unset is emitted and the row keeps them.
 				const unsetDoc: Record<string, 1> = {}
 				for (const field of unset) unsetDoc[field] = 1
+				// An accepted book write supersedes a backfill skip decision.
+				unsetDoc.ratingsBackfillSkip = 1
+				// The books validator requires createdAt (strict, action
+				// error). Rows written before that schema existed lack it, so
+				// an update leaves the resulting document invalid and every
+				// repair — the ratings backfill included — is rejected with
+				// "Document failed validation". Supply it once for those rows.
+				const createdAt = currentBook.createdAt as Date | undefined
+				// `$currentDate` owns `updatedAt`; a `$set` entry on the same
+				// path is rejected by the server (code 40), so omit it here.
+				const writeContent: Record<string, unknown> = {
+					...(writeBook as unknown as Record<string, unknown>)
+				}
+				delete writeContent.updatedAt
 				await booksCol.updateOne(
 					{ _id: currentBook._id },
 					{
-						$set: { ...writeBook },
-						...(Object.keys(unsetDoc).length > 0 ? { $unset: unsetDoc } : {}),
+						$set: {
+							...writeContent,
+							...(createdAt ? {} : { createdAt: new Date() })
+						},
+						$unset: unsetDoc,
 						$currentDate: { updatedAt: true }
 					},
 					{ session }
@@ -905,43 +927,16 @@ export class BookHistoryStore {
 		}
 		if (!helloName) throw failure()
 		const db = this.requireClient().db('audnexus')
-		for (const def of HISTORY_INDEX_DEFINITIONS) {
-			let indexes: Array<{
-				name: string
-				key: Record<string, number>
-				unique?: boolean
-				partialFilterExpression?: Record<string, unknown>
-			}>
-			try {
-				indexes = (await db.collection(def.collection).listIndexes().toArray()) as typeof indexes
-			} catch (error) {
-				// A not-yet-created collection reports "ns not found" (code 26);
-				// map it to the stable failure message like every other
-				// unprepared state. Any other error (e.g. code 13 unauthorized)
-				// keeps its own diagnostics.
-				if (error && typeof error === 'object' && 'code' in error && error.code === 26) {
-					throw failure()
-				}
-				throw error
-			}
-			const match = indexes.find((idx) => idx.name === def.name)
-			if (!match) throw failure()
-			const keysEqual =
-				Object.keys(match.key).length === Object.keys(def.keys).length &&
-				Object.entries(def.keys).every(([k, v]) => match.key[k] === v)
-			if (!keysEqual) throw failure()
-			// A same-name index without the expected string-only partial
-			// filter would pass the gate and then fail at runtime with
-			// duplicate-key errors on gallery inserts.
-			const partialEqual =
-				JSON.stringify(match.partialFilterExpression ?? null) ===
-				JSON.stringify(def.partialFilterExpression ?? null)
-			if (!partialEqual) throw failure()
-			// MongoDB reports `_id` indexes without a `unique` flag — they
-			// are unique by construction.
-			const isIdIndex = Object.keys(def.keys).length === 1 && def.keys._id === 1
-			if (def.unique === true && !isIdIndex && match.unique !== true) throw failure()
-			if (def.unique !== true && !isIdIndex && match.unique === true) throw failure()
+		try {
+			assertRequiredIndexes(
+				await inspectIndexes(
+					db,
+					DATABASE_INDEXES.filter((index) => index.requiredBy.includes('history'))
+				)
+			)
+		} catch (error) {
+			if (error instanceof IndexRequirementError) throw failure()
+			throw error
 		}
 		const probeId = `probe-${randomUUID()}`
 		try {

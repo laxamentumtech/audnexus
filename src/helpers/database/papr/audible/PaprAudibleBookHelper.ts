@@ -184,6 +184,9 @@ export default class PaprAudibleBookHelper {
 				},
 				{
 					$set: { ...effective, createdAt: found.data._id.getTimestamp() },
+					// An accepted book write supersedes a backfill skip decision
+					// (e.g. upstream now reports a real book).
+					$unset: { ratingsBackfillSkip: '' },
 					$currentDate: { updatedAt: true }
 				}
 			)
