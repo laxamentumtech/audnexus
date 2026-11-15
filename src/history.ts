@@ -27,7 +27,7 @@ import {
 import { bookHistoryStore } from '#config/papr'
 import { asin10Regex } from '#config/types'
 import { parseArtworkReference } from '#helpers/books/audible/BookObservation'
-import { BookHistoryStore } from '#helpers/database/papr/BookHistoryStore'
+import { BookHistoryStore, sameIndexKeys } from '#helpers/database/papr/BookHistoryStore'
 import { iterateKeyset } from '#helpers/utils/keyset'
 
 const COMMANDS = ['audit', 'prepare', 'seed', 'status'] as const
@@ -216,14 +216,6 @@ async function audit(
  * replaced/dropped.
  */
 
-/** Same key pattern, order-independent field set. */
-function sameIndexKeys(a: Record<string, number>, b: Record<string, number>): boolean {
-	return (
-		Object.keys(a).length === Object.keys(b).length &&
-		Object.entries(b).every(([field, direction]) => a[field] === direction)
-	)
-}
-
 async function prepare(client: MongoClient): Promise<void> {
 	const { initialize } = await import('#config/papr')
 	await initialize({ client } as never)
@@ -252,9 +244,11 @@ async function prepare(client: MongoClient): Promise<void> {
 			}
 			const existing = indexes.find((idx) => idx.name === def.name)
 			if (existing !== undefined) {
-				const sameKeys =
-					Object.keys(existing.key).length === Object.keys(def.keys).length &&
-					Object.entries(def.keys).every(([k, v]) => existing.key[k] === v)
+				// Order-sensitive: a same-name index with the right
+				// fields+directions but a different field order is a
+				// different compound prefix (see sameIndexKeys), not an
+				// existing definition.
+				const sameKeys = sameIndexKeys(existing.key, def.keys)
 				const isIdIndex =
 					Object.keys(def.keys).length === 1 && (def.keys as Record<string, 1>)._id === 1
 				// A missing partial filter (absent on both sides) is `null` on
@@ -288,7 +282,12 @@ async function prepare(client: MongoClient): Promise<void> {
 					sameIndexKeys(idx.key, def.keys) &&
 					JSON.stringify(idx.partialFilterExpression ?? null) ===
 						JSON.stringify(def.partialFilterExpression ?? null) &&
-					(def.unique !== true || idx.unique === true)
+					// Uniqueness must AGREE, not just be at least the required
+					// level: a unique index under a generated name would pass a
+					// one-way "at least unique" check, and then
+					// assertHistoryPrerequisites would refuse startup while
+					// prepare reported success.
+					(def.unique === true) === (idx.unique === true)
 			)
 			if (equivalent !== undefined) {
 				console.log(`index ${def.name}: exists as ${equivalent.name}`)

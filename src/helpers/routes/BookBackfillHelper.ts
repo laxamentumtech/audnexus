@@ -11,7 +11,8 @@ import {
 	fetchProductsByAsin,
 	type PrefetchedApiProduct
 } from '#helpers/books/audible/ApiBatchHelper'
-import { ContentTypeMismatchError } from '#helpers/errors/ApiErrors'
+import RedisHelper from '#helpers/database/redis/RedisHelper'
+import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import { registerSuccess, sleepCooldown } from '#helpers/utils/adaptiveCooldown'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
@@ -145,8 +146,11 @@ export default class BookBackfillHelper {
 				// (undefined prefetched), so failure classification is unchanged.
 				const prefetched = new Map<string, PrefetchedApiProduct>()
 				const reservedGenerations = new Map<string, number>()
-				const batchSize = bulkBatchSize()
-				if (batchSize > 1) {
+				// ASINs per upstream request (AUDIBLE_BATCH_SIZE) — distinct
+				// from the outer page-size `batchSize` (SCHEDULER_BATCH_SIZE
+				// rows per keyset page).
+				const asinsPerRequest = bulkBatchSize()
+				if (asinsPerRequest > 1) {
 					const byRegion = new Map<string, typeof books>()
 					for (const book of books) {
 						const region = book.region ?? 'us'
@@ -162,8 +166,17 @@ export default class BookBackfillHelper {
 					// stop probing and let the proven per-book path carry the rest.
 					let disabled = false
 					for (const [region, regionBooks] of byRegion) {
-						for (let i = 0; i < regionBooks.length && !disabled; i += batchSize) {
-							const chunk = regionBooks.slice(i, i + batchSize)
+						// Set before each chunk (below) and read only in the
+						// failure diagnostic: the offset where the current chunk
+						// starts in the region page.
+						let pageOffset: number
+						for (let i = 0; i < regionBooks.length && !disabled; i += asinsPerRequest) {
+							// Advance the offset as chunks are processed (not only
+							// on failure): a chunk that fails after successful
+							// chunks must report the real progress — where it
+							// starts in the region page — not a frozen 0.
+							pageOffset = i
+							const chunk = regionBooks.slice(i, i + asinsPerRequest)
 							const keys = chunk.map((book) => `${region}:${book.asin}`)
 							if (historyEnabled) {
 								// Reserve before the fetch so a concurrent refresh cannot
@@ -181,12 +194,28 @@ export default class BookBackfillHelper {
 									}
 								}
 							}
+							// Pacing at the batch REQUEST boundary, not only per
+							// book after the fact: with the cooldown at zero the
+							// batch chunks would otherwise fire back-to-back,
+							// bursting into upstream 503s exactly like the
+							// unjittered per-book walk did.
+							await jitteredSleep()
 							await sleepCooldown()
 							try {
-								const result = await fetchProductsByAsin(
-									chunk.map((b) => b.asin),
-									region,
-									this.logger
+								// Same hard per-item deadline as the per-book path:
+								// axios timeouts do not bound a trickling
+								// multi-retry response, so a stuck prefetch must
+								// surface as a failed chunk (disable batching for
+								// the page; the per-book path carries the rest),
+								// not park the single-concurrency worker.
+								const result = await withDeadline(
+									fetchProductsByAsin(
+										chunk.map((b) => b.asin),
+										region,
+										this.logger
+									),
+									getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
+									`batch prefetch ${region} (${chunk.length} ASINs)`
 								)
 								chunks += 1
 								stubs += result.stubs.size
@@ -208,8 +237,31 @@ export default class BookBackfillHelper {
 							} catch (error) {
 								failures += 1
 								disabled = true
+								// fetchPlus rejects exhausted HTTP failures with
+								// the AxiosResponse DIRECTLY (status/config at
+								// top level) and transport failures with an
+								// AxiosError (status/config nested under
+								// `.response`); stringifying either yields
+								// "[object Object]" and hides a 400 (ASIN
+								// list/cap) from a 503 (throttle). Read the
+								// status/URL the way ApiHelper.fetchBook does
+								// (top level first), falling back to the
+								// error's own text.
+								const reason = error as {
+									status?: number
+									config?: { url?: string }
+									response?: { status?: number; config?: { url?: string } }
+									message?: string
+									stack?: string
+								}
+								const status = reason?.status ?? reason?.response?.status
+								const url = reason?.config?.url ?? reason?.response?.config?.url
+								const detail =
+									typeof status === 'number'
+										? `HTTP ${status}${url ? ` for ${url}` : ''}`
+										: (reason?.message ?? reason?.stack ?? String(error))
 								this.logger.warn(
-									`[AUDIBLE BATCH] ${region}: disabling batching for this page after ${chunk.length} books: ${error instanceof Error ? error.message : error}`
+									`[AUDIBLE BATCH] ${region}: disabling batching for this page at offset ${pageOffset} (${chunk.length} books in chunk): ${detail}`
 								)
 								await sleepCooldown()
 							}
@@ -228,13 +280,16 @@ export default class BookBackfillHelper {
 						book.asin,
 						{ region, update: '1' },
 						this.redis as unknown as FastifyRedis | null,
-						this.logger,
-						true,
-						// Ratings come from the API; the product page only adds
-						// genres and would cost a 404/503 round trip per row.
-						true,
-						prefetched.get(`${region}:${book.asin}`),
-						reservedGenerations.get(`${region}:${book.asin}`)
+						{
+							logger: this.logger,
+							forceUpdate: true,
+							// Ratings come from the API; the product page only
+							// adds genres and would cost a 404/503 round trip
+							// per row.
+							skipHtml: true,
+							prefetched: prefetched.get(`${region}:${book.asin}`),
+							reservedGeneration: reservedGenerations.get(`${region}:${book.asin}`)
+						}
 					)
 					let updatedBook: ApiAuthorProfile | ApiBook | ApiChapter | undefined
 					try {
@@ -266,6 +321,23 @@ export default class BookBackfillHelper {
 								}
 								return
 							}
+						}
+						// A book deleted AFTER the keyset page read but before
+						// persistObservation completes returns `stale` with no
+						// data, and the show handler throws a NotFoundError
+						// for it (`Book <asin> not found in region <region>`).
+						// That is a concurrent-delete race, not a retryable
+						// failure: the row is gone, so tally it into `raced`
+						// (subtracted from `updated` at the end) and let the
+						// batch continue. Other NotFoundErrors (delisted /
+						// region-unavailable) stay retryable failures.
+						if (
+							error instanceof NotFoundError &&
+							error.message === `Book ${book.asin} not found in region ${region}`
+						) {
+							raced += 1
+							this.logger.info(`Ratings backfill: ${book.asin} deleted concurrently`)
+							return
 						}
 						throw error
 					} finally {
@@ -315,31 +387,104 @@ export default class BookBackfillHelper {
 					if (!ratings) {
 						throw new Error(`Ratings were not populated for ${book.asin}`)
 					}
+					// A `stale` disposition means a concurrent writer owns the
+					// generation fence: the handler persisted nothing and the
+					// direct repair below is correctly skipped. Tally the
+					// outcome as a race (subtracted from `updated` at the end)
+					// so the summary does not report an un-repaired row as
+					// updated — the fetch itself was a usable upstream
+					// success, so pacing/cooldown behavior is unchanged.
+					if (helper.historyDisposition === 'stale') raced += 1
 					// Write the ratings block directly when the handler could
-					// not persist: the genre guard exists to stop genre-nuking
-					// updates, not to block a pure field addition, and without
-					// this the row never leaves the `ratings: {$exists: false}`
-					// target set.
-					if (!helper.persisted) {
-						// papr's model type omits updateOne; the runtime model
-						// has it (UpdateScheduler.markChecked relies on the same).
-						const bookModel = BookModel as unknown as {
-							updateOne: (filter: object, update: object, options?: object) => Promise<unknown>
+					// not persist because of a genre-guard rejection: the guard
+					// exists to stop genre-nuking updates, not to block a pure
+					// field addition, and without this the row never leaves the
+					// `ratings: {$exists: false}` target set. A `stale`
+					// generation (handled above) or an
+					// equal-projection short-circuit must NOT re-write the
+					// field directly — that would bypass the generation fence.
+					// In history-disabled mode the disposition is undefined and
+					// the only remaining non-persisted outcome here is the
+					// legacy papr genre guard (pre-orders returned earlier).
+					if (
+						!helper.persisted &&
+						(helper.historyDisposition === undefined || helper.historyDisposition === 'rejected')
+					) {
+						let modified: number
+						if (isBookHistoryEnabled() && helper.persistedGeneration !== undefined) {
+							// History-enabled: revalidate the accepted-generation
+							// fence ATOMICALLY with the write. The `rejected`
+							// disposition only proves non-staleness while
+							// persistObservation's own transaction ran; a newer
+							// generation accepted in between would let an older
+							// fetch's ratings land. The fence condition is part
+							// of the conditional update, so a superseded
+							// generation matches 0 and writes nothing.
+							modified = await bookHistoryStore.persistRatingsRepair({
+								asin: book.asin,
+								region,
+								generation: helper.persistedGeneration,
+								bookId: book._id,
+								ratings
+							})
+						} else {
+							// History-disabled: the legacy papr genre guard is
+							// the only non-persisted outcome here. papr's model
+							// type omits updateOne; the runtime model has it
+							// (UpdateScheduler.markChecked relies on the same).
+							// The repair is a conditional field addition on
+							// legacy stubs that already fail the validator for
+							// unrelated missing content fields, so bypass
+							// validation (content writes keep full validation)
+							// — otherwise the row can never leave the target
+							// set. The filter re-checks `ratings` so a row that
+							// gained ratings concurrently is never touched.
+							const bookModel = BookModel as unknown as {
+								updateOne: (
+									filter: object,
+									update: object,
+									options?: object
+								) => Promise<{
+									modifiedCount: number
+								}>
+							}
+							const repair = await bookModel.updateOne(
+								{ _id: book._id, ratings: { $exists: false } },
+								{
+									$set: { ratings },
+									$unset: { ratingsBackfillSkip: '' },
+									$currentDate: { updatedAt: true }
+								},
+								{ bypassDocumentValidation: true }
+							)
+							modified = repair.modifiedCount
 						}
-						// The repair is a targeted field addition on legacy stubs
-						// that already fail the validator for unrelated missing
-						// content fields, so bypass validation here (content
-						// writes keep full validation) — otherwise the row can
-						// never leave the target set.
-						await bookModel.updateOne(
-							{ _id: book._id },
-							{
-								$set: { ratings },
-								$unset: { ratingsBackfillSkip: '' },
-								$currentDate: { updatedAt: true }
-							},
-							{ bypassDocumentValidation: true }
-						)
+						if (modified !== 1) {
+							// Matched 0: a concurrent write already handled the
+							// row (rated it in the meantime, or a newer
+							// generation superseded the fence) — nothing left
+							// to do, and it must not count as our update.
+							raced += 1
+						} else {
+							// The handler's rejection path cached the stored
+							// rating-less projection (the legacy path caches
+							// its stored projection too); the repair changed
+							// only MongoDB, so reads would serve the pre-repair
+							// projection for the whole TTL. Invalidate the key.
+							const cacheHelper = new RedisHelper(
+								this.redis as unknown as FastifyRedis | null,
+								'book',
+								book.asin,
+								region,
+								this.logger
+							)
+							try {
+								await cacheHelper.deleteOne()
+							} catch {
+								// Best-effort: a cache outage here must not fail
+								// the book — the entry expires on its TTL.
+							}
+						}
 					}
 					// Got a fully-formed book with ratings: the only usable-success
 					// signal, so this (not a bare 200) relaxes the cooldown. Batch

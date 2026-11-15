@@ -67,7 +67,7 @@ export const JOB_RETRIES = {
 } as const
 
 /** Long-running passes must never lose the lock: BullMQ heartbeats the token
- * every lockDuration/2. 5 minutes plus a second stall allowance tolerates a
+ * every lockDuration/2. 5 minutes plus a two-stall allowance tolerates a
  * paused/starved container (the live failure was repeated "could not renew
  * lock" while the job was still making progress, followed by a restart). */
 const WORKER_OPTIONS: Omit<WorkerOptions, 'connection'> = {
@@ -86,8 +86,10 @@ const WORKER_OPTIONS: Omit<WorkerOptions, 'connection'> = {
 	// Bulk jobs (the ratings backfill) run for days. The default of 1 turns
 	// any deploy/restart into a hard job failure ("job stalled more than
 	// allowable limit"); with a higher budget the job is recovered and
-	// resumes instead of needing a manual re-enqueue.
-	maxStalledCount: 5,
+	// resumes instead of needing a manual re-enqueue. Two stalls covers the
+	// observed restart window; a job that stalls a third time is
+	// genuinely stuck and is failed instead of recovered again.
+	maxStalledCount: 2,
 	removeOnComplete: { count: RETENTION_COMPLETED },
 	removeOnFail: { count: RETENTION_FAILED }
 }

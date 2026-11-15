@@ -133,6 +133,18 @@ export default class PaprAudibleBookHelper {
 			// If the objects are the exact same return right away
 			const isEqual = this.sharedHelper.isEqualData(data, this.bookData)
 			if (isEqual) {
+				// An equal accepted refresh supersedes a backfill skip
+				// decision: a row marked non-book that keeps refreshing as a
+				// book must leave the marker behind. Conditional, so the
+				// no-write fast path costs nothing when no marker exists.
+				await BookModel.updateOne(
+					{
+						asin: this.asin,
+						$or: [{ region: { $exists: false } }, { region: this.options.region }],
+						ratingsBackfillSkip: { $exists: true }
+					},
+					{ $unset: { ratingsBackfillSkip: '' } }
+				)
 				return {
 					data: data,
 					modified: false
@@ -144,7 +156,10 @@ export default class PaprAudibleBookHelper {
 			// the update could nuke, and refusing here froze genre-less legacy
 			// rows permanently — every other field, ratings included, stayed
 			// unreachable and the books validator rejects partial repairs.
-			const storedHasGenres = Boolean(data.genres)
+			// `genres: []` is NO evidence: `Boolean([])` would treat an
+			// empty stored ladder as protection and freeze genre-less
+			// legacy rows (matching the history store's safeguard).
+			const storedHasGenres = Boolean(data.genres?.length)
 			const incomingHasGenres = Boolean(this.bookData.genres?.length)
 			if (incomingHasGenres || !storedHasGenres) {
 				this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))

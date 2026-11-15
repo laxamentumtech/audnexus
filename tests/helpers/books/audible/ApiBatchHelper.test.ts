@@ -21,16 +21,22 @@ const deepCopy = <T>(obj: T): T => JSON.parse(JSON.stringify(obj)) as T
 const product = deepCopy((apiResponse as AudibleProduct).product)
 
 /** Build a response for the ASINs in the request URL. */
-function respond(url: string, extra: unknown[] = []) {
+function respond(url: string, extra: unknown[] = [], exclude: string[] = []) {
 	const asins = new URL(url).searchParams.get('asins')?.split(',') ?? []
 	return {
 		data: {
 			products: [
-				...asins.map((asin) => ({ ...deepCopy(product), asin })),
+				// An ASIN that gets an `extra` entry (a stub) must NOT also
+				// receive a full product: the endpoint returns one entry per
+				// ASIN, and the parser would keep the full product over the
+				// stub.
+				...asins
+					.filter((asin) => !exclude.includes(asin))
+					.map((asin) => ({ ...deepCopy(product), asin })),
 				...extra
 			],
 			response_groups: ['rating', 'product_desc'],
-			total_results: asins.length + extra.length
+			total_results: asins.length
 		}
 	}
 }
@@ -64,7 +70,7 @@ describe('fetchProductsByAsin', () => {
 
 	test('treats a bare { asin } stub as not found', async () => {
 		mockFetch.mockImplementation(async (url: string) =>
-			respond(url, [{ asin: 'INVALID999' }])
+			respond(url, [{ asin: 'INVALID999' }], ['INVALID999'])
 		)
 		const result = await fetchProductsByAsin(['B000000001', 'INVALID999'], 'us')
 		expect(result.found.has('B000000001')).toBe(true)

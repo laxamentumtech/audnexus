@@ -12,6 +12,18 @@ import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageSort, NoticeChaptersFallback } from '#static/messages'
 
+/** Trailing optional behavior, collapsed into one options object: the
+ * positional optional flags once swapped silently between call sites. */
+export interface StitchHelperOptions {
+	logger?: FastifyBaseLogger
+	/** Collect history evidence (API receipt time, HTML genres). */
+	captureHistory?: boolean
+	/** Skip the product-page HTML scrape (background passes). */
+	skipHtml?: boolean
+	/** Product already fetched by the multi-ASIN endpoint. */
+	prefetched?: PrefetchedApiProduct
+}
+
 class StitchHelper {
 	apiHelper: ApiHelper
 	apiParsed!: ApiBook
@@ -28,23 +40,16 @@ class StitchHelper {
 	private prefetched?: PrefetchedApiProduct
 	logger?: FastifyBaseLogger
 
-	constructor(
-		asin: string,
-		region: string,
-		logger?: FastifyBaseLogger,
-		captureHistory: boolean = false,
-		skipHtml: boolean = false,
-		prefetched?: PrefetchedApiProduct
-	) {
+	constructor(asin: string, region: string, options: StitchHelperOptions = {}) {
 		this.asin = asin
-		this.logger = logger
-		this.captureHistory = captureHistory
-		this.skipHtml = skipHtml
-		this.prefetched = prefetched
+		this.logger = options.logger
+		this.captureHistory = options.captureHistory ?? false
+		this.skipHtml = options.skipHtml ?? false
+		this.prefetched = options.prefetched
 		// Set up helpers
-		this.apiHelper = new ApiHelper(asin, region, logger, captureHistory)
+		this.apiHelper = new ApiHelper(asin, region, this.logger, this.captureHistory)
 		this.sharedHelper = new SharedHelper()
-		this.scrapeHelper = new ScrapeHelper(asin, region, logger)
+		this.scrapeHelper = new ScrapeHelper(asin, region, this.logger)
 	}
 
 	/**

@@ -462,8 +462,12 @@ describe('createServerDrain + closeServerWithTimeout (real HTTP)', () => {
 			drain.forceClose()
 			const settled = await stalled.request
 			expect(settled instanceof Response).toBe(false)
+			// Register the close listener BEFORE close(): on Bun 1.4.0 the
+			// close event can fire immediately when close() starts, and a
+			// listener attached after that would never see it (hang).
+			const closed = once(server, 'close')
 			server.close()
-			await once(server, 'close')
+			await closed
 			expect(() => drain.forceClose()).not.toThrow()
 		} finally {
 			stalled.abort()

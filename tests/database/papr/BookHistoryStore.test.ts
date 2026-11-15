@@ -4,6 +4,7 @@
 // asserts the stable startup error, while a fully prepared client passes.
 
 import { describe, expect, test } from 'bun:test'
+import { ObjectId } from 'mongodb'
 
 import { HISTORY_INDEX_DEFINITIONS } from '#config/bookHistory'
 import { BookHistoryStore } from '#helpers/database/papr/BookHistoryStore'
@@ -37,6 +38,8 @@ interface MongoShape {
 			listIndexes(): { toArray(): Promise<IndexDoc[]> }
 			insertOne(doc: object, opts?: object): Promise<unknown>
 			deleteOne(filter: object, opts?: object): Promise<unknown>
+			findOne(filter: object, opts?: object): Promise<unknown>
+			updateOne(filter: object, update: object, opts?: object): Promise<unknown>
 		}
 	}
 	startSession(): Promise<{
@@ -56,9 +59,25 @@ function clientWith(options: {
 	rejectHello?: boolean
 	noSetName?: boolean
 	rejectTx?: boolean
-}): { client: MongoShape; store: BookHistoryStore } {
+	stateDoc?: unknown
+	updateOneResult?: { modifiedCount: number }
+	stateUpdateMatchedCount?: number
+}): {
+	client: MongoShape
+	store: BookHistoryStore
+	calls: {
+		stateFindOne: object[]
+		stateUpdateOne: { filter: object; update: object; opts?: object }[]
+		booksUpdateOne: { filter: object; update: object; opts?: object }[]
+	}
+} {
 	const indexes = options.indexes ?? preparedIndexes
 	const store = new BookHistoryStore()
+	const calls = {
+		stateFindOne: [] as object[],
+		stateUpdateOne: [] as { filter: object; update: object; opts?: object }[],
+		booksUpdateOne: [] as { filter: object; update: object; opts?: object }[]
+	}
 	const client: MongoShape = {
 		db: (name: string) => ({
 			command: async () => {
@@ -74,7 +93,22 @@ function clientWith(options: {
 				insertOne: async () => {
 					if (options.rejectTx) throw new Error('transaction aborted')
 				},
-				deleteOne: async () => ({})
+				deleteOne: async () => ({}),
+				findOne: async (filter: object) => {
+					if (collectionName === 'book_history_states') calls.stateFindOne.push(filter)
+					return collectionName === 'book_history_states' ? options.stateDoc ?? null : null
+				},
+				updateOne: async (filter: object, update: object, opts?: object) => {
+					if (collectionName === 'books') {
+						calls.booksUpdateOne.push({ filter, update, opts })
+						return { modifiedCount: options.updateOneResult?.modifiedCount ?? 1 }
+					}
+					if (collectionName === 'book_history_states') {
+						calls.stateUpdateOne.push({ filter, update, opts })
+						return { matchedCount: options.stateUpdateMatchedCount ?? 1 }
+					}
+					return {}
+				}
 			})
 		}),
 		startSession: async () => ({
@@ -84,7 +118,7 @@ function clientWith(options: {
 		})
 	}
 	store.configure(client as never)
-	return { client, store }
+	return { client, store, calls }
 }
 
 /** Force one prepared index definition to mismatch the store's comparison. */
@@ -143,6 +177,17 @@ describe('assertHistoryPrerequisites', () => {
 		await expect(store.assertHistoryPrerequisites()).rejects.toThrow(FAILURE)
 	})
 
+	test('fails on a reordered same-name index (key order determines the prefix)', async () => {
+		// Same fields+directions, different ORDER: an unordered key
+		// comparison would accept it, but {region:1, asin:1, revision:1}
+		// cannot serve the {asin:1, region:1, revision:1} prefix scan.
+		const indexes = mutateIndex('book_history_revisions', 'history_revision', (idx) => {
+			idx.key = { region: 1, asin: 1, revision: 1 }
+		})
+		const { store } = clientWith({ indexes })
+		await expect(store.assertHistoryPrerequisites()).rejects.toThrow(FAILURE)
+	})
+
 	test('fails when the unique flag is missing on a non-_id unique index', async () => {
 		const indexes = mutateIndex('book_history_revisions', 'history_revision', (idx) => {
 			delete idx.unique
@@ -178,5 +223,82 @@ describe('assertHistoryPrerequisites', () => {
 	test('fails when the transactional probe cannot commit', async () => {
 		const { store } = clientWith({ rejectTx: true })
 		await expect(store.assertHistoryPrerequisites()).rejects.toThrow(FAILURE)
+	})
+})
+
+describe('persistRatingsRepair', () => {
+	const input = {
+		asin: 'B079LRSMNN',
+		region: 'us',
+		generation: 9,
+		bookId: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f01'),
+		ratings: { value: '4.6', numRatings: 120, numReviews: 8 }
+	}
+
+	test('enforces the generation fence on the state document, not the books filter', async () => {
+		// A state document exists (a reserved history state): the fence is
+		// a conditional update on book_history_states, atomically in the
+		// same transaction as the books write.
+		const { store, calls } = clientWith({
+			stateDoc: { _id: 'us:B079LRSMNN', acceptedGeneration: 5, deleteFence: 0 }
+		})
+		const modified = await store.persistRatingsRepair(input)
+		expect(modified).toBe(1)
+		// The fence (acceptedGeneration AND deleteFence below the repaired
+		// generation — the persistObservation stale inequality inverted)
+		// is re-asserted on the STATE document, in the same transaction
+		// (same session) as the books write.
+		expect(calls.stateUpdateOne).toHaveLength(1)
+		expect(calls.stateUpdateOne[0].filter).toEqual({
+			_id: 'us:B079LRSMNN',
+			acceptedGeneration: { $lt: 9 },
+			deleteFence: { $lt: 9 }
+		})
+		expect(calls.stateUpdateOne[0].opts).toEqual({ session: {} })
+		// The books filter stays on book-document fields only: normal book
+		// documents lack the watermarks, so a fence spread into this
+		// filter would match zero rows with history enabled.
+		expect(calls.booksUpdateOne).toHaveLength(1)
+		expect(calls.booksUpdateOne[0].filter).toEqual({
+			_id: input.bookId,
+			ratings: { $exists: false }
+		})
+		expect(calls.booksUpdateOne[0].update).toEqual({
+			$set: { ratings: input.ratings },
+			$unset: { ratingsBackfillSkip: '' },
+			$currentDate: { updatedAt: true }
+		})
+		// Legacy stubs fail the strict validator for unrelated missing
+		// content fields: the repair bypasses validation, nothing else does.
+		expect(calls.booksUpdateOne[0].opts).toEqual({ session: {}, bypassDocumentValidation: true })
+	})
+
+	test('writes zero rows and aborts the books write when the fence is lost', async () => {
+		// A concurrent accepted-watermark advance in between the
+		// persistObservation proof and the repair makes the state fence
+		// match 0: the repair must not touch the book document and the
+		// transaction aborts before commit.
+		const { store, calls } = clientWith({
+			stateDoc: { _id: 'us:B079LRSMNN', acceptedGeneration: 12, deleteFence: 0 },
+			stateUpdateMatchedCount: 0
+		})
+		await expect(store.persistRatingsRepair(input)).rejects.toThrow('superseded')
+		expect(calls.booksUpdateOne).toHaveLength(0)
+	})
+
+	test('omits the fence when no history state exists (nothing can supersede the generation)', async () => {
+		const { store, calls } = clientWith({ stateDoc: null })
+		const modified = await store.persistRatingsRepair(input)
+		expect(modified).toBe(1)
+		expect(calls.stateUpdateOne).toHaveLength(0)
+		expect(calls.booksUpdateOne[0].filter).toEqual({
+			_id: input.bookId,
+			ratings: { $exists: false }
+		})
+	})
+
+	test('propagates a 0-modified outcome (concurrent writer won)', async () => {
+		const { store } = clientWith({ updateOneResult: { modifiedCount: 0 } })
+		await expect(store.persistRatingsRepair(input)).resolves.toBe(0)
 	})
 })

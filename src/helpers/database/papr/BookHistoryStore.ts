@@ -29,7 +29,7 @@ import {
 	SEED_PROGRESS_ID,
 	SUPPORTED_REGIONS
 } from '#config/bookHistory'
-import type { ApiBook } from '#config/types'
+import type { ApiBook, ApiRatings } from '#config/types'
 import { ApiBookSchema, asin10Regex } from '#config/types'
 import { parseArtworkReference } from '#helpers/books/audible/BookObservation'
 import type { ComparisonResult } from '#helpers/books/BookHistoryComparison'
@@ -119,12 +119,15 @@ function isPreOrderBook(book: ApiBook): boolean {
 /**
  * The existing update flow's genre safeguard, reproduced exactly
  * (`PaprAudibleBookHelper.createOrUpdate`): an unequal update is only
- * allowed when genre evidence exists — the stored genres are present, or
- * the stored genres are absent and the incoming genres are — and the
- * incoming genres are non-empty (no "nuked data" updates).
+ * allowed when genre evidence exists — the stored genres are non-empty,
+ * or the stored genres are absent and the incoming genres are non-empty —
+ * (no "nuked data" updates).
  */
 function genreSafeguardPasses(oldDoc: Document, newBook: ApiBook): boolean {
-	const oldHasGenres = Boolean(oldDoc.genres)
+	// An empty array is NO genre evidence: `Boolean([])` is true, and
+	// counting a stored `genres: []` as evidence would freeze genre-less
+	// legacy rows forever.
+	const oldHasGenres = Array.isArray(oldDoc.genres) && oldDoc.genres.length > 0
 	const newHasGenres = Boolean(newBook.genres?.length)
 	// Neither side carries genre evidence: there is nothing to protect from
 	// being nuked. Rejecting here permanently froze legacy rows that never
@@ -158,6 +161,20 @@ function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
 		}
 	}
 	return true
+}
+
+/** Same key pattern IN DECLARED ORDER: MongoDB composite indexes are
+ * prefix-ordered, so `{revision:1, asin:1, region:1}` cannot serve an
+ * `{asin:1, region:1, revision:1}` prefix scan. Key order is preserved in
+ * JSON, so a positional walk over the definition's keys is authoritative.
+ * Shared by `prepare` (src/history.ts) and the boot prerequisite gate. */
+export function sameIndexKeys(a: Record<string, number>, b: Record<string, number>): boolean {
+	const aKeys = Object.keys(a)
+	const bKeys = Object.keys(b)
+	return (
+		aKeys.length === bKeys.length &&
+		aKeys.every((field, i) => field === bKeys[i] && a[field] === b[field])
+	)
 }
 
 /** The series fields the store may $unset on an explicit removal. */
@@ -569,6 +586,18 @@ export class BookHistoryStore {
 						revisionAdvance > 0 ? revisionAdvance : undefined,
 						equalSequence
 					)
+					// An accepted book observation supersedes a backfill skip
+					// decision, even an equal-projection no-op: a row marked
+					// non-book that keeps refreshing as a book must leave the
+					// marker behind, or it would re-enter the skip set on the
+					// next walk.
+					if ('ratingsBackfillSkip' in currentBook) {
+						await this.collection<Document>(COLLECTIONS.books).updateOne(
+							{ _id: currentBook._id },
+							{ $unset: { ratingsBackfillSkip: 1 } },
+							{ session }
+						)
+					}
 					return { data: oldApi, modified: false, disposition: 'accepted' }
 				}
 				if (!genreSafeguardPasses(currentBook, book)) {
@@ -714,6 +743,82 @@ export class BookHistoryStore {
 			)
 
 			return { data: returned, modified: true, disposition: 'accepted' }
+		})
+	}
+
+	/**
+	 * Atomic ratings repair for a `rejected` full-document observation
+	 * (the ratings backfill's genre-guard fallback): writes the validated
+	 * ratings block directly, revalidating the generation fence INSIDE the
+	 * same transaction as the write. The caller's `persistObservation`
+	 * already ran its stale check, but that proof is only as fresh as the
+	 * separate transaction: a newer generation accepted in between would
+	 * otherwise let an older fetch's ratings land. The fence condition
+	 * (`acceptedGeneration`/`deleteFence` below the repaired generation,
+	 * same inequality as `persistObservation`) is re-asserted as a
+	 * CONDITIONAL UPDATE ON THE STATE DOCUMENT in the same transaction: a
+	 * superseded generation matches 0 and the whole transaction — the
+	 * books write included — is aborted before it commits. The books
+	 * filter itself stays on book-document fields only (the `acceptedGeneration`/`deleteFence` watermarks live in
+	 * `book_history_states`, not on book documents — a fence spread into
+	 * the books filter would match zero rows with history enabled).
+	 *
+	 * Document validation is bypassed deliberately: the target rows are
+	 * legacy stubs that already lack validator-required content fields, so
+	 * a metadata-only update would be rejected for unrelated missing data.
+	 * @returns the repair's `modifiedCount` (0 when a concurrent writer
+	 * already handled the row — rated it, superseded the generation, or
+	 * deleted the book).
+	 */
+	async persistRatingsRepair(input: {
+		asin: string
+		region: string
+		generation: number
+		bookId: ObjectId
+		ratings: ApiRatings
+	}): Promise<number> {
+		const { asin, region, generation, bookId, ratings } = input
+		const key = bookKey(asin, region)
+		return await this.withTx(async (session) => {
+			const stateCol = this.collection<StateDoc>(COLLECTIONS.state)
+			const state = (await stateCol.findOne({ _id: key }, { session })) as StateDoc | null
+			// When a state document exists, re-assert the persistObservation
+			// stale fence (same inequality, inverted: the generation is
+			// strictly above BOTH watermarks) as a CONDITIONAL UPDATE ON
+			// THE STATE DOCUMENT, in the same transaction. The state is
+			// immutable under the repair (the update is a $set that
+			// rewrites only itself), so a match of 1 revalidates the fence
+			// atomically against the transaction snapshot: a concurrent
+			// accepted-watermark advance in between makes it match 0, the
+			// repair throws, and the whole transaction — the books write
+			// included — aborts before commit. Without a state document
+			// nothing can advance the watermarks, so no fence is needed.
+			if (state) {
+				const fence = await stateCol.updateOne(
+					{
+						_id: key,
+						acceptedGeneration: { $lt: generation },
+						deleteFence: { $lt: generation }
+					},
+					{ $set: { stateVersion: state.stateVersion } },
+					{ session }
+				)
+				if (fence.matchedCount !== 1) {
+					throw new Error(`Ratings repair for ${key} superseded: a newer generation owns the fence`)
+				}
+			}
+			// Book-document fields only: the watermarks above live in
+			// book_history_states, and normal book documents lack them.
+			const result = await this.collection<Document>(COLLECTIONS.books).updateOne(
+				{ _id: bookId, ratings: { $exists: false } },
+				{
+					$set: { ratings },
+					$unset: { ratingsBackfillSkip: '' },
+					$currentDate: { updatedAt: true }
+				},
+				{ session, bypassDocumentValidation: true }
+			)
+			return result.modifiedCount
 		})
 	}
 
@@ -1022,17 +1127,16 @@ export class BookHistoryStore {
 				indexes.find((idx) => idx.name === def.name) ??
 				indexes.find(
 					(idx) =>
-						Object.keys(idx.key).length === Object.keys(def.keys).length &&
-						Object.entries(def.keys).every(([k, v]) => idx.key[k] === v) &&
+						sameIndexKeys(idx.key, def.keys) &&
 						JSON.stringify(idx.partialFilterExpression ?? null) ===
 							JSON.stringify(def.partialFilterExpression ?? null) &&
 						(def.unique !== true || idx.unique === true)
 				)
 			if (!match) throw failure()
-			const keysEqual =
-				Object.keys(match.key).length === Object.keys(def.keys).length &&
-				Object.entries(def.keys).every(([k, v]) => match.key[k] === v)
-			if (!keysEqual) throw failure()
+			// Order-sensitive: the match lookup above is, but a reordered
+			// same-name index must not pass the gate either (the physical
+			// key order determines the compound prefix).
+			if (!sameIndexKeys(match.key, def.keys)) throw failure()
 			// A same-name index without the expected string-only partial
 			// filter would pass the gate and then fail at runtime with
 			// duplicate-key errors on gallery inserts.

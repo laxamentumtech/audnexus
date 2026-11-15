@@ -27,6 +27,7 @@ const mockPersistObservation = mock(() =>
 )
 const mockStitchProcess = mock(() => Promise.resolve(undefined))
 let mockStitchObservation: BookObservation | undefined = undefined
+const stitchConstructorArgs: unknown[][] = []
 
 mock.module('#config/papr', () => ({
 	bookHistoryStore: {
@@ -37,6 +38,9 @@ mock.module('#config/papr', () => ({
 
 mock.module('#helpers/books/audible/StitchHelper', () => ({
 	default: class StitchHelper {
+		constructor(...args: unknown[]) {
+			stitchConstructorArgs.push(args)
+		}
 		process = () => mockStitchProcess()
 		getHistoryObservation = () => mockStitchObservation
 	}
@@ -49,7 +53,7 @@ import type { ApiBook } from '#config/types'
 import type { PersistResult } from '#helpers/database/papr/BookHistoryStore'
 import { BadRequestError, NotFoundError } from '#helpers/errors/ApiErrors'
 import GenericShowHelper from '#helpers/routes/GenericShowHelper'
-import { bookWithoutProjection } from '#tests/datasets/helpers/books'
+import { apiResponse, bookWithoutProjection } from '#tests/datasets/helpers/books'
 import { createMockLogger } from '#tests/setup/mockLogger'
 
 describe('GenericShowHelper handler error propagation', () => {
@@ -159,7 +163,7 @@ describe('GenericShowHelper updateActions NotFoundError code handling', () => {
 			{ region: 'us', seedAuthors: undefined, update: '1' },
 			null,
 			'book',
-			mockLogger
+			{ logger: mockLogger }
 		)
 	})
 
@@ -341,7 +345,7 @@ describe('GenericShowHelper pre-order transient handling', () => {
 			{ region: 'us', seedAuthors: undefined, update: '1' },
 			null,
 			'book',
-			mockLogger
+			{ logger: mockLogger }
 		)
 	})
 
@@ -515,7 +519,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			{ region, seedAuthors: undefined, update: '1' },
 			null,
 			'book',
-			mockLogger
+			{ logger: mockLogger }
 		)
 		helper.originalData = bookWithoutProjection
 		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
@@ -527,6 +531,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 		mockStitchProcess.mockClear()
 		mockStitchProcess.mockResolvedValue(apiBook)
 		mockStitchObservation = observation
+		stitchConstructorArgs.length = 0
 	})
 
 	afterEach(() => {
@@ -613,6 +618,59 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			)
 		}
 	)
+
+	test('forwards skipHtml, prefetched, and a pre-reserved generation to the history path', async () => {
+		// Background passes (the ratings backfill) supply skipHtml, a
+		// prefetched product, and a generation reserved BEFORE the batched
+		// fetch: the history-enabled path must pass all three through to
+		// the StitchHelper that consumes the fetch session, and persist
+		// under the supplied generation instead of reserving a new one
+		// (a later reservation would reorder the fence).
+		const prefetched = {
+			product: apiResponse.product,
+			responseGroups: ['rating'],
+			receivedAt: new Date('2026-11-14T10:00:00.000Z')
+		}
+		const optionsHelper = new GenericShowHelper(
+			asin,
+			{ region, seedAuthors: undefined, update: '1' },
+			null,
+			'book',
+			{ logger: mockLogger, skipHtml: true, prefetched, reservedGeneration: 12 }
+		)
+		optionsHelper.originalData = bookWithoutProjection
+		spyOn(optionsHelper, 'isUpdatedRecently').mockReturnValue(false)
+		spyOn(optionsHelper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		spyOn(optionsHelper.redisHelper, 'findOne').mockResolvedValue(null)
+		mockPersistObservation.mockResolvedValue({
+			data: storedBook,
+			modified: true,
+			disposition: 'accepted'
+		})
+		spyOn(optionsHelper, 'getDataWithProjection').mockResolvedValue(storedBook)
+
+		const result = (await optionsHelper.handler()) as ApiBook
+
+		expect(result).toBe(storedBook)
+		// The history-enabled StitchHelper received the forwarded options
+		// (constructor: asin, region, options).
+		expect(stitchConstructorArgs).toHaveLength(1)
+		const [, , stitchOptions] = stitchConstructorArgs[0] as [
+			string,
+			string,
+			{ skipHtml?: boolean; prefetched?: unknown; captureHistory?: boolean }
+		]
+		expect(stitchOptions.skipHtml).toBe(true)
+		expect(stitchOptions.prefetched).toBe(prefetched)
+		expect(stitchOptions.captureHistory).toBe(true)
+		// The pre-reserved generation is used: no new reservation, and the
+		// observation persists under generation 12.
+		expect(mockReserveGeneration).not.toHaveBeenCalled()
+		expect(mockPersistObservation).toHaveBeenCalledTimes(1)
+		expect(mockPersistObservation).toHaveBeenCalledWith(
+			expect.objectContaining({ asin, region, generation: 12 })
+		)
+	})
 
 	test('missing observation → legacy persist path with warning', async () => {
 		mockStitchObservation = undefined
