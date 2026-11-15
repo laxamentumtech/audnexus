@@ -14,10 +14,12 @@
 // always torn down even on a failing run.
 
 import { MongoClient } from 'mongodb'
+import { randomUUID } from 'node:crypto'
 
-// Import the start/stop and the container-name constant once, at module load,
-// so both the resolver and the teardown agree on the exact same name.
-import { CONTAINER, startReplicaSet, stopReplicaSet } from './mongo-rs'
+// Import the start/stop once, at module load; the resolver returns the exact
+// container name the harness started, so teardown always targets that same
+// invocation's container.
+import { CONTAINER_PREFIX, startReplicaSet, stopReplicaSet } from './mongo-rs'
 
 export interface HistoryMongo {
 	uri: string
@@ -25,13 +27,15 @@ export interface HistoryMongo {
 }
 
 /**
- * Resolve a replica set for one suite. Each suite gets its own container
- * (`audnexus-history-rs-<suite>`) because every suite drops the shared
- * `audnexus` DB: a single shared container + name means
- * `bun test tests/integration` (both suites in one process tree) would race
- * on one data directory. The `test:history` script runs the suites in
- * separate invocations. The explicit-URI path shares one DB across suites;
- * suites are run serially by `test:history`, so no container is started.
+ * Resolve a replica set for one suite. Each invocation gets its own
+ * container (unique `audnexus-history-rs-<suite>-<uuid>` name + free port)
+ * because every suite drops the shared `audnexus` DB: a single shared
+ * container + name means `bun test tests/integration` (both suites in one
+ * process tree) would race on one data directory. A container left behind
+ * by an interrupted run can therefore never block a later one. The
+ * `test:history` script runs the suites in separate invocations. The
+ * explicit-URI path shares one DB across suites; suites are run serially by
+ * `test:history`, so no container is started.
  */
 export async function resolveHistoryMongo(suite: string): Promise<HistoryMongo | null> {
 	const explicit = process.env.HISTORY_TEST_MONGODB_URI
@@ -48,9 +52,13 @@ export async function resolveHistoryMongo(suite: string): Promise<HistoryMongo |
 			await probe.close()
 		}
 	}
-	const container = `${CONTAINER}-${suite}`
+	// Each invocation gets its own container (unique name + free port); the
+	// suite label identifies runs in logs, never the container itself, so a
+	// container left behind by an interrupted run can never block this one.
 	try {
-		const uri = await startReplicaSet({ container })
+		const { uri, container } = await startReplicaSet({
+			container: `${CONTAINER_PREFIX}-${suite}-${randomUUID()}`
+		})
 		return { uri, stop: async () => stopReplicaSet(container) }
 	} catch {
 		return null
