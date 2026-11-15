@@ -54,9 +54,12 @@ export function buildEffectiveWrite(
 		...defined
 	}
 
-	// Genres: empty/absent incoming keeps stored genres.
+	// Genres: empty/absent incoming keeps stored genres. A stored `[]` is a
+	// real key the database retains, so it stays in the projection (an
+	// equal-object short-circuit can't diverge from the row) — only a
+	// stored row without the key drops it.
 	if (Array.isArray(defined.genres) && defined.genres.length === 0) {
-		if (stored?.genres?.length) effective.genres = stored.genres
+		if (Array.isArray(stored?.genres)) effective.genres = stored.genres
 		else delete effective.genres
 	}
 

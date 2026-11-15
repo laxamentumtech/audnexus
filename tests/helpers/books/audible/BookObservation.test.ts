@@ -220,10 +220,10 @@ describe('buildFieldObservations', () => {
 		})
 	})
 
-	test('observes an explicit empty tags value', () => {
+	test('observes an explicit empty tags group as absent', () => {
 		const fields = buildFieldObservations(makeInputs({ apiTags: [] }))
 		const tagsField = fields.find((f) => f.field === 'tags')
-		expect(tagsField?.value).toEqual({ state: 'value', value: [] })
+		expect(tagsField?.value).toEqual({ state: 'absent' })
 	})
 
 	test('omits the tags observation when the tags group was not fetched', () => {

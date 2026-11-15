@@ -246,9 +246,13 @@ export function buildFieldObservations(input: ObservationInputs): FieldObservati
 
 	// Tags: same asymmetry as genres — `undefined` means the tags group
 	// was not fetched (evidence absent → omit, retain any old baseline),
-	// while `[]` is the explicit "no tags" value and is observed.
+	// while `[]` is the explicit "no tags" state and is recorded ABSENT.
 	if (apiTags !== undefined) {
-		push('tags', TAGS_API_POLICY, asValue(canonicalTags(apiTags)))
+		if (apiTags.length === 0) {
+			push('tags', TAGS_API_POLICY, ABSENT)
+		} else {
+			push('tags', TAGS_API_POLICY, asValue(canonicalTags(apiTags)))
+		}
 	}
 
 	if (literatureTypeJustified && book.literatureType) {

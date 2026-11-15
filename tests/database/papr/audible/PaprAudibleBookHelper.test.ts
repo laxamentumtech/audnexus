@@ -255,6 +255,26 @@ describe('PaprAudibleBookHelper should', () => {
 			{ $set: expectedSet, $currentDate: { updatedAt: true } }
 		)
 	})
+
+	test('createOrUpdate with stored empty genres is a no-op update', async () => {
+		// A stored `genres: []` is a real key the database retains, so the
+		// effective write must keep it: the write equals the stored row and
+		// createOrUpdate short-circuits. If the projection dropped the key,
+		// the deep comparison below fails and an update is issued.
+		const sortedJson = (value: unknown): string =>
+			JSON.stringify(value, Object.keys(value as object).sort())
+		const stored = {
+			...parsedBook,
+			genres: []
+		} as unknown as Record<string, unknown>
+		const incoming = { ...parsedBook, genres: [] }
+		mockIsEqualData.mockImplementation((a: unknown, b: unknown) => sortedJson(a) === sortedJson(b))
+		mockFindOne.mockResolvedValue(stored as unknown as BookDocument)
+		helper.setData(incoming as typeof parsedBook)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(false)
+		expect(mockUpdateOne).not.toHaveBeenCalled()
+	})
 })
 
 describe('PaprAudibleBookHelper should catch error when', () => {
