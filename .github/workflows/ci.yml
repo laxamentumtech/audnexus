@@ -277,6 +277,9 @@ jobs:
 
       - run: bun run test:history
 
+      # Same docker/replica-set harness; the suite self-skips without Docker.
+      - run: bun run test:indexes
+
   docker-build:
     # `test-history` is in the gate so an image can never push after a red
     # history suite; it skips (not fails) when not triggered.

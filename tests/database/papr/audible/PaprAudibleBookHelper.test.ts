@@ -171,8 +171,10 @@ describe('PaprAudibleBookHelper should', () => {
 		helper.setData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
-	test('createOrUpdate genres on old, but not on new', async () => {
-		const obj = { data: parsedBook, modified: false }
+	test('createOrUpdate preserves stored genres when the incoming data has none', async () => {
+		// Ladder-less fetches carry no genre evidence; the update must proceed
+		// with the stored genres spliced into the write, not be frozen.
+		const obj = { data: parsedBook, modified: true }
 		mockIsEqualData.mockReturnValue(false)
 		mockFindOne
 			.mockResolvedValueOnce(parsedBook as unknown as BookDocument)
@@ -180,6 +182,59 @@ describe('PaprAudibleBookHelper should', () => {
 			.mockResolvedValue(parsedBook as unknown as BookDocument)
 		helper.setData(parsedBookWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{
+				$set: {
+					...parsedBookWithoutGenres,
+					genres: parsedBook.genres,
+					createdAt: bookWithoutProjection._id.getTimestamp()
+				},
+				$unset: { ratingsBackfillSkip: '' },
+				$currentDate: { updatedAt: true }
+			}
+		)
+	})
+	test('createOrUpdate short-circuits when the spliced document equals the stored row', async () => {
+		// Stored row has genres, incoming is identical except `genres: []`:
+		// the stored genres are spliced into the write document BEFORE the
+		// equality check, so the spliced document equals the stored row —
+		// modified: false, no write.
+		const incoming = { ...parsedBookWithoutGenres, genres: [] }
+		const obj = { data: parsedBook, modified: false }
+		mockIsEqualData.mockReturnValue(true)
+		mockFindOne.mockResolvedValue(parsedBook as unknown as BookDocument)
+		helper.setData(incoming)
+		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		expect(mockUpdateOne).not.toHaveBeenCalled()
+	})
+	test('createOrUpdate updates when both sides carry an empty genre list', async () => {
+		// `genres: []` is not genre evidence on either side: truthiness must
+		// be non-emptiness, so an empty-incoming + empty-stored row accepts
+		// the update (the old `Boolean([])` check froze these rows).
+		const incoming = { ...parsedBookWithoutGenres, genres: [] }
+		const stored: BookDocument = {
+			...bookWithoutProjection,
+			genres: []
+		}
+		const obj = { data: parsedBookWithoutGenres, modified: true }
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(stored as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutProjection)
+			.mockResolvedValue(parsedBookWithoutGenres as unknown as BookDocument)
+		helper.setData(incoming)
+		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{
+				$set: { ...incoming, genres: [], createdAt: bookWithoutProjection._id.getTimestamp() },
+				$unset: { ratingsBackfillSkip: '' },
+				$currentDate: { updatedAt: true }
+			}
+		)
 	})
 	test('createOrUpdate updates when neither side has genres', async () => {
 		// Genre-less legacy rows must still accept other fields (ratings):

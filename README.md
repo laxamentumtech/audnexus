@@ -298,6 +298,8 @@ Audnexus can be deployed to Coolify, a self-hosted open-source alternative to Ve
 
    **Core Configuration:**
    - `MONGODB_URI`: MongoDB connection URL (e.g., `mongodb://mongo:27017/audnexus`) [required]
+   - `DB_INDEX_MODE`: Startup index policy, `auto` (default) or `verify`; see [Database indexes and startup readiness](#database-indexes-and-startup-readiness).
+   - `DB_INDEX_BUILD_WAIT_MS`: Per-index build wait bound at startup, in milliseconds (default: `1800000`); see [Database indexes and startup readiness](#database-indexes-and-startup-readiness).
    - `REDIS_URL`: Durable control Redis for BullMQ and shared rate limiting (e.g., `redis://redis:6379`). Required for workers; optional for an API-only deployment. Keep this instance on `noeviction`.
    - `REDIS_CACHE_URL`: Disposable document-cache Redis. Defaults to `REDIS_URL` for existing external deployments; set a separate instance before enabling cache eviction. Different logical database numbers on one Redis server do not isolate eviction or memory pressure.
    - `REDIS_CACHE_TTL_SECONDS`: Positive integer document-cache TTL (default: `432000`, five days), applied atomically on inserts and overwrites.

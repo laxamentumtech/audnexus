@@ -41,6 +41,34 @@ describe('index semantics', () => {
 			expect(indexDifferences({ ...lookup, options: { partialFilterExpression: { x: { $eq: desired } } } }, { key: lookup.keys, partialFilterExpression: { x: { $eq: value } } })).toContain('partialFilterExpression')
 		}
 	})
+	test('normalizes $or and $elemMatch operand order at any recursion depth', () => {
+		const definition: ManagedIndex = {
+			...lookup,
+			options: {
+				partialFilterExpression: {
+					status: { $eq: 'live' },
+					$or: [
+						{ tags: { $elemMatch: { $gte: 2, $eq: 'audiobook' } } },
+						{ region: { $in: ['us', 'uk'] } }
+					]
+				}
+			}
+		}
+		const actual = {
+			key: lookup.keys,
+			partialFilterExpression: {
+				$or: [
+					{ region: { $in: ['us', 'uk'] } },
+					{ tags: { $elemMatch: { $eq: 'audiobook', $gte: 2 } } }
+				],
+				status: { $eq: 'live' }
+			}
+		}
+		expect(indexDifferences(definition, actual)).toEqual([])
+		// A changed $or operand is still a diff (recursion preserves content).
+		const mutated = { ...actual, partialFilterExpression: { ...actual.partialFilterExpression, $or: [{ region: { $in: ['us'] } }, { tags: { $elemMatch: { $eq: 'audiobook', $gte: 2 } } }] } }
+		expect(indexDifferences(definition, mutated)).toContain('partialFilterExpression')
+	})
 	test('compares effective collation, hidden, sparse, and TTL defaults and drift', () => {
 		const def = { ...lookup, options: { collation: { locale: 'en' } } }
 		const actual = { key: lookup.keys, collation: { locale: 'en', caseLevel: false, caseFirst: 'off', strength: new Int32(3), numericOrdering: false, alternate: 'non-ignorable', maxVariable: 'punct', normalization: false, backwards: false, version: '57.1' } }

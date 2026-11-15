@@ -23,7 +23,7 @@ mock.module('#helpers/utils/batchProcessor', () => ({
 // persisted; the backfill falls back to a direct ratings write when false.
 let mockPersisted = false
 // Fresh upstream data as the real helper exposes it; used when the handler
-// resolves with the stored row (genre-guard rejection) instead.
+// resolves with the stored row (equal-projection short-circuit) instead.
 let mockFreshData: unknown
 
 mock.module('#helpers/routes/BookShowHelper', () => ({
@@ -265,17 +265,19 @@ describe('BookBackfillHelper should', () => {
 		expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
 	})
 
-	test('writes ratings directly when the full update was rejected', async () => {
-		// Old catalog rows have no category ladders upstream, so
-		// BookHistoryStore's genre safeguard rejects the full-document
-		// update. The ratings block is a pure addition and must still land,
-		// or the row never leaves the backfill's target set.
+	test('writes ratings directly when the full update was not persisted', async () => {
+		// Old catalog rows have no category ladders upstream: a genre-less
+		// observation that matches the stored row takes the
+		// equal-projection short-circuit (stored genres preserved by the
+		// genre-preserving merge, no write). The ratings block from the
+		// fresh fetch is a pure addition and must still land, or the row
+		// never leaves the backfill's target set.
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockPersisted = false
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
 		expect(mockBookUpdateOne).toHaveBeenCalledWith(
-			{ _id: books[0]._id },
+			{ _id: books[0]._id, ratings: { $exists: false } },
 			{
 				$set: { ratings: bookWithRatings.ratings },
 				$unset: { ratingsBackfillSkip: '' },
@@ -285,17 +287,44 @@ describe('BookBackfillHelper should', () => {
 		)
 	})
 
+	test('counts a raced ratings repair as neither updated nor failed', async () => {
+		// A concurrent update=1 refresh populated ratings after the backfill
+		// read: the conditional filter matches nothing, the row is not
+		// clobbered, and the pass counts the race, not a ratings update.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockBookUpdateOne.mockResolvedValue({ modifiedCount: 0 })
+		mockPersisted = false
+		await expect(helper.process()).resolves.toEqual({
+			total: 1,
+			updated: 0,
+			skipped: 0,
+			terminalSkipped: 0,
+			failed: 0
+		})
+		expect(mockBookUpdateOne).toHaveBeenCalledWith(
+			{ _id: books[0]._id, ratings: { $exists: false } },
+			{
+				$set: { ratings: bookWithRatings.ratings },
+				$unset: { ratingsBackfillSkip: '' },
+				$currentDate: { updatedAt: true }
+			},
+			{ bypassDocumentValidation: true }
+		)
+		expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
+	})
+
 	test('uses the fresh ratings when the handler resolved with the stored row', async () => {
-		// Genre-less rows make BookHistoryStore reject the full update and the
-		// handler returns the old stored record without ratings; the fresh
-		// fetch's ratings block must still be written.
+		// An equal-projection short-circuit (stored genres preserved by the
+		// genre-preserving merge) returns the old stored record without
+		// ratings; the fresh fetch's ratings block must still be written.
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => bookWithoutRatings)
 		mockFreshData = bookWithRatings
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
 		expect(mockBookUpdateOne).toHaveBeenCalledWith(
-			{ _id: books[0]._id },
+			{ _id: books[0]._id, ratings: { $exists: false } },
 			{
 				$set: { ratings: bookWithRatings.ratings },
 				$unset: { ratingsBackfillSkip: '' },
@@ -325,22 +354,59 @@ describe('BookBackfillHelper should', () => {
 				actualType: 'SinglePartIssue'
 			})
 		})
+		// Fake timers pin `new Date()` so the marker payload can be asserted
+		// exactly, including markedAt.
+		vi.useFakeTimers({ now: new Date('2026-11-14T12:00:00.000Z') })
+		try {
+			await expect(helper.process()).resolves.toEqual({
+				total: 1,
+				updated: 0,
+				skipped: 0,
+				terminalSkipped: 1,
+				failed: 0
+			})
+			expect(mockMarkUpdateOne).toHaveBeenCalledWith(
+				{
+					_id: books[0]._id,
+					ratings: { $exists: false },
+					ratingsBackfillSkip: { $exists: false }
+				},
+				[
+					{
+						$set: {
+							createdAt: { $ifNull: ['$createdAt', { $toDate: '$_id' }] },
+							ratingsBackfillSkip: {
+								reason: 'non_book',
+								contentType: 'SinglePartIssue',
+								markedAt: new Date('2026-11-14T12:00:00.000Z')
+							}
+						}
+					}
+				],
+				{ bypassDocumentValidation: true }
+			)
+		} finally {
+			vi.useRealTimers()
+		}
+	})
+
+	test('leaves a details-less content-type rejection unmarked and retryable', async () => {
+		// A ContentTypeMismatchError without details carries no content type;
+		// the row must stay in the target set for the next pass, not be
+		// guessed terminal.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockShowHandler.mockImplementation(async () => {
+			throw new ContentTypeMismatchError('Item content type is unrecognized.')
+		})
 		await expect(helper.process()).resolves.toEqual({
 			total: 1,
 			updated: 0,
 			skipped: 0,
-			terminalSkipped: 1,
-			failed: 0
+			terminalSkipped: 0,
+			failed: 1
 		})
-		expect(mockMarkUpdateOne).toHaveBeenCalledWith(
-			{
-				_id: books[0]._id,
-				ratings: { $exists: false },
-				ratingsBackfillSkip: { $exists: false }
-			},
-			expect.any(Array),
-			{ bypassDocumentValidation: true }
-		)
+		expect(mockMarkUpdateOne).not.toHaveBeenCalled()
 	})
 
 	test('leaves retryable failures unmarked', async () => {

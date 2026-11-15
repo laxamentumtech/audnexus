@@ -205,23 +205,32 @@ export default class BookBackfillHelper {
 						throw new Error(`Ratings were not populated for ${book.asin}`)
 					}
 					// Write the ratings block directly when the handler could
-					// not persist: the genre guard exists to stop genre-nuking
-					// updates, not to block a pure field addition, and without
-					// this the row never leaves the `ratings: {$exists: false}`
-					// target set.
+					// not persist: the genre-preserving merge stops
+					// genre-nuking updates, not pure field additions, and
+					// without this the row never leaves the
+					// `ratings: {$exists: false}` target set.
 					if (!helper.persisted) {
 						// papr's model type omits updateOne; the runtime model
 						// has it (UpdateScheduler.markChecked relies on the same).
 						const bookModel = BookModel as unknown as {
-							updateOne: (filter: object, update: object, options?: object) => Promise<unknown>
+							updateOne: (
+								filter: object,
+								update: object,
+								options?: object
+							) => Promise<{ modifiedCount: number }>
 						}
 						// The repair is a targeted field addition on legacy stubs
 						// that already fail the validator for unrelated missing
 						// content fields, so bypass validation here (content
 						// writes keep full validation) — otherwise the row can
-						// never leave the target set.
-						await bookModel.updateOne(
-							{ _id: book._id },
+						// never leave the target set. The conditional
+						// `ratings: {$exists: false}` filter (same pattern as
+						// markNonBook) makes the write a no-op when a
+						// concurrent update=1 refresh populated ratings after
+						// the backfill read — a matched 0 row is a race, not a
+						// completed ratings update.
+						const repair = await bookModel.updateOne(
+							{ _id: book._id, ratings: { $exists: false } },
 							{
 								$set: { ratings },
 								$unset: { ratingsBackfillSkip: '' },
@@ -229,6 +238,12 @@ export default class BookBackfillHelper {
 							},
 							{ bypassDocumentValidation: true }
 						)
+						if (repair.modifiedCount === 0) {
+							// Raced with another write that already populated
+							// ratings: the row left the target set without this
+							// pass's write, so it is a race, not an update.
+							raced += 1
+						}
 					}
 					// Got a fully-formed book with ratings: the only usable-success
 					// signal, so this (not a bare 200) relaxes the cooldown.

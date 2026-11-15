@@ -1,9 +1,9 @@
 // Real-transaction integration for the book history feature against a
 // single-node replica set. Covers the store's transactional invariants
 // (first-touch baselines with no initial change events, revision + gallery
-// writes, equal short-circuit, stale disposition, genre safeguard, delete
-// survival with legacy capture on re-create) and the read side (unparsed
-// artwork retention).
+// writes, equal short-circuit, stale disposition, genre-preserving merge,
+// delete survival with legacy capture on re-create) and the read side
+// (unparsed artwork retention).
 //
 // Gating follows the live-test convention: an explicit
 // `HISTORY_TEST_MONGODB_URI` replica-set URI, or a running Docker daemon
@@ -35,9 +35,9 @@ const KEY = `${REGION}:${ASIN}`
 const IMG1 = 'AAAABBBBCCCCDDDDEEEEFFFGGGHHHHIIIIJJJJKKMM'
 const IMG2 = 'NEWNEWNEWNEWNEWNEWNEWNEWNEWNEWNEWNEWNEW1'
 
-// The genre safeguard (reproduced from the original update flow) requires
-// non-empty incoming genres, so every fixture carries a recognized genre by
-// default; the safeguard test strips this explicitly to an empty array.
+// Every fixture carries a recognized genre by default; the preservation
+// tests strip this explicitly to an empty array to exercise the
+// genre-preserving merge on genre-bearing stored rows.
 const GENRES = [{ type: 'genre', asin: '1234567890', name: 'Fiction' }] as const
 
 function book(overrides: Record<string, unknown> = {}) {
@@ -239,32 +239,96 @@ run('BookHistoryStore against a replica set', () => {
 		expect(current?.title).toBe('Changed Title')
 	})
 
-	test('the genre safeguard rejects a book that empties its genres', async () => {
-		const withGenres = book({ title: 'Genres Book' })
+	test('the genre-preserving merge keeps stored genres when the observation empties them', async () => {
+		// An observation with no genre evidence (ladder-less fetches) is not
+		// a removal: the stored genres are spliced into the write document
+		// before the equality check and the $set, so the accepted update
+		// lands with the other changed fields while the stored list survives.
 		await bookHistoryStore.persistObservation(
 			persistInput({
 				generation: 4,
-				book: withGenres,
+				book: book({ title: 'Genres Book' }),
 				observation: observation({ title: 'Genres Book', imageId: IMG2 })
 			})
 		)
-		const rejected = await bookHistoryStore.persistObservation(
+		const result = await bookHistoryStore.persistObservation(
 			persistInput({
 				generation: 5,
 				book: book({ title: 'Genres Stripped', genres: [] }),
 				observation: observation({ title: 'Genres Stripped', imageId: IMG2 })
 			})
 		)
-		expect(rejected.disposition).toBe('rejected')
+		expect(result.disposition).toBe('accepted')
+		expect(result.modified).toBe(true)
 		const current = await collections().collection('books').findOne({ asin: ASIN })
-		expect(current?.title).toBe('Genres Book')
+		expect(current?.title).toBe('Genres Stripped')
+		expect(current?.genres).toEqual(GENRES)
 	})
 
-	test('a genre rejection after first-touch capture continues at sequence 2', async () => {
-		// First-touch legacy capture runs inside the same transaction as a
-		// genre-rejected observation: the captured asset advances the
+	test('a genre-less equal observation short-circuits past reordered stored genre keys', async () => {
+		// R3 regression: the merge splices the RAW stored genres into the
+		// parsed write document. A stored genre object whose key order
+		// differs from the Zod projection (e.g. { name, type, asin }) never
+		// compares equal under a stringify-based comparison, so the
+		// short-circuit must re-parse the merged document through
+		// ApiBookSchema before comparing — otherwise every genre-less
+		// no-op observation rewrites the whole row.
+		const reorderAsin = 'B0GENRORD1'
+		const db3 = collections()
+		const gen1 = await bookHistoryStore.reserveGeneration(reorderAsin, REGION)
+		await bookHistoryStore.persistObservation(
+			persistInput({
+				asin: reorderAsin,
+				generation: gen1,
+				book: book({ asin: reorderAsin, title: 'Reorder Book' }),
+				observation: observation({ title: 'Reorder Book', imageId: IMG1 })
+			})
+		)
+		// Rewrite the stored genre object with a non-declaration key order,
+		// simulating a pre-projection row (raw driver writes bypass the
+		// papr validator, like the legacy rows that predate it).
+		await db3.collection('books').updateOne(
+			{ asin: reorderAsin },
+			{ $set: { 'genres.0': { name: 'Fiction', type: 'genre', asin: '1234567890' } } }
+		)
+		const stateBefore = await db3
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${reorderAsin}` })
+		const currentBefore = await db3.collection('books').findOne({ asin: reorderAsin })
+		const gen2 = await bookHistoryStore.reserveGeneration(reorderAsin, REGION)
+		const result = await bookHistoryStore.persistObservation({
+			asin: reorderAsin,
+			region: REGION,
+			generation: gen2,
+			book: book({ asin: reorderAsin, title: 'Reorder Book', genres: [] }),
+			observation: observation({ title: 'Reorder Book', imageId: IMG1 })
+		})
+		expect(result.disposition).toBe('accepted')
+		// Equal short-circuit: the row is not rewritten, no revision, no
+		// new history entry, the stored genre data survives untouched.
+		expect(result.modified).toBe(false)
+		const stateAfter = await db3
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${reorderAsin}` })
+		expect(stateAfter?.revision).toBe(stateBefore?.revision)
+		expect(stateAfter?.assetSequence).toBe(stateBefore?.assetSequence)
+		expect(
+			await db3
+				.collection('book_history_revisions')
+				.countDocuments({ asin: reorderAsin, region: REGION })
+		).toBe(0)
+		const current = await db3.collection('books').findOne({ asin: reorderAsin })
+		expect(current?.updatedAt).toEqual(currentBefore?.updatedAt)
+		expect(current?.genres).toEqual([{ asin: '1234567890', name: 'Fiction', type: 'genre' }])
+	}, 30000)
+
+	test('a genre-less accepted observation after first-touch capture continues at sequence 2', async () => {
+		// First-touch legacy capture runs inside the same transaction as the
+		// first accepted observation: the captured asset advances the
 		// assetSequence to 1, so the next accepted observation must continue
 		// at sequence 2 and not re-insert at 1 (artwork_order unique index).
+		// The first observation carries no genre evidence, so the merge also
+		// proves the stored genres survive the accepted write.
 		const seqAsin = 'B0GENRSEQ1'
 		const db2 = collections()
 		await db2.collection('books').insertOne({
@@ -275,25 +339,30 @@ run('BookHistoryStore against a replica set', () => {
 		// any observation is persisted.
 		await bookHistoryStore.reserveGeneration(seqAsin, REGION)
 
-		const rejected = await bookHistoryStore.persistObservation({
+		const first = await bookHistoryStore.persistObservation({
 			asin: seqAsin,
 			region: REGION,
 			generation: 1,
 			book: book({ asin: seqAsin, title: 'Seq Book', genres: [] }),
 			observation: observation({ title: 'Seq Book', imageId: IMG1 })
 		})
-		expect(rejected.disposition).toBe('rejected')
+		expect(first.disposition).toBe('accepted')
 		// The first-touch capture archived the stored image at sequence 1 and
-		// the rejection persisted the legacyCaptured watermark in-transaction.
+		// the accepted watermark persisted legacyCaptured in-transaction; the
+		// genre-less observation's write kept the stored genre list.
 		const legacy = await db2
 			.collection('book_artwork')
 			.findOne({ asin: seqAsin, region: REGION, legacy: { $ne: null } })
 		expect(legacy?.sequence).toBe(1)
-		const stateAfterReject = await db2
+		const currentAfterFirst = await db2
+			.collection('books')
+			.findOne({ asin: seqAsin })
+		expect(currentAfterFirst?.genres).toEqual(GENRES)
+		const stateAfterFirst = await db2
 			.collection('book_history_states')
 			.findOne({ _id: `${REGION}:${seqAsin}` })
-		expect(stateAfterReject?.legacyCaptured).toBe(true)
-		expect(stateAfterReject?.assetSequence).toBe(1)
+		expect(stateAfterFirst?.legacyCaptured).toBe(true)
+		expect(stateAfterFirst?.assetSequence).toBe(1)
 
 		// The next accepted observation continues at sequence 2.
 		const accepted = await bookHistoryStore.persistObservation({
@@ -310,25 +379,32 @@ run('BookHistoryStore against a replica set', () => {
 		expect(stateAfterAccept?.assetSequence).toBe(2)
 	}, 30000)
 
-	test('a genre rejection with no state row throws the defensive missing-state error', async () => {
-		// The `if (!state) throw` guard: reserveGeneration is the sole
-		// caller's precondition, so a genre-rejected first observation with no
-		// state doc is unreachable in production — the defensive throw must
-		// still guard the (trusted row, absent state) combination.
-		const guardAsin = 'B0GENRSEQ2'
+	test('a genre-less first observation with no state row is accepted and preserves stored genres', async () => {
+		// No state row (reserveGeneration not called): first-touch legacy
+		// capture archives the stored image, the merge splices the stored
+		// genres into the genre-less write document, and the accepted
+		// watermark inserts the fresh state in-transaction.
+		const freshAsin = 'B0GENRSEQ2'
 		const db2 = collections()
 		await db2.collection('books').insertOne({
-			...book({ asin: guardAsin, title: 'Guard Book' })
+			...book({ asin: freshAsin, title: 'Guard Book' })
 		} as never)
-		await expect(
-			bookHistoryStore.persistObservation({
-				asin: guardAsin,
-				region: REGION,
-				generation: 1,
-				book: book({ asin: guardAsin, title: 'Guard Book', genres: [] }),
-				observation: observation({ title: 'Guard Book', imageId: IMG1 })
-			})
-		).rejects.toThrow('History state missing')
+		const first = await bookHistoryStore.persistObservation({
+			asin: freshAsin,
+			region: REGION,
+			generation: 1,
+			book: book({ asin: freshAsin, title: 'Guard Book Changed', genres: [] }),
+			observation: observation({ title: 'Guard Book Changed', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		const current = await db2.collection('books').findOne({ asin: freshAsin })
+		expect(current?.title).toBe('Guard Book Changed')
+		expect(current?.genres).toEqual(GENRES)
+		const state = await db2
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${freshAsin}` })
+		expect(state?.legacyCaptured).toBe(true)
+		expect(state?.established).toBe(true)
 	}, 30000)
 
 	test('deleteCurrent keeps history and re-creation triggers legacy capture', async () => {
@@ -1219,10 +1295,10 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 	}, 30000)
 
 	test('accepts an update when neither side has genre evidence', async () => {
-		// Legacy rows never had category ladders. Rejecting genre-less
-		// updates froze every other field on them (the books validator
-		// refuses partial writes), so the safeguard must only fire when it
-		// would actually drop stored genres.
+		// Legacy rows never had category ladders. Refusing genre-less
+		// updates would freeze every other field on them (the books
+		// validator refuses partial writes), so the merge only preserves
+		// stored genres when it would actually drop them.
 		const noGenreAsin = 'B0GENRLESS1'
 		const db3 = collections()
 		const gen1 = await bookHistoryStore.reserveGeneration(noGenreAsin, REGION)
@@ -1262,5 +1338,58 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		const current = await db3.collection('books').findOne({ asin: noGenreAsin })
 		expect(current?.title).toBe('Still No Genres')
 		expect(current).not.toHaveProperty('ratingsBackfillSkip')
+	}, 30000)
+
+	test('an accepted update supplies createdAt on a pre-schema row', async () => {
+		// Rows written before the books validator existed lack createdAt,
+		// and the strict validator (action=error) rejects an update whose
+		// resulting document lacks it. The accepted update path must supply
+		// it once, so the repair converges instead of failing validation.
+		const preSchemaAsin = 'B0PRESCHEMA1'
+		const db5 = collections()
+		await db5.collection('books').insertOne({
+			...book({ asin: preSchemaAsin, title: 'Pre Schema Row' })
+		} as never)
+		const gen1 = await bookHistoryStore.reserveGeneration(preSchemaAsin, REGION)
+		const first = await bookHistoryStore.persistObservation({
+			asin: preSchemaAsin,
+			region: REGION,
+			generation: gen1,
+			book: book({ asin: preSchemaAsin, title: 'Pre Schema Row' }),
+			observation: observation({ title: 'Pre Schema Row', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		// Drop the field the way legacy rows lack it, keeping the fixed
+		// timestamp the store is supposed to preserve.
+		await db5
+			.collection('books')
+			.updateOne(
+				{ asin: preSchemaAsin },
+				{ $unset: { createdAt: '' } } as never,
+				{ bypassDocumentValidation: true }
+			)
+		const before = await db5.collection('books').findOne({ asin: preSchemaAsin })
+		expect(before).not.toHaveProperty('createdAt')
+		const gen2 = await bookHistoryStore.reserveGeneration(preSchemaAsin, REGION)
+		// The producer (GenericShowHelper) passes an ApiBook, which has no
+		// createdAt: the write document carries the field only from the
+		// supply, so the incoming book must not bring its own.
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars -- intentional strip of createdAt from the incoming book
+		const { createdAt: _stored, ...incomingBook } = book({
+			asin: preSchemaAsin,
+			title: 'Pre Schema Row Changed'
+		})
+		const second = await bookHistoryStore.persistObservation({
+			asin: preSchemaAsin,
+			region: REGION,
+			generation: gen2,
+			book: incomingBook,
+			observation: observation({ title: 'Pre Schema Row Changed', imageId: IMG2 })
+		})
+		expect(second.disposition).toBe('accepted')
+		expect(second.modified).toBe(true)
+		const after = await db5.collection('books').findOne({ asin: preSchemaAsin })
+		expect(after?.title).toBe('Pre Schema Row Changed')
+		expect(after?.createdAt).toBeInstanceOf(Date)
 	}, 30000)
 })

@@ -6,7 +6,11 @@
 import { describe, expect, test } from 'bun:test'
 
 import { DATABASE_INDEXES } from '#config/databaseIndexes'
-import { BookHistoryStore } from '#helpers/database/papr/BookHistoryStore'
+import {
+	BookHistoryStore,
+	mergeStoredGenresWhenIncomingEmpty
+} from '#helpers/database/papr/BookHistoryStore'
+import { parsedBook, parsedBookWithoutGenres } from '#tests/datasets/helpers/books'
 
 const FAILURE =
 	'BOOK_HISTORY_ENABLED requires a transaction-capable MongoDB replica set and prepared history indexes'
@@ -188,5 +192,41 @@ describe('assertHistoryPrerequisites', () => {
 	test('fails when the transactional probe cannot commit', async () => {
 		const { store } = clientWith({ rejectTx: true })
 		await expect(store.assertHistoryPrerequisites()).rejects.toThrow(FAILURE)
+	})
+})
+
+describe('genre-preserving write splice', () => {
+	const storedWithGenres = {
+		genres: [{ asin: 'G1', name: 'Mystery', url: 'https://example.com/mystery' }]
+	}
+	const storedWithoutGenres = { genres: [] }
+	const incomingWithoutGenres = parsedBookWithoutGenres
+	const incomingWithGenres = parsedBook
+
+	test('preserves stored genres when the incoming book carries none', () => {
+		// Ladder-less fetches (skipHtml scheduler/backfill passes) carry no
+		// genre evidence; the accepted update must keep the stored list.
+		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithGenres, incomingWithoutGenres)
+		expect(merged.genres).toEqual(storedWithGenres.genres)
+	})
+
+	test('lets incoming genres replace the stored list', () => {
+		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithGenres, incomingWithGenres)
+		expect(merged.genres).toEqual(incomingWithGenres.genres)
+	})
+
+	test('keeps the empty list when neither side has genres', () => {
+		const merged = mergeStoredGenresWhenIncomingEmpty(
+			storedWithoutGenres,
+			incomingWithoutGenres
+		)
+		expect(merged).not.toHaveProperty('genres')
+	})
+
+	test('handles an empty stored genres array as no genre evidence', () => {
+		// The producer emits `genres: []` for ladder-less books: an empty
+		// stored list must not be treated as evidence to preserve.
+		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithoutGenres, incomingWithGenres)
+		expect(merged.genres).toEqual(incomingWithGenres.genres)
 	})
 })

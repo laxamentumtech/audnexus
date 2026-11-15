@@ -25,6 +25,7 @@ mock.module('#config/models/Chapter', () => ({
 const mockAuthorHandler = mock()
 const mockBookHandler = mock()
 const mockChapterHandler = mock()
+const bookShowConstructorArgs: unknown[][] = []
 
 // Fresh-fetch + persistence signals on the helper. `fetchedFreshData` drives
 // the cooldown decay (registerSuccess); `persisted` drives the `updated`
@@ -44,6 +45,9 @@ mock.module('#helpers/routes/AuthorShowHelper', () => ({
 
 mock.module('#helpers/routes/BookShowHelper', () => ({
 	default: class BookShowHelper {
+		constructor(...args: unknown[]) {
+			bookShowConstructorArgs.push(args)
+		}
 		handler = mockBookHandler
 		fetchedFreshData = bookFresh.fetched
 		persisted = bookFresh.persisted
@@ -171,6 +175,7 @@ beforeEach(() => {
 	mockAuthorHandler.mockClear()
 	mockBookHandler.mockClear()
 	mockChapterHandler.mockClear()
+	bookShowConstructorArgs.length = 0
 	mockProcessBatchByRegion.mockClear()
 	mockSleepCooldown.mockClear()
 	mockSleepCooldown.mockResolvedValue(undefined)
@@ -228,6 +233,24 @@ describe('UpdateScheduler should', () => {
 			{ updatedAt: { $lte: expect.any(Date) } },
 			staleProjection
 		)
+	})
+
+	test('book walk pins forceUpdate false and skipHtml true', async () => {
+		// The walk already selects stale rows, so forceUpdate must stay off
+		// (a forced refetch would refetch every row on every pass);
+		// skipHtml keeps the background walk off the product page.
+		const doc = makeStaleDoc()
+		mockBookFind.mockResolvedValueOnce([doc]).mockResolvedValueOnce([])
+		mockBookHandler.mockResolvedValue(undefined)
+		await helper.updateBooks()
+		expect(bookShowConstructorArgs).toHaveLength(1)
+		const [asin, options, redis, logger, forceUpdate, skipHtml] = bookShowConstructorArgs[0]
+		expect(asin).toBe(doc.asin)
+		expect(options).toEqual({ region: doc.region, update: '1' })
+		expect(redis).toBe(ctx.client)
+		expect(logger).toBe(mockLogger)
+		expect(forceUpdate).toBe(false)
+		expect(skipHtml).toBe(true)
 	})
 
 	test('walks chapters stalest-first with the updatedAt filter', async () => {

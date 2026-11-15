@@ -53,7 +53,7 @@ const COLLECTIONS = {
 /** Hard cap on the per-key generation counter (a JS safe integer). */
 const GENERATION_LIMIT = Number.MAX_SAFE_INTEGER
 
-export type PersistDisposition = 'accepted' | 'rejected' | 'stale' | 'transient'
+export type PersistDisposition = 'accepted' | 'stale' | 'transient'
 
 export interface PersistInput {
 	asin: string
@@ -122,24 +122,27 @@ function isPreOrderBook(book: ApiBook): boolean {
 }
 
 /**
- * The existing update flow's genre safeguard, reproduced exactly
- * (`PaprAudibleBookHelper.createOrUpdate`): an unequal update is only
- * allowed when genre evidence exists — the stored genres are present, or
- * the stored genres are absent and the incoming genres are — and the
- * incoming genres are non-empty (no "nuked data" updates).
+ * The genre-preserving merge — the single enforcement point of the
+ * anti-nuke invariant on this write path (mirrored by
+ * `PaprAudibleBookHelper.createOrUpdate`): when the incoming book carries
+ * no genre evidence and the stored row has stored genres, merge the stored
+ * list into the outgoing document so an accepted update never nukes stored
+ * genre evidence. No merge when the incoming genres are non-empty (they
+ * replace the stored list) or the stored side is empty (nothing to
+ * preserve). The caller runs the merge before the equality short-circuit
+ * and before the $set, so the merged document is what gets compared and
+ * written. An empty genre list is NOT genre evidence on either side: the
+ * producer emits `genres: []` for ladder-less books (skipHtml
+ * scheduler/backfill fetches).
  */
-function genreSafeguardPasses(oldDoc: Document, newBook: ApiBook): boolean {
-	const oldHasGenres = Boolean(oldDoc.genres)
-	const newHasGenres = Boolean(newBook.genres?.length)
-	// Neither side carries genre evidence: there is nothing to protect from
-	// being nuked. Rejecting here permanently froze legacy rows that never
-	// had category ladders — every other field, including ratings, was
-	// blocked along with the empty genre list (the `books` validator then
-	// refuses partial repair writes, so the row could never converge).
-	if (!oldHasGenres && !newHasGenres) return true
-	// Stored genres may only be dropped by an update that supplies its own
-	// genre evidence; storing genres and refreshing them stays allowed.
-	return newHasGenres
+export function mergeStoredGenresWhenIncomingEmpty(
+	stored: Record<string, unknown> | null,
+	incoming: ApiBook
+): Record<string, unknown> {
+	if (incoming.genres?.length) return { ...incoming }
+	const storedGenres = stored?.genres
+	if (!Array.isArray(storedGenres) || storedGenres.length === 0) return { ...incoming }
+	return { ...incoming, genres: storedGenres }
 }
 
 /** Deep structural equality over the sanitized public projections. */
@@ -462,11 +465,11 @@ export class BookHistoryStore {
 
 	/**
 	 * Apply an accepted book transactionally. In-transaction outcome order:
-	 * identity, stale fence, pre-order, equality/genre guard, first-touch
-	 * legacy capture, comparison, asset upserts, optional revision (at most
-	 * one for changed fields), current book write, state watermark. The
-	 * stale check runs on the transaction's state snapshot; no generation is
-	 * consumed for stale work.
+	 * identity, stale fence, pre-order, genre-preserving merge, equality
+	 * short-circuit, first-touch legacy capture, comparison, asset upserts,
+	 * optional revision (at most one for changed fields), current book
+	 * write, state watermark. The stale check runs on the transaction's
+	 * state snapshot; no generation is consumed for stale work.
 	 */
 	async persistObservation(input: PersistInput): Promise<PersistResult> {
 		const { asin, region, generation, book, observation } = input
@@ -511,12 +514,35 @@ export class BookHistoryStore {
 			}
 			const baseSequence = Math.max(state?.assetSequence ?? 0, newAssetSequence)
 
-			// 4. Equality/genre guard re-evaluated against the transaction
-			//    book. Both sides normalize through the same constrained
-			//    projection, so stored documents (papr-stamped fields,
-			//    insertion-ordered keys) compare equally with fresh API books.
+			// 4. Equality re-evaluated against the transaction book. Both
+			//    sides normalize through the same constrained projection, so
+			//    stored documents (papr-stamped fields, insertion-ordered
+			//    keys) compare equally with fresh API books.
 			const parsedBook = ApiBookSchema.safeParse(book)
 			const normBook = parsedBook.success ? parsedBook.data : book
+			// The merged write document — the single enforcement point of
+			// the genre anti-nuke invariant: incoming genres replace the
+			// stored list; when the incoming side carries no genre evidence
+			// the stored genres are spliced in BEFORE the equality
+			// short-circuit and the $set, so an accepted update never nukes
+			// them (ladder-less scheduler/backfill fetches) and an
+			// unchanged genre-less observation stays in the equal
+			// short-circuit (merged value compares equal to itself, no
+			// write loop).
+			const writeBook = mergeStoredGenresWhenIncomingEmpty(
+				currentBook as Record<string, unknown> | null,
+				normBook
+			)
+			// The merge splices the RAW stored genres into the parsed
+			// document, and stored sub-documents (genre objects and the like)
+			// can carry a key order or keys the Zod projection does not:
+			// re-parse the merged document so the short-circuit compares two
+			// sanitized projections. Parse failure falls back to the raw
+			// merge (the malformed-value fault is surfaced by the write).
+			const mergedParsed = ApiBookSchema.safeParse(writeBook)
+			const mergedBook = mergedParsed.success
+				? (mergedParsed.data as unknown as Record<string, unknown>)
+				: writeBook
 			const oldApi = toApiBook(currentBook)
 			if (currentBook && oldApi) {
 				// Series keys present only on the stored side are not changes
@@ -533,7 +559,13 @@ export class BookHistoryStore {
 					observation.fields.some(
 						(f) => f.field === 'seriesPrimary' || f.field === 'seriesSecondary'
 					)
-				if (deepEqualBookIgnoringStoredOnlySeries(oldApi, normBook, incomingHasSeriesEvidence)) {
+				if (
+					deepEqualBookIgnoringStoredOnlySeries(
+						oldApi,
+						mergedBook as unknown as ApiBook,
+						incomingHasSeriesEvidence
+					)
+				) {
 					// Equal public projection is still an accepted
 					// observation: rendition transitions can change without
 					// touching any public field, and an established state
@@ -575,24 +607,6 @@ export class BookHistoryStore {
 						equalSequence
 					)
 					return { data: oldApi, modified: false, disposition: 'accepted' }
-				}
-				if (!genreSafeguardPasses(currentBook, book)) {
-					// Step 3's first-touch legacy capture already persisted
-					// its assetSequence advance to the state row in this
-					// transaction, so a later accepted observation cannot
-					// re-insert at the same sequence and trip the unique
-					// artwork_order index; only the legacyCaptured watermark
-					// and the stateVersion bump are non-redundant here.
-					// reserveGeneration (the sole caller's precondition)
-					// inserts the state doc and state docs are never deleted,
-					// so `state` is always present.
-					if (!state) throw new Error(`History state missing for ${key}`)
-					await stateCol.updateOne(
-						{ _id: state._id },
-						{ $set: { legacyCaptured, stateVersion: state.stateVersion + 1 } },
-						{ session }
-					)
-					return { data: oldApi, modified: false, disposition: 'rejected' }
 				}
 			}
 
@@ -672,9 +686,7 @@ export class BookHistoryStore {
 				const createdAt = currentBook.createdAt as Date | undefined
 				// `$currentDate` owns `updatedAt`; a `$set` entry on the same
 				// path is rejected by the server (code 40), so omit it here.
-				const contentBook: Record<string, unknown> = {
-					...(normBook as unknown as Record<string, unknown>)
-				}
+				const contentBook: Record<string, unknown> = { ...writeBook }
 				delete contentBook.updatedAt
 				await booksCol.updateOne(
 					{ _id: currentBook._id },
@@ -693,9 +705,7 @@ export class BookHistoryStore {
 				// declared absent) but absent from the incoming book keeps its
 				// stored value, so the API serves the series that the row
 				// still carries.
-				const retained: Record<string, unknown> = {
-					...(normBook as unknown as Record<string, unknown>)
-				}
+				const retained: Record<string, unknown> = { ...writeBook }
 				for (const field of ['seriesPrimary', 'seriesSecondary'] as const) {
 					if (
 						!unset[field] &&

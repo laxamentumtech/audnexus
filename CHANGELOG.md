@@ -20,6 +20,12 @@ All notable changes to this project will be documented in this file. Releases ar
 - Give each history integration-test replica set a unique container name and free port so an interrupted run can no longer block the next one.
 - Apply the five-day document-cache TTL atomically on every write, including overwrites; cache write failures retain the existing setter error contract.
 - Avoid parsing cached author and chapter JSON twice while preserving book release-date conversion.
+- Omit the `Accept-Encoding` header on product page fetches. Audible's edge answers requests that carry it with a 503, which made every book HTML scrape fail and drove the shared adaptive cooldown to its ceiling.
+- Pace the ratings backfill with the scheduler walk's jitter, so a rejected book paces the next fetch and the pass stops bursting into upstream 503s.
+- Allow book updates without genre evidence when the stored row has no genres, so legacy rows without category ladders can be repaired; stored genres stay protected on genre-less updates.
+- Recover stalled ratings backfill jobs up to five times, so a restart no longer fails a multi-day pass.
+- Supply `createdAt` on the accepted update path for book rows written before the schema required it, so the strict books validator accepts the repair.
+- Omit undefined optional book fields instead of writing null, and bypass document validation for the metadata-only backfill marker and the direct ratings repair write.
 
 ## [1.15.0](https://github.com/laxamentumtech/audnexus/compare/audnexus-v1.14.0...audnexus-v1.15.0) (2026-07-25)
 

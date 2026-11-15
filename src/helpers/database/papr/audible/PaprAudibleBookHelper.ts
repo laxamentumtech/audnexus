@@ -122,7 +122,9 @@ export default class PaprAudibleBookHelper {
 	 *
 	 * 1. `options.update` is 1 and the book exists
 	 * 2. The incoming data is different from the existing data
-	 * 3. Genres exist or are different
+	 * 3. The incoming data does not nuke stored genre evidence: incoming
+	 *    genres replace the stored list, and when the incoming data carries
+	 *    no genre evidence the stored genres are preserved in the write
 	 */
 	async createOrUpdate(): Promise<PaprBookReturn> {
 		const findInDb = await this.findOneWithProjection()
@@ -130,6 +132,25 @@ export default class PaprAudibleBookHelper {
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
+			// An empty genre list on the incoming side is NOT genre evidence:
+			// ladder-less books (skipHtml scheduler/backfill fetches) carry
+			// `genres: []`, so a non-emptiness check keeps the splice honest
+			// on both sides.
+			const incomingHasGenres = Boolean(this.bookData.genres?.length)
+			// Stored genre evidence is preserved in the write document BEFORE
+			// the equality check (BookHistoryStore parity): when the incoming
+			// side has no genre evidence the stored genres are spliced in so
+			// no stored genre is lost; when it does, the incoming list
+			// replaces the stored one. With no stored genres there is nothing
+			// to protect, and refusing here froze genre-less legacy rows
+			// permanently — every other field, ratings included, stayed
+			// unreachable and the books validator rejects partial repairs.
+			// Comparing the spliced document keeps an unchanged genre-less
+			// observation in the equal short-circuit (modified: false, no
+			// write), mirroring the history store's merge-before-compare.
+			if (!incomingHasGenres) {
+				this.bookData = { ...this.bookData, genres: data.genres ?? [] }
+			}
 			// If the objects are the exact same return right away
 			const isEqual = this.sharedHelper.isEqualData(data, this.bookData)
 			if (isEqual) {
@@ -138,21 +159,9 @@ export default class PaprAudibleBookHelper {
 					modified: false
 				}
 			}
-			// Check state of existing book
-			// Update when the incoming data carries genre evidence, or when the
-			// stored row never had any: with no stored genres there is nothing
-			// the update could nuke, and refusing here froze genre-less legacy
-			// rows permanently — every other field, ratings included, stayed
-			// unreachable and the books validator rejects partial repairs.
-			const storedHasGenres = Boolean(data.genres)
-			const incomingHasGenres = Boolean(this.bookData.genres?.length)
-			if (incomingHasGenres || !storedHasGenres) {
-				this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
-				// Update
-				return this.update()
-			}
-			// No update performed, return original
-			return findInDb
+			this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
+			// Update
+			return this.update()
 		}
 
 		// Create
