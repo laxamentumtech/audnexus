@@ -77,6 +77,9 @@ run('history CLI protocol against a replica set', () => {
 		// Seed some source rows: one trusted with an Amazon image, one
 		// unparsed image, one region-less competitor for another asin, and
 		// one invalid ASIN.
+		// These intentionally incomplete historical documents predate the
+		// current Book validator; the audit/seed must handle their retained
+		// metadata, including the missing region and invalid ASIN, as-is.
 		const now = new Date()
 		await db
 			.collection('books')
@@ -102,7 +105,7 @@ run('history CLI protocol against a replica set', () => {
 					updatedAt: now
 				},
 				{ asin: 'not-an-asin', region: 'us', createdAt: now, updatedAt: now }
-			] as never)
+			] as never, { bypassDocumentValidation: true })
 
 		// Run the seed for real: all four rows must be processed through
 		// their own transactions.
