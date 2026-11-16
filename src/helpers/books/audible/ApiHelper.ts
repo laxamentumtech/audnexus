@@ -23,6 +23,7 @@ import {
 	FallbackAudibleProduct,
 	fallbackShape
 } from '#config/types'
+import { buildProductQuery, REQUESTED_IMAGE_SIZES } from '#helpers/books/audible/apiParams'
 import {
 	buildArtworkReferences,
 	buildFieldObservations,
@@ -50,11 +51,6 @@ import { regions } from '#static/regions'
 
 /** Known product_state values that indicate a delisted/unavailable product. */
 const DELISTED_STATES: readonly string[] = ['NOT_AVAILABLE_FOR_PURCHASE']
-
-/** The image renditions requested from the product API (`image_sizes`),
- * mirrored verbatim in the history evidence so the observation and the
- * request can never drift. */
-const REQUESTED_IMAGE_SIZES = ['500', '1024']
 
 interface HistoryEvidence {
 	apiReceivedAt: Date
@@ -96,21 +92,7 @@ class ApiHelper {
 		const baseDomain = 'https://api.audible'
 		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/catalog/products'
-		// Last item is intentionally image_sizes
-		const paramArr = [
-			'category_ladders',
-			'contributors',
-			'media',
-			'product_attrs',
-			'product_desc',
-			'product_details',
-			'product_extended_attrs',
-			'rating',
-			'series',
-			`image_sizes=${REQUESTED_IMAGE_SIZES.join(',')}`
-		]
-		const paramStr = helper.getParamString(paramArr)
-		const params = `response_groups=${paramStr}`
+		const params = buildProductQuery()
 		this.requestUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
 	}
 
@@ -553,6 +535,20 @@ class ApiHelper {
 		})
 		this.finalData = data
 		return data
+	}
+
+	/**
+	 * Accept a product already fetched by the multi-ASIN endpoint.
+	 *
+	 * The batch product is byte-identical to the single-product `product`
+	 * object for the same response groups, so callers pass it straight into
+	 * `parseResponse({ product, response_groups })`. Recording the receipt
+	 * time here keeps history evidence timestamps meaningful when the batch
+	 * response (one receipt for up to 50 products) is the source.
+	 */
+	acceptPrefetchedProduct(product: AudibleProduct['product'], receivedAt: Date): void {
+		this.audibleResponse = product
+		if (this.captureHistory) this.apiReceivedAt = receivedAt
 	}
 
 	/**

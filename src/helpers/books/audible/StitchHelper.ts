@@ -4,12 +4,25 @@ import type { FastifyBaseLogger } from 'fastify'
 import type { BookObservation } from '#config/bookHistory'
 import { getPerformanceConfig } from '#config/performance'
 import { ApiBook, ApiBookSchema, AudibleProduct, HtmlBook } from '#config/types'
+import type { PrefetchedApiProduct } from '#helpers/books/audible/ApiBatchHelper'
 import ApiHelper from '#helpers/books/audible/ApiHelper'
 import { composeTimestamps, withGenresField } from '#helpers/books/audible/BookObservation'
 import ScrapeHelper from '#helpers/books/audible/ScrapeHelper'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageSort, NoticeChaptersFallback } from '#static/messages'
+
+/** Trailing optional behavior, collapsed into one options object: the
+ * positional optional flags once swapped silently between call sites. */
+export interface StitchHelperOptions {
+	logger?: FastifyBaseLogger
+	/** Collect history evidence (API receipt time, HTML genres). */
+	captureHistory?: boolean
+	/** Skip the product-page HTML scrape (background passes). */
+	skipHtml?: boolean
+	/** Product already fetched by the multi-ASIN endpoint. */
+	prefetched?: PrefetchedApiProduct
+}
 
 class StitchHelper {
 	apiHelper: ApiHelper
@@ -24,29 +37,35 @@ class StitchHelper {
 	private htmlReceivedAt: Date | undefined
 	private historyHtmlGenres: HtmlBook['genres'] | undefined
 	private skipHtml: boolean
+	private prefetched?: PrefetchedApiProduct
 	logger?: FastifyBaseLogger
 
-	constructor(
-		asin: string,
-		region: string,
-		logger?: FastifyBaseLogger,
-		captureHistory: boolean = false,
-		skipHtml: boolean = false
-	) {
+	constructor(asin: string, region: string, options: StitchHelperOptions = {}) {
 		this.asin = asin
-		this.logger = logger
-		this.captureHistory = captureHistory
-		this.skipHtml = skipHtml
+		this.logger = options.logger
+		this.captureHistory = options.captureHistory ?? false
+		this.skipHtml = options.skipHtml ?? false
+		this.prefetched = options.prefetched
 		// Set up helpers
-		this.apiHelper = new ApiHelper(asin, region, logger, captureHistory)
+		this.apiHelper = new ApiHelper(asin, region, this.logger, this.captureHistory)
 		this.sharedHelper = new SharedHelper()
-		this.scrapeHelper = new ScrapeHelper(asin, region, logger)
+		this.scrapeHelper = new ScrapeHelper(asin, region, this.logger)
 	}
 
 	/**
 	 * Fetch book from API and assign to class
 	 */
 	async fetchApiBook() {
+		if (this.prefetched) {
+			// Multi-ASIN batch already returned this product: skip the
+			// per-product HTTP request but keep the same parser/evidence path.
+			this.apiResponse = {
+				product: this.prefetched.product,
+				response_groups: this.prefetched.responseGroups
+			}
+			this.apiHelper.acceptPrefetchedProduct(this.prefetched.product, this.prefetched.receivedAt)
+			return
+		}
 		const apiResponse = this.apiHelper.fetchBook()
 		try {
 			this.apiResponse = await apiResponse

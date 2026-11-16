@@ -171,15 +171,61 @@ describe('PaprAudibleBookHelper should', () => {
 		helper.setData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
-	test('createOrUpdate genres on old, but not on new', async () => {
-		const obj = { data: parsedBook, modified: false }
+	test('createOrUpdate preserves stored genres when the incoming book has none', async () => {
+		// Regression (skipHtml background passes): a stored book with
+		// genres is re-fetched as a genre-less product (no category
+		// ladders, no HTML scrape). The stored genres must be preserved
+		// so the remaining changed fields persist through the genre
+		// safeguard — previously the WHOLE update was rejected, freezing
+		// title/ratings while the scheduler marked the row checked and
+		// re-hit the same rejection every pass.
+		const incoming = { ...parsedBookWithoutGenres, summary: '' }
 		mockIsEqualData.mockReturnValue(false)
 		mockFindOne
 			.mockResolvedValueOnce(parsedBook as unknown as BookDocument)
 			.mockResolvedValueOnce(bookWithoutProjection)
 			.mockResolvedValue(parsedBook as unknown as BookDocument)
-		helper.setData(parsedBookWithoutGenres)
-		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		helper.setData(incoming)
+		await expect(helper.createOrUpdate()).resolves.toEqual({ data: parsedBook, modified: true })
+		// The changed field (summary) rides along in the accepted write,
+		// but the preserved (copied) genres stay OUT of the `$set`: a
+		// genre-less update must not write `genres` at all, so a
+		// concurrent genre refresh stored during the write is not
+		// clobbered by the copied stored value.
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }
+		expect(update.$set.summary).toBe('')
+		expect(update.$set).not.toHaveProperty('genres')
+	})
+	test('createOrUpdate does not clobber concurrent genres on a genre-less update', async () => {
+		// Concurrent-refresh regression: the stored row carries genres A,
+		// the incoming book is genre-less (a skipHtml background pass),
+		// and a concurrent genre refresh stores genres B on the row
+		// BEFORE this update's second lookup (the read after the write).
+		// The preservation merge keeps the stored genres for the
+		// equality/safeguard checks, so the update proceeds — but the
+		// copied genres must NOT reach the `$set`, or the write would
+		// clobber the concurrently stored genres B.
+		const genresB = [{ type: 'genre', asin: '9876543210', name: 'Mystery' }]
+		const refreshed = {
+			...bookWithoutProjection,
+			genres: genresB
+		} as BookDocument
+		const incoming = { ...parsedBookWithoutGenres, summary: '' }
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(parsedBook as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutProjection)
+			.mockResolvedValue(refreshed)
+		helper.setData(incoming)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		// The final read sees the concurrently refreshed genres.
+		expect(result.data).toEqual({ ...parsedBook, genres: genresB })
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }
+		expect(update.$set.summary).toBe('')
+		expect(update.$set).not.toHaveProperty('genres')
 	})
 	test('createOrUpdate updates when neither side has genres', async () => {
 		// Genre-less legacy rows must still accept other fields (ratings):
