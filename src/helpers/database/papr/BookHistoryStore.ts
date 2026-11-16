@@ -134,12 +134,12 @@ function isPreOrderBook(book: ApiBook): boolean {
  * side has evidence, the genres key is omitted from the result. The history
  * store runs the merge before its equality short-circuit and the $set, so
  * the merged document is what gets compared and written there. The legacy
- * `createOrUpdate` compares the merged document only and writes the
- * incoming book as-is, so without incoming genre evidence the write has no
- * `genres` key and a concurrent genre update is never clobbered by the
- * stale read-time list. An empty genre list is NOT genre evidence on
- * either side: the producer emits `genres: []` for ladder-less books
- * (skipHtml scheduler/backfill fetches).
+ * `createOrUpdate` compares the merged document and builds its $set with
+ * `omitGenresWhenIncomingEmpty` (same no-evidence condition), so without
+ * incoming genre evidence the write has no `genres` key and a concurrent
+ * genre update is never clobbered by the stale read-time list. An empty
+ * genre list is NOT genre evidence on either side: the producer emits
+ * `genres: []` for ladder-less books (skipHtml scheduler/backfill fetches).
  */
 export function mergeStoredGenresWhenIncomingEmpty(
 	stored: Record<string, unknown> | null,
@@ -149,6 +149,21 @@ export function mergeStoredGenresWhenIncomingEmpty(
 	const storedGenres = stored?.genres
 	if (!Array.isArray(storedGenres) || storedGenres.length === 0) return { ...incoming }
 	return { ...incoming, genres: storedGenres }
+}
+
+/**
+ * Omit `genres` from a write payload when the incoming book carries no
+ * genre evidence (empty list or absent key) — the same condition
+ * `mergeStoredGenresWhenIncomingEmpty` tests. The legacy update path builds
+ * its $set with this, so without incoming evidence the key is absent from
+ * the payload and a stored genre list is never clobbered by a stale
+ * `genres: []` (including one committed concurrently between read and
+ * write). Nonempty incoming genres pass through unchanged.
+ */
+export function omitGenresWhenIncomingEmpty(incoming: ApiBook): Record<string, unknown> {
+	const book = { ...incoming }
+	if (!incoming.genres?.length) delete book.genres
+	return book
 }
 
 /** An empty genre list is not genre evidence on either side (the producer

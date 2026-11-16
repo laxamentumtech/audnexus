@@ -4,7 +4,10 @@ import BookModel, { BookDocument } from '#config/models/Book'
 import { ApiBook, ApiBookSchema, ApiQueryString } from '#config/types'
 import { isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
-import { mergeStoredGenresWhenIncomingEmpty } from '#helpers/database/papr/BookHistoryStore'
+import {
+	mergeStoredGenresWhenIncomingEmpty,
+	omitGenresWhenIncomingEmpty
+} from '#helpers/database/papr/BookHistoryStore'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -145,12 +148,11 @@ export default class PaprAudibleBookHelper {
 			// write), and with no stored genres the merge is the incoming
 			// book. Genre-less legacy rows stay updatable: refusing here
 			// froze every other field on them, and the books validator
-			// rejects partial repairs. The merge is the comparison input
-			// only. this.bookData (which update() $sets) keeps the incoming
-			// book as-is, so without incoming genre evidence the $set has
-			// no `genres` key and a concurrent genre update that commits
-			// between the read and the write is not clobbered by the stale
-			// read-time list.
+			// rejects partial repairs. update() builds its $set from the
+			// same merge (see omitGenresWhenIncomingEmpty), so without
+			// incoming genre evidence the $set has no `genres` key and a
+			// concurrent genre update that commits between the read and
+			// the write is not clobbered by the stale read-time list.
 			const comparisonBook = mergeStoredGenresWhenIncomingEmpty(
 				data as Record<string, unknown>,
 				this.bookData
@@ -158,9 +160,8 @@ export default class PaprAudibleBookHelper {
 			// An empty genre list is no genre evidence (the producer emits
 			// `genres: []` for ladder-less books). isEqualData treats
 			// `genres: []` and an absent key as different, so strip the
-			// empty list from both comparison copies first; the write path
-			// is untouched and the $set still carries the incoming book
-			// as-is.
+			// empty list from both comparison copies first; the write
+			// path drops the key too (omitGenresWhenIncomingEmpty).
 			const normalize = (side: Record<string, unknown>): Record<string, unknown> => {
 				if (Array.isArray(side.genres) && side.genres.length === 0) delete side.genres
 				return side
@@ -197,13 +198,21 @@ export default class PaprAudibleBookHelper {
 			if (!found.data) {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Book'))
 			}
+			// The $set omits `genres` when the incoming book carries no
+			// genre evidence (empty list or absent key) — the same
+			// condition the genre-preserving merge tests — so the payload
+			// never carries a stale `genres: []` that would clobber a
+			// stored nonempty genre list (including one a concurrent
+			// update commits between the read and the write). Nonempty
+			// incoming genres write as-is (they replace the stored list).
+			const setSource = omitGenresWhenIncomingEmpty(this.bookData)
 			await BookModel.updateOne(
 				{
 					asin: this.asin,
 					$or: [{ region: { $exists: false } }, { region: this.options.region }]
 				},
 				{
-					$set: { ...this.bookData, createdAt: found.data._id.getTimestamp() },
+					$set: { ...setSource, createdAt: found.data._id.getTimestamp() },
 					// An accepted book write supersedes a backfill skip decision
 					// (e.g. upstream now reports a real book).
 					$unset: { ratingsBackfillSkip: '' },

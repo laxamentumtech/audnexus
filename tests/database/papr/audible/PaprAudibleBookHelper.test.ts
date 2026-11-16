@@ -36,7 +36,8 @@ import {
 	bookWithoutGenresWithoutProjection,
 	bookWithoutProjection,
 	parsedBook,
-	parsedBookWithoutGenres
+	parsedBookWithoutGenres,
+	ratings
 } from '#tests/datasets/helpers/books'
 
 
@@ -203,6 +204,37 @@ describe('PaprAudibleBookHelper should', () => {
 				$currentDate: { updatedAt: true }
 			}
 		)
+	})
+	test('createOrUpdate omits genres from the update payload when incoming carries an empty list and another field changed', async () => {
+		// Incoming `genres: []` is not genre evidence, but the ratings
+		// change means the equality short-circuit fails (the comparator is
+		// mocked false, as in the genre-difference test). The update must
+		// proceed, and its $set must not carry `genres` — the stored
+		// nonempty genre list survives the write.
+		const incoming = { ...parsedBookWithoutGenres, genres: [], ratings: { ...ratings } }
+		const obj = { data: parsedBook, modified: true }
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(parsedBook as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutProjection)
+			.mockResolvedValue(parsedBook as unknown as BookDocument)
+		helper.setData(incoming)
+		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		expect(mockIsEqualData).toHaveBeenCalledTimes(1)
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{
+				$set: { ...parsedBookWithoutGenres, ratings: { ...ratings }, createdAt: bookWithoutProjection._id.getTimestamp() },
+				$unset: { ratingsBackfillSkip: '' },
+				$currentDate: { updatedAt: true }
+			}
+		)
+		const updatePayload = mockUpdateOne.mock.calls[0]?.[1]
+		expect(updatePayload).toBeDefined()
+		if (updatePayload && typeof updatePayload === 'object' && '$set' in updatePayload) {
+			expect(updatePayload.$set).not.toHaveProperty('genres')
+		}
 	})
 	test('createOrUpdate short-circuits when the merged comparison document equals the stored row', async () => {
 		// Stored row has genres, incoming is identical except `genres: []`.
