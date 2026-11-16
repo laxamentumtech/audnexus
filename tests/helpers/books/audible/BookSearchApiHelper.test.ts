@@ -13,7 +13,8 @@ mock.module('#helpers/books/audible/ApiHelper', () => ({
 	default: class MockApiHelper {
 		audibleResponse: unknown
 		getFinalData = mockGetFinalData
-	}
+	},
+	REQUESTED_IMAGE_SIZES: ['500', '1024']
 }))
 
 const mockLogger = createMockLogger()
@@ -47,6 +48,24 @@ describe('BookSearchApiHelper', () => {
 		it('uses correct TLD for non-us region', () => {
 			const helper = new BookSearchApiHelper('test', 'uk', mockLogger)
 			expect(helper.requestUrl).toContain('api.audible.co.uk')
+		})
+
+		it('requests tags and goodreads_ratings groups for us', () => {
+			const helper = new BookSearchApiHelper('test', 'us', mockLogger)
+			const url = new URL(helper.requestUrl)
+			expect(url.searchParams.get('response_groups')).toBe(
+				'category_ladders,contributors,media,product_attrs,product_desc,product_details,product_extended_attrs,rating,series,tags,goodreads_ratings'
+			)
+			expect(url.searchParams.get('image_sizes')).toBe('500,1024')
+		})
+
+		it('requests tags without goodreads_ratings for non-us', () => {
+			const helper = new BookSearchApiHelper('test', 'uk', mockLogger)
+			const url = new URL(helper.requestUrl)
+			expect(url.searchParams.get('response_groups')).toBe(
+				'category_ladders,contributors,media,product_attrs,product_desc,product_details,product_extended_attrs,rating,series,tags'
+			)
+			expect(url.searchParams.get('image_sizes')).toBe('500,1024')
 		})
 
 		it('URL-encodes the query', () => {
@@ -106,6 +125,48 @@ describe('BookSearchApiHelper', () => {
 			mockFetch.mockRejectedValue({ status: 403 })
 			const helper = new BookSearchApiHelper('dungeon crawler carl', 'us', mockLogger)
 			await expect(helper.parseResults()).rejects.toThrow()
+		})
+
+		it('retries once without tags when the tags group is rejected with 400', async () => {
+			const tagRejection = {
+				status: 400,
+				data: { message: 'Invalid response group(s) requested: tags' }
+			}
+			mockFetch
+				.mockRejectedValueOnce(tagRejection)
+				.mockResolvedValueOnce({ data: { products: [minimalProduct] } })
+			mockGetFinalData.mockResolvedValue(minimalBook)
+			const helper = new BookSearchApiHelper('dungeon crawler carl', 'us', mockLogger)
+			const results = await helper.parseResults()
+			expect(results).toHaveLength(1)
+			expect(mockFetch).toHaveBeenCalledTimes(2)
+			const groups = (u: string) =>
+				new URL(u).searchParams.get('response_groups') ?? ''
+			expect(groups(mockFetch.mock.calls[0][0] as string)).toContain('tags')
+			expect(groups(mockFetch.mock.calls[1][0] as string)).not.toContain('tags')
+			expect(groups(mockFetch.mock.calls[1][0] as string)).toContain('goodreads_ratings')
+		})
+
+		it('does not retry an unrelated 400', async () => {
+			mockFetch.mockRejectedValue({
+				status: 400,
+				data: { message: 'Invalid response group(s) requested: media' }
+			})
+			const helper = new BookSearchApiHelper('dungeon crawler carl', 'us', mockLogger)
+			await expect(helper.parseResults()).rejects.toThrow()
+			expect(mockFetch).toHaveBeenCalledTimes(1)
+		})
+
+		it('fails when the tags-less fallback also fails', async () => {
+			mockFetch
+				.mockRejectedValueOnce({
+					status: 400,
+					data: { message: 'Invalid response group(s) requested: tags' }
+				})
+				.mockRejectedValueOnce({ status: 500 })
+			const helper = new BookSearchApiHelper('dungeon crawler carl', 'us', mockLogger)
+			await expect(helper.parseResults()).rejects.toThrow()
+			expect(mockFetch).toHaveBeenCalledTimes(2)
 		})
 	})
 })

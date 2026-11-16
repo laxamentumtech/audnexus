@@ -540,7 +540,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 	})
 
 	const dispositions: [string, PersistResult][] = [
-		['rejected', { data: null, modified: false, disposition: 'rejected' }],
+		['stale-with-data', { data: storedBook, modified: false, disposition: 'stale' }],
 		['stale', { data: null, modified: false, disposition: 'stale' }],
 		['accepted', { data: storedBook, modified: true, disposition: 'accepted' }],
 		['accepted-unchanged', { data: storedBook, modified: false, disposition: 'accepted' }]
@@ -573,11 +573,12 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			observation
 		})
 
-		if (disposition === 'rejected') {
-			// The update is refused; the stored projection stands with 200.
+		if (disposition === 'stale-with-data') {
+			// A stale generation with a surviving current row: the stored
+			// projection stands with 200 and no cache refresh (only an
+			// accepted write repopulates the cache).
 			expect(result).toBe(storedBook)
-			expect(setOneSpy).toHaveBeenCalledTimes(1)
-			expect(setOneSpy).toHaveBeenCalledWith(storedBook, { log: false })
+			expect(setOneSpy).not.toHaveBeenCalled()
 		} else if (disposition === 'stale') {
 			// A concurrent delete left no current row: the book is gone.
 			expect(error).toBeInstanceOf(NotFoundError)
@@ -660,7 +661,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 	})
 
 	test.each([
-		['rejected', { data: null, modified: false, disposition: 'rejected' as const }],
+		['accepted-unchanged', { data: storedBook, modified: false, disposition: 'accepted' as const }],
 		['accepted', { data: storedBook, modified: true, disposition: 'accepted' as const }]
 	])(
 		'cache refresh failure after a committed %s disposition still resolves to the projection',

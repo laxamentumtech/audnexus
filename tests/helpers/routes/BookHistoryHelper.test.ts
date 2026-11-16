@@ -19,6 +19,7 @@ mock.module('#config/models/BookHistory', () => ({
 	BookArtworkModel: { name: 'BookArtworkModel', find: mockArtworkFind }
 }))
 
+import { EDITORIAL_FIELD_NAMES } from '#config/bookHistory'
 import { decodeArtworkCursor, decodeCursor, encodeArtworkCursor, encodeCursor } from '#helpers/books/historyCursor'
 import { ConflictError, NotFoundError } from '#helpers/errors/ApiErrors'
 import BookHistoryHelper from '#helpers/routes/BookHistoryHelper'
@@ -137,7 +138,7 @@ describe('BookHistoryHelper', () => {
 					baselineAt: null
 				})
 			}
-			expect(Object.keys(result.tracking.fields).length).toBe(18)
+			expect(Object.keys(result.tracking.fields).length).toBe(EDITORIAL_FIELD_NAMES.length)
 		})
 
 		test('reservation-only state without a trusted book is unknown (404)', async () => {

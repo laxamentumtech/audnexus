@@ -72,6 +72,26 @@ describe('ApiHelper should', () => {
 		expect(helper.requestUrl).toBe(url)
 	})
 
+	test('requests tags and goodreads_ratings groups for us', () => {
+		const paramSpy = spyOn(SharedHelper.prototype, 'getParamString').mockImplementation(
+			(arr: string[]) => arr.join(',')
+		)
+		const urlSpy = spyOn(SharedHelper.prototype, 'buildUrl').mockImplementation(
+			(a: string, _domain: string, tld: string, base: string, params?: string) =>
+				`https://api.audible.${tld}/${base}/${a}/?${params}`
+		)
+		const usHelper = new ApiHelper(asin, 'us')
+		expect(usHelper.requestUrl).toBe(
+			`https://api.audible.com/1.0/catalog/products/${asin}/?response_groups=category_ladders,contributors,media,product_attrs,product_desc,product_details,product_extended_attrs,rating,series,tags,goodreads_ratings,image_sizes=500,1024`
+		)
+		const ukHelper = new ApiHelper(asin, 'uk')
+		expect(ukHelper.requestUrl).toBe(
+			`https://api.audible.co.uk/1.0/catalog/products/${asin}/?response_groups=category_ladders,contributors,media,product_attrs,product_desc,product_details,product_extended_attrs,rating,series,tags,image_sizes=500,1024`
+		)
+		paramSpy.mockRestore()
+		urlSpy.mockRestore()
+	})
+
 	test('fall back to request ASIN when response asin is missing', async () => {
 		const responseWithoutAsin = deepCopy(mockResponse)
 		delete (responseWithoutAsin.product as Record<string, unknown>).asin
@@ -176,6 +196,73 @@ describe('ApiHelper should', () => {
 		expect(data).toEqual(mockResponse)
 	})
 
+	test('fetchBook retries once without tags when the tags group is rejected with 400', async () => {
+		const tagRejection = {
+			status: 400,
+			data: { message: 'Invalid response group(s) requested: tags' }
+		}
+		// The beforeEach spy returns the legacy group list without tags;
+		// the real constructor includes them, so point the helper at a
+		// tags-bearing URL for the negotiation.
+		helper.requestUrl = helper.requestUrl.replace('series&', 'series,tags,goodreads_ratings&')
+		const groups = (u: string) =>
+			new URL(u).searchParams.get('response_groups') ?? ''
+		spyOn(fetchPlus, 'default').mockImplementation((u: string) => {
+			if (u === helper.requestUrl) return Promise.reject(tagRejection)
+			expect(groups(u)).not.toContain('tags')
+			expect(groups(u)).toContain('goodreads_ratings')
+			return Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse)
+		})
+		const data = await helper.fetchBook()
+		expect(data).toEqual(mockResponse)
+	})
+
+	test('fetchBook does not retry an unrelated 400', async () => {
+		spyOn(fetchPlus, 'default').mockImplementation(() =>
+			Promise.reject({
+				status: 400,
+				data: { message: 'Invalid response group(s) requested: media' }
+			})
+		)
+		await expect(helper.fetchBook()).rejects.toThrow()
+	})
+
+	test('fetchBook fails when the tags-less fallback also fails', async () => {
+		const tagRejection = {
+			status: 400,
+			data: { message: 'Invalid response group(s) requested: tags' }
+		}
+		spyOn(fetchPlus, 'default')
+			.mockRejectedValueOnce(tagRejection)
+			.mockRejectedValueOnce({ status: 500 })
+		await expect(helper.fetchBook()).rejects.toThrow()
+	})
+
+	test('fetchBook with history enabled records the fallback receipt time', async () => {
+		const captureHelper = new ApiHelper(asin, region, undefined, true)
+		const tagRejection = {
+			status: 400,
+			data: { message: 'Invalid response group(s) requested: tags' }
+		}
+		captureHelper.requestUrl = captureHelper.requestUrl.replace(
+			'series&',
+			'series,tags,goodreads_ratings&'
+		)
+		spyOn(fetchPlus, 'default').mockImplementation((u: string) => {
+			if (u === captureHelper.requestUrl) return Promise.reject(tagRejection)
+			return Promise.resolve({ data: mockResponse, status: 200 } as AxiosResponse)
+		})
+		const data = await captureHelper.fetchBook()
+		const parsed = await captureHelper.parseResponse(data)
+		const observed = captureHelper.getHistoryObservation()
+		expect(observed).toBeDefined()
+		// The fallback response (no tags group) is the receipt the
+		// observation is built from.
+		expect(observed!.apiReceivedAt).toBeInstanceOf(Date)
+		expect(observed!.observedAt).toEqual(observed!.apiReceivedAt)
+		expect(parsed.region).toBe(region)
+	})
+
 	test('parse response', async () => {
 		const data = await helper.fetchBook()
 		const parsed = helper.parseResponse(data)
@@ -240,6 +327,82 @@ describe('ApiHelper edge cases should', () => {
 		const parsed = helper.getFinalData()
 		expect(parsed.rating).toBe('4.5')
 		expect(parsed.ratings).toEqual(ratings)
+	})
+
+	test('getFinalData maps tags and Goodreads for a US book', async () => {
+		helper.audibleResponse = {
+			...mockResponse.product,
+			tags: [
+				{ id: 'adbl_rec_tag_0-2-172', display_text: 'Witty', type: 'mood' },
+				{ id: 'adbl_rec_tag_15-23-23806', display_text: 'Best of 2026', type: 'audible_editors' }
+			],
+			goodreads_ratings: { rating_num: 4.6, count: '4,210' }
+		} as (typeof mockResponse)['product']
+		const parsed = helper.getFinalData()
+		expect(parsed.tags).toEqual([
+			{ tagId: 'adbl_rec_tag_0-2-172', name: 'Witty', type: 'mood' },
+			{ tagId: 'adbl_rec_tag_15-23-23806', name: 'Best of 2026', type: 'editorial' }
+		])
+		expect(parsed.ratings?.goodreads).toEqual({ value: 4.6, numRatings: 4210 })
+		expect(parsed.ratings?.value).toBe('4.5')
+	})
+
+	test('getFinalData maps tags for a non-US book without Goodreads', async () => {
+		helper = new ApiHelper(asin, 'uk')
+		helper.audibleResponse = {
+			...mockResponse.product,
+			tags: [{ id: 'adbl_rec_tag_0-2-172', display_text: 'Witty', type: 'mood' }]
+		} as (typeof mockResponse)['product']
+		const parsed = helper.getFinalData()
+		expect(parsed.tags).toEqual([{ tagId: 'adbl_rec_tag_0-2-172', name: 'Witty', type: 'mood' }])
+		expect(parsed.ratings).toBeDefined()
+		expect(parsed.ratings?.goodreads).toBeUndefined()
+	})
+
+	test('getFinalData omits goodreads when Audible supplies no ratings block', async () => {
+		helper.audibleResponse = {
+			...mockResponse.product,
+			rating: undefined,
+			goodreads_ratings: { rating_num: 4.6, count: '10' }
+		} as (typeof mockResponse)['product']
+		const parsed = helper.getFinalData()
+		expect(parsed.ratings).toBeUndefined()
+	})
+
+	test('getFinalData returns tags for an unrated book without a flat rating', async () => {
+		helper.audibleResponse = {
+			...mockResponse.product,
+			rating: undefined,
+			tags: [{ id: 'adbl_rec_tag_0-2-172', display_text: 'Witty', type: 'mood' }]
+		} as (typeof mockResponse)['product']
+		const parsed = helper.getFinalData()
+		expect(parsed.rating).toBeUndefined()
+		expect(parsed.ratings).toBeUndefined()
+		expect(parsed.tags).toEqual([{ tagId: 'adbl_rec_tag_0-2-172', name: 'Witty', type: 'mood' }])
+	})
+
+	test('getFinalData omits the tags key when the raw array is absent', async () => {
+		helper.audibleResponse = mockResponse.product
+		const parsed = helper.getFinalData()
+		expect(parsed).not.toHaveProperty('tags')
+	})
+
+	test('getFinalData returns an explicit empty tags array', async () => {
+		helper.audibleResponse = {
+			...mockResponse.product,
+			tags: []
+		} as (typeof mockResponse)['product']
+		const parsed = helper.getFinalData()
+		expect(parsed.tags).toEqual([])
+	})
+
+	test('getFinalData omits the tags key when the raw array is all invalid', async () => {
+		helper.audibleResponse = {
+			...mockResponse.product,
+			tags: [{ display_text: 'No id' }, 'garbage', null]
+		} as (typeof mockResponse)['product']
+		const parsed = helper.getFinalData()
+		expect(parsed).not.toHaveProperty('tags')
 	})
 
 	test('getFinalData and the observation share the first mapping pass', async () => {

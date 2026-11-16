@@ -1,7 +1,8 @@
 import type { FastifyBaseLogger } from 'fastify'
 
 import { ApiBook, AudibleProduct } from '#config/types'
-import ApiHelper from '#helpers/books/audible/ApiHelper'
+import ApiHelper, { REQUESTED_IMAGE_SIZES } from '#helpers/books/audible/ApiHelper'
+import { fetchStatus, fetchWithTagsFallback } from '#helpers/books/audible/responseGroups'
 import fetch from '#helpers/utils/fetchPlus'
 import SharedHelper from '#helpers/utils/shared'
 import { ErrorMessageHTTPFetch } from '#static/messages'
@@ -32,8 +33,11 @@ class BookSearchApiHelper {
 			'product_extended_attrs',
 			'rating',
 			'series',
-			'image_sizes=500,1024'
+			'tags'
 		]
+		// Goodreads ratings are only requested for the US catalog
+		if (region === 'us') paramArr.push('goodreads_ratings')
+		paramArr.push(`image_sizes=${REQUESTED_IMAGE_SIZES.join(',')}`)
 		const paramStr = helper.getParamString(paramArr)
 		const encoded = encodeURIComponent(query)
 		const NUM_RESULTS = 10
@@ -41,12 +45,18 @@ class BookSearchApiHelper {
 	}
 
 	async fetchBooks(): Promise<{ products: AudibleProduct['product'][] }> {
-		return fetch(this.requestUrl)
-			.then((response) => response.data as { products: AudibleProduct['product'][] })
-			.catch((error) => {
-				const status = error?.status ?? error?.response?.status
-				throw new Error(ErrorMessageHTTPFetch('Audible book search API', status, 'Audible API'))
-			})
+		const fetchOnce = (url: string) =>
+			fetch(url).then((response) => response.data as { products: AudibleProduct['product'][] })
+		try {
+			// One-shot fail-open: when Audible rejects the `tags` response
+			// group, fetchWithTagsFallback retries exactly once without it.
+			return await fetchWithTagsFallback(fetchOnce, this.requestUrl)
+		} catch (error) {
+			throw new Error(
+				ErrorMessageHTTPFetch('Audible book search API', fetchStatus(error), 'Audible API'),
+				{ cause: error }
+			)
+		}
 	}
 
 	async parseResults(): Promise<ApiBook[]> {

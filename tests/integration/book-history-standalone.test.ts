@@ -18,6 +18,7 @@ import { prepare } from '../../src/history'
 import { type HistoryMongo,resolveHistoryMongo } from './env'
 
 import { bookHistoryStore, initialize } from '#config/papr'
+import { ApiBookSchema } from '#config/types'
 import type { PersistInput } from '#helpers/database/papr/BookHistoryStore'
 
 const available = (() => {
@@ -70,21 +71,31 @@ function observation(overrides: {
 	title?: string
 	imageId?: string | null
 	imageUrl?: string
+	tags?: Array<[string, string, string]>
 } = {}) {
 	const imageId = overrides.imageId !== undefined ? overrides.imageId : IMG1
+	const fields = [
+		{
+			field: 'title',
+			policy: 'editorial:title:v1',
+			value: { state: 'value', value: overrides.title ?? 'Original Title' },
+			source: 'audible_api'
+		}
+	]
+	if (overrides.tags) {
+		fields.push({
+			field: 'tags',
+			policy: 'tags:api:v1',
+			value: { state: 'value', value: overrides.tags },
+			source: 'audible_api'
+		})
+	}
 	return {
 		observedAt: new Date(),
 		apiReceivedAt: new Date(),
 		responseGroups: ['default'],
 		requestedRenditions: ['default'],
-		fields: [
-			{
-				field: 'title',
-				policy: 'editorial:title:v1',
-				value: { state: 'value', value: overrides.title ?? 'Original Title' },
-				source: 'audible_api'
-			}
-		],
+		fields,
 		artwork: [
 			{
 				rendition: 'default',
@@ -199,6 +210,101 @@ run('BookHistoryStore against a replica set', () => {
 
 		const currentBook = await collections().collection('books').findOne({ asin: ASIN })
 		expect(currentBook?.title).toBe('Changed Title')
+	})
+
+	test('a tags-only change produces exactly one revision with the tags delta', async () => {
+		// Dedicated ASIN: the shared state's generations and baselines are
+		// asserted by neighbouring tests, so this flow cannot reuse them.
+		// Contract: a field's first observation initializes its baseline
+		// silently; a later value change records the revision.
+		const tagsAsin = 'B0TAGHIST1'
+		const tagsKey = `${REGION}:${tagsAsin}`
+		const tagsBook = book({ asin: tagsAsin, title: 'Tags Base' })
+		const baseObs = observation({ title: 'Tags Base', imageId: IMG1 })
+		await bookHistoryStore.reserveGeneration(tagsAsin, REGION)
+		await bookHistoryStore.persistObservation({
+			asin: tagsAsin,
+			region: REGION,
+			generation: 1,
+			book: tagsBook,
+			observation: baseObs
+		})
+		const initialTags = [['adbl_rec_tag_0-2-1', 'Witty', 'mood']]
+		const seeded = await bookHistoryStore.persistObservation({
+			asin: tagsAsin,
+			region: REGION,
+			generation: 2,
+			book: {
+				...tagsBook,
+				tags: [{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }]
+			},
+			observation: observation({
+				title: 'Tags Base',
+				imageId: IMG1,
+				tags: initialTags
+			})
+		})
+		expect(seeded.disposition).toBe('accepted')
+		expect(seeded.modified).toBe(true)
+		const stateAfterSeed = await collections()
+			.collection('book_history_states')
+			.findOne({ _id: tagsKey })
+		expect(stateAfterSeed?.revision).toBe(0)
+		const seededBaseline = (stateAfterSeed?.fields ?? []).find(
+			(f: { field: string }) => f.field === 'tags'
+		)
+		expect(seededBaseline).toMatchObject({
+			policy: 'tags:api:v1',
+			value: { state: 'value', value: initialTags }
+		})
+
+		const changedTags = [
+			['adbl_rec_tag_0-2-1', 'Witty', 'mood'],
+			['adbl_rec_tag_0-2-2', 'Feel-Good', 'mood']
+		]
+		const result = await bookHistoryStore.persistObservation({
+			asin: tagsAsin,
+			region: REGION,
+			generation: 3,
+			book: {
+				...tagsBook,
+				tags: [
+					{ tagId: 'adbl_rec_tag_0-2-2', name: 'Feel-Good', type: 'mood' },
+					{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }
+				]
+			},
+			observation: observation({
+				title: 'Tags Base',
+				imageId: IMG1,
+				tags: changedTags
+			})
+		})
+		expect(result.disposition).toBe('accepted')
+		expect(result.modified).toBe(true)
+
+		const state = await collections()
+			.collection('book_history_states')
+			.findOne({ _id: tagsKey })
+		expect(state?.revision).toBe(1)
+
+		const revisions = await collections()
+			.collection('book_history_revisions')
+			.find({ asin: tagsAsin, region: REGION, revision: 1 })
+			.toArray()
+		expect(revisions).toHaveLength(1)
+		expect(revisions[0].changedFields).toEqual(['tags'])
+		expect(revisions[0].changes.tags.before).toEqual({ state: 'value', value: initialTags })
+		expect(revisions[0].changes.tags.after).toEqual({ state: 'value', value: changedTags })
+
+		const currentBook = await collections().collection('books').findOne({ asin: tagsAsin })
+		expect(currentBook?.tags).toEqual([
+			{ tagId: 'adbl_rec_tag_0-2-2', name: 'Feel-Good', type: 'mood' },
+			{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }
+		])
+		// The persisted row is the public response contract: it must parse
+		// against ApiBookSchema (an 11-char fixture ASIN would fail the 10-char
+		// AsinSchema and would have masked this).
+		expect(ApiBookSchema.safeParse(result.data).success).toBe(true)
 	})
 
 	test('an equal accepted observation bumps the watermark without a revision', async () => {
@@ -388,6 +494,7 @@ run('BookHistoryStore against a replica set', () => {
 			observation: observation({ title: 'Seq Book', imageId: IMG1 })
 		})
 		expect(first.disposition).toBe('accepted')
+		expect(first.modified).toBe(false)
 		// The first-touch capture archived the stored image at sequence 1 and
 		// the acceptance persisted the legacyCaptured watermark in-transaction.
 		const legacy = await db2
@@ -1378,5 +1485,109 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		const current = await db3.collection('books').findOne({ asin: noGenreAsin })
 		expect(current?.title).toBe('Still No Genres')
 		expect(current).not.toHaveProperty('ratingsBackfillSkip')
+	}, 30000)
+
+	test('accepts an update when a legacy row with a backfill skip marker fails the public parse', async () => {
+		// A legacy row that fails ApiBookSchema falls back to the raw
+		// document (stripDocMeta), which preserves the internal
+		// ratingsBackfillSkip marker. The marker must not reach the
+		// $set: the same update unsets it, and a $set on the same path
+		// is rejected by the server (code 40).
+		const legacyAsin = 'B0LEGACYSK1'
+		const db5 = collections()
+		const gen1 = await bookHistoryStore.reserveGeneration(legacyAsin, REGION)
+		const first = await bookHistoryStore.persistObservation({
+			asin: legacyAsin,
+			region: REGION,
+			generation: gen1,
+			book: book({ asin: legacyAsin, title: 'Legacy Marker' }),
+			observation: observation({ title: 'Legacy Marker', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		// Corrupt the row for the legacy case: a non-URL image fails
+		// ApiBookSchema (z.string().url()) while the books validator
+		// (types.string) accepts it, and the marker rides along.
+		await db5
+			.collection('books')
+			.updateOne(
+				{ asin: legacyAsin },
+				{
+					$set: {
+						image: 'LEGACY-IMAGE-ID',
+						ratingsBackfillSkip: {
+							reason: 'non_book',
+							contentType: 'SinglePartIssue',
+							markedAt: new Date()
+						}
+					}
+				}
+			)
+		const gen2 = await bookHistoryStore.reserveGeneration(legacyAsin, REGION)
+		const second = await bookHistoryStore.persistObservation({
+			asin: legacyAsin,
+			region: REGION,
+			generation: gen2,
+			book: book({ asin: legacyAsin, title: 'Healed Legacy', image: `https://m.media-amazon.com/images/I/${IMG2}.jpg` }),
+			observation: observation({ title: 'Healed Legacy', imageId: IMG2 })
+		})
+		expect(second.disposition).toBe('accepted')
+		expect(second.modified).toBe(true)
+		const current = await db5.collection('books').findOne({ asin: legacyAsin })
+		expect(current?.title).toBe('Healed Legacy')
+		expect(current).not.toHaveProperty('ratingsBackfillSkip')
+	}, 30000)
+
+	test('the returned projection never carries the backfill skip marker on the fallback path', async () => {
+		// A stored row that fails ApiBookSchema (non-URL image) is merged
+		// via stripDocMeta, which keeps the internal ratingsBackfillSkip
+		// marker in `writeBook`. The update unsets the marker, and the
+		// returned book is the raw `writeBook` (toApiBook still fails on
+		// the inherited invalid image), so the marker must be stripped
+		// from the fallback return value as well.
+		const noImageAsin = 'B0LEGACYNO1'
+		const db6 = collections()
+		const gen1 = await bookHistoryStore.reserveGeneration(noImageAsin, REGION)
+		const first = await bookHistoryStore.persistObservation({
+			asin: noImageAsin,
+			region: REGION,
+			generation: gen1,
+			book: book({ asin: noImageAsin, title: 'Marker No Image' }),
+			observation: observation({ title: 'Marker No Image', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		// Corrupt the row the same way as the legacy case, but leave the
+		// incoming book without an `image` so the merged writeBook keeps
+		// the invalid value and the toApiBook parse fails again.
+		await db6
+			.collection('books')
+			.updateOne(
+				{ asin: noImageAsin },
+				{
+					$set: {
+						image: 'LEGACY-IMAGE-ID',
+						ratingsBackfillSkip: {
+							reason: 'non_book',
+							contentType: 'SinglePartIssue',
+							markedAt: new Date()
+						}
+					}
+				}
+			)
+		const gen2 = await bookHistoryStore.reserveGeneration(noImageAsin, REGION)
+		const second = await bookHistoryStore.persistObservation({
+			asin: noImageAsin,
+			region: REGION,
+			generation: gen2,
+			book: book({ asin: noImageAsin, title: 'Marker No Image Healed', image: undefined }),
+			observation: observation({ title: 'Marker No Image Healed', imageId: IMG2 })
+		})
+		expect(second.disposition).toBe('accepted')
+		expect(second.modified).toBe(true)
+		// The row no longer carries the marker (unset by the update)...
+		const current = await db6.collection('books').findOne({ asin: noImageAsin })
+		expect(current?.title).toBe('Marker No Image Healed')
+		expect(current).not.toHaveProperty('ratingsBackfillSkip')
+		// ...and neither does the returned (fallback) projection.
+		expect(second.data).not.toHaveProperty('ratingsBackfillSkip')
 	}, 30000)
 })

@@ -202,6 +202,63 @@ describe('fetchPlus should', () => {
 		}
 	})
 
+	test('does not retry 400: rejects after one request', async () => {
+		const response = { status: 400, data: { message: 'Invalid response group(s) requested' } }
+		mockGet.mockImplementation(() => Promise.reject(Object.assign(new Error('400'), { response })))
+
+		await expect(fetchPlus('test.com')).rejects.toEqual(response)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(1)
+		expect(sleepDelays).toEqual([])
+	})
+
+	test('does not retry 404: rejects after one request', async () => {
+		const response = { status: 404, data: {} }
+		mockGet.mockImplementation(() => Promise.reject(Object.assign(new Error('404'), { response })))
+
+		await expect(fetchPlus('test.com')).rejects.toEqual(response)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(1)
+		expect(sleepDelays).toEqual([])
+	})
+
+	test('does not retry 410: rejects after one request', async () => {
+		const response = { status: 410 }
+		mockGet.mockImplementation(() => Promise.reject(Object.assign(new Error('410'), { response })))
+
+		await expect(fetchPlus('test.com')).rejects.toEqual(response)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(1)
+		expect(sleepDelays).toEqual([])
+	})
+
+	test('retries 408: request timeout is transient', async () => {
+		const response = { status: 408 }
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+		mockGet
+			.mockImplementationOnce(() => Promise.reject(Object.assign(new Error('408'), { response })))
+			.mockResolvedValueOnce(successResponse)
+
+		const result = await fetchPlus('test.com')
+		expect(result).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays).toEqual([])
+	})
+
+	test('still retries 429', async () => {
+		const mockError = {
+			response: {
+				status: 429,
+				headers: {}
+			}
+		}
+		const successResponse = { data: 'success', status: 200 } as AxiosResponse
+
+		mockGet.mockRejectedValueOnce(mockError).mockResolvedValueOnce(successResponse)
+
+		const response = await fetchPlus('test.com')
+		expect(response).toEqual(successResponse)
+		expect(pooledAxios.get).toHaveBeenCalledTimes(2)
+		expect(sleepDelays).toEqual([1000])
+	})
+
 	test('honor Retry-After header on 503', async () => {
 		const mockError = {
 			response: {
