@@ -1354,4 +1354,54 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		expect(current?.title).toBe('Still No Genres')
 		expect(current).not.toHaveProperty('ratingsBackfillSkip')
 	}, 30000)
+
+	test('accepts an update when a legacy row with a backfill skip marker fails the public parse', async () => {
+		// A legacy row that fails ApiBookSchema falls back to the raw
+		// document (stripDocMeta), which preserves the internal
+		// ratingsBackfillSkip marker. The marker must not reach the
+		// $set: the same update unsets it, and a $set on the same path
+		// is rejected by the server (code 40).
+		const legacyAsin = 'B0LEGACYSK1'
+		const db5 = collections()
+		const gen1 = await bookHistoryStore.reserveGeneration(legacyAsin, REGION)
+		const first = await bookHistoryStore.persistObservation({
+			asin: legacyAsin,
+			region: REGION,
+			generation: gen1,
+			book: book({ asin: legacyAsin, title: 'Legacy Marker' }),
+			observation: observation({ title: 'Legacy Marker', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		// Corrupt the row for the legacy case: a non-URL image fails
+		// ApiBookSchema (z.string().url()) while the books validator
+		// (types.string) accepts it, and the marker rides along.
+		await db5
+			.collection('books')
+			.updateOne(
+				{ asin: legacyAsin },
+				{
+					$set: {
+						image: 'LEGACY-IMAGE-ID',
+						ratingsBackfillSkip: {
+							reason: 'non_book',
+							contentType: 'SinglePartIssue',
+							markedAt: new Date()
+						}
+					}
+				}
+			)
+		const gen2 = await bookHistoryStore.reserveGeneration(legacyAsin, REGION)
+		const second = await bookHistoryStore.persistObservation({
+			asin: legacyAsin,
+			region: REGION,
+			generation: gen2,
+			book: book({ asin: legacyAsin, title: 'Healed Legacy', image: `https://m.media-amazon.com/images/I/${IMG2}.jpg` }),
+			observation: observation({ title: 'Healed Legacy', imageId: IMG2 })
+		})
+		expect(second.disposition).toBe('accepted')
+		expect(second.modified).toBe(true)
+		const current = await db5.collection('books').findOne({ asin: legacyAsin })
+		expect(current?.title).toBe('Healed Legacy')
+		expect(current).not.toHaveProperty('ratingsBackfillSkip')
+	}, 30000)
 })

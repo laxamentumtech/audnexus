@@ -610,6 +610,10 @@ export class BookHistoryStore {
 					...(writeBook as unknown as Record<string, unknown>)
 				}
 				delete writeContent.updatedAt
+				// The backfill-skip marker is internal: this same update
+				// unsets it below, and a `$set` on the same path is
+				// rejected by the server (code 40).
+				delete writeContent.ratingsBackfillSkip
 				await booksCol.updateOne(
 					{ _id: currentBook._id },
 					{
