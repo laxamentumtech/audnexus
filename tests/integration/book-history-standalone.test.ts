@@ -39,7 +39,8 @@ const IMG2 = 'NEWNEWNEWNEWNEWNEWNEWNEWNEWNEWNEWNEWNEW1'
 // non-empty stored genres AND genre evidence on the incoming side (the
 // genre-preserving merge applies only when the incoming book carries none),
 // so every fixture carries a recognized genre by default; the genre-stripping
-// test supplies an explicit empty array, which the merge does not apply to.
+// test supplies an explicit empty array, which — carrying no genre evidence —
+// the merge DOES apply to.
 const GENRES = [{ type: 'genre', asin: '1234567890', name: 'Fiction' }] as const
 
 function book(overrides: Record<string, unknown> = {}) {
@@ -346,7 +347,10 @@ run('BookHistoryStore against a replica set', () => {
 		const accepted = await bookHistoryStore.persistObservation(
 			persistInput({
 				generation: 5,
-				book: book({ title: 'Genres Stripped' }),
+				// `genres: []` is NO genre evidence (`!normBook.genres?.length`
+				// matches the missing-key form), so the merge condition fires
+				// even though the fixture helper defaults genres on.
+				book: book({ title: 'Genres Stripped', genres: [] }),
 				observation: observation({ title: 'Genres Stripped', imageId: IMG2 })
 			})
 		)
@@ -401,7 +405,10 @@ run('BookHistoryStore against a replica set', () => {
 			asin: seqAsin,
 			region: REGION,
 			generation: 2,
-			book: book({ asin: seqAsin, title: 'Seq Book Changed' }),
+			// `genres: []` = no genre evidence: the merge must apply to this
+			// changed follow-up (stored row carries genres) for the stated
+			// regression to be exercised.
+			book: book({ asin: seqAsin, title: 'Seq Book Changed', genres: [] }),
 			observation: observation({ title: 'Seq Book Changed', imageId: IMG2 })
 		})
 		expect(accepted.disposition).toBe('accepted')

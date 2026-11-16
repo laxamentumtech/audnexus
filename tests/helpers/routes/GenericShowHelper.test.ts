@@ -610,18 +610,30 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			title: 'Original Title',
 			genres: [{ type: 'genre', asin: '1234567890', name: 'Fiction' }]
 		} as ApiBook
-		const freshGenreless = {
+		// The fresh API response is genuinely genre-less: the base fixture
+		// carries genres, so the key must be removed, not just overwritten.
+		const genrelessFresh: ApiBook = {
 			...(bookWithoutProjection as unknown as ApiBook),
 			releaseDate: new Date('2020-01-01'),
 			title: 'Renamed Title'
 		} as ApiBook
+		delete genrelessFresh.genres
+		expect(genrelessFresh.genres).toBeUndefined()
+		// The store's genre-preserving merge (persistObservation) returned
+		// a SEPARATE merged projection: the changed book carrying the
+		// stored genres. Identity against this object proves the handler
+		// serves what the store persisted, not the raw incoming book.
+		const mergedProjection: ApiBook = {
+			...genrelessFresh,
+			genres: storedWithGenres.genres
+		} as ApiBook
 		spyOn(helper, 'getDataFromPapr').mockResolvedValue(storedWithGenres)
-		mockStitchProcess.mockResolvedValue(freshGenreless)
+		mockStitchProcess.mockResolvedValue(genrelessFresh)
 		// The store accepted the genre-preserving merge (see
 		// persistObservation's genre preservation): a real write of the
 		// changed field.
 		mockPersistObservation.mockResolvedValue({
-			data: freshGenreless,
+			data: mergedProjection,
 			modified: true,
 			disposition: 'accepted'
 		})
@@ -634,17 +646,17 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 		expect(mockPersistObservation).toHaveBeenCalledTimes(1)
 		expect(mockPersistObservation).toHaveBeenCalledWith(
 			expect.objectContaining({
-				book: freshGenreless,
+				book: genrelessFresh,
 				observation
 			})
 		)
-		expect(result).toBe(freshGenreless)
+		// The merged projection (stored genres intact) is the returned and
+		// cached book — not the genre-less incoming fixture.
+		expect(result).toBe(mergedProjection)
 		expect(helper.persisted).toBe(true)
 		expect(helper.historyDisposition).toBe('accepted')
-		// The updated projection (with the stored genres intact) is the
-		// cached result.
 		expect(setOneSpy).toHaveBeenCalledTimes(1)
-		expect(setOneSpy).toHaveBeenCalledWith(freshGenreless, { log: false })
+		expect(setOneSpy).toHaveBeenCalledWith(mergedProjection, { log: false })
 	})
 
 	test.each([

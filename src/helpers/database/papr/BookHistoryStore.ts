@@ -552,28 +552,34 @@ export class BookHistoryStore {
 			const parsedBook = ApiBookSchema.safeParse(book)
 			let normBook = parsedBook.success ? parsedBook.data : book
 			const oldApi = toApiBook(currentBook)
+			// Genre preservation (mirrors PaprAudibleBookHelper.createOrUpdate):
+			// background passes (the scheduler walk, the ratings backfill)
+			// skip the HTML scrape, so a ladder-less API response arrives
+			// genre-less. Without the merge the genre safeguard below would
+			// reject the WHOLE update — every changed field (title, ratings)
+			// frozen while the scheduler marks the row checked and re-hits
+			// the same rejection on every pass. Merging the stored genres
+			// into the incoming book keeps the safeguard intact: a
+			// genre-less incoming against a genre-less stored row still
+			// passes (nothing to protect), stored genres can only be
+			// dropped by an update that carries its own genre evidence
+			// (the merge does not apply then), and a fully equal
+			// observation stays in the equal short-circuit (the merged
+			// book equals the stored projection). The merge is deliberately
+			// NOT guarded on the stored row validating as a full ApiBook
+			// (oldApi): a legacy row with genres but a missing required
+			// field (e.g. description) must keep its genres — skipping the
+			// merge there would let a genre-less observation clear them on
+			// the write.
+			if (
+				currentBook &&
+				!normBook.genres?.length &&
+				Array.isArray(currentBook.genres) &&
+				currentBook.genres.length > 0
+			) {
+				normBook = { ...normBook, genres: currentBook.genres as ApiBook['genres'] }
+			}
 			if (currentBook && oldApi) {
-				// Genre preservation (mirrors PaprAudibleBookHelper.createOrUpdate):
-				// background passes (the scheduler walk, the ratings backfill)
-				// skip the HTML scrape, so a ladder-less API response arrives
-				// genre-less. Without the merge the genre safeguard below would
-				// reject the WHOLE update — every changed field (title, ratings)
-				// frozen while the scheduler marks the row checked and re-hits
-				// the same rejection on every pass. Merging the stored genres
-				// into the incoming book keeps the safeguard intact: a
-				// genre-less incoming against a genre-less stored row still
-				// passes (nothing to protect), stored genres can only be
-				// dropped by an update that carries its own genre evidence
-				// (the merge does not apply then), and a fully equal
-				// observation stays in the equal short-circuit (the merged
-				// book equals the stored projection).
-				if (
-					!normBook.genres?.length &&
-					Array.isArray(currentBook.genres) &&
-					currentBook.genres.length > 0
-				) {
-					normBook = { ...normBook, genres: currentBook.genres as ApiBook['genres'] }
-				}
 				// Series keys present only on the stored side are not changes
 				// when the incoming observation has no series evidence at
 				// all: the write path retains them (unknown evidence), so the

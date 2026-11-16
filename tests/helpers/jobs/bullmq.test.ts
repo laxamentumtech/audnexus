@@ -1158,7 +1158,8 @@ describe('bullmq queue helpers', () => {
 		// The ratings backfill runs for days: a restart must recover the job,
 		// not fail it on the first stall (BullMQ's default maxStalledCount of
 		// 1 turned every deploy into "job stalled more than allowable
-		// limit"). Two stalls covers the observed restart window.
+		// limit"). Five stalls covers repeated deploy/restart windows on a
+		// multi-day pass.
 		const logger = createMockLogger()
 		createWorker(logger)
 		// workerConstructorArgs is cleared in beforeEach: exactly one
@@ -1176,7 +1177,7 @@ describe('bullmq queue helpers', () => {
 		expect(options.concurrency).toBe(1)
 		expect(options.lockDuration).toBe(LOCK_DURATION_MS)
 		expect(options.stalledInterval).toBe(STALLED_CHECK_INTERVAL_MS)
-		expect(options.maxStalledCount).toBe(2)
+		expect(options.maxStalledCount).toBe(5)
 	})
 
 	it('bounds closeQueue when queue and both Redis clients hang offline, so shutdown continues', async () => {

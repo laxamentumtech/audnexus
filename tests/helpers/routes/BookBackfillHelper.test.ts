@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, mock, test, vi } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test, vi } from 'bun:test'
 
 const mockBookFind = mock()
 const mockBookUpdateOne = mock()
@@ -136,8 +136,16 @@ const bookWithoutRatings = {
 
 describe('BookBackfillHelper should', () => {
 	let helper: BookBackfillHelper
+	let savedBatchSize: string | undefined
 
 	beforeEach(() => {
+		// The per-book default path is the baseline: a process environment
+		// that inherits AUDIBLE_BATCH_SIZE would silently put every test on
+		// the batch path, breaking the per-book pacing assertions. Save the
+		// inherited value (preserving undefined) and pin the baseline to 1
+		// (which keeps the proven per-book path); batch tests override it.
+		savedBatchSize = process.env.AUDIBLE_BATCH_SIZE
+		process.env.AUDIBLE_BATCH_SIZE = '1'
 		mock.clearAllMocks()
 		historyEnabled = false
 		mockSleepCooldown.mockResolvedValue(undefined)
@@ -185,6 +193,13 @@ describe('BookBackfillHelper should', () => {
 				}
 			}
 		)
+	})
+
+	afterEach(() => {
+		// Restore the inherited value (or its absence) so the suite does not
+		// leak the baseline into the process environment for later files.
+		if (savedBatchSize === undefined) delete process.env.AUDIBLE_BATCH_SIZE
+		else process.env.AUDIBLE_BATCH_SIZE = savedBatchSize
 	})
 
 	test('queries only books missing the ratings field in _id-ordered batches', async () => {

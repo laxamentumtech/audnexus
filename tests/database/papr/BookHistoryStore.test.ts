@@ -42,6 +42,12 @@ interface MongoShape {
 			deleteOne(filter: object, opts?: object): Promise<unknown>
 			findOne(filter: object, opts?: object): Promise<unknown>
 			updateOne(filter: object, update: object, opts?: object): Promise<unknown>
+			countDocuments(filter: object, opts?: object): Promise<number>
+			find(filter: object, opts?: object): {
+				sort(spec: object): { limit(n: number): { toArray(): Promise<unknown[]> } }
+				limit(n: number): { sort(spec: object): { toArray(): Promise<unknown[]> } }
+				toArray(): Promise<unknown[]>
+			}
 		}
 	}
 	startSession(): Promise<{
@@ -67,6 +73,10 @@ function clientWith(options: {
 	/** Make the STATE document's conditional update throw (a write conflict
 	 * from a concurrent acceptance) so the transaction aborts. */
 	abortOnStateWrite?: Error
+	/** Book rows visible to identity resolution (count + find). */
+	currentBooks?: unknown[]
+	/** Count per identity-resolution filter (exact vs competitor). */
+	booksCount?: (filter: object) => number
 }): {
 	client: MongoShape
 	store: BookHistoryStore
@@ -116,6 +126,17 @@ function clientWith(options: {
 						return { matchedCount: options.stateUpdateMatchedCount ?? 1 }
 					}
 					return {}
+				},
+				countDocuments: async (filter: object) =>
+					options.booksCount ? options.booksCount(filter) : 0,
+				find: () => {
+					const docs = options.currentBooks ?? []
+					const end = { toArray: async () => docs }
+					return {
+						sort: () => ({ limit: () => end }),
+						limit: () => ({ sort: () => end }),
+						toArray: async () => docs
+					}
 				}
 			})
 		}),
@@ -352,5 +373,94 @@ describe('persistRatingsRepair', () => {
 			modified: 0,
 			superseded: false
 		})
+	})
+})
+
+describe('persistObservation genre preservation', () => {
+	const asin = 'B079LRSMNN'
+	const region = 'us'
+	const bookId = new ObjectId('5c8f8f8f8f8f8f8f8f8f8f01')
+	const genres = [{ asin: '1234567890', name: 'Fiction', type: 'genre' }]
+
+	/** A full, schema-valid book for the incoming observation. */
+	function validBook(overrides: Record<string, unknown> = {}) {
+		return {
+			asin,
+			authors: [{ asin: 'B079LRSMNN', name: 'Smith, Doe' }],
+			description: 'desc',
+			formatType: 'audiobook',
+			image: 'https://m.media-amazon.com/images/I/legacy.jpg',
+			isAdult: false,
+			language: 'en',
+			publisherName: 'Publisher',
+			rating: '4.5',
+			region,
+			releaseDate: new Date('2020-01-01T00:00:00.000Z'),
+			runtimeLengthMin: 600,
+			summary: 'summary',
+			title: 'Original Title',
+			...overrides
+		}
+	}
+
+	test('keeps stored genres on a legacy row missing a required field when the incoming observation is genre-less', async () => {
+		// Regression: the genre-preserving merge was nested in the
+		// `oldApi` guard (the stored row validating as a full ApiBook). A
+		// legacy row with genres but a missing required field (e.g.
+		// description) fails that validation, so the merge was skipped and
+		// an incoming `genres: []` observation cleared the stored genres on
+		// the write (the safeguard was skipped by the same guard, so the
+		// clear went through). The merge must apply whenever the stored
+		// row carries non-empty genres and the incoming book has no genre
+		// evidence.
+		const legacyDoc = {
+			_id: bookId,
+			...validBook(),
+			genres
+		}
+		delete (legacyDoc as Record<string, unknown>).description
+		const { store, calls } = clientWith({
+			currentBooks: [legacyDoc],
+			booksCount: (filter: object) =>
+				JSON.stringify(filter) === JSON.stringify({ asin, region }) ? 1 : 0
+		})
+		const now = new Date('2026-11-16T00:00:00.000Z')
+		const result = await store.persistObservation({
+			asin,
+			region,
+			generation: 3,
+			book: validBook({ title: 'Renamed Title', genres: [] }),
+			observation: {
+				observedAt: now,
+				apiReceivedAt: now,
+				responseGroups: ['product_desc'],
+				requestedRenditions: ['default'],
+				fields: [
+					{
+						field: 'title',
+						policy: 'editorial:title:v1',
+						value: { state: 'value', value: 'Renamed Title' },
+						source: 'audible_api'
+					}
+				],
+				artwork: []
+			}
+		})
+		expect(result.disposition).toBe('accepted')
+		expect(result.modified).toBe(true)
+		expect(calls.booksUpdateOne).toHaveLength(1)
+		const update = calls.booksUpdateOne[0].update as {
+			$set: Record<string, unknown>
+		}
+		// The changed title persists WITH the stored genres intact — the
+		// genre-less `genres: []` did not clear them.
+		expect(update.$set.title).toBe('Renamed Title')
+		expect(update.$set.genres).toEqual(genres)
+		// The legacy row lacked the validator-required createdAt, so the
+		// write supplies it once.
+		expect(update.$set.createdAt).toBeInstanceOf(Date)
+		// The stored projection that never validated is not what the
+		// write carries: the returned data is the merged projection.
+		expect(result.data).toMatchObject({ title: 'Renamed Title', genres })
 	})
 })

@@ -17,6 +17,12 @@ import {
 export default class PaprAudibleBookHelper {
 	asin: string
 	bookData!: ApiBook
+	/**
+	 * True when the caller-supplied book carried its own genre evidence
+	 * (recorded in `createOrUpdate` before the genre-preserving merge
+	 * copies stored genres into a genre-less incoming book).
+	 */
+	incomingHadGenres = false
 	options: ApiQueryString
 	sharedHelper = new SharedHelper()
 	logger?: FastifyBaseLogger
@@ -113,6 +119,10 @@ export default class PaprAudibleBookHelper {
 	 */
 	setData(bookData: ApiBook) {
 		this.bookData = bookData
+		// Genre evidence on the INCOMING book, recorded before the
+		// preservation merge in `createOrUpdate` copies stored genres
+		// into a genre-less incoming book.
+		this.incomingHadGenres = Boolean(bookData.genres?.length)
 	}
 
 	/**
@@ -198,13 +208,25 @@ export default class PaprAudibleBookHelper {
 			if (!found.data) {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Book'))
 			}
+			const set = {
+				...this.bookData,
+				createdAt: found.data._id.getTimestamp()
+			}
+			// The preservation merge above may have copied the stored genres
+			// into a genre-less incoming book; that copy is evidence for the
+			// safeguard, not a write. A genre-less update must never carry
+			// `genres` into the `$set`: a concurrent genre refresh that lands
+			// on the row during this update's awaited lookups would be
+			// clobbered by the copied value. The equality path never
+			// reaches the write, so an omitted genre-less payload is safe.
+			if (!this.incomingHadGenres) delete set.genres
 			await BookModel.updateOne(
 				{
 					asin: this.asin,
 					$or: [{ region: { $exists: false } }, { region: this.options.region }]
 				},
 				{
-					$set: { ...this.bookData, createdAt: found.data._id.getTimestamp() },
+					$set: set,
 					// An accepted book write supersedes a backfill skip decision
 					// (e.g. upstream now reports a real book).
 					$unset: { ratingsBackfillSkip: '' },
