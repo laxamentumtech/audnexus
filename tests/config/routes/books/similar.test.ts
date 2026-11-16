@@ -136,6 +136,13 @@ describe('GET /books/:asin/similar', () => {
 		expect(response.statusCode).toBe(400)
 	})
 
+	test('a whitespace-only ASIN is rejected with a 400 before any upstream fetch', async () => {
+		const response = await app.inject({ method: 'GET', url: '/books/%20/similar' })
+		expect(response.statusCode).toBe(400)
+		expect(response.json().error.code).toBe('BAD_REQUEST')
+		expect(mockSimilarFetch).not.toHaveBeenCalled()
+	})
+
 	test('padded ASINs are trimmed before the upstream fetch', async () => {
 		mockSimilarFetch.mockResolvedValue(similarResponse([]))
 		const response = await app.inject({

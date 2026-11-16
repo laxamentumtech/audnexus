@@ -1404,4 +1404,58 @@ test('a non-trusted current row produces a conflict, not an acceptance', async (
 		expect(current?.title).toBe('Healed Legacy')
 		expect(current).not.toHaveProperty('ratingsBackfillSkip')
 	}, 30000)
+
+	test('the returned projection never carries the backfill skip marker on the fallback path', async () => {
+		// A stored row that fails ApiBookSchema (non-URL image) is merged
+		// via stripDocMeta, which keeps the internal ratingsBackfillSkip
+		// marker in `writeBook`. The update unsets the marker, and the
+		// returned book is the raw `writeBook` (toApiBook still fails on
+		// the inherited invalid image), so the marker must be stripped
+		// from the fallback return value as well.
+		const noImageAsin = 'B0LEGACYNO1'
+		const db6 = collections()
+		const gen1 = await bookHistoryStore.reserveGeneration(noImageAsin, REGION)
+		const first = await bookHistoryStore.persistObservation({
+			asin: noImageAsin,
+			region: REGION,
+			generation: gen1,
+			book: book({ asin: noImageAsin, title: 'Marker No Image' }),
+			observation: observation({ title: 'Marker No Image', imageId: IMG1 })
+		})
+		expect(first.disposition).toBe('accepted')
+		// Corrupt the row the same way as the legacy case, but leave the
+		// incoming book without an `image` so the merged writeBook keeps
+		// the invalid value and the toApiBook parse fails again.
+		await db6
+			.collection('books')
+			.updateOne(
+				{ asin: noImageAsin },
+				{
+					$set: {
+						image: 'LEGACY-IMAGE-ID',
+						ratingsBackfillSkip: {
+							reason: 'non_book',
+							contentType: 'SinglePartIssue',
+							markedAt: new Date()
+						}
+					}
+				}
+			)
+		const gen2 = await bookHistoryStore.reserveGeneration(noImageAsin, REGION)
+		const second = await bookHistoryStore.persistObservation({
+			asin: noImageAsin,
+			region: REGION,
+			generation: gen2,
+			book: book({ asin: noImageAsin, title: 'Marker No Image Healed', image: undefined }),
+			observation: observation({ title: 'Marker No Image Healed', imageId: IMG2 })
+		})
+		expect(second.disposition).toBe('accepted')
+		expect(second.modified).toBe(true)
+		// The row no longer carries the marker (unset by the update)...
+		const current = await db6.collection('books').findOne({ asin: noImageAsin })
+		expect(current?.title).toBe('Marker No Image Healed')
+		expect(current).not.toHaveProperty('ratingsBackfillSkip')
+		// ...and neither does the returned (fallback) projection.
+		expect(second.data).not.toHaveProperty('ratingsBackfillSkip')
+	}, 30000)
 })

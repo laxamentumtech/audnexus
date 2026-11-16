@@ -628,8 +628,16 @@ export class BookHistoryStore {
 				)
 				// Return the same effective projection that was written:
 				// evidence-free fields (rating, stored tags/Goodreads,
-				// unknown-evidence series) are already merged in.
-				returned = toApiBook(writeBook) ?? writeBook
+				// unknown-evidence series) are already merged in. A stored
+				// row that fails the public parse leaves `writeBook` as the
+				// raw merged document — including the internal
+				// ratingsBackfillSkip marker this same update unsets — so
+				// strip it from the fallback before returning.
+				const fallback: Record<string, unknown> = {
+					...(writeBook as unknown as Record<string, unknown>)
+				}
+				delete fallback.ratingsBackfillSkip
+				returned = toApiBook(writeBook) ?? (fallback as unknown as ApiBook)
 			}
 
 			// 9. Watermark. A fresh state must retain the counter the

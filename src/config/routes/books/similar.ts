@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 
+import { requireValidAsin } from '#config/routes/books/historyRouteGuards'
 import { ApiQueryString } from '#config/types'
 import { RequestGeneric } from '#config/typing/requests'
 import BookSimilarHelper from '#helpers/books/audible/BookSimilarHelper'
@@ -16,9 +17,10 @@ async function _similar(fastify: FastifyInstance) {
 	fastify.get<RequestGeneric<SimilarQueryString>>(
 		'/books/:asin/similar',
 		async (request, reply) => {
-			// Validation (AsinSchema) trims the ASIN, but the raw param must not
-			// reach the upstream fetch: use the normalized value.
-			const asin = request.params.asin.trim()
+			// Validate (and normalize) the ASIN before anything else: an
+			// empty-after-trim param must 400 here, never reach the common
+			// helper's ASIN check or the upstream fetch.
+			const asin = requireValidAsin(request.params.asin)
 
 			// Setup common helper first
 			const routeHelper = new RouteCommonHelper(asin, request.query, reply)
