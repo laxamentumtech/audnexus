@@ -36,8 +36,10 @@ const IMG1 = 'AAAABBBBCCCCDDDDEEEEFFFGGGHHHHIIIIJJJJKKMM'
 const IMG2 = 'NEWNEWNEWNEWNEWNEWNEWNEWNEWNEWNEWNEWNEW1'
 
 // The genre safeguard (reproduced from the original update flow) requires
-// non-empty incoming genres, so every fixture carries a recognized genre by
-// default; the safeguard test strips this explicitly to an empty array.
+// non-empty stored genres AND genre evidence on the incoming side (the
+// genre-preserving merge applies only when the incoming book carries none),
+// so every fixture carries a recognized genre by default; the genre-stripping
+// test supplies an explicit empty array, which the merge does not apply to.
 const GENRES = [{ type: 'genre', asin: '1234567890', name: 'Fiction' }] as const
 
 function book(overrides: Record<string, unknown> = {}) {
@@ -237,7 +239,100 @@ run('BookHistoryStore against a replica set', () => {
 		expect(current?.title).toBe('Changed Title')
 	})
 
-	test('the genre safeguard rejects a book that empties its genres', async () => {
+	test('a concurrent state write conflicts with the repair fence (real write, not a no-op)', async () => {
+		// Concurrency regression for the fence's $inc stateVersion: the
+		// fence must be a REAL document modification. A no-op $set of the
+		// read value establishes no write conflict, so a concurrent
+		// watermark advance (an equal-projection acceptance in a newer
+		// generation) could commit while the repair's fence still passes,
+		// and the repair would commit stale ratings. With the $inc, the
+		// two in-flight state writes to the same row conflict and the
+		// repair's whole transaction — the books write included — aborts.
+		const fenceAsin = 'B0FENCERE1'
+		const key = `${REGION}:${fenceAsin}`
+		const db2 = collections()
+		await db2.collection('books').insertOne(book({ asin: fenceAsin, title: 'Fence Book' }) as never)
+		await db2.collection('book_history_states').insertOne({
+			_id: key,
+			asin: fenceAsin,
+			region: REGION,
+			allocatedGeneration: 0,
+			acceptedGeneration: 0,
+			deleteFence: 0,
+			revision: 0,
+			assetSequence: 0,
+			stateVersion: 0,
+			established: true,
+			legacyCaptured: true,
+			fields: [],
+			renditions: []
+		} as never)
+		const inserted = await db2.collection('books').findOne({ asin: fenceAsin })
+		if (!inserted) throw new Error('fence row missing after insert')
+		const bookId = inserted._id
+
+		// An uncommitted watermark advance on the state row (the
+		// equal-projection acceptance in flight) holds a write claim on the
+		// document: the repair's fence write must block on it. The contender
+		// commits mid-flight, so the repair's fence write fails with a write
+		// conflict, the transaction retries on a fresh snapshot, and the
+		// advanced watermark makes the fence match 0: the repair is
+		// superseded, and the books write never commits. (With a no-op
+		// fence update the conflict semantics are what make the fence a
+		// real write; the assertion below is that NO ratings land.)
+		const contender = await client?.startSession()
+		if (!contender) throw new Error('no contender session')
+		contender.startTransaction()
+		try {
+			await db2
+				.collection('book_history_states')
+				.updateOne({ _id: key }, { $set: { acceptedGeneration: 2 } }, { session: contender })
+			// Real delay: deterministic control is impossible — the contender
+			// must hold its uncommitted write claim while the live MongoDB
+			// server's repair transaction blocks on it, which only real
+			// server-side scheduling guarantees (a fake timer cannot advance
+			// the remote session).
+			const commit = (async () => {
+				await new Promise((resolve) => setTimeout(resolve, 500))
+				await contender.commitTransaction()
+			})()
+			const result = await bookHistoryStore.persistRatingsRepair({
+				asin: fenceAsin,
+				region: REGION,
+				generation: 1,
+				bookId,
+				ratings: { value: '4.0', numRatings: 10, numReviews: 1 } as never
+			})
+			await commit
+			expect(result).toEqual({ modified: 0, superseded: true })
+		} finally {
+			// The contender is committed (or already aborted after a
+			// timeout): a second abort would throw.
+			try {
+				await contender.abortTransaction()
+			} catch {
+				// already committed/aborted
+			}
+			await contender.endSession()
+		}
+		// The repair superseded: no ratings were written to the book row.
+		const after = await db2.collection('books').findOne({ _id: bookId })
+		expect(after?.ratings).toBeUndefined()
+	}, 60000)
+
+	test('a genre-less incoming update preserves stored genres and persists the change', async () => {
+		// Genre preservation (skipHtml background passes): the stored book
+		// carries genres, the incoming book declares NO genre evidence
+		// (no key — the API omits it when a product has no category
+		// ladders). The genre-preserving merge applies the stored genres to
+		// the incoming book, the merged projection passes the safeguard
+		// (it now carries its own genre evidence), and the changed field
+		// persists with the genres intact. (An explicit `genres: []` is the
+		// same condition — the merge condition is `!normBook.genres?.length`
+		// — so the safeguard cannot reject any genre-less incoming update
+		// while stored genres exist; it only guards a non-empty stored
+		// projection against an incoming book whose OWN genres the merge
+		// does not touch, which never strips stored genres.)
 		const withGenres = book({ title: 'Genres Book' })
 		await bookHistoryStore.persistObservation(
 			persistInput({
@@ -246,23 +341,29 @@ run('BookHistoryStore against a replica set', () => {
 				observation: observation({ title: 'Genres Book', imageId: IMG2 })
 			})
 		)
-		const rejected = await bookHistoryStore.persistObservation(
+		const accepted = await bookHistoryStore.persistObservation(
 			persistInput({
 				generation: 5,
-				book: book({ title: 'Genres Stripped', genres: [] }),
+				book: book({ title: 'Genres Stripped' }),
 				observation: observation({ title: 'Genres Stripped', imageId: IMG2 })
 			})
 		)
-		expect(rejected.disposition).toBe('rejected')
+		expect(accepted.disposition).toBe('accepted')
+		expect(accepted.modified).toBe(true)
 		const current = await collections().collection('books').findOne({ asin: ASIN })
-		expect(current?.title).toBe('Genres Book')
+		expect(current?.title).toBe('Genres Stripped')
+		expect(current?.genres).toEqual(withGenres.genres)
 	})
 
-	test('a genre rejection after first-touch capture continues at sequence 2', async () => {
-		// First-touch legacy capture runs inside the same transaction as a
-		// genre-rejected observation: the captured asset advances the
+	test('a first-touch acceptance with a genre-less incoming continues at sequence 2', async () => {
+		// First-touch legacy capture runs inside the same transaction as the
+		// first accepted observation: the captured asset advances the
 		// assetSequence to 1, so the next accepted observation must continue
 		// at sequence 2 and not re-insert at 1 (artwork_order unique index).
+		// The incoming book is genre-less (no genre key); the stored row
+		// carries genres, so the genre-preserving merge applies and the
+		// first observation is ACCEPTED — not rejected — the changed field
+		// persists with the stored genres intact.
 		const seqAsin = 'B0GENRSEQ1'
 		const db2 = collections()
 		await db2.collection('books').insertOne({
@@ -273,25 +374,25 @@ run('BookHistoryStore against a replica set', () => {
 		// any observation is persisted.
 		await bookHistoryStore.reserveGeneration(seqAsin, REGION)
 
-		const rejected = await bookHistoryStore.persistObservation({
+		const first = await bookHistoryStore.persistObservation({
 			asin: seqAsin,
 			region: REGION,
 			generation: 1,
-			book: book({ asin: seqAsin, title: 'Seq Book', genres: [] }),
+			book: book({ asin: seqAsin, title: 'Seq Book' }),
 			observation: observation({ title: 'Seq Book', imageId: IMG1 })
 		})
-		expect(rejected.disposition).toBe('rejected')
+		expect(first.disposition).toBe('accepted')
 		// The first-touch capture archived the stored image at sequence 1 and
-		// the rejection persisted the legacyCaptured watermark in-transaction.
+		// the acceptance persisted the legacyCaptured watermark in-transaction.
 		const legacy = await db2
 			.collection('book_artwork')
 			.findOne({ asin: seqAsin, region: REGION, legacy: { $ne: null } })
 		expect(legacy?.sequence).toBe(1)
-		const stateAfterReject = await db2
+		const stateAfterFirst = await db2
 			.collection('book_history_states')
 			.findOne({ _id: `${REGION}:${seqAsin}` })
-		expect(stateAfterReject?.legacyCaptured).toBe(true)
-		expect(stateAfterReject?.assetSequence).toBe(1)
+		expect(stateAfterFirst?.legacyCaptured).toBe(true)
+		expect(stateAfterFirst?.assetSequence).toBe(1)
 
 		// The next accepted observation continues at sequence 2.
 		const accepted = await bookHistoryStore.persistObservation({
@@ -308,25 +409,33 @@ run('BookHistoryStore against a replica set', () => {
 		expect(stateAfterAccept?.assetSequence).toBe(2)
 	}, 30000)
 
-	test('a genre rejection with no state row throws the defensive missing-state error', async () => {
-		// The `if (!state) throw` guard: reserveGeneration is the sole
-		// caller's precondition, so a genre-rejected first observation with no
-		// state doc is unreachable in production — the defensive throw must
-		// still guard the (trusted row, absent state) combination.
+	test('a genre-less first observation with no state row is accepted and establishes state', async () => {
+		// Contract flip (merged-projection safeguard): the old test pinned a
+		// defensive `History state missing` throw for a genre-rejected first
+		// observation with no state doc. With the safeguard now run against
+		// the MERGED projection (the stored genres applied to a genre-less
+		// incoming book), the guard passes whenever a trusted row exists —
+		// even one with no state row — so the first observation is ACCEPTED
+		// and establishes the fresh state, instead of reaching the now-
+		// unreachable defensive throw.
 		const guardAsin = 'B0GENRSEQ2'
 		const db2 = collections()
 		await db2.collection('books').insertOne({
 			...book({ asin: guardAsin, title: 'Guard Book' })
 		} as never)
-		await expect(
-			bookHistoryStore.persistObservation({
-				asin: guardAsin,
-				region: REGION,
-				generation: 1,
-				book: book({ asin: guardAsin, title: 'Guard Book', genres: [] }),
-				observation: observation({ title: 'Guard Book', imageId: IMG1 })
-			})
-		).rejects.toThrow('History state missing')
+		const accepted = await bookHistoryStore.persistObservation({
+			asin: guardAsin,
+			region: REGION,
+			generation: 1,
+			book: book({ asin: guardAsin, title: 'Guard Book', genres: [] }),
+			observation: observation({ title: 'Guard Book', imageId: IMG1 })
+		})
+		expect(accepted.disposition).toBe('accepted')
+		const stateAfter = await db2
+			.collection('book_history_states')
+			.findOne({ _id: `${REGION}:${guardAsin}` })
+		expect(stateAfter?.established).toBe(true)
+		expect(stateAfter?.legacyCaptured).toBe(true)
 	}, 30000)
 
 	test('deleteCurrent keeps history and re-creation triggers legacy capture', async () => {

@@ -596,6 +596,57 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 		}
 	})
 
+	test('preserves stored genres when the API returns no category ladders', async () => {
+		// Regression (skipHtml background passes): the stored book carries
+		// genres, the fresh ladder-less API response carries none, and the
+		// title changed. The store's genre preservation (persistObservation
+		// merges stored genres into a genre-less incoming book) makes the
+		// observation ACCEPTED — the changed field persists, genres stay —
+		// so the handler reports a real write instead of a rejection that
+		// the scheduler would mark checked and re-hit every pass.
+		const storedWithGenres = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: new Date('2019-06-01'),
+			title: 'Original Title',
+			genres: [{ type: 'genre', asin: '1234567890', name: 'Fiction' }]
+		} as ApiBook
+		const freshGenreless = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: new Date('2020-01-01'),
+			title: 'Renamed Title'
+		} as ApiBook
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(storedWithGenres)
+		mockStitchProcess.mockResolvedValue(freshGenreless)
+		// The store accepted the genre-preserving merge (see
+		// persistObservation's genre preservation): a real write of the
+		// changed field.
+		mockPersistObservation.mockResolvedValue({
+			data: freshGenreless,
+			modified: true,
+			disposition: 'accepted'
+		})
+
+		const setOneSpy = spyOn(helper.redisHelper, 'setOne')
+		const result = (await helper.handler()) as ApiBook
+
+		// The changed book is persisted (genre-preserving merge accepted
+		// it) and served: a write, not a guard rejection.
+		expect(mockPersistObservation).toHaveBeenCalledTimes(1)
+		expect(mockPersistObservation).toHaveBeenCalledWith(
+			expect.objectContaining({
+				book: freshGenreless,
+				observation
+			})
+		)
+		expect(result).toBe(freshGenreless)
+		expect(helper.persisted).toBe(true)
+		expect(helper.historyDisposition).toBe('accepted')
+		// The updated projection (with the stored genres intact) is the
+		// cached result.
+		expect(setOneSpy).toHaveBeenCalledTimes(1)
+		expect(setOneSpy).toHaveBeenCalledWith(freshGenreless, { log: false })
+	})
+
 	test.each([
 		['rejected', { data: null, modified: false, disposition: 'rejected' as const }],
 		['accepted', { data: storedBook, modified: true, disposition: 'accepted' as const }]

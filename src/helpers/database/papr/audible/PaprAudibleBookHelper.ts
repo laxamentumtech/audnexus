@@ -130,6 +130,18 @@ export default class PaprAudibleBookHelper {
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
+			// Genre preservation (mirrors
+			// BookHistoryStore.persistObservation): background passes skip
+			// the HTML scrape, so a ladder-less API response yields a
+			// genre-less book. When the incoming book carries no genre
+			// evidence at all, retain the stored genres so the remaining
+			// changed fields (title, ratings) persist through the genre
+			// safeguard below; a book-with-genres incoming update is
+			// untouched, and the stored-only-genres merge makes the
+			// equal-short-circuit see equal data.
+			if (!this.bookData.genres?.length && Array.isArray(data.genres) && data.genres.length > 0) {
+				this.bookData = { ...this.bookData, genres: data.genres }
+			}
 			// If the objects are the exact same return right away
 			const isEqual = this.sharedHelper.isEqualData(data, this.bookData)
 			if (isEqual) {

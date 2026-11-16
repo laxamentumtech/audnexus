@@ -62,6 +62,9 @@ function clientWith(options: {
 	stateDoc?: unknown
 	updateOneResult?: { modifiedCount: number }
 	stateUpdateMatchedCount?: number
+	/** Make the STATE document's conditional update throw (a write conflict
+	 * from a concurrent acceptance) so the transaction aborts. */
+	abortOnStateWrite?: Error
 }): {
 	client: MongoShape
 	store: BookHistoryStore
@@ -105,6 +108,7 @@ function clientWith(options: {
 					}
 					if (collectionName === 'book_history_states') {
 						calls.stateUpdateOne.push({ filter, update, opts })
+						if (options.abortOnStateWrite) throw options.abortOnStateWrite
 						return { matchedCount: options.stateUpdateMatchedCount ?? 1 }
 					}
 					return {}
@@ -240,10 +244,15 @@ describe('persistRatingsRepair', () => {
 		// a conditional update on book_history_states, atomically in the
 		// same transaction as the books write.
 		const { store, calls } = clientWith({
-			stateDoc: { _id: 'us:B079LRSMNN', acceptedGeneration: 5, deleteFence: 0 }
+			stateDoc: {
+				_id: 'us:B079LRSMNN',
+				acceptedGeneration: 5,
+				deleteFence: 0,
+				stateVersion: 4
+			}
 		})
-		const modified = await store.persistRatingsRepair(input)
-		expect(modified).toBe(1)
+		const result = await store.persistRatingsRepair(input)
+		expect(result).toEqual({ modified: 1, superseded: false })
 		// The fence (acceptedGeneration AND deleteFence below the repaired
 		// generation — the persistObservation stale inequality inverted)
 		// is re-asserted on the STATE document, in the same transaction
@@ -255,6 +264,12 @@ describe('persistRatingsRepair', () => {
 			deleteFence: { $lt: 9 }
 		})
 		expect(calls.stateUpdateOne[0].opts).toEqual({ session: {} })
+		// The fence update is a REAL document modification — an increment
+		// of stateVersion, the store's state-advance convention. A no-op
+		// $set of the read value establishes no write conflict, so a
+		// superseded generation could pass the fence and a newer generation
+		// advance the watermarks before the repair commits.
+		expect(calls.stateUpdateOne[0].update).toEqual({ $inc: { stateVersion: 1 } })
 		// The books filter stays on book-document fields only: normal book
 		// documents lack the watermarks, so a fence spread into this
 		// filter would match zero rows with history enabled.
@@ -273,23 +288,47 @@ describe('persistRatingsRepair', () => {
 		expect(calls.booksUpdateOne[0].opts).toEqual({ session: {}, bypassDocumentValidation: true })
 	})
 
-	test('writes zero rows and aborts the books write when the fence is lost', async () => {
+	test('returns superseded and writes no book rows when the fence is lost', async () => {
 		// A concurrent accepted-watermark advance in between the
 		// persistObservation proof and the repair makes the state fence
-		// match 0: the repair must not touch the book document and the
-		// transaction aborts before commit.
+		// match 0: the repair must not touch the book document, and the
+		// lost fence is a RESULT (`superseded: true`), not a throw — the
+		// batch flow tallies it as a race, not a failure.
 		const { store, calls } = clientWith({
 			stateDoc: { _id: 'us:B079LRSMNN', acceptedGeneration: 12, deleteFence: 0 },
 			stateUpdateMatchedCount: 0
 		})
-		await expect(store.persistRatingsRepair(input)).rejects.toThrow('superseded')
+		await expect(store.persistRatingsRepair(input)).resolves.toEqual({
+			modified: 0,
+			superseded: true
+		})
+		expect(calls.booksUpdateOne).toHaveLength(0)
+	})
+
+	test('aborts the whole transaction when a concurrent acceptance conflicts with the fence write', async () => {
+		// Concurrency regression: a newer generation accepts an EQUAL
+		// projection after the fence read but before the books write. The
+		// fence's $inc and the acceptance's watermark advance are
+		// concurrent writes to the same state row, so the repair's
+		// snapshot transaction aborts on the write conflict and the books
+		// write never commits — the repair is superseded, not written.
+		const { store, calls } = clientWith({
+			stateDoc: {
+				_id: 'us:B079LRSMNN',
+				acceptedGeneration: 5,
+				deleteFence: 0,
+				stateVersion: 4
+			},
+			abortOnStateWrite: new Error('write conflict')
+		})
+		await expect(store.persistRatingsRepair(input)).rejects.toThrow('write conflict')
 		expect(calls.booksUpdateOne).toHaveLength(0)
 	})
 
 	test('omits the fence when no history state exists (nothing can supersede the generation)', async () => {
 		const { store, calls } = clientWith({ stateDoc: null })
-		const modified = await store.persistRatingsRepair(input)
-		expect(modified).toBe(1)
+		const result = await store.persistRatingsRepair(input)
+		expect(result).toEqual({ modified: 1, superseded: false })
 		expect(calls.stateUpdateOne).toHaveLength(0)
 		expect(calls.booksUpdateOne[0].filter).toEqual({
 			_id: input.bookId,
@@ -299,6 +338,9 @@ describe('persistRatingsRepair', () => {
 
 	test('propagates a 0-modified outcome (concurrent writer won)', async () => {
 		const { store } = clientWith({ updateOneResult: { modifiedCount: 0 } })
-		await expect(store.persistRatingsRepair(input)).resolves.toBe(0)
+		await expect(store.persistRatingsRepair(input)).resolves.toEqual({
+			modified: 0,
+			superseded: false
+		})
 	})
 })

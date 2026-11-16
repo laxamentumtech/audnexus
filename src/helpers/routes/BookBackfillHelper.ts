@@ -288,7 +288,19 @@ export default class BookBackfillHelper {
 							// per row.
 							skipHtml: true,
 							prefetched: prefetched.get(`${region}:${book.asin}`),
-							reservedGeneration: reservedGenerations.get(`${region}:${book.asin}`)
+							// Only a CONSUMED prefetched product may reuse the
+							// batch's pre-reserved generation: the reservation
+							// ordered the fence by the batch fetch's start. A
+							// stub/failed-chunk ASIN falls back to the
+							// per-book fetch, which must reserve its OWN
+							// generation before its fetch (the GenericShowHelper
+							// `?? reserveGeneration` path) — forwarding the
+							// batch generation would mark a fallback write stale
+							// whenever a concurrent refresh accepted a newer
+							// generation, dropping its ratings.
+							reservedGeneration: prefetched.has(`${region}:${book.asin}`)
+								? reservedGenerations.get(`${region}:${book.asin}`)
+								: undefined
 						}
 					)
 					let updatedBook: ApiAuthorProfile | ApiBook | ApiChapter | undefined
@@ -420,13 +432,30 @@ export default class BookBackfillHelper {
 							// fetch's ratings land. The fence condition is part
 							// of the conditional update, so a superseded
 							// generation matches 0 and writes nothing.
-							modified = await bookHistoryStore.persistRatingsRepair({
+							const repair = await bookHistoryStore.persistRatingsRepair({
 								asin: book.asin,
 								region,
 								generation: helper.persistedGeneration,
 								bookId: book._id,
 								ratings
 							})
+							if (repair.superseded) {
+								// A newer generation accepted an equal
+								// projection in between the `rejected`
+								// disposition and the repair: the fence is
+								// owned, the books write was not attempted.
+								// This is a race (subtracted from `updated`
+								// at the end) — not a batch failure, and it
+								// must not reach the batchProcessor tally.
+								// The fetch itself succeeded (a usable
+								// product with ratings), so the shared
+								// adaptive cooldown relaxes the same way as
+								// every other raced-but-fetched outcome.
+								if (!prefetched.get(`${region}:${book.asin}`)) registerSuccess()
+								raced += 1
+								return
+							}
+							modified = repair.modified
 						} else {
 							// History-disabled: the legacy papr genre guard is
 							// the only non-persisted outcome here. papr's model

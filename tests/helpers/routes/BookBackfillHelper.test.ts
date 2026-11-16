@@ -149,7 +149,7 @@ describe('BookBackfillHelper should', () => {
 		mockFreshData = undefined
 		mockPersistedGeneration = undefined
 		mockPersistRatingsRepair.mockReset()
-		mockPersistRatingsRepair.mockResolvedValue(1)
+		mockPersistRatingsRepair.mockResolvedValue({ modified: 1, superseded: false })
 		mockCacheDeleteOne.mockReset()
 		mockCacheDeleteOne.mockResolvedValue(true)
 		cacheDeleteOneCalls.length = 0
@@ -616,6 +616,51 @@ describe('BookBackfillHelper should', () => {
 		expect(firstOptions.reservedGeneration).toBe(7)
 	})
 
+	test('does not forward the batch generation to per-book fallback fetches', async () => {
+		// Regression: the batch reserves a generation per ASIN BEFORE the
+		// request, but a stub ASIN (no product returned) falls back to the
+		// per-book fetch. Forwarding the pre-reserved generation would
+		// fence the fallback under a generation reserved before ITS fetch;
+		// a concurrent refresh that accepted a newer generation in between
+		// would mark the fallback write stale and drop its ratings. Only a
+		// CONSUMED prefetched product may carry the batch generation.
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		historyEnabled = true
+		mockReserveGeneration.mockResolvedValue(7)
+		mockFetch.mockImplementation(async () => ({
+			data: {
+				products: [{ ...deepCopyProduct, asin: 'B000000001' }],
+				response_groups: ['rating'],
+				total_results: 1
+			}
+		}))
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+			historyEnabled = false
+		}
+		// All three ASINs were reserved before their chunks (us chunk:
+		// B000000001+B000000003, uk chunk: B000000002), and exactly one
+		// product was found.
+		expect(mockReserveGeneration).toHaveBeenCalledTimes(3)
+		const optionFor = (asin: string) => {
+			const args = showConstructorArgs.find((a) => a[0] === asin)
+			return args?.[3] as { prefetched?: unknown; reservedGeneration?: number }
+		}
+		// B000000001: prefetched product CONSUMED → the batch generation
+		// is carried.
+		expect(optionFor('B000000001').prefetched).toBeDefined()
+		expect(optionFor('B000000001').reservedGeneration).toBe(7)
+		// B000000003 (us) and B000000002 (uk): stubs / no product found →
+		// the per-book fallback must reserve its own generation, so the
+		// batch generation must NOT be forwarded.
+		expect(optionFor('B000000003').prefetched).toBeUndefined()
+		expect(optionFor('B000000003').reservedGeneration).toBeUndefined()
+		expect(optionFor('B000000002').prefetched).toBeUndefined()
+		expect(optionFor('B000000002').reservedGeneration).toBeUndefined()
+	})
+
 	test('drops a prefetched product whose generation could not be reserved', async () => {
 		process.env.AUDIBLE_BATCH_SIZE = '50'
 		historyEnabled = true
@@ -737,18 +782,21 @@ describe('BookBackfillHelper should', () => {
 	})
 
 	test('does not count or invalidate when the history-enabled repair lost the fence', async () => {
-		// persistRatingsRepair returns its conditional-update modifiedCount:
-		// 0 means a newer writer won the generation fence in between the
-		// `rejected` disposition and the repair. The book must not count as
-		// updated, and the cache entry (which still matches the stored row)
-		// must not be invalidated — nothing was written.
+		// persistRatingsRepair reports the lost fence with its `superseded`
+		// result (a newer writer owns the generation fence in between the
+		// `rejected` disposition and the repair). The book must not count as
+		// updated — it tallies as a race, NOT a batch failure — and the
+		// cache entry (which still matches the stored row) must not be
+		// invalidated: nothing was written. The fetch itself succeeded, so
+		// the shared adaptive cooldown must still relax exactly as for any
+		// other raced-but-fetched (non-prefetched) outcome.
 		historyEnabled = true
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockPersisted = false
 		mockHistoryDisposition = 'rejected'
 		mockPersistedGeneration = 9
-		mockPersistRatingsRepair.mockResolvedValue(0)
+		mockPersistRatingsRepair.mockResolvedValue({ modified: 0, superseded: true })
 		try {
 			await expect(helper.process()).resolves.toEqual({
 				total: 1,
@@ -759,6 +807,7 @@ describe('BookBackfillHelper should', () => {
 			})
 			expect(mockPersistRatingsRepair).toHaveBeenCalledTimes(1)
 			expect(mockCacheDeleteOne).not.toHaveBeenCalled()
+			expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
 		} finally {
 			historyEnabled = false
 		}

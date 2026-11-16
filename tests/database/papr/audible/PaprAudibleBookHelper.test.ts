@@ -171,15 +171,30 @@ describe('PaprAudibleBookHelper should', () => {
 		helper.setData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
-	test('createOrUpdate genres on old, but not on new', async () => {
-		const obj = { data: parsedBook, modified: false }
+	test('createOrUpdate preserves stored genres when the incoming book has none', async () => {
+		// Regression (skipHtml background passes): a stored book with
+		// genres is re-fetched as a genre-less product (no category
+		// ladders, no HTML scrape). The stored genres must be preserved
+		// so the remaining changed fields persist through the genre
+		// safeguard — previously the WHOLE update was rejected, freezing
+		// title/ratings while the scheduler marked the row checked and
+		// re-hit the same rejection every pass.
+		const incoming = { ...parsedBookWithoutGenres, summary: '' }
 		mockIsEqualData.mockReturnValue(false)
 		mockFindOne
 			.mockResolvedValueOnce(parsedBook as unknown as BookDocument)
 			.mockResolvedValueOnce(bookWithoutProjection)
 			.mockResolvedValue(parsedBook as unknown as BookDocument)
-		helper.setData(parsedBookWithoutGenres)
-		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		helper.setData(incoming)
+		await expect(helper.createOrUpdate()).resolves.toEqual({ data: parsedBook, modified: true })
+		// The changed field (summary) AND the stored genres ride along in
+		// the accepted write.
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			expect.objectContaining({
+				$set: expect.objectContaining({ summary: '', genres: parsedBook.genres })
+			})
+		)
 	})
 	test('createOrUpdate updates when neither side has genres', async () => {
 		// Genre-less legacy rows must still accept other fields (ratings):
