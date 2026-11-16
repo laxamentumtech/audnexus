@@ -4,6 +4,7 @@ import BookModel, { BookDocument } from '#config/models/Book'
 import { ApiBook, ApiBookSchema, ApiQueryString } from '#config/types'
 import { isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
+import { mergeStoredGenresWhenIncomingEmpty } from '#helpers/database/papr/BookHistoryStore'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -118,13 +119,17 @@ export default class PaprAudibleBookHelper {
 	/**
 	 * Creates a book if it doesn't exist.
 	 *
-	 * Updates a existing book if:
+	 * Updates an existing book if:
 	 *
 	 * 1. `options.update` is 1 and the book exists
-	 * 2. The incoming data is different from the existing data
-	 * 3. The incoming data does not nuke stored genre evidence: incoming
-	 *    genres replace the stored list, and when the incoming data carries
-	 *    no genre evidence the stored genres are preserved in the write
+	 * 2. The incoming data is different from the existing data. The
+	 *    comparison uses the genre-preserving merge: incoming genres
+	 *    replace the stored list, and with no incoming genre evidence the
+	 *    stored list is used for the comparison only
+	 * 3. The write never clobbers stored genres with stale read-time data.
+	 *    Without incoming genre evidence the `genres` key is absent from
+	 *    the $set, so a concurrent genre update between the read and the
+	 *    write survives
 	 */
 	async createOrUpdate(): Promise<PaprBookReturn> {
 		const findInDb = await this.findOneWithProjection()
@@ -132,27 +137,39 @@ export default class PaprAudibleBookHelper {
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
-			// An empty genre list on the incoming side is NOT genre evidence:
-			// ladder-less books (skipHtml scheduler/backfill fetches) carry
-			// `genres: []`, so a non-emptiness check keeps the splice honest
-			// on both sides.
-			const incomingHasGenres = Boolean(this.bookData.genres?.length)
-			// Stored genre evidence is preserved in the write document BEFORE
-			// the equality check (BookHistoryStore parity): when the incoming
-			// side has no genre evidence the stored genres are spliced in so
-			// no stored genre is lost; when it does, the incoming list
-			// replaces the stored one. With no stored genres there is nothing
-			// to protect, and refusing here froze genre-less legacy rows
-			// permanently — every other field, ratings included, stayed
-			// unreachable and the books validator rejects partial repairs.
-			// Comparing the spliced document keeps an unchanged genre-less
-			// observation in the equal short-circuit (modified: false, no
-			// write), mirroring the history store's merge-before-compare.
-			if (!incomingHasGenres) {
-				this.bookData = { ...this.bookData, genres: data.genres ?? [] }
+			// Compare the genre-preserving merge (BookHistoryStore parity,
+			// the same enforcement point the history path runs before its
+			// equality short-circuit): with no incoming genre evidence the
+			// stored genres stand in for the comparison so an unchanged
+			// genre-less observation short-circuits (modified: false, no
+			// write), and with no stored genres the merge is the incoming
+			// book. Genre-less legacy rows stay updatable: refusing here
+			// froze every other field on them, and the books validator
+			// rejects partial repairs. The merge is the comparison input
+			// only. this.bookData (which update() $sets) keeps the incoming
+			// book as-is, so without incoming genre evidence the $set has
+			// no `genres` key and a concurrent genre update that commits
+			// between the read and the write is not clobbered by the stale
+			// read-time list.
+			const comparisonBook = mergeStoredGenresWhenIncomingEmpty(
+				data as Record<string, unknown>,
+				this.bookData
+			)
+			// An empty genre list is no genre evidence (the producer emits
+			// `genres: []` for ladder-less books). isEqualData treats
+			// `genres: []` and an absent key as different, so strip the
+			// empty list from both comparison copies first; the write path
+			// is untouched and the $set still carries the incoming book
+			// as-is.
+			const normalize = (side: Record<string, unknown>): Record<string, unknown> => {
+				if (Array.isArray(side.genres) && side.genres.length === 0) delete side.genres
+				return side
 			}
 			// If the objects are the exact same return right away
-			const isEqual = this.sharedHelper.isEqualData(data, this.bookData)
+			const isEqual = this.sharedHelper.isEqualData(
+				normalize({ ...(data as Record<string, unknown>) }),
+				normalize({ ...comparisonBook })
+			)
 			if (isEqual) {
 				return {
 					data: data,

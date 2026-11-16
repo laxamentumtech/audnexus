@@ -6,8 +6,10 @@
 import { describe, expect, test } from 'bun:test'
 
 import { DATABASE_INDEXES } from '#config/databaseIndexes'
+import { ApiBookSchema } from '#config/types'
 import {
 	BookHistoryStore,
+	deepEqualBook,
 	mergeStoredGenresWhenIncomingEmpty
 } from '#helpers/database/papr/BookHistoryStore'
 import { parsedBook, parsedBookWithoutGenres } from '#tests/datasets/helpers/books'
@@ -228,5 +230,36 @@ describe('genre-preserving write splice', () => {
 		// stored list must not be treated as evidence to preserve.
 		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithoutGenres, incomingWithGenres)
 		expect(merged.genres).toEqual(incomingWithGenres.genres)
+	})
+})
+
+describe('repeated-observation equality (no-evidence genre forms)', () => {
+	test('an identical second observation with stored `genres: []` is NOT modified', () => {
+		// The merge omits the genres key when neither side has evidence,
+		// so the merged write doc has no `genres` while the stored row
+		// carries `genres: []`: absent must compare equal to empty, or
+		// every identical observation repeats the write with
+		// `modified: true`.
+		const stored = ApiBookSchema.parse({
+			...parsedBookWithoutGenres,
+			genres: []
+		})
+		const incoming = ApiBookSchema.parse({ ...parsedBookWithoutGenres })
+		expect(deepEqualBook(stored, incoming)).toBe(true)
+	})
+	test('an identical second observation with the genres key absent is NOT modified', () => {
+		// Symmetric direction: stored row without the key at all vs
+		// incoming carrying an explicit empty list.
+		const stored = ApiBookSchema.parse({ ...parsedBookWithoutGenres })
+		const incoming = ApiBookSchema.parse({
+			...parsedBookWithoutGenres,
+			genres: []
+		})
+		expect(deepEqualBook(stored, incoming)).toBe(true)
+	})
+	test('real genre differences are still reported', () => {
+		const stored = ApiBookSchema.parse({ ...parsedBookWithoutGenres, genres: [] })
+		const incoming = ApiBookSchema.parse({ ...parsedBookWithoutGenres, genres: parsedBook.genres })
+		expect(deepEqualBook(stored, incoming)).toBe(false)
 	})
 })

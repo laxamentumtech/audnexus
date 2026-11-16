@@ -122,18 +122,24 @@ function isPreOrderBook(book: ApiBook): boolean {
 }
 
 /**
- * The genre-preserving merge — the single enforcement point of the
+ * The genre-preserving merge, the single enforcement point of the
  * anti-nuke invariant on this write path (mirrored by
- * `PaprAudibleBookHelper.createOrUpdate`): when the incoming book carries
- * no genre evidence and the stored row has stored genres, merge the stored
- * list into the outgoing document so an accepted update never nukes stored
- * genre evidence. No merge when the incoming genres are non-empty (they
- * replace the stored list) or the stored side is empty (nothing to
- * preserve). The caller runs the merge before the equality short-circuit
- * and before the $set, so the merged document is what gets compared and
- * written. An empty genre list is NOT genre evidence on either side: the
- * producer emits `genres: []` for ladder-less books (skipHtml
- * scheduler/backfill fetches).
+ * `PaprAudibleBookHelper.createOrUpdate`). When the incoming book carries
+ * no genre evidence and the stored row has stored genres, the stored list
+ * is merged into the outgoing document so an accepted update never nukes
+ * stored genre evidence.
+ *
+ * No merge when the incoming genres are non-empty (they replace the stored
+ * list) or the stored side is empty (nothing to preserve); when neither
+ * side has evidence, the genres key is omitted from the result. The history
+ * store runs the merge before its equality short-circuit and the $set, so
+ * the merged document is what gets compared and written there. The legacy
+ * `createOrUpdate` compares the merged document only and writes the
+ * incoming book as-is, so without incoming genre evidence the write has no
+ * `genres` key and a concurrent genre update is never clobbered by the
+ * stale read-time list. An empty genre list is NOT genre evidence on
+ * either side: the producer emits `genres: []` for ladder-less books
+ * (skipHtml scheduler/backfill fetches).
  */
 export function mergeStoredGenresWhenIncomingEmpty(
 	stored: Record<string, unknown> | null,
@@ -145,14 +151,25 @@ export function mergeStoredGenresWhenIncomingEmpty(
 	return { ...incoming, genres: storedGenres }
 }
 
-/** Deep structural equality over the sanitized public projections. */
-function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
+/** An empty genre list is not genre evidence on either side (the producer
+ * emits `genres: []` for ladder-less books), so an absent `genres` key and
+ * an empty list are the same statement. Both normalize to absent before the
+ * field comparison, so a repeated identical observation stays in the equal
+ * short-circuit. No redundant $set, no `modified: true` on every accepted
+ * fetch. */
+function normalizeGenreEvidence(value: unknown): unknown {
+	return Array.isArray(value) && value.length === 0 ? undefined : value
+}
+
+/** Deep structural equality over the sanitized public projections. Exported
+ * as a test seam for the equality-contract regression tests. */
+export function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
 	const aObj = a as unknown as Record<string, unknown>
 	const bObj = b as unknown as Record<string, unknown>
 	const keys = new Set([...Object.keys(aObj), ...Object.keys(bObj)])
 	for (const key of keys) {
-		const av = aObj[key]
-		const bv = bObj[key]
+		const av = key === 'genres' ? normalizeGenreEvidence(aObj[key]) : aObj[key]
+		const bv = key === 'genres' ? normalizeGenreEvidence(bObj[key]) : bObj[key]
 		if (av === bv) continue
 		if (
 			typeof av === 'object' ||

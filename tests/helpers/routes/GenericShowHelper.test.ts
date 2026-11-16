@@ -702,6 +702,9 @@ describe('GenericShowHelper skipHtml passthrough', () => {
 	test('passes skipHtml to the non-history getNewData StitchHelper', async () => {
 		// History disabled: createOrUpdateData builds its own StitchHelper
 		// through getNewData (captureHistory false); the flag must reach it.
+		// Set the flag explicitly (not rely on it being unset) so an
+		// inherited `true` cannot route the test down the history path.
+		process.env.BOOK_HISTORY_ENABLED = 'false'
 		const helper = new GenericShowHelper(
 			asin,
 			{ region, seedAuthors: undefined, update: '1' },
