@@ -17,6 +17,7 @@ import {
 	ApiQueryString
 } from '#config/types'
 import ScrapeHelper from '#helpers/authors/audible/ScrapeHelper'
+import type { PrefetchedApiProduct } from '#helpers/books/audible/ApiBatchHelper'
 import ChapterHelper from '#helpers/books/audible/ChapterHelper'
 import StitchHelper from '#helpers/books/audible/StitchHelper'
 import PaprAudibleAuthorHelper from '#helpers/database/papr/audible/PaprAudibleAuthorHelper'
@@ -31,6 +32,20 @@ import {
 	ErrorMessageUpdate
 } from '#static/messages'
 
+/** Trailing optional behavior, collapsed into one options object: the
+ * positional optional flags once swapped silently between call sites. */
+export interface ShowHelperOptions {
+	logger?: FastifyBaseLogger
+	/** Bypass the recency gate (the ratings backfill). */
+	forceUpdate?: boolean
+	/** Skip the product-page HTML scrape (background passes). */
+	skipHtml?: boolean
+	/** Product already fetched by the multi-ASIN endpoint. */
+	prefetched?: PrefetchedApiProduct
+	/** History generation reserved before a batched fetch. */
+	reservedGeneration?: number
+}
+
 export default class GenericShowHelper {
 	asin: string
 	options: ApiQueryString
@@ -42,6 +57,13 @@ export default class GenericShowHelper {
 	type: 'author' | 'book' | 'chapter'
 	logger?: FastifyBaseLogger
 	forceUpdate?: boolean
+	/** Product already fetched by the multi-ASIN endpoint; consumed once by
+	 * the next StitchHelper creation instead of a per-book HTTP request. */
+	prefetched?: PrefetchedApiProduct
+	/** History generation reserved before a batched fetch. Reusing it keeps
+	 * the fence ordered by fetch start, not by when the batch result was
+	 * consumed. */
+	reservedGeneration?: number
 	/** True after handler() resolved with data that came from a fresh upstream
 	 * fetch (including the pre-order transient path). False when the handler
 	 * returned stored/projection data without hitting upstream — the recency
@@ -60,29 +82,42 @@ export default class GenericShowHelper {
 	 * chapter-without-chapters path — both must be marked checked by the
 	 * scheduler, so they must not be reported as `updated`. */
 	persisted = false
+	/** The history store's disposition for the last persistence (history-
+	 * enabled books only). Distinguishes a genre-guard rejection — where a
+	 * pure field addition (the ratings repair) is still valid — from a
+	 * `stale` generation (a concurrent writer owns the fence) or an
+	 * equal-projection short-circuit, where re-writing the field would
+	 * bypass the generation fence for no reason. */
+	historyDisposition?: 'accepted' | 'rejected' | 'stale' | 'transient'
 	/** Skip the product-page HTML scrape. Set by background passes: the page
 	 * only contributes genres/tags, which the API already supplies when it
 	 * returns category ladders, and ladder-less legacy rows answer 404/503. */
 	skipHtml: boolean
+	/** The history generation the last fetch was reserved under (history-
+	 * enabled books only): the pre-reserved batch generation when supplied,
+	 * otherwise the on-the-fly reservation. Repair jobs revalidate the
+	 * fence against it, because the disposition's non-staleness proof is
+	 * only as fresh as the persistence transaction. */
+	persistedGeneration?: number
 	constructor(
 		asin: string,
 		options: ApiQueryString,
 		redis: FastifyRedis | null,
 		type: 'author' | 'book' | 'chapter',
-		logger?: FastifyBaseLogger,
-		forceUpdate?: boolean,
-		skipHtml: boolean = false
+		showOptions: ShowHelperOptions = {}
 	) {
 		this.asin = asin
 		this.options = options
 		this.type = type
-		this.logger = logger
-		this.forceUpdate = forceUpdate
-		this.skipHtml = skipHtml
+		this.logger = showOptions.logger
+		this.forceUpdate = showOptions.forceUpdate
+		this.skipHtml = showOptions.skipHtml ?? false
+		this.prefetched = showOptions.prefetched
+		this.reservedGeneration = showOptions.reservedGeneration
 		this.paprHelper = this.setupPaprHelper()
-		this.redisHelper = new RedisHelper(redis, type, asin, options.region, logger)
+		this.redisHelper = new RedisHelper(redis, type, asin, options.region, this.logger)
 		this.schema = this.setupSchema()
-		this.sharedHelper = new SharedHelper(logger)
+		this.sharedHelper = new SharedHelper(this.logger)
 	}
 
 	/**
@@ -105,13 +140,11 @@ export default class GenericShowHelper {
 			const helper = new ScrapeHelper(this.asin, this.options.region, this.logger)
 			return helper.process()
 		} else if (this.type === 'book') {
-			const helper = new StitchHelper(
-				this.asin,
-				this.options.region,
-				this.logger,
-				false,
-				this.skipHtml
-			)
+			const helper = new StitchHelper(this.asin, this.options.region, {
+				logger: this.logger,
+				skipHtml: this.skipHtml,
+				prefetched: this.prefetched
+			})
 			return helper.process()
 		} else {
 			const helper = new ChapterHelper(this.asin, this.options.region, this.logger)
@@ -205,8 +238,15 @@ export default class GenericShowHelper {
 		let stitchHelper: StitchHelper | null = null
 		let generation: number | undefined
 		if (this.type === 'book' && isBookHistoryEnabled()) {
-			stitchHelper = new StitchHelper(this.asin, this.options.region, this.logger, true)
-			generation = await bookHistoryStore.reserveGeneration(this.asin, this.options.region)
+			stitchHelper = new StitchHelper(this.asin, this.options.region, {
+				logger: this.logger,
+				captureHistory: true,
+				skipHtml: this.skipHtml,
+				prefetched: this.prefetched
+			})
+			generation =
+				this.reservedGeneration ??
+				(await bookHistoryStore.reserveGeneration(this.asin, this.options.region))
 		}
 		const newData = stitchHelper ? await stitchHelper.process() : await this.getNewData()
 		this.freshData = newData
@@ -275,6 +315,7 @@ export default class GenericShowHelper {
 		generation: number,
 		newData: ApiBook
 	): Promise<ApiBook> {
+		this.persistedGeneration = generation
 		const region = this.options.region
 		const observation = stitchHelper.getHistoryObservation()
 		if (!observation) {
@@ -294,12 +335,24 @@ export default class GenericShowHelper {
 			book: newData,
 			observation
 		})
+		if (result.disposition === 'rejected') {
+			// Same outcome class as the disabled-mode genre safeguard: the
+			// update is refused and the stored projection stands with 200.
+			// Expose the disposition so repair jobs can target exactly this
+			// rejection (a `stale` fence or an equal short-circuit must NOT
+			// trigger a direct write).
+			this.historyDisposition = result.disposition
+			const stored = (await this.getDataWithProjection()) as ApiBook
+			await this.cacheBookBestEffort(stored)
+			return stored
+		}
 		if (result.disposition === 'stale' && result.data === null) {
 			// A concurrent delete left the generation stale with no current
 			// row: the book is gone.
 			throw new NotFoundError(`Book ${this.asin} not found in region ${region}`)
 		}
 		if (result.data === null) throw this.errorMessageDataType()
+		this.historyDisposition = result.disposition
 		if (result.disposition === 'accepted') await this.cacheBookBestEffort(result.data)
 		// Track the write, not the acceptance: an accepted-but-unmodified
 		// observation (the equal short-circuit) still needs `markChecked` and

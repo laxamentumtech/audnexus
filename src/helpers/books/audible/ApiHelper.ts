@@ -23,6 +23,7 @@ import {
 	FallbackAudibleProduct,
 	fallbackShape
 } from '#config/types'
+import { AUDIBLE_RESPONSE_GROUPS, REQUESTED_IMAGE_SIZES } from '#helpers/books/audible/apiParams'
 import {
 	buildArtworkReferences,
 	buildFieldObservations,
@@ -53,10 +54,10 @@ import { regions } from '#static/regions'
 /** Known product_state values that indicate a delisted/unavailable product. */
 const DELISTED_STATES: readonly string[] = ['NOT_AVAILABLE_FOR_PURCHASE']
 
-/** The image renditions requested from the product API (`image_sizes`),
- * mirrored verbatim in the history evidence so the observation and the
- * request can never drift. */
-export const REQUESTED_IMAGE_SIZES = ['500', '1024']
+/** The image renditions requested from the product API (`image_sizes`);
+ * canonical value lives in apiParams.ts, re-exported for importers that
+ * take it from here. */
+export { REQUESTED_IMAGE_SIZES } from '#helpers/books/audible/apiParams'
 
 interface HistoryEvidence {
 	apiReceivedAt: Date
@@ -99,18 +100,7 @@ class ApiHelper {
 		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/catalog/products'
 		// Last item is intentionally image_sizes
-		const paramArr = [
-			'category_ladders',
-			'contributors',
-			'media',
-			'product_attrs',
-			'product_desc',
-			'product_details',
-			'product_extended_attrs',
-			'rating',
-			'series',
-			'tags'
-		]
+		const paramArr: string[] = [...AUDIBLE_RESPONSE_GROUPS, 'tags']
 		// Goodreads ratings are only requested for the US catalog
 		if (region === 'us') paramArr.push('goodreads_ratings')
 		paramArr.push(`image_sizes=${REQUESTED_IMAGE_SIZES.join(',')}`)
@@ -579,6 +569,20 @@ class ApiHelper {
 		const json: AudibleProduct = response.data
 		if (this.captureHistory) this.apiReceivedAt = new Date()
 		return json
+	}
+
+	/**
+	 * Accept a product already fetched by the multi-ASIN endpoint.
+	 *
+	 * The batch product is byte-identical to the single-product `product`
+	 * object for the same response groups, so callers pass it straight into
+	 * `parseResponse({ product, response_groups })`. Recording the receipt
+	 * time here keeps history evidence timestamps meaningful when the batch
+	 * response (one receipt for up to 50 products) is the source.
+	 */
+	acceptPrefetchedProduct(product: AudibleProduct['product'], receivedAt: Date): void {
+		this.audibleResponse = product
+		if (this.captureHistory) this.apiReceivedAt = receivedAt
 	}
 
 	/**

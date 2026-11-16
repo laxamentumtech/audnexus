@@ -53,9 +53,9 @@ export const RETRY_BACKOFF_MS = 300000
  * of the hour-long freeze observed on the dev stack (2026-10-06: a restart
  * mid-job left an active repeatable job with a dead owner; with
  * every=36500 days nothing re-fired until the lock expired). */
-export const LOCK_DURATION_MS = 120_000
+export const LOCK_DURATION_MS = 300_000
 /** How often the worker checks for stalled jobs (crashed mid-process). */
-export const STALLED_CHECK_INTERVAL_MS = 30000
+export const STALLED_CHECK_INTERVAL_MS = 60000
 /** Retention: last N completed/failed job records kept per queue. */
 export const RETENTION_COMPLETED = 100
 export const RETENTION_FAILED = 200
@@ -66,9 +66,10 @@ export const JOB_RETRIES = {
 	backoff: { type: 'fixed' as const, delay: RETRY_BACKOFF_MS }
 } as const
 
-/** Long-running passes must never lose the lock: BullMQ heartbeats the token on
- * every awaited microtask, so the 2m LOCK_DURATION_MS only trips on a truly
- * dead worker. */
+/** Long-running passes must never lose the lock: BullMQ heartbeats the token
+ * every lockDuration/2. 5 minutes plus a five-stall allowance tolerates a
+ * paused/starved container (the live failure was repeated "could not renew
+ * lock" while the job was still making progress, followed by a restart). */
 const WORKER_OPTIONS: Omit<WorkerOptions, 'connection'> = {
 	// One job at a time (not per job name). The three update passes share one
 	// rate-limited upstream (one IP) and one process-wide adaptive cooldown:
@@ -85,7 +86,10 @@ const WORKER_OPTIONS: Omit<WorkerOptions, 'connection'> = {
 	// Bulk jobs (the ratings backfill) run for days. The default of 1 turns
 	// any deploy/restart into a hard job failure ("job stalled more than
 	// allowable limit"); with a higher budget the job is recovered and
-	// resumes instead of needing a manual re-enqueue.
+	// resumes instead of needing a manual re-enqueue. Five stalls covers
+	// repeated deploy/restart windows on a multi-day pass; a job that
+	// stalls more often is genuinely stuck and is failed instead of
+	// recovered again.
 	maxStalledCount: 5,
 	removeOnComplete: { count: RETENTION_COMPLETED },
 	removeOnFail: { count: RETENTION_FAILED }
@@ -632,7 +636,7 @@ export function createWorker(logger: FastifyBaseLogger): Worker {
 	worker.on('stalled', (jobId) => logger.warn(`Job ${jobId} stalled; will retry`))
 	// BullMQ recommends an error listener; without one worker-level connection
 	// errors surface as unhandled 'error' events and can kill the process.
-	worker.on('error', (err) => logger.error(`Worker error: ${err.message}`))
+	worker.on('error', (err) => logger.error(`Worker error: ${err.stack ?? err.message}`))
 	return worker
 }
 

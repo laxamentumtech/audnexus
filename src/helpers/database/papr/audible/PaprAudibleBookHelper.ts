@@ -135,6 +135,18 @@ export default class PaprAudibleBookHelper {
 			// If the effective write is the exact same row return right away
 			const isEqual = this.sharedHelper.isEqualData(data, effective)
 			if (isEqual) {
+				// An equal accepted refresh supersedes a backfill skip
+				// decision: a row marked non-book that keeps refreshing as a
+				// book must leave the marker behind. Conditional, so the
+				// no-write fast path costs nothing when no marker exists.
+				await BookModel.updateOne(
+					{
+						asin: this.asin,
+						$or: [{ region: { $exists: false } }, { region: this.options.region }],
+						ratingsBackfillSkip: { $exists: true }
+					},
+					{ $unset: { ratingsBackfillSkip: '' } }
+				)
 				return {
 					data: data,
 					modified: false
