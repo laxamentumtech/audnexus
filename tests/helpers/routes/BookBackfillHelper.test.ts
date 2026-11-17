@@ -820,12 +820,13 @@ describe('BookBackfillHelper should', () => {
 	test('repairs ratings when the full document fails validation', async () => {
 		// Legacy stubs miss validator-required content fields; the fetched
 		// ratings block is still valid. The conditional direct write must
-		// bypass validation and leave the row's other fields alone.
+		// bypass validation and leave the row's other fields alone. This case
+		// matches on the numeric driver code, not the message.
 		mockBookFind.mockReset()
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockFreshData = bookWithRatings
 		mockShowHandler.mockImplementation(async () => {
-			const cause = Object.assign(new Error('Document failed validation'), { code: 121 })
+			const cause = Object.assign(new Error('write rejected'), { code: 121 })
 			throw new Error('An error occurred while updating book', { cause })
 		})
 
@@ -845,6 +846,72 @@ describe('BookBackfillHelper should', () => {
 			},
 			{ bypassDocumentValidation: true }
 		)
+		expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
+	})
+
+	test('repairs ratings when validation is detected by message alone', async () => {
+		// Driver errors can arrive without a usable numeric code after
+		// wrapping; the message branch must still recognize the rejection.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockFreshData = bookWithRatings
+		mockShowHandler.mockImplementation(async () => {
+			throw new Error('Document failed validation')
+		})
+
+		await expect(helper.process()).resolves.toEqual({
+			total: 1,
+			updated: 1,
+			skipped: 0,
+			terminalSkipped: 0,
+			failed: 0
+		})
+		expect(mockBookUpdateOne).toHaveBeenCalledTimes(1)
+	})
+
+	test('counts a raced validation repair without registering success', async () => {
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockFreshData = bookWithRatings
+		mockBookUpdateOne.mockResolvedValue({ modifiedCount: 0 })
+		mockShowHandler.mockImplementation(async () => {
+			const cause = Object.assign(new Error('write rejected'), { code: 121 })
+			throw new Error('An error occurred while updating book', { cause })
+		})
+
+		await expect(helper.process()).resolves.toEqual({
+			total: 1,
+			updated: 0,
+			skipped: 0,
+			terminalSkipped: 0,
+			failed: 0
+		})
+		expect(mockRegisterSuccess).not.toHaveBeenCalled()
+	})
+
+	test('does not take the validation repair path with history enabled', async () => {
+		historyEnabled = true
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockFreshData = bookWithRatings
+		mockShowHandler.mockImplementation(async () => {
+			const cause = Object.assign(new Error('write rejected'), { code: 121 })
+			throw new Error('An error occurred while updating book', { cause })
+		})
+
+		try {
+			await expect(helper.process()).resolves.toEqual({
+				total: 1,
+				updated: 0,
+				skipped: 0,
+				terminalSkipped: 0,
+				failed: 1
+			})
+		} finally {
+			historyEnabled = false
+		}
+		expect(mockBookUpdateOne).not.toHaveBeenCalled()
+		expect(mockRegisterSuccess).not.toHaveBeenCalled()
 	})
 
 	test('invalidates the book cache after a successful ratings repair write', async () => {

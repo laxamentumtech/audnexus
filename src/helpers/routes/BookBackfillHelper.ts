@@ -400,9 +400,8 @@ export default class BookBackfillHelper {
 									{ bypassDocumentValidation: true }
 								)
 								if (repair.modifiedCount === 1) {
-									// The handler may have cached the rating-less
-									// projection before the rejected write; the
-									// repair changed only MongoDB.
+									// A prior read may have cached the rating-less
+									// projection; the repair changed only MongoDB.
 									const cacheHelper = new RedisHelper(
 										this.redis as unknown as FastifyRedis | null,
 										'book',
@@ -415,6 +414,11 @@ export default class BookBackfillHelper {
 									} catch {
 										// Best-effort: the entry expires on its TTL.
 									}
+									// The repair consumed a real upstream success. A
+									// prefetched book already registered one success at
+									// its batch request boundary; registering again here
+									// would double-count the chunk.
+									if (!prefetched.get(`${region}:${book.asin}`)) registerSuccess()
 									this.logger.info(
 										`Ratings backfill: repaired ${book.asin} after validation rejection`
 									)
