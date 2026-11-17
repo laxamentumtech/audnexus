@@ -233,23 +233,28 @@ export default class GenericShowHelper {
 	 * @throws {Error} Data is null or not the correct type
 	 */
 	async createOrUpdateData(): Promise<ApiAuthorProfile | ApiBook | ApiChapter | undefined> {
-		// 1. Place the new data into the paprHelper. History-enabled book
-		// fetches run through the same StitchHelper instance that is the
-		// final consumer of the fetch session: its generation is reserved
-		// before the fetch (a failed fetch consumes it, establishing no
-		// resources) and its evidence is read after a success.
+		// 1. Place the new data into the paprHelper. Book fetches run through
+		// the same StitchHelper instance that is the final consumer of the
+		// fetch session: with history on, its generation is reserved before
+		// the fetch (a failed fetch consumes it, establishing no resources)
+		// and its evidence is read after a success. A prefetched product is
+		// parsed through the same helper even when history is off, so batched
+		// backfills never fall back to a per-book HTTP request.
 		let stitchHelper: StitchHelper | null = null
 		let generation: number | undefined
-		if (this.type === 'book' && isBookHistoryEnabled()) {
+		const historyEnabled = isBookHistoryEnabled()
+		if (this.type === 'book' && (historyEnabled || this.prefetched !== undefined)) {
 			stitchHelper = new StitchHelper(this.asin, this.options.region, {
 				logger: this.logger,
-				captureHistory: true,
+				captureHistory: historyEnabled,
 				skipHtml: this.skipHtml,
 				prefetched: this.prefetched
 			})
-			generation =
-				this.reservedGeneration ??
-				(await bookHistoryStore.reserveGeneration(this.asin, this.options.region))
+			if (historyEnabled) {
+				generation =
+					this.reservedGeneration ??
+					(await bookHistoryStore.reserveGeneration(this.asin, this.options.region))
+			}
 		}
 		const newData = stitchHelper ? await stitchHelper.process() : await this.getNewData()
 		this.freshData = newData
@@ -272,7 +277,7 @@ export default class GenericShowHelper {
 			return newData
 		}
 
-		if (this.type === 'book' && stitchHelper && generation !== undefined) {
+		if (this.type === 'book' && historyEnabled && stitchHelper && generation !== undefined) {
 			return await this.persistBookWithHistory(stitchHelper, generation, newData as ApiBook)
 		}
 

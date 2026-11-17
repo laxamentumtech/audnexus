@@ -874,6 +874,48 @@ describe('GenericShowHelper skipHtml passthrough', () => {
 		expect(stitchOptions.skipHtml).toBe(true)
 		expect(stitchOptions.prefetched).toBeUndefined()
 	})
+
+	test('parses a prefetched product without history', async () => {
+		// A history-disabled batched backfill must still consume the
+		// prefetched product through StitchHelper; otherwise every book
+		// falls back to a per-book HTTP request and the batch win is lost.
+		process.env.BOOK_HISTORY_ENABLED = 'false'
+		mockReserveGeneration.mockClear()
+		stitchConstructorArgs.length = 0
+		const prefetched = {
+			product: (apiResponse as { product: unknown }).product,
+			responseGroups: ['rating'],
+			receivedAt: new Date('2026-11-17T00:00:00Z')
+		}
+		const helper = new GenericShowHelper(
+			asin,
+			{ region, seedAuthors: undefined, update: '1' },
+			null,
+			'book',
+			{ logger: mockLogger, prefetched: prefetched as never }
+		)
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		spyOn(helper.redisHelper, 'findOne').mockResolvedValue(null)
+		const getNewDataSpy = spyOn(helper, 'getNewData')
+		mockStitchProcess.mockResolvedValue(apiBook)
+		spyOn(helper.paprHelper, 'createOrUpdate').mockResolvedValue({ data: apiBook, modified: true })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(apiBook)
+
+		await helper.updateActions()
+
+		expect(getNewDataSpy).not.toHaveBeenCalled()
+		expect(mockReserveGeneration).not.toHaveBeenCalled()
+		expect(stitchConstructorArgs).toHaveLength(1)
+		const [, , stitchOptions] = stitchConstructorArgs[0] as [
+			string,
+			string,
+			{ captureHistory?: boolean; prefetched?: unknown }
+		]
+		expect(stitchOptions.captureHistory).toBe(false)
+		expect(stitchOptions.prefetched).toBe(prefetched)
+	})
 })
 
 afterAll(() => {
