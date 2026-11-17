@@ -9,9 +9,9 @@
   <a href="LICENSE"><img src="https://img.shields.io/github/license/laxamentumtech/audnexus.svg" alt="License"></a>
 </p>
 
-## Looking for audiobook metadata?
+## Start with AudiobookDB
 
-Audible and other providers contain duplicates, misspellings, and inconsistent values, which audnexus passes through as-is without curation. Delisted products can be hard to find in audnexus. [AudiobookDB](https://audiobookdb.org) standardizes, curates, corrects, and maintains data against standards for titles and credits. New projects should start there, and audnexus remains online and maintained.
+Audnexus does not curate metadata and returns provider data as-is. Audible and other providers have duplicates, misspellings, and inconsistent values, and delisted products can be hard to find. [AudiobookDB](https://audiobookdb.org) curates and corrects records, maintains the data, and applies standards to titles and credits. Start new projects there. Audnexus stays online for existing integrations.
 
 Audnexus is an HTTP API that combines audiobook metadata from Audible's API and product pages into consistent records. It is for self-hosters who need a metadata endpoint for a media server, and for developers building metadata-provider plugins. A client can retrieve the data it needs in one or two API calls. MongoDB stores records, and Redis can cache responses. Optional history records metadata and artwork changes as revisions.
 
@@ -25,7 +25,7 @@ That makes it easier to integrate with existing media servers. With one or two A
 
 ## Contents
 
-- [Looking for audiobook metadata?](#looking-for-audiobook-metadata)
+- [Start with AudiobookDB](#start-with-audiobookdb)
 - [About](#about)
 - [Quick start](#quick-start)
 - [API](#api)
