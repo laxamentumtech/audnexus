@@ -353,21 +353,31 @@ export default class BookBackfillHelper {
 						}
 						throw error
 					} finally {
-						// Serial pacing, same ladder as the scheduler walk: the
-						// backfill used to run unjittered and drew 503s within
-						// seconds, driving the shared adaptive cooldown to its
-						// 7200 s ceiling and stalling every pass on the worker.
-						// Jitter first, then the cooldown — and in the finally so
-						// a rejected book still paces the next one.
-						await jitteredSleep()
-						// Adaptive upstream-pressure cooldown (see
-						// adaptiveCooldown.ts): the backfill shares the
-						// worker's single upstream reputation, so it must
-						// honor the same growth/decay ladder as the
-						// scheduler walk instead of grinding at full speed.
-						// In the finally so a rejected book still paces the
-						// next one.
-						await sleepCooldown()
+						// A prefetched product made no upstream request in this
+						// iteration: the chunk boundary already paid the jitter
+						// and cooldown for the one batch request that supplied
+						// it. Sleeping per book here would turn a 50-book batch
+						// into 50 × JITTER_MS and erase the batching win (the
+						// live worker runs a fixed 10 s jitter). Only fallback
+						// books — stubs or a failed chunk — pace per book.
+						if (!prefetched.get(`${region}:${book.asin}`)) {
+							// Serial pacing, same ladder as the scheduler walk:
+							// the backfill used to run unjittered and drew 503s
+							// within seconds, driving the shared adaptive
+							// cooldown to its 7200 s ceiling and stalling every
+							// pass on the worker. Jitter first, then the
+							// cooldown — and in the finally so a rejected book
+							// still paces the next one.
+							await jitteredSleep()
+							// Adaptive upstream-pressure cooldown (see
+							// adaptiveCooldown.ts): the backfill shares the
+							// worker's single upstream reputation, so it must
+							// honor the same growth/decay ladder as the
+							// scheduler walk instead of grinding at full speed.
+							// In the finally so a rejected book still paces the
+							// next one.
+							await sleepCooldown()
+						}
 					}
 					// Pre-order first: a future releaseDate means the refreshed
 					// data is transient (not persisted) by

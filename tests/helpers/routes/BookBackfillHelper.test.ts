@@ -783,6 +783,40 @@ describe('BookBackfillHelper should', () => {
 		expect(mockRegisterSuccess).toHaveBeenCalledTimes(4)
 	})
 
+	test('paces the batch request, not every prefetched book', async () => {
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		// Both books are us-region, so the page is one 2-ASIN chunk. Pacing
+		// belongs at that request boundary; a per-book jitter here would
+		// multiply one batch by JITTER_MS per book and erase the win.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0], books[2]]).mockResolvedValueOnce([])
+		mockFetch.mockResolvedValue({
+			data: {
+				products: [
+					{ ...deepCopyProduct, asin: 'B000000001' },
+					{ ...deepCopyProduct, asin: 'B000000003' }
+				],
+				response_groups: ['rating'],
+				total_results: 2
+			}
+		})
+		try {
+			await expect(helper.process()).resolves.toEqual({
+				total: 2,
+				updated: 2,
+				skipped: 0,
+				terminalSkipped: 0,
+				failed: 0
+			})
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+		}
+
+		expect(mockJitteredSleep).toHaveBeenCalledTimes(1)
+		expect(mockSleepCooldown).toHaveBeenCalledTimes(1)
+		expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
+	})
+
 	test('invalidates the book cache after a successful ratings repair write', async () => {
 		// The handler's rejection path cached the stored rating-less
 		// projection; the repair changed only MongoDB, so reads would serve
