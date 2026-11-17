@@ -817,6 +817,36 @@ describe('BookBackfillHelper should', () => {
 		expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
 	})
 
+	test('repairs ratings when the full document fails validation', async () => {
+		// Legacy stubs miss validator-required content fields; the fetched
+		// ratings block is still valid. The conditional direct write must
+		// bypass validation and leave the row's other fields alone.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockFreshData = bookWithRatings
+		mockShowHandler.mockImplementation(async () => {
+			const cause = Object.assign(new Error('Document failed validation'), { code: 121 })
+			throw new Error('An error occurred while updating book', { cause })
+		})
+
+		await expect(helper.process()).resolves.toEqual({
+			total: 1,
+			updated: 1,
+			skipped: 0,
+			terminalSkipped: 0,
+			failed: 0
+		})
+		expect(mockBookUpdateOne).toHaveBeenCalledWith(
+			{ _id: books[0]._id, ratings: { $exists: false } },
+			{
+				$set: { ratings: bookWithRatings.ratings },
+				$unset: { ratingsBackfillSkip: '' },
+				$currentDate: { updatedAt: true }
+			},
+			{ bypassDocumentValidation: true }
+		)
+	})
+
 	test('invalidates the book cache after a successful ratings repair write', async () => {
 		// The handler's rejection path cached the stored rating-less
 		// projection; the repair changed only MongoDB, so reads would serve

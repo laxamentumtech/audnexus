@@ -40,6 +40,26 @@ function bulkBatchSize(): number {
 	return Math.min(Math.floor(raw), MAX_BULK_ASINS)
 }
 
+/** True when a write was rejected by MongoDB's document validator. Papr wraps
+ * driver errors in `ErrorMessageUpdate`, so the code/message lives on the cause
+ * chain; the backfill can repair a pure ratings addition without requiring the
+ * legacy row to satisfy the full-document validator. */
+function isDocumentValidationError(error: unknown): boolean {
+	let current: unknown = error
+	for (let depth = 0; depth < 4 && current && typeof current === 'object'; depth += 1) {
+		const candidate = current as { code?: unknown; message?: unknown; cause?: unknown }
+		if (candidate.code === 121) return true
+		if (
+			typeof candidate.message === 'string' &&
+			candidate.message.includes('Document failed validation')
+		) {
+			return true
+		}
+		current = candidate.cause
+	}
+	return false
+}
+
 interface BackfillResult {
 	total: number
 	updated: number
@@ -350,6 +370,61 @@ export default class BookBackfillHelper {
 							raced += 1
 							this.logger.info(`Ratings backfill: ${book.asin} deleted concurrently`)
 							return
+						}
+						// Legacy rows whose stub fails the full-document validator
+						// can still accept the fetched ratings block: it is a pure
+						// field addition on a row that already exists, and the
+						// conditional write below leaves a concurrently-rated row
+						// untouched. This is the history-disabled repair path; the
+						// history-enabled flow keeps its generation fence.
+						if (!isBookHistoryEnabled() && isDocumentValidationError(error)) {
+							const freshRatings =
+								helper.freshData && 'ratings' in helper.freshData
+									? helper.freshData.ratings
+									: undefined
+							if (freshRatings) {
+								const bookModel = BookModel as unknown as {
+									updateOne: (
+										filter: object,
+										update: object,
+										options?: object
+									) => Promise<{ modifiedCount: number }>
+								}
+								const repair = await bookModel.updateOne(
+									{ _id: book._id, ratings: { $exists: false } },
+									{
+										$set: { ratings: freshRatings },
+										$unset: { ratingsBackfillSkip: '' },
+										$currentDate: { updatedAt: true }
+									},
+									{ bypassDocumentValidation: true }
+								)
+								if (repair.modifiedCount === 1) {
+									// The handler may have cached the rating-less
+									// projection before the rejected write; the
+									// repair changed only MongoDB.
+									const cacheHelper = new RedisHelper(
+										this.redis as unknown as FastifyRedis | null,
+										'book',
+										book.asin,
+										region,
+										this.logger
+									)
+									try {
+										await cacheHelper.deleteOne()
+									} catch {
+										// Best-effort: the entry expires on its TTL.
+									}
+									this.logger.info(
+										`Ratings backfill: repaired ${book.asin} after validation rejection`
+									)
+								} else {
+									// A concurrent write rated or removed the row
+									// between the fetch and this repair.
+									raced += 1
+								}
+								return
+							}
 						}
 						throw error
 					} finally {
