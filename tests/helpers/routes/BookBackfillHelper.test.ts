@@ -827,7 +827,9 @@ describe('BookBackfillHelper should', () => {
 		mockFreshData = bookWithRatings
 		mockShowHandler.mockImplementation(async () => {
 			const cause = Object.assign(new Error('write rejected'), { code: 121 })
-			throw new Error('An error occurred while updating book', { cause })
+			throw new Error('handler wrapper', {
+				cause: new Error('An error occurred while updating book', { cause })
+			})
 		})
 
 		await expect(helper.process()).resolves.toEqual({
@@ -856,7 +858,10 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockFreshData = bookWithRatings
 		mockShowHandler.mockImplementation(async () => {
-			throw new Error('Document failed validation')
+			const cause = new Error('Document failed validation')
+			throw new Error('handler wrapper', {
+				cause: new Error('An error occurred while updating book', { cause })
+			})
 		})
 
 		await expect(helper.process()).resolves.toEqual({
@@ -876,7 +881,9 @@ describe('BookBackfillHelper should', () => {
 		mockBookUpdateOne.mockResolvedValue({ modifiedCount: 0 })
 		mockShowHandler.mockImplementation(async () => {
 			const cause = Object.assign(new Error('write rejected'), { code: 121 })
-			throw new Error('An error occurred while updating book', { cause })
+			throw new Error('handler wrapper', {
+				cause: new Error('An error occurred while updating book', { cause })
+			})
 		})
 
 		await expect(helper.process()).resolves.toEqual({
@@ -896,7 +903,9 @@ describe('BookBackfillHelper should', () => {
 		mockFreshData = bookWithRatings
 		mockShowHandler.mockImplementation(async () => {
 			const cause = Object.assign(new Error('write rejected'), { code: 121 })
-			throw new Error('An error occurred while updating book', { cause })
+			throw new Error('handler wrapper', {
+				cause: new Error('An error occurred while updating book', { cause })
+			})
 		})
 
 		try {
