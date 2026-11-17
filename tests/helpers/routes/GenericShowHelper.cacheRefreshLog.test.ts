@@ -91,7 +91,7 @@ describe('GenericShowHelper history cache refresh failure emits one log line (re
 			{ region, seedAuthors: undefined, update: '1' },
 			redisClient,
 			'book',
-			mockLogger
+			{ logger: mockLogger }
 		)
 		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
 		spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)

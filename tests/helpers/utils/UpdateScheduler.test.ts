@@ -235,22 +235,24 @@ describe('UpdateScheduler should', () => {
 		)
 	})
 
-	test('book walk pins forceUpdate false and skipHtml true', async () => {
+	test('book walk pins forceUpdate off and skipHtml true', async () => {
 		// The walk already selects stale rows, so forceUpdate must stay off
 		// (a forced refetch would refetch every row on every pass);
-		// skipHtml keeps the background walk off the product page.
+		// skipHtml keeps the background walk off the product page. The
+		// options-object API carries both: `forceUpdate` absent (the helper
+		// defaults it off) and `skipHtml` pinned true.
 		const doc = makeStaleDoc()
 		mockBookFind.mockResolvedValueOnce([doc]).mockResolvedValueOnce([])
 		mockBookHandler.mockResolvedValue(undefined)
 		await helper.updateBooks()
 		expect(bookShowConstructorArgs).toHaveLength(1)
-		const [asin, options, redis, logger, forceUpdate, skipHtml] = bookShowConstructorArgs[0]
+		const [asin, options, redis, showOptions] = bookShowConstructorArgs[0]
 		expect(asin).toBe(doc.asin)
 		expect(options).toEqual({ region: doc.region, update: '1' })
 		expect(redis).toBe(ctx.client)
-		expect(logger).toBe(mockLogger)
-		expect(forceUpdate).toBe(false)
-		expect(skipHtml).toBe(true)
+		expect(showOptions).toEqual({ logger: mockLogger, skipHtml: true })
+		expect(showOptions.forceUpdate).toBeUndefined()
+		expect(showOptions.skipHtml).toBe(true)
 	})
 
 	test('walks chapters stalest-first with the updatedAt filter', async () => {

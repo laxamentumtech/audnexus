@@ -5,6 +5,7 @@ import {
 	buildArtworkReferences,
 	buildFieldObservations,
 	canonicalGenres,
+	canonicalTags,
 	composeObservation,
 	composeTimestamps,
 	isBookSeriesContentType,
@@ -84,6 +85,10 @@ function makeInputs(overrides: Partial<ObservationInputs> = {}): ObservationInpu
 			{ asin: '1111111111', name: 'Genre B', type: 'Genre' },
 			{ asin: '2222222222', name: 'Genre A', type: 'Genre' }
 		],
+		apiTags: [
+			{ tagId: 't2', name: 'Tag B', type: 'theme' },
+			{ tagId: 't1', name: 'Tag A', type: 'mood' }
+		],
 		literatureTypeJustified: true,
 		seriesKeyPresent: false,
 		seriesOutcome: 'unavailable',
@@ -162,6 +167,24 @@ describe('canonicalGenres', () => {
 	})
 })
 
+describe('canonicalTags', () => {
+	test('deduplicates and sorts tag tuples', () => {
+		const tags = [
+			{ tagId: 't3', name: 'Second', type: 'theme' },
+			{ tagId: 't1', name: 'First', type: 'mood' },
+			{ tagId: 't3', name: 'Second', type: 'theme' }
+		]
+		expect(canonicalTags(tags)).toEqual([
+			['t1', 'First', 'mood'],
+			['t3', 'Second', 'theme']
+		])
+	})
+
+	test('returns an empty list for no tags', () => {
+		expect(canonicalTags([])).toEqual([])
+	})
+})
+
 describe('buildFieldObservations', () => {
 	test('builds mapped-value fields with evidence keys', () => {
 		const fields = buildFieldObservations(makeInputs())
@@ -178,6 +201,34 @@ describe('buildFieldObservations', () => {
 		expect(byField.get('copyright')).toEqual({ state: 'value', value: 2026 })
 		expect(byField.get('isAdult')).toEqual({ state: 'value', value: false })
 		expect(byField.get('literatureType')).toEqual({ state: 'value', value: 'fiction' })
+	})
+
+	test('observes canonical tags under the tags policy', () => {
+		const fields = buildFieldObservations(makeInputs())
+		const tagsField = fields.find((f) => f.field === 'tags')
+		expect(tagsField).toEqual({
+			field: 'tags',
+			policy: 'tags:api:v1',
+			value: {
+				state: 'value',
+				value: [
+					['t1', 'Tag A', 'mood'],
+					['t2', 'Tag B', 'theme']
+				]
+			},
+			source: 'audible_api'
+		})
+	})
+
+	test('observes an explicit empty tags group as absent', () => {
+		const fields = buildFieldObservations(makeInputs({ apiTags: [] }))
+		const tagsField = fields.find((f) => f.field === 'tags')
+		expect(tagsField?.value).toEqual({ state: 'absent' })
+	})
+
+	test('omits the tags observation when the tags group was not fetched', () => {
+		const fields = buildFieldObservations(makeInputs({ apiTags: undefined }))
+		expect(fields.some((f) => f.field === 'tags')).toBe(false)
 	})
 
 	test('omits observations for keys absent from the raw evidence', () => {

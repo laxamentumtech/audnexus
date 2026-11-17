@@ -125,7 +125,7 @@ describe('BookShowHelper should', () => {
 	})
 
 	test('forceUpdate bypasses the recency gate and re-fetches', async () => {
-		helper = new BookShowHelper(asin, { region: 'us', update: '1' }, null, undefined, true)
+		helper = new BookShowHelper(asin, { region: 'us', update: '1' }, null, { forceUpdate: true })
 		spyOn(helper.sharedHelper, 'isRecentlyUpdated').mockReturnValue(true)
 		helper.originalData = bookWithoutProjectionUpdatedNow
 		await expect(helper.updateActions()).resolves.toStrictEqual(parsedBook)

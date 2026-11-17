@@ -150,7 +150,7 @@ class UpdateScheduler {
 					asin,
 					{ region, update: '1' },
 					this.redis as unknown as FastifyRedis | null,
-					this.logger
+					{ logger: this.logger }
 				),
 			'author',
 			author,
@@ -171,9 +171,10 @@ class UpdateScheduler {
 					asin,
 					{ region, update: '1' },
 					this.redis as unknown as FastifyRedis | null,
-					this.logger,
-					false,
-					true
+					{
+						logger: this.logger,
+						skipHtml: true
+					}
 				),
 			'book',
 			book,
@@ -194,7 +195,7 @@ class UpdateScheduler {
 					asin,
 					{ region, update: '1' },
 					this.redis as unknown as FastifyRedis | null,
-					this.logger
+					{ logger: this.logger }
 				),
 			'chapters',
 			chapter,

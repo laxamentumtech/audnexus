@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, mock, test, vi } from 'bun:test'
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test, vi } from 'bun:test'
 
 const mockBookFind = mock()
 const mockBookUpdateOne = mock()
@@ -19,12 +19,40 @@ mock.module('#helpers/utils/batchProcessor', () => ({
 	processBatchByRegion: mockProcessBatchByRegion
 }))
 
+const mockFetch = mock()
+
+let historyEnabled = false
+const mockReserveGeneration = mock()
+const mockPersistRatingsRepair = mock()
+
+mock.module('#config/bookHistory', () => ({
+	isBookHistoryEnabled: () => historyEnabled
+}))
+
+mock.module('#config/papr', () => ({
+	bookHistoryStore: {
+		reserveGeneration: mockReserveGeneration,
+		persistRatingsRepair: mockPersistRatingsRepair
+	}
+}))
+
+mock.module('#helpers/utils/fetchPlus', () => ({
+	default: mockFetch
+}))
+
 // Whether the stubbed show helper reports its full-document write as
 // persisted; the backfill falls back to a direct ratings write when false.
 let mockPersisted = false
+// The history store disposition as the real helper exposes it: only a
+// genre-guard rejection (or history-disabled mode, undefined) may trigger
+// the direct ratings write.
+let mockHistoryDisposition: unknown
 // Fresh upstream data as the real helper exposes it; used when the handler
 // resolves with the stored row (equal-projection short-circuit) instead.
 let mockFreshData: unknown
+// The generation the (real) helper reserved the fetch under; the
+// history-enabled repair revalidates the fence against it.
+let mockPersistedGeneration: number | undefined
 
 mock.module('#helpers/routes/BookShowHelper', () => ({
 	default: class MockBookShowHelper {
@@ -33,7 +61,23 @@ mock.module('#helpers/routes/BookShowHelper', () => ({
 		}
 		handler = mockShowHandler
 		persisted = mockPersisted
+		historyDisposition = mockHistoryDisposition
 		freshData = mockFreshData
+		persistedGeneration = mockPersistedGeneration
+	}
+}))
+
+// The repair invalidates the per-book cache key via the real RedisHelper
+// (mocked here): the call is captured, the rejection branch is switchable.
+const mockCacheDeleteOne = mock()
+const cacheDeleteOneCalls: unknown[] = []
+
+mock.module('#helpers/database/redis/RedisHelper', () => ({
+	default: class RedisHelper {
+		constructor(...args: unknown[]) {
+			cacheDeleteOneCalls.push(args)
+		}
+		deleteOne = mockCacheDeleteOne
 	}
 }))
 
@@ -59,8 +103,11 @@ import { ObjectId } from 'mongodb'
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
+import { apiResponse } from '#tests/datasets/helpers/books'
 import { createMockLogger } from '#tests/setup/mockLogger'
 import { createTestPerformanceConfig } from '#tests/setup/performanceConfig'
+
+const deepCopyProduct = JSON.parse(JSON.stringify(apiResponse.product)) as Record<string, unknown>
 
 const books = [
 	{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f01'), asin: 'B000000001', region: 'us' },
@@ -89,15 +136,31 @@ const bookWithoutRatings = {
 
 describe('BookBackfillHelper should', () => {
 	let helper: BookBackfillHelper
+	let savedBatchSize: string | undefined
 
 	beforeEach(() => {
+		// The per-book default path is the baseline: a process environment
+		// that inherits AUDIBLE_BATCH_SIZE would silently put every test on
+		// the batch path, breaking the per-book pacing assertions. Save the
+		// inherited value (preserving undefined) and pin the baseline to 1
+		// (which keeps the proven per-book path); batch tests override it.
+		savedBatchSize = process.env.AUDIBLE_BATCH_SIZE
+		process.env.AUDIBLE_BATCH_SIZE = '1'
 		mock.clearAllMocks()
+		historyEnabled = false
 		mockSleepCooldown.mockResolvedValue(undefined)
 		mockJitteredSleep.mockResolvedValue(undefined)
-		mockBookUpdateOne.mockResolvedValue({ modified: 1 })
+		mockBookUpdateOne.mockResolvedValue({ modifiedCount: 1 })
 		mockMarkUpdateOne.mockResolvedValue({ modifiedCount: 1 })
 		mockPersisted = false
+		mockHistoryDisposition = undefined
 		mockFreshData = undefined
+		mockPersistedGeneration = undefined
+		mockPersistRatingsRepair.mockReset()
+		mockPersistRatingsRepair.mockResolvedValue({ modified: 1, superseded: false })
+		mockCacheDeleteOne.mockReset()
+		mockCacheDeleteOne.mockResolvedValue(true)
+		cacheDeleteOneCalls.length = 0
 		showConstructorArgs.length = 0
 		helper = new BookBackfillHelper(createMockLogger())
 		// First call returns the batch, second returns empty to end pagation
@@ -132,17 +195,41 @@ describe('BookBackfillHelper should', () => {
 		)
 	})
 
+	afterEach(() => {
+		// Restore the inherited value (or its absence) so the suite does not
+		// leak the baseline into the process environment for later files.
+		if (savedBatchSize === undefined) delete process.env.AUDIBLE_BATCH_SIZE
+		else process.env.AUDIBLE_BATCH_SIZE = savedBatchSize
+	})
+
 	test('queries only books missing the ratings field in _id-ordered batches', async () => {
 		await helper.process()
 		expect(mockBookFind).toHaveBeenCalledTimes(2)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			1,
-			{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }] },
+			{
+				$and: [
+					{
+						ratings: { $exists: false },
+						ratingsBackfillSkip: { $exists: false },
+						rating: { $nin: ['0.0', '0'] }
+					}
+				]
+			},
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-		{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
+		{
+			$and: [
+				{
+					ratings: { $exists: false },
+					ratingsBackfillSkip: { $exists: false },
+					rating: { $nin: ['0.0', '0'] }
+				},
+				{ _id: { $gt: books[books.length - 1]._id } }
+			]
+		},
 		{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
@@ -152,9 +239,13 @@ describe('BookBackfillHelper should', () => {
 		expect(showConstructorArgs).toHaveLength(3)
 		for (const args of showConstructorArgs) {
 			expect(args[2]).toBeNull()
-			expect(args[4]).toBe(true)
+			expect(args[3]).toEqual(
+				expect.objectContaining({ forceUpdate: true })
+			)
 			// Ratings come from the API; the backfill skips the HTML scrape.
-			expect(args[5]).toBe(true)
+			expect(args[3]).toEqual(
+				expect.objectContaining({ skipHtml: true })
+			)
 		}
 		expect(showConstructorArgs[0][1]).toEqual({ region: 'us', update: '1' })
 		expect(showConstructorArgs[1][1]).toEqual({ region: 'uk', update: '1' })
@@ -196,12 +287,30 @@ describe('BookBackfillHelper should', () => {
 		await expect(helper.process()).resolves.toEqual({ total: 5, updated: 5, skipped: 0, terminalSkipped: 0, failed: 0 })
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			2,
-			{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }, { _id: { $gt: books[books.length - 1]._id } }] },
+			{
+				$and: [
+					{
+						ratings: { $exists: false },
+						ratingsBackfillSkip: { $exists: false },
+						rating: { $nin: ['0.0', '0'] }
+					},
+					{ _id: { $gt: books[books.length - 1]._id } }
+				]
+			},
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 		expect(mockBookFind).toHaveBeenNthCalledWith(
 			3,
-			{ $and: [{ ratings: { $exists: false }, ratingsBackfillSkip: { $exists: false } }, { _id: { $gt: secondPage[secondPage.length - 1]._id } }] },
+			{
+				$and: [
+					{
+						ratings: { $exists: false },
+						ratingsBackfillSkip: { $exists: false },
+						rating: { $nin: ['0.0', '0'] }
+					},
+					{ _id: { $gt: secondPage[secondPage.length - 1]._id } }
+				]
+			},
 			{ projection: { asin: 1, region: 1 }, sort: { _id: 1 }, limit: 1000 }
 		)
 	})
@@ -276,6 +385,8 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockPersisted = false
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
+		// The repair is conditional: it only touches a row that STILL lacks
+		// ratings, so a row rated by a concurrent write is never overwritten.
 		expect(mockBookUpdateOne).toHaveBeenCalledWith(
 			{ _id: books[0]._id, ratings: { $exists: false } },
 			{
@@ -332,6 +443,32 @@ describe('BookBackfillHelper should', () => {
 			},
 			{ bypassDocumentValidation: true }
 		)
+	})
+
+	test('does not repair when the store disposition is stale (generation fence)', async () => {
+		// A `stale` disposition means a concurrent writer owns the generation
+		// fence: the direct field write would bypass that fence, so the
+		// repair must not run even when the handler persisted nothing — and
+		// the un-repaired book counts as a race, not an update (the summary
+		// must not report a skipped repair as an updated row).
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = false
+		mockHistoryDisposition = 'stale'
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, terminalSkipped: 0, failed: 0 })
+		expect(mockBookUpdateOne).not.toHaveBeenCalled()
+		expect(mockPersistRatingsRepair).not.toHaveBeenCalled()
+	})
+
+	test('does not repair on the equal short-circuit (accepted, unmodified)', async () => {
+		// An accepted-but-unmodified observation is an equal projection, not a
+		// genre-guard rejection: nothing was refused, so no repair write.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = false
+		mockHistoryDisposition = 'accepted'
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
+		expect(mockBookUpdateOne).not.toHaveBeenCalled()
 	})
 
 	test('does not rewrite ratings when the full update persisted them', async () => {
@@ -497,6 +634,408 @@ describe('BookBackfillHelper should', () => {
 		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
 		mockShowHandler.mockImplementation(async () => ratinglessStale)
 		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, terminalSkipped: 0, failed: 1 })
+	})
+
+	test('falls back to the per-book path when the batch request fails', async () => {
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		mockFetch.mockRejectedValue(new Error('503'))
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+		}
+
+		expect(mockFetch).toHaveBeenCalled()
+		// Every book reaches the per-book fallback with NO prefetched product
+		// (an empty loop would pass this check vacuously).
+		expect(showConstructorArgs).toHaveLength(3)
+		for (const args of showConstructorArgs) {
+			const options = args[3] as { prefetched?: unknown }
+			expect(options.prefetched).toBeUndefined()
+		}
+		// The failed chunk registers no batch success; each processed book
+		// registers its own.
+		expect(mockRegisterSuccess).toHaveBeenCalledTimes(3)
+	})
+
+	test('carries a pre-reserved generation with the prefetched product', async () => {
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		historyEnabled = true
+		mockReserveGeneration.mockResolvedValue(7)
+		mockFetch.mockResolvedValue({
+			data: {
+				products: [{ ...deepCopyProduct, asin: 'B000000001' }],
+				response_groups: ['rating'],
+				total_results: 1
+			}
+		})
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+			historyEnabled = false
+		}
+
+		const firstCall = showConstructorArgs.find((args) => args[0] === 'B000000001')
+		const firstOptions = firstCall?.[3] as {
+			prefetched?: unknown
+			reservedGeneration?: number
+		}
+		expect(firstOptions.prefetched).toBeDefined()
+		expect(firstOptions.reservedGeneration).toBe(7)
+	})
+
+	test('does not forward the batch generation to per-book fallback fetches', async () => {
+		// Regression: the batch reserves a generation per ASIN BEFORE the
+		// request, but a stub ASIN (no product returned) falls back to the
+		// per-book fetch. Forwarding the pre-reserved generation would
+		// fence the fallback under a generation reserved before ITS fetch;
+		// a concurrent refresh that accepted a newer generation in between
+		// would mark the fallback write stale and drop its ratings. Only a
+		// CONSUMED prefetched product may carry the batch generation.
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		historyEnabled = true
+		mockReserveGeneration.mockResolvedValue(7)
+		mockFetch.mockImplementation(async () => ({
+			data: {
+				products: [{ ...deepCopyProduct, asin: 'B000000001' }],
+				response_groups: ['rating'],
+				total_results: 1
+			}
+		}))
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+			historyEnabled = false
+		}
+		// All three ASINs were reserved before their chunks (us chunk:
+		// B000000001+B000000003, uk chunk: B000000002), and exactly one
+		// product was found.
+		expect(mockReserveGeneration).toHaveBeenCalledTimes(3)
+		const optionFor = (asin: string) => {
+			const args = showConstructorArgs.find((a) => a[0] === asin)
+			return args?.[3] as { prefetched?: unknown; reservedGeneration?: number }
+		}
+		// B000000001: prefetched product CONSUMED → the batch generation
+		// is carried.
+		expect(optionFor('B000000001').prefetched).toBeDefined()
+		expect(optionFor('B000000001').reservedGeneration).toBe(7)
+		// B000000003 (us) and B000000002 (uk): stubs / no product found →
+		// the per-book fallback must reserve its own generation, so the
+		// batch generation must NOT be forwarded.
+		expect(optionFor('B000000003').prefetched).toBeUndefined()
+		expect(optionFor('B000000003').reservedGeneration).toBeUndefined()
+		expect(optionFor('B000000002').prefetched).toBeUndefined()
+		expect(optionFor('B000000002').reservedGeneration).toBeUndefined()
+	})
+
+	test('drops a prefetched product whose generation could not be reserved', async () => {
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		historyEnabled = true
+		mockReserveGeneration.mockRejectedValue(new Error('identity conflict'))
+		mockFetch.mockResolvedValue({
+			data: {
+				products: [{ ...deepCopyProduct, asin: 'B000000001' }],
+				response_groups: ['rating'],
+				total_results: 1
+			}
+		})
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+			historyEnabled = false
+		}
+
+		const firstCall = showConstructorArgs.find((args) => args[0] === 'B000000001')
+		const firstOptions = firstCall?.[3] as {
+			prefetched?: unknown
+			reservedGeneration?: number
+		}
+		expect(firstOptions.prefetched).toBeUndefined()
+		expect(firstOptions.reservedGeneration).toBeUndefined()
+	})
+
+	test('prefetches multi-ASIN products when AUDIBLE_BATCH_SIZE >= 2', async () => {
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		mockFetch.mockResolvedValue({
+			data: {
+				products: [{ ...deepCopyProduct, asin: 'B000000001' }],
+				response_groups: ['rating'],
+				total_results: 1
+			}
+		})
+		try {
+			await helper.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+		}
+
+		expect(mockFetch).toHaveBeenCalled()
+		const firstCall = showConstructorArgs.find((args) => args[0] === 'B000000001')
+		const firstOptions = firstCall?.[3] as { prefetched?: { receivedAt: Date } }
+		expect(firstOptions.prefetched).toMatchObject({ receivedAt: expect.any(Date) })
+		// One success per accepted chunk, at fetch time — 2 region chunks
+		// (us: B1+B3, uk: B2) each register once — plus the 2 NON-prefetched
+		// books at consume time. The prefetched B1 must not register a third
+		// per-book success (which would make this 5).
+		expect(mockRegisterSuccess).toHaveBeenCalledTimes(4)
+	})
+
+	test('invalidates the book cache after a successful ratings repair write', async () => {
+		// The handler's rejection path cached the stored rating-less
+		// projection; the repair changed only MongoDB, so reads would serve
+		// the pre-repair projection for the whole TTL unless the key is
+		// invalidated.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = false
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
+		expect(mockCacheDeleteOne).toHaveBeenCalledTimes(1)
+		// The key is built as `${region}-${type}-${asin}` from the SAME
+		// values the handler cached with.
+		expect(cacheDeleteOneCalls.at(-1)).toEqual([
+			helper.redis,
+			'book',
+			books[0].asin,
+			'us',
+			helper.logger
+		])
+	})
+
+	test('swallows a cache-deletion failure after the repair (best-effort)', async () => {
+		// A cache outage here must not fail the book — the entry expires on
+		// its TTL, and the MongoDB write already landed.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = false
+		mockCacheDeleteOne.mockRejectedValue(new Error('redis down'))
+		const logger = createMockLogger()
+		const withLogger = new BookBackfillHelper(logger)
+		await expect(withLogger.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
+		expect(mockCacheDeleteOne).toHaveBeenCalledTimes(1)
+		// The swallowed failure must not surface as an error line: the
+		// repair succeeded, so there is nothing to report.
+		expect(logger.error).not.toHaveBeenCalled()
+	})
+
+	test('revalidates the generation fence atomically with the history-enabled repair', async () => {
+		// A `rejected` disposition only proves non-staleness while
+		// persistObservation's own transaction ran: a newer generation
+		// accepted in between would let an older fetch's ratings land. The
+		// history-enabled repair therefore re-runs the fence as part of the
+		// conditional write, keyed by the generation the fetch was reserved
+		// under, and must NOT fall back to the unguarded papr updateOne.
+		historyEnabled = true
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = false
+		mockHistoryDisposition = 'rejected'
+		mockPersistedGeneration = 9
+		try {
+			await expect(helper.process()).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
+			expect(mockPersistRatingsRepair).toHaveBeenCalledTimes(1)
+			expect(mockPersistRatingsRepair).toHaveBeenCalledWith({
+				asin: books[0].asin,
+				region: 'us',
+				generation: 9,
+				bookId: books[0]._id,
+				ratings: bookWithRatings.ratings
+			})
+			expect(mockBookUpdateOne).not.toHaveBeenCalled()
+			expect(mockCacheDeleteOne).toHaveBeenCalledTimes(1)
+		} finally {
+			historyEnabled = false
+		}
+	})
+
+	test('does not count or invalidate when the history-enabled repair lost the fence', async () => {
+		// persistRatingsRepair reports the lost fence with its `superseded`
+		// result (a newer writer owns the generation fence in between the
+		// `rejected` disposition and the repair). The book must not count as
+		// updated — it tallies as a race, NOT a batch failure — and the
+		// cache entry (which still matches the stored row) must not be
+		// invalidated: nothing was written. The fetch itself succeeded, so
+		// the shared adaptive cooldown must still relax exactly as for any
+		// other raced-but-fetched (non-prefetched) outcome.
+		historyEnabled = true
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = false
+		mockHistoryDisposition = 'rejected'
+		mockPersistedGeneration = 9
+		mockPersistRatingsRepair.mockResolvedValue({ modified: 0, superseded: true })
+		try {
+			await expect(helper.process()).resolves.toEqual({
+				total: 1,
+				updated: 0,
+				skipped: 0,
+				terminalSkipped: 0,
+				failed: 0
+			})
+			expect(mockPersistRatingsRepair).toHaveBeenCalledTimes(1)
+			expect(mockCacheDeleteOne).not.toHaveBeenCalled()
+			expect(mockRegisterSuccess).toHaveBeenCalledTimes(1)
+		} finally {
+			historyEnabled = false
+		}
+	})
+
+	test('tallies a stale (un-repaired) book as raced, not updated', async () => {
+		// The `stale` repair-skip must also remove the book from `updated`:
+		// reporting an un-repaired row as updated would mislead the summary
+		// (the book stays in the ratings target set and is re-walked).
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = false
+		mockHistoryDisposition = 'stale'
+		await expect(helper.process()).resolves.toEqual({ total: 1, updated: 0, skipped: 0, terminalSkipped: 0, failed: 0 })
+	})
+
+	test('counts a concurrently deleted book as raced, not failed', async () => {
+		// A book deleted after the keyset page read but before
+		// persistObservation completes returns `stale` with no data, and the
+		// show handler throws NotFoundError for it: a concurrent-delete race,
+		// not a retryable failure. The row is gone, so it tallies into `raced`
+		// (subtracted from `updated`) and the batch completes.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockShowHandler.mockRejectedValue(new NotFoundError('Book B000000001 not found in region us'))
+		await expect(helper.process()).resolves.toEqual({
+			total: 1,
+			updated: 0,
+			skipped: 0,
+			terminalSkipped: 0,
+			failed: 0
+		})
+	})
+
+	test('logs a status-bearing batch failure with its HTTP status and URL', async () => {
+		// fetchPlus rejects exhausted HTTP failures with the AxiosResponse
+		// DIRECTLY (status/config at top level), not nested under
+		// `.response`: the diagnostic must not degrade to
+		// "[object Object]" for a 400 (ASIN list/cap) or 503 (throttle).
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		const response = {
+			status: 503,
+			config: { url: 'https://api.audible.com/1.0/catalog/products?asins=B000000001' },
+			data: { message: 'throttled' }
+		}
+		mockFetch.mockRejectedValue(response)
+		const logger = createMockLogger()
+		const withLogger = new BookBackfillHelper(logger)
+		try {
+			await withLogger.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+		}
+		expect(mockFetch).toHaveBeenCalled()
+		const warn = (logger.warn as ReturnType<typeof mock>).mock.calls.map((call) => String(call[0]))
+		expect(warn).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining('HTTP 503 for https://api.audible.com/1.0/catalog/products?asins=B000000001')
+			])
+		)
+		// The diagnostic must never stringify the raw response object.
+		expect(warn).not.toEqual(expect.arrayContaining([expect.stringContaining('[object Object]')]))
+	})
+
+	test('logs a nested AxiosError batch failure with its status and URL', async () => {
+		// Transport-shaped rejections carry the status/config nested under
+		// `.response`; both shapes must resolve the same diagnostic.
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		const nested = {
+			response: {
+				status: 400,
+				config: { url: 'https://api.audible.de/1.0/catalog/products?asins=B000000001' }
+			},
+			message: 'Request failed with status code 400'
+		}
+		mockFetch.mockRejectedValue(nested)
+		const logger = createMockLogger()
+		const withLogger = new BookBackfillHelper(logger)
+		try {
+			await withLogger.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+		}
+		const warn = (logger.warn as ReturnType<typeof mock>).mock.calls.map((call) => String(call[0]))
+		expect(warn).toEqual(
+			expect.arrayContaining([
+				expect.stringContaining('HTTP 400 for https://api.audible.de/1.0/catalog/products?asins=B000000001')
+			])
+		)
+	})
+
+	test('reports real progress in the batch-disable diagnostic after successful chunks', async () => {
+		// Three books in one region with a batch size of 2: the first chunk
+		// succeeds, the second fails. The diagnostic must report the offset
+		// where the failed chunk STARTS (2) — a frozen 0 would claim no
+		// progress at all and hide how far the page got.
+		process.env.AUDIBLE_BATCH_SIZE = '2'
+		setPerformanceConfig(createTestPerformanceConfig({ SCHEDULER_ITEM_TIMEOUT_MS: 0 }))
+		const usBooks = [
+			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f01'), asin: 'B000000001', region: 'us' },
+			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f02'), asin: 'B000000002', region: 'us' },
+			{ _id: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f03'), asin: 'B000000003', region: 'us' }
+		]
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce(usBooks).mockResolvedValueOnce([])
+		mockFetch
+			.mockResolvedValueOnce({
+				data: { products: [{ ...deepCopyProduct, asin: 'B000000001' }], response_groups: ['rating'], total_results: 1 }
+			})
+			.mockRejectedValueOnce(new Error('chunk failed'))
+		const logger = createMockLogger()
+		const withLogger = new BookBackfillHelper(logger)
+		try {
+			await withLogger.process()
+		} finally {
+			delete process.env.AUDIBLE_BATCH_SIZE
+			resetPerformanceConfig()
+		}
+		const warn = (logger.warn as ReturnType<typeof mock>).mock.calls.map((call) => String(call[0]))
+		expect(warn).toEqual(expect.arrayContaining([expect.stringContaining('offset 2')]))
+	})
+
+	test('disables batching when a chunk stays pending past the item deadline, then proceeds per book', async () => {
+		// A stuck prefetch must surface as a failed chunk (disable batching
+		// for the page) once the per-item deadline lapses, not park the
+		// single-concurrency worker: the book then proceeds through the
+		// proven per-book path with no prefetched product.
+		process.env.AUDIBLE_BATCH_SIZE = '50'
+		setPerformanceConfig(createTestPerformanceConfig({ SCHEDULER_ITEM_TIMEOUT_MS: 50 }))
+		vi.useFakeTimers()
+		try {
+			mockBookFind.mockReset()
+			mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+			// The batch request never settles: only the deadline can move it.
+			// Resolve the barrier when the fetch fires, then hang — awaiting it
+			// proves the prefetch started and its deadline timer is registered
+			// (withDeadline sets the timer synchronously) before any timer is
+			// advanced; counting microtask turns to guess that point is racy.
+			const { promise: started, resolve: release } = Promise.withResolvers<void>()
+			mockFetch.mockImplementation(() => {
+				release()
+				return new Promise<never>(() => {})
+			})
+			const pending = helper.process()
+			await started
+			vi.advanceTimersByTime(60)
+			await expect(pending).resolves.toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
+		} finally {
+			vi.useRealTimers()
+			resetPerformanceConfig()
+			delete process.env.AUDIBLE_BATCH_SIZE
+		}
+		// Batching was attempted, then disabled by the deadline: the fetch
+		// fired once, and the book reached the per-book fallback with NO
+		// prefetched product (updated via the normal path).
+		expect(mockFetch).toHaveBeenCalledTimes(1)
+		expect(showConstructorArgs).toHaveLength(1)
+		const options = showConstructorArgs[0][3] as { prefetched?: unknown }
+		expect(options.prefetched).toBeUndefined()
 	})
 
 	test('rejects a book when the handler exceeds the item deadline', async () => {
