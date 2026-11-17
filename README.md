@@ -176,7 +176,7 @@ These are application defaults unless noted otherwise. Set them on each process 
 | `HOST` | `0.0.0.0` | API listen address. |
 | `PORT` | `3000` | API listen port. |
 | `LOG_LEVEL` | `info` | Log level: `trace`, `debug`, `info`, `warn`, `error`, or `fatal`. |
-| `TRUSTED_PROXIES` | Unset | Comma-separated trusted proxy IP addresses or CIDR ranges. |
+| `TRUSTED_PROXIES` | `127.0.0.1` plus fetched Cloudflare ranges | Comma-separated trusted proxy IP addresses or CIDR ranges. Add your proxy address when it is not loopback. |
 | `DEFAULT_REGION` | `us` | Default region for batch processing. |
 | `ADP_TOKEN`, `PRIVATE_KEY` | Unset | Registered Audible device credentials for chapters. |
 | `MAX_REQUESTS` | `100` | Maximum requests per minute per source. Compose defaults to `300`. |

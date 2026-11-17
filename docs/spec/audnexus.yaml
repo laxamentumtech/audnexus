@@ -108,7 +108,8 @@ paths:
       summary: The API returns performance metrics.
       description: |
         The response contains memory use, uptime, and request statistics.
-        The endpoint requires the `x-metrics-token` header or an allowed client IP.
+        Authentication applies when `METRICS_AUTH_TOKEN` or `METRICS_ALLOWED_IPS` is configured.
+        The endpoint is public when both values are unset.
       operationId: getMetrics
       tags:
         - Metrics
@@ -437,7 +438,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/FastifyErrorResponse'
         '409':
           description: |
             History mode returns 409 when an unresolved identity conflict exists for the requested `ASIN` and `region`.
@@ -539,6 +540,7 @@ paths:
                     $ref: '#/components/schemas/HistoryTracking'
                   items:
                     type: array
+                    maxItems: 100
                     items:
                       type: object
                       properties:
@@ -778,6 +780,7 @@ paths:
                     $ref: '#/components/schemas/HistoryTracking'
                   items:
                     type: array
+                    maxItems: 100
                     items:
                       type: object
                       properties:
@@ -914,7 +917,7 @@ paths:
     post:
       summary: The API starts a ratings backfill.
       description: |
-        The endpoint refetches every stored book that lacks `ratings`.
+        The endpoint selects stored books that lack `ratings`, are not marked `ratingsBackfillSkip`, and do not have `rating` set to `0.0` or `0`.
         It persists rating counts and star distributions.
         The endpoint requires an admin token.
         The endpoint runs only when `UPDATE_STATS` is `1`.
@@ -1216,7 +1219,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/FastifyErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
         '429':
@@ -1264,7 +1267,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/FastifyErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
         '429':
@@ -1470,7 +1473,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/FastifyErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
         '429':
@@ -1536,7 +1539,6 @@ components:
           required:
             - code
             - message
-            - details
       required:
         - error
     FastifyErrorResponse:
