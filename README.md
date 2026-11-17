@@ -1,22 +1,32 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/laxamentumtech/audnexus/assets/logos/logo-horizontal.png" alt="Audnexus logo" width="480">
+  <img src="https://raw.githubusercontent.com/laxamentumtech/audnexus/assets/logos/logo.png" alt="Audnexus logo" width="200">
 </p>
 
-# audnexus
+<h1 align="center">audnexus</h1>
 
-[![CI](https://github.com/laxamentumtech/audnexus/actions/workflows/ci.yml/badge.svg)](https://github.com/laxamentumtech/audnexus/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/laxamentumtech/audnexus.svg)](LICENSE)
+<p align="center">
+  <a href="https://github.com/laxamentumtech/audnexus/actions/workflows/ci.yml"><img src="https://github.com/laxamentumtech/audnexus/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/laxamentumtech/audnexus.svg" alt="License"></a>
+</p>
 
-> **Looking for audiobook metadata?** [AudiobookDB](https://audiobookdb.org) is our community-maintained successor, with separate books and releases, moderated contributions, and search. New projects should start there. Audnexus remains online and maintained.
+## Looking for audiobook metadata?
+
+Audible and other providers contain duplicates, misspellings, and inconsistent values, which audnexus passes through as-is without curation. Delisted products can be hard to find in audnexus. [AudiobookDB](https://audiobookdb.org) standardizes, curates, corrects, and maintains data against standards for titles and credits. New projects should start there, and audnexus remains online and maintained.
 
 Audnexus is an HTTP API that combines audiobook metadata from Audible's API and product pages into consistent records. It is for self-hosters who need a metadata endpoint for a media server, and for developers building metadata-provider plugins. A client can retrieve the data it needs in one or two API calls. MongoDB stores records, and Redis can cache responses. Optional history records metadata and artwork changes as revisions.
 
+## About
+
 _Nexus, noun: a connection or series of connections linking two or more things._
 
-We started audnexus because there was no single open source of audiobook metadata, and some community-curated sources closed their APIs. We built it as an interim provider and a future seeder for a community-driven database.
+When we looked for audiobook metadata, there was no single open source of truth. Some community-curated sources had closed their APIs. We built audnexus to bring audiobook content from multiple sources together in one response.
+
+That makes it easier to integrate with existing media servers. With one or two API calls, clients have little to no processing overhead, which helps developers build stable plugins quickly. We built audnexus as an interim provider and a future seeder for a community-driven database.
 
 ## Contents
 
+- [Looking for audiobook metadata?](#looking-for-audiobook-metadata)
+- [About](#about)
 - [Quick start](#quick-start)
 - [API](#api)
 - [Deployment](#deployment)
@@ -32,7 +42,6 @@ We started audnexus because there was no single open source of audiobook metadat
 - [Book history](#book-history)
 - [Troubleshooting](#troubleshooting)
 - [Development and tests](#development-and-tests)
-- [Releases](#releases)
 - [Built with](#built-with)
 - [Contributing](#contributing)
 - [Author](#author)
@@ -306,16 +315,6 @@ RUN_LIVE_TESTS=true bun run test:live
 The default test command writes coverage to `coverage/`. The index integration tests start a MongoDB replica set in Docker. Live tests contact Audible and are disabled unless `RUN_LIVE_TESTS=true`. Chapter live tests also need `ADP_TOKEN` and `PRIVATE_KEY`. See the [live test guide](tests/live/README.md). For history integration tests, use `bun run test:history`.
 
 To generate HTML from the checked-in OpenAPI source, run `bun run build-docs`. This writes `docs/index.html`. The checked-in HTML and spec carry an older version label, so use the [live API reference](https://audnex.us/) or a release's documentation asset for published docs.
-
-## Releases
-
-A qualifying `main` push, including a normal `develop` to `main` promotion with application changes, starts the Release workflow. Changes limited to root Markdown files or `.github` do not trigger it. To run it deliberately, choose **Actions > Release > Run workflow** on `main`. Leave the version empty and the bump at `auto` for automatic selection, or supply an override. No package version commit, preparation PR, or merge-back is required.
-
-The workflow reserves a source and version, tests the native build, and publishes the matching image and documentation. A release stays a draft until those outputs complete. An existing tag alone does not mean publication finished. Retries reuse the reservation and verify image and documentation identity rather than overwrite conflicting artifacts. The Annalist app fills the release notes.
-
-The image records `VERSION` and `GIT_COMMIT` as OCI metadata. The version in `package.json` is package metadata, not the running release label. Stamped documentation uses the selected release version, `dev-<SHA>` for an untagged source, or `dev` without a source. Running `build-docs` alone renders the version currently in the spec.
-
-Each release includes an immutable `index.html` asset labeled with its source, version, and SHA-256. Use it for the documentation of that release. Develop and stale builds do not replace production Pages. An old-source retry completes its release artifacts without rolling Pages back. See the [Release workflow](.github/workflows/release.yml), [docs workflow](.github/workflows/deploy-docs.yml), and [changelog](CHANGELOG.md).
 
 ## Built with
 
