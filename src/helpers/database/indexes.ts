@@ -74,9 +74,21 @@ const sorted = (doc: Document, transform: (key: string, value: unknown) => unkno
 /** Sort only query-expression documents, never embedded equality values. */
 function filterExpression(value: unknown): unknown {
 	if (!plain(value)) return value
+	// $and/$or/$nor operand order is semantically meaningless: Mongo applies
+	// the clause as a set, so sort the normalized operands canonically.
+	const clause = (operands: unknown[]): unknown[] =>
+		[...operands].sort((a, b) => {
+			const left = BSON.serialize({ value: a })
+			const right = BSON.serialize({ value: b })
+			const length = Math.min(left.length, right.length)
+			for (let i = 0; i < length; i++) {
+				if (left[i] !== right[i]) return left[i] - right[i]
+			}
+			return left.length - right.length
+		})
 	return sorted(value, (key, child) => {
 		if (['$and', '$or', '$nor'].includes(key) && Array.isArray(child))
-			return child.map(filterExpression)
+			return clause(child.map(filterExpression))
 		if (key.startsWith('$')) return child
 		if (plain(child) && Object.keys(child).every((k) => k.startsWith('$'))) {
 			return sorted(child, (operator, operand) =>

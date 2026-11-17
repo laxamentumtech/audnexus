@@ -153,6 +153,33 @@ function isPreOrderBook(book: ApiBook): boolean {
 }
 
 /**
+ * The genre-preserving merge that enforces the anti-nuke invariant on this
+ * write path (mirrored by `PaprAudibleBookHelper.createOrUpdate`): when
+ * the incoming book carries no genre evidence and the stored row has
+ * stored genres, the stored list is merged into the outgoing document so
+ * an accepted update never nukes stored genre evidence.
+ *
+ * No merge when the incoming genres are non-empty (they replace the stored
+ * list) or the stored side is empty (nothing to preserve); when neither
+ * side has evidence, the genres key is omitted from the result. The
+ * history store's write path enforces the same rule through
+ * `#helpers/database/bookWriteProjection`'s `buildEffectiveWrite` (and the
+ * inline genre preservation in `persistObservation`); this function is
+ * retained as the tested unit for the merge semantics. An empty genre list
+ * is NOT genre evidence on either side: the producer emits `genres: []`
+ * for ladder-less books (skipHtml scheduler/backfill fetches).
+ */
+export function mergeStoredGenresWhenIncomingEmpty(
+	stored: Record<string, unknown> | null,
+	incoming: ApiBook
+): Record<string, unknown> {
+	if (incoming.genres?.length) return { ...incoming }
+	const storedGenres = stored?.genres
+	if (!Array.isArray(storedGenres) || storedGenres.length === 0) return { ...incoming }
+	return { ...incoming, genres: storedGenres }
+}
+
+/**
  * The existing update flow's genre safeguard, reproduced exactly
  * (`PaprAudibleBookHelper.createOrUpdate`): an unequal update is only
  * allowed when genre evidence exists — the stored genres are non-empty,
@@ -176,14 +203,25 @@ function genreSafeguardPasses(oldDoc: Document, newBook: ApiBook): boolean {
 	return newHasGenres
 }
 
-/** Deep structural equality over the sanitized public projections. */
-function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
+/** An empty genre list is not genre evidence on either side (the producer
+ * emits `genres: []` for ladder-less books), so an absent `genres` key and
+ * an empty list are the same statement. Both normalize to absent before the
+ * field comparison, so a repeated identical observation stays in the equal
+ * short-circuit. No redundant $set, no `modified: true` on every accepted
+ * fetch. */
+function normalizeGenreEvidence(value: unknown): unknown {
+	return Array.isArray(value) && value.length === 0 ? undefined : value
+}
+
+/** Deep structural equality over the sanitized public projections. Exported
+ * as a test seam for the equality-contract regression tests. */
+export function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
 	const aObj = a as unknown as Record<string, unknown>
 	const bObj = b as unknown as Record<string, unknown>
 	const keys = new Set([...Object.keys(aObj), ...Object.keys(bObj)])
 	for (const key of keys) {
-		const av = aObj[key]
-		const bv = bObj[key]
+		const av = key === 'genres' ? normalizeGenreEvidence(aObj[key]) : aObj[key]
+		const bv = key === 'genres' ? normalizeGenreEvidence(bObj[key]) : bObj[key]
 		if (av === bv) continue
 		if (
 			typeof av === 'object' ||
@@ -474,11 +512,11 @@ export class BookHistoryStore {
 
 	/**
 	 * Apply an accepted book transactionally. In-transaction outcome order:
-	 * identity, stale fence, pre-order, equality/genre guard, first-touch
-	 * legacy capture, comparison, asset upserts, optional revision (at most
-	 * one for changed fields), current book write, state watermark. The
-	 * stale check runs on the transaction's state snapshot; no generation is
-	 * consumed for stale work.
+	 * identity, stale fence, pre-order, genre-preserving merge, equality
+	 * short-circuit, first-touch legacy capture, comparison, asset upserts,
+	 * optional revision (at most one for changed fields), current book
+	 * write, state watermark. The stale check runs on the transaction's
+	 * state snapshot; no generation is consumed for stale work.
 	 */
 	async persistObservation(input: PersistInput): Promise<PersistResult> {
 		const { asin, region, generation, book, observation } = input
@@ -523,10 +561,10 @@ export class BookHistoryStore {
 			}
 			const baseSequence = Math.max(state?.assetSequence ?? 0, newAssetSequence)
 
-			// 4. Equality/genre guard re-evaluated against the transaction
-			//    book. Both sides normalize through the same constrained
-			//    projection, so stored documents (papr-stamped fields,
-			//    insertion-ordered keys) compare equally with fresh API books.
+			// 4. Equality re-evaluated against the transaction book. Both
+			//    sides normalize through the same constrained projection, so
+			//    stored documents (papr-stamped fields, insertion-ordered
+			//    keys) compare equally with fresh API books.
 			const parsedBook = ApiBookSchema.safeParse(book)
 			let normBook = parsedBook.success ? parsedBook.data : book
 			const oldApi = toApiBook(currentBook)
@@ -569,7 +607,16 @@ export class BookHistoryStore {
 				Array.isArray(currentBook.genres) &&
 				currentBook.genres.length > 0
 			) {
-				normBook = { ...normBook, genres: currentBook.genres as ApiBook['genres'] }
+				// The splice brings in RAW stored genre objects: stored
+				// sub-documents can carry a key order the Zod projection
+				// does not, and the equality check's stringify comparison
+				// is key-order-sensitive. Re-parse the merged document so
+				// the short-circuit compares two sanitized projections
+				// (parse failure falls back to the raw merge — the
+				// malformed-value fault is surfaced by the write).
+				const merged = { ...normBook, genres: currentBook.genres as ApiBook['genres'] }
+				const mergedParsed = ApiBookSchema.safeParse(merged)
+				normBook = mergedParsed.success ? mergedParsed.data : merged
 			}
 			// One effective write object: the stored public row plus the
 			// incoming book's defined values, with retention for

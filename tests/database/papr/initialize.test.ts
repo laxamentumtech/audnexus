@@ -77,6 +77,10 @@ describe('shared initialization', () => {
 	})
 	test('uses the explicit database with a normal context client', async () => {
 		const real = createDefaultContext('mongodb://localhost:27017')
+		// Undefined optional fields must be omitted from writes, not
+		// serialized as null: the books validator types those fields as
+		// strings and rejects null.
+		expect(real.client.options?.ignoreUndefined).toBe(true)
 		real.client.db = mock(() => db) as never
 		await initialize(real)
 		expect(real.client.db).toHaveBeenCalledWith('audnexus')

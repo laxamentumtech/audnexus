@@ -7,7 +7,13 @@ import { describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
 import { DATABASE_INDEXES } from '#config/databaseIndexes'
-import { BookHistoryStore } from '#helpers/database/papr/BookHistoryStore'
+import { ApiBookSchema } from '#config/types'
+import {
+	BookHistoryStore,
+	deepEqualBook,
+	mergeStoredGenresWhenIncomingEmpty
+} from '#helpers/database/papr/BookHistoryStore'
+import { parsedBook, parsedBookWithoutGenres } from '#tests/datasets/helpers/books'
 
 const FAILURE =
 	'BOOK_HISTORY_ENABLED requires a transaction-capable MongoDB replica set and prepared history indexes'
@@ -258,6 +264,73 @@ describe('assertHistoryPrerequisites', () => {
 	test('fails when the transactional probe cannot commit', async () => {
 		const { store } = clientWith({ rejectTx: true })
 		await expect(store.assertHistoryPrerequisites()).rejects.toThrow(FAILURE)
+	})
+})
+
+describe('genre-preserving write splice', () => {
+	const storedWithGenres = {
+		genres: [{ asin: 'G1', name: 'Mystery', url: 'https://example.com/mystery' }]
+	}
+	const storedWithoutGenres = { genres: [] }
+	const incomingWithoutGenres = parsedBookWithoutGenres
+	const incomingWithGenres = parsedBook
+
+	test('preserves stored genres when the incoming book carries none', () => {
+		// Ladder-less fetches (skipHtml scheduler/backfill passes) carry no
+		// genre evidence; the accepted update must keep the stored list.
+		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithGenres, incomingWithoutGenres)
+		expect(merged.genres).toEqual(storedWithGenres.genres)
+	})
+
+	test('lets incoming genres replace the stored list', () => {
+		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithGenres, incomingWithGenres)
+		expect(merged.genres).toEqual(incomingWithGenres.genres)
+	})
+
+	test('keeps the empty list when neither side has genres', () => {
+		const merged = mergeStoredGenresWhenIncomingEmpty(
+			storedWithoutGenres,
+			incomingWithoutGenres
+		)
+		expect(merged).not.toHaveProperty('genres')
+	})
+
+	test('handles an empty stored genres array as no genre evidence', () => {
+		// The producer emits `genres: []` for ladder-less books: an empty
+		// stored list must not be treated as evidence to preserve.
+		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithoutGenres, incomingWithGenres)
+		expect(merged.genres).toEqual(incomingWithGenres.genres)
+	})
+})
+
+describe('repeated-observation equality (no-evidence genre forms)', () => {
+	test('an identical second observation with stored `genres: []` is NOT modified', () => {
+		// The merge omits the genres key when neither side has evidence,
+		// so the merged write doc has no `genres` while the stored row
+		// carries `genres: []`: absent must compare equal to empty, or
+		// every identical observation repeats the write with
+		// `modified: true`.
+		const stored = ApiBookSchema.parse({
+			...parsedBookWithoutGenres,
+			genres: []
+		})
+		const incoming = ApiBookSchema.parse({ ...parsedBookWithoutGenres })
+		expect(deepEqualBook(stored, incoming)).toBe(true)
+	})
+	test('an identical second observation with the genres key absent is NOT modified', () => {
+		// Symmetric direction: stored row without the key at all vs
+		// incoming carrying an explicit empty list.
+		const stored = ApiBookSchema.parse({ ...parsedBookWithoutGenres })
+		const incoming = ApiBookSchema.parse({
+			...parsedBookWithoutGenres,
+			genres: []
+		})
+		expect(deepEqualBook(stored, incoming)).toBe(true)
+	})
+	test('real genre differences are still reported', () => {
+		const stored = ApiBookSchema.parse({ ...parsedBookWithoutGenres, genres: [] })
+		const incoming = ApiBookSchema.parse({ ...parsedBookWithoutGenres, genres: parsedBook.genres })
+		expect(deepEqualBook(stored, incoming)).toBe(false)
 	})
 })
 

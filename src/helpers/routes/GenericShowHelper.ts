@@ -74,8 +74,11 @@ export default class GenericShowHelper {
 	fetchedFreshData = false
 	/** The freshly fetched data before persistence. Exposed so repair jobs
 	 * (the ratings backfill) can salvage a field the full-document write
-	 * declined to persist — e.g. the genre safeguard rejects genre-less
-	 * updates, and the handler then returns the stored row instead. */
+	 * declined to persist — e.g. the equal-projection short-circuit returns
+	 * the stored row untouched, so a ratings block present only on the
+	 * fresh fetch is salvaged from here. Stored genres are preserved by the
+	 * genre-preserving merge inside the write, not by returning the stored
+	 * row. */
 	freshData?: ApiAuthorProfile | ApiBook | ApiChapter
 	/** True once the freshly fetched data was actually written to MongoDB.
 	 * False for the pre-order transient path (no persistence) and for the
