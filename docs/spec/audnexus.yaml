@@ -2,44 +2,45 @@ openapi: 3.0.0
 info:
   title: Audnexus
   description: |
-    Aggegate audiobook data
+    Audnexus provides audiobook data.
   contact:
     name: David Dembeck
     url: 'https://github.com/laxamentumtech/audnexus'
   license:
     name: GPL v3
     url: 'https://www.gnu.org/licenses/gpl-3.0.en.html'
-  version: 1.11.0
+  version: 1.15.2
 externalDocs:
-  description: Find out more about Audnexus
-  url: 'https://github.com/djdembeck/audnexus'
+  description: The repository contains the Audnexus source code.
+  url: 'https://github.com/laxamentumtech/audnexus'
 servers:
   - url: 'https://api.audnex.us'
-    description: Public API
+    description: The server provides the public API.
 tags:
   - name: Authors
-    description: Author functions
+    description: The API provides author data.
   - name: Books
-    description: Book functions
+    description: The API provides book data.
   - name: Chapters
-    description: Chapter functions
+    description: The API provides chapter data.
   - name: Search
-    description: Search functions
+    description: The API searches for books and authors.
   - name: Health
-    description: Health check functions
+    description: The API reports service health.
   - name: Metrics
-    description: Performance metrics
+    description: The API returns performance metrics.
+security: []
 paths:
   '/health':
     get:
-      summary: Health check
-      description: Returns service health status including MongoDB and Redis connectivity
+      summary: The service reports its health.
+      description: The endpoint reports service health and the status of MongoDB and Redis.
       operationId: getHealth
       tags:
         - Health
       responses:
         '200':
-          description: Service is healthy
+          description: The service reports a healthy status.
           content:
             application/json:
               schema:
@@ -70,7 +71,7 @@ paths:
                   database: true
                   redis: true
         '503':
-          description: Service is unhealthy
+          description: The service reports an unhealthy status.
           content:
             application/json:
               schema:
@@ -100,18 +101,21 @@ paths:
                   server: true
                   database: false
                   redis: false
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   '/metrics':
     get:
-      summary: Performance metrics
+      summary: The API returns performance metrics.
       description: |
-        Returns performance metrics including memory usage, uptime, and request statistics.
-        This endpoint requires authentication via either `x-metrics-token` header or IP-based access control.
+        The response contains memory use, uptime, and request statistics.
+        Authentication applies when `METRICS_AUTH_TOKEN` or `METRICS_ALLOWED_IPS` is configured.
+        The endpoint is public when both values are unset.
       operationId: getMetrics
       tags:
         - Metrics
       responses:
         '200':
-          description: Metrics retrieved successfully
+          description: The response contains the requested metrics.
           content:
             application/json:
               schema:
@@ -122,19 +126,19 @@ paths:
                     properties:
                       used:
                         type: number
-                        description: Heap memory used in MB
+                        description: The amount of heap memory in MB.
                       total:
                         type: number
-                        description: Total heap size in MB
+                        description: The total heap size in MB.
                       external:
                         type: number
-                        description: External memory in MB
+                        description: The external memory use in MB.
                       rss:
                         type: number
-                        description: Resident set size in MB
+                        description: The resident set size in MB.
                   uptime:
                     type: number
-                    description: Server uptime in seconds
+                    description: The server uptime in seconds.
                   requests:
                     type: object
                     additionalProperties:
@@ -142,19 +146,19 @@ paths:
                       properties:
                         count:
                           type: number
-                          description: Number of requests to this endpoint
+                          description: This value gives the number of requests to this endpoint.
                         duration:
                           type: number
-                          description: Total duration in milliseconds
+                          description: This value gives the total duration in milliseconds.
                         min:
                           type: number
-                          description: Minimum request duration in milliseconds
+                          description: This value gives the minimum request duration in milliseconds.
                         max:
                           type: number
-                          description: Maximum request duration in milliseconds
+                          description: This value gives the maximum request duration in milliseconds.
                         avg:
                           type: number
-                          description: Average request duration in milliseconds
+                          description: This value gives the average request duration in milliseconds.
                 example:
                   memory:
                     used: 45.23
@@ -176,7 +180,7 @@ paths:
                       max: 20
                       avg: 5
         '403':
-          description: Forbidden - authentication required
+          description: The request failed authentication.
           content:
             application/json:
               schema:
@@ -187,7 +191,7 @@ paths:
               example:
                 error: Forbidden
         '404':
-          description: Metrics endpoint disabled
+          description: The metrics endpoint is disabled.
           content:
             application/json:
               schema:
@@ -197,64 +201,104 @@ paths:
                     type: string
               example:
                 error: Metrics endpoint disabled
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
       security:
         - ApiKeyAuth: []
         - ipAuth: []
     parameters: []
-  '/books/{ASIN}':
+  '/books/search':
     get:
-      summary: Find book by ID
-      description: Returns a single book
-      operationId: getBookById
+      summary: The API searches for books.
+      description: The endpoint returns up to 10 full book records that match `q`.
+      operationId: searchBooks
+      tags:
+        - Search
       parameters:
-        - name: ASIN
-          in: path
-          description: ID of book to return
+        - name: q
+          in: query
           required: true
-          style: simple
-          explode: false
+          description: This value contains the search text. Empty text returns 400.
           schema:
             type: string
-        - name: seedAuthors
+            minLength: 1
+        - name: region
           in: query
-          description: Whether to seed authors of book
           required: false
-          explode: false
+          description: This value selects the Audible catalog region.
           schema:
-            type: number
-            enum:
-              - 0
-              - 1
-        - name: update
-          in: query
-          description: Have server check for updated data upstream
-          required: false
-          explode: false
-          schema:
-            type: number
-            enum:
-              - 0
-              - 1
-        - schema:
             type: string
-            enum:
-              - au
-              - ca
-              - de
-              - es
-              - fr
-              - in
-              - it
-              - jp
-              - us
-              - uk
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
             default: us
-          in: query
-          name: region
-          description: Region code
       responses:
         '200':
-          description: OK
+          description: The response contains up to 10 books that match `q`.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 10
+                items:
+                  $ref: '#/components/schemas/Book'
+        '400':
+          description: |
+            The API returns 400 when `q` is missing, blank, or not a string.
+            The API also returns 400 for an unsupported `region`.
+            An unsupported `region` returns `Unknown region: <value>`.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  message:
+                    type: string
+                required:
+                  - error
+                  - message
+              example:
+                error: Bad Request
+                message: q is required
+        '500':
+          description: The upstream service returned an error.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FastifyErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+  '/books/{ASIN}':
+    get:
+      summary: The API returns a book.
+      description: The endpoint returns one book.
+      operationId: getBookById
+      parameters:
+        - name: name
+          in: query
+          description: This value can contain an author name.
+          required: false
+          schema:
+            type: string
+            minLength: 2
+        - name: update
+          in: query
+          description: The value `1` requests an upstream data refresh.
+          required: false
+          schema:
+            type: string
+            enum: ['0', '1']
+        - name: region
+          in: query
+          description: This value selects the Audible catalog region.
+          required: false
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
+            default: us
+      responses:
+        '200':
+          description: The response contains one book.
           content:
             application/json:
               schema:
@@ -321,102 +365,58 @@ paths:
                     runtimeLengthMin: 970
                     summary: "<p><b><i>Winner of the 2022 Audie Awards' Audiobook of the Year</i></b></p> <p><b><i>Number-One Audible and </i></b><b>New York Times</b><b><i> Audio Best Seller</i></b></p> <p><b><i>More than one million audiobooks sold</i></b></p> <p><b>A lone astronaut must save the earth from disaster in this incredible new science-based thriller from the number-one </b><b><i>New York Times</i></b><b> best-selling author of </b><b><i>The Martian</i></b><b>.</b></p> <p>Ryland Grace is the sole survivor on a desperate, last-chance mission - and if he fails, humanity and the Earth itself will perish.</p> <p>Except that right now, he doesn't know that. He can't even remember his own name, let alone the nature of his assignment or how to complete it.</p> <p>All he knows is that he's been asleep for a very, very long time. And he's just been awakened to find himself millions of miles from home, with nothing but two corpses for company.</p> <p>His crewmates dead, his memories fuzzily returning, he realizes that an impossible task now confronts him. Alone on this tiny ship that's been cobbled together by every government and space agency on the planet and hurled into the depths of space, it's up to him to conquer an extinction-level threat to our species.</p> <p>And thanks to an unexpected ally, he just might have a chance.</p> <p>Part scientific mystery, part dazzling interstellar journey, <i>Project Hail Mary</i> is a tale of discovery, speculation, and survival to rival <i>The Martian</i> - while taking us to places it never dreamed of going.</p> <p>PLEASE NOTE: To accommodate this audio edition, some changes to the original text have been made with the approval of author Andy Weir.</p>"
                     title: Project Hail Mary
-            application/xml:
-              schema:
-                $ref: '#/components/schemas/Book'
         '400':
-          description: Invalid ID supplied
+          description: The ASIN or query values are invalid.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Book not found
+          description: The book does not exist.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
           description: |
-            History mode only: an unresolved identity conflict for this
-            asin+region (duplicate exact-region rows, or an exact-region row
-            alongside a region-less or unsupported-region row) blocks a
-            forced `update=1` refresh. A stored book is served normally
-            without a forced update; legacy mode returns 200 with the stale
-            data instead.
+            History mode returns 409 when an unresolved identity conflict exists for the requested `ASIN` and `region`.
+            Duplicate rows for the exact region cause this conflict.
+            A row for the exact region and a row without a region or with an unsupported region also cause this conflict.
+            The conflict blocks a forced `update=1` refresh.
+            The API serves a stored book without a forced update.
+            Legacy mode returns 200 with the stale data.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-              example:
-                statusCode: 409
-                error: Conflict
-                message: Book history identity conflict for B000000000
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
       tags:
         - Books
     delete:
-      summary: Deletes a book
+      summary: The API deletes a book.
       operationId: deleteBook
       parameters:
-        - name: ASIN
-          in: path
-          description: Book id to delete
-          required: true
-          style: simple
-          explode: false
+        - name: name
+          in: query
+          description: This value can contain an author name.
+          required: false
           schema:
             type: string
-        - schema:
-            type: string
-            enum:
-              - au
-              - ca
-              - de
-              - es
-              - fr
-              - in
-              - it
-              - jp
-              - us
-              - uk
-            default: us
+            minLength: 2
+        - name: region
           in: query
-          name: region
-          description: Region code
+          description: This value selects the Audible catalog region.
+          required: false
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
+            default: us
       responses:
         '200':
-          description: OK
+          description: The request succeeded.
           content:
             application/json:
               schema:
@@ -425,64 +425,36 @@ paths:
                   message:
                     type: string
         '400':
-          description: Invalid ID supplied
+          description: The ASIN or query values are invalid.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-              examples: {}
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: |
-            Book not found. In history mode this also covers the concurrent
-            delete race: a book removed by a concurrent delete (or already
-            absent) is not deleted again by this request.
+            The book does not exist.
+            In history mode, a concurrent delete can remove the book before this request.
+            The API does not delete a book that is already absent.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
-              examples: {}
+                $ref: '#/components/schemas/FastifyErrorResponse'
         '409':
           description: |
-            History mode only: an unresolved identity conflict for this
-            asin+region (duplicate exact-region rows, or an exact-region row
-            alongside a region-less or unsupported-region row) blocks the
-            delete. Legacy mode deletes the found row and returns 200
-            instead.
+            History mode returns 409 when an unresolved identity conflict exists for the requested `ASIN` and `region`.
+            Duplicate rows for the exact region cause this conflict.
+            A row for the exact region and a row without a region or with an unsupported region also cause this conflict.
+            The conflict blocks the delete.
+            Legacy mode deletes the found row and returns 200.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-              example:
-                statusCode: 409
-                error: Conflict
-                message: Book history identity conflict for B000000000
-      description: Deletes a single book
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
+      description: The API deletes one book.
       tags:
         - Books
     parameters:
@@ -491,26 +463,30 @@ paths:
         name: ASIN
         in: path
         required: true
-        description: Audible.com ID
+        description: This value identifies the book by its Audible ASIN.
   '/books/{ASIN}/artwork':
     get:
-      summary: Book artwork gallery
+      summary: The API returns artwork for a book.
       description: |
-        Returns the retained artwork gallery for one exact asin+region pair,
-        newest immutable sequence first. Parsed (Amazon image ID) and unparsed
-        references are both listed; unparsed entries carry a null imageId.
-        Live-observed references report the URL verbatim, and unparsed
-        live-observed entries expose their exact URL through their rendition
-        entries. Imported legacy references report the server-side stored URL
-        and import time via `legacy` with an empty `renditions` array — their
-        URL is not exposed through rendition entries.
+        The endpoint returns retained artwork for one exact `ASIN` and `region` pair.
+        Items appear newest first by immutable sequence.
+        The response lists parsed and unparsed references.
+        An unparsed reference has a null `imageId`.
+        Live references return their URLs as received.
+        A live unparsed reference returns its exact URL in a `renditions` entry.
 
-        Read-only: served from retained data, and may answer even when the
-        current book is deleted. 200 for a pending (no state yet) trusted
-        current book, returning empty items; 409 for an unresolved identity
-        conflict only while no established history state exists (an
-        established retained state always wins and reads 200); 404 for a
-        wholly unknown resource; 400 for invalid path/query input.
+        A legacy reference returns the server-stored URL and import time in `legacy`.
+        A legacy reference has an empty `renditions` array.
+        The API does not expose a legacy URL through a rendition entry.
+
+        The endpoint reads retained data.
+        It can return data after the current book is deleted.
+        A pending trusted current book returns 200 with an empty `items` array.
+        An unresolved identity conflict returns 409 only when no established history state exists.
+        An established state takes precedence and returns 200.
+
+        An unknown resource returns 404.
+        Invalid path or query input returns 400.
       operationId: getBookArtwork
       tags:
         - Books
@@ -518,12 +494,13 @@ paths:
         - name: ASIN
           in: path
           required: true
+          description: This value identifies the book by its Audible ASIN.
           schema:
             type: string
         - name: region
           in: query
           required: false
-          description: Region code
+          description: This value selects the Audible catalog region.
           schema:
             type: string
             enum: [au, ca, de, es, fr, in, it, jp, us, uk]
@@ -531,24 +508,25 @@ paths:
         - name: limit
           in: query
           required: false
+          description: This value sets the page size.
           schema:
             type: string
             pattern: '^\d{1,3}$'
-            description: Page size, 1-100 (declared as a decimal digit string)
+            description: The page size ranges from 1 to 100. The API reads this value as a decimal digit string.
             default: '50'
         - name: cursor
           in: query
           required: false
+          description: |
+            This opaque keyset cursor continues a previous page.
+            The cursor applies to the exact `ASIN` and `region` pair that issued it.
+            A cursor for another pair returns 400.
           schema:
             type: string
             maxLength: 2048
-            description: |
-              Opaque keyset continuation cursor from a previous page. Bound
-              to the exact asin+region pair that issued it; reusing it for
-              any other pair returns 400 ("Cursor does not match").
       responses:
         '200':
-          description: Page of artwork (empty for a pending resource)
+          description: The response lists artwork. A pending resource has no items.
           content:
             application/json:
               schema:
@@ -562,6 +540,7 @@ paths:
                     $ref: '#/components/schemas/HistoryTracking'
                   items:
                     type: array
+                    maxItems: 100
                     items:
                       type: object
                       properties:
@@ -582,11 +561,11 @@ paths:
                             observedAt:
                               type: string
                               nullable: true
-                              description: Always null for legacy imports.
+                              description: The value is always null for legacy imports.
                             rendition:
                               type: string
                               nullable: true
-                              description: Always null for legacy imports.
+                              description: The value is always null for legacy imports.
                         renditions:
                           type: array
                           items:
@@ -608,19 +587,40 @@ paths:
                     type: string
                     nullable: true
         '400':
-          description: Invalid path/query input (bad ASIN, bad limit, invalid or oversized or cross-book cursor, bad region, or unexpected keys)
+          description: |
+            The request has an invalid ASIN, limit, region, or query key.
+            The cursor can be invalid, too long, or belong to another book.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: No established history state and no trusted current book for this asin+region
+          description: No retained history state or trusted current book exists for this `ASIN` and `region`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Unresolved identity conflict for this asin+region (only while no established history state exists)
+          description: |
+            An unresolved identity conflict exists for this `ASIN` and `region`.
+            This error applies only before the history state exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   '/books/{ASIN}/similar':
     get:
-      summary: Similar books
+      summary: The API returns similar books.
       description: |
-        Returns the upstream RawSimilarities ASINs for a book, deduplicated
-        and capped at 50. With `expand=books` the ASINs are bulk-expanded
-        into compact book summaries; an empty similar list short-circuits
-        the expansion and returns `books: []` without the bulk fetch.
+        The endpoint returns upstream `RawSimilarities` ASINs for a book.
+        It removes duplicate ASINs and returns no more than 50.
+        The `expand=books` option returns compact book summaries for those ASINs.
+        An empty similar list returns `books: []`.
+        The endpoint skips the bulk fetch for that response.
       operationId: getBookSimilar
       tags:
         - Books
@@ -628,12 +628,13 @@ paths:
         - name: ASIN
           in: path
           required: true
+          description: This value identifies the book by its Audible ASIN.
           schema:
             type: string
         - name: region
           in: query
           required: false
-          description: Region code
+          description: This value selects the Audible catalog region.
           schema:
             type: string
             enum: [au, ca, de, es, fr, in, it, jp, us, uk]
@@ -641,13 +642,13 @@ paths:
         - name: expand
           in: query
           required: false
-          description: Expand the similar ASINs into book summaries
+          description: The `books` value requests compact book summaries.
           schema:
             type: string
             enum: [books]
       responses:
         '200':
-          description: Similar ASINs (and summaries when expanded)
+          description: The response contains similar ASINs and optional book summaries.
           content:
             application/json:
               schema:
@@ -668,24 +669,36 @@ paths:
                     items:
                       $ref: '#/components/schemas/Book_summary'
         '400':
-          description: Invalid path/query input (bad ASIN, bad region, bad expand, or unexpected keys)
+          description: The request has an invalid ASIN, region, `expand` value, or query key.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   '/books/{ASIN}/history':
     get:
-      summary: Book history
+      summary: The API returns book history.
       description: |
-        Returns stored metadata/artwork history for one exact asin+region
-        pair, newest revision first. Each item is a revision identity with
-        its changed-field names; use the detail endpoint for a revision's
-        full stored delta. The optional `field` filter narrows to revisions
-        that changed that field. Read-only, served from retained data and
-        may answer even when the current book is deleted. 200 for an
-        established (retained) resource and for a pending trusted current
-        book (empty items, pending tracking); 409 for an unresolved identity
-        conflict only while no established history state exists (an
-        established retained state always wins and reads 200); 404 for a
-        wholly unknown resource. An invalid cursor on an established
-        resource is 400; on an unknown resource the existence check runs
-        first and is 404.
+        The endpoint returns stored metadata and artwork history for one exact `ASIN` and `region` pair.
+        The endpoint sorts revisions from newest to oldest.
+        Each item identifies a revision and lists its changed fields.
+        The detail endpoint returns the full stored delta for a revision.
+        The optional `field` parameter limits results to revisions that changed that field.
+
+        The endpoint reads retained data.
+        It can return data after the current book is deleted.
+        An established resource returns 200.
+        A pending trusted current book returns 200 with empty items and pending tracking.
+
+        An unresolved identity conflict returns 409 only when no established history state exists.
+        An established retained state takes precedence and returns 200.
+        An unknown resource returns 404.
+
+        An invalid cursor on an established resource returns 400.
+        An unknown resource returns 404 before the endpoint validates the cursor.
       operationId: getBookHistory
       tags:
         - Books
@@ -693,12 +706,13 @@ paths:
         - name: ASIN
           in: path
           required: true
+          description: This value identifies the book by its Audible ASIN.
           schema:
             type: string
         - name: region
           in: query
           required: false
-          description: Region code
+          description: This value selects the Audible catalog region.
           schema:
             type: string
             enum: [au, ca, de, es, fr, in, it, jp, us, uk]
@@ -706,25 +720,27 @@ paths:
         - name: limit
           in: query
           required: false
+          description: This value sets the number of revisions on one page.
           schema:
             type: string
             pattern: '^\d{1,3}$'
-            description: Page size, 1-100 (declared as a decimal digit string)
+            description: The page size ranges from 1 to 100. The API reads this value as a decimal digit string.
             default: '50'
         - name: cursor
           in: query
           required: false
+          description: |
+            This opaque keyset cursor continues a previous page.
+            The cursor applies to the exact `ASIN` and `region` pair that issued it.
+            It also applies to the `field` filter, when present.
+            A cursor for another pair or filter returns 400.
           schema:
             type: string
             maxLength: 2048
-            description: |
-              Opaque keyset continuation cursor from a previous page. Bound
-              to the exact asin+region pair (and `field` filter, if any)
-              that issued it; reusing it for a different pair or filter
-              returns 400 ("Cursor does not match").
         - name: field
           in: query
           required: false
+          description: The `field` value selects revisions that changed that field.
           schema:
             type: string
             enum:
@@ -750,7 +766,7 @@ paths:
               - artwork
       responses:
         '200':
-          description: Page of history revisions (empty for a pending resource)
+          description: The response lists history revisions. A pending resource has no items.
           content:
             application/json:
               schema:
@@ -764,6 +780,7 @@ paths:
                     $ref: '#/components/schemas/HistoryTracking'
                   items:
                     type: array
+                    maxItems: 100
                     items:
                       type: object
                       properties:
@@ -780,20 +797,39 @@ paths:
                     type: string
                     nullable: true
         '400':
-          description: Invalid path/query input (bad ASIN, bad limit, invalid or oversized or cross-book cursor, bad region, bad field, or unexpected keys)
+          description: |
+            The request has an invalid ASIN, limit, region, `field` value, or query key.
+            The cursor can be invalid, too long, or belong to another book or filter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: No established history state and no trusted current book for this asin+region
+          description: No history state or trusted current book exists for this `ASIN` and `region`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Unresolved identity conflict for this asin+region (only while no established history state exists)
+          description: |
+            An unresolved identity conflict exists for this `ASIN` and `region`.
+            This error applies only before the history state exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   '/books/{ASIN}/history/{revision}':
     get:
-      summary: Book history revision detail
+      summary: The API returns a history revision.
       description: |
-        Returns the complete stored delta for one revision of an exact
-        asin+region pair. The revision number is exact (no 0, no leading
-        zeros, safe integer bound). An unknown, cross-book, cross-region, or
-        not-yet-existing revision is always 404, even for a pending
-        resource.
+        The endpoint returns the full stored delta for one revision of an exact `ASIN` and `region` pair.
+        The revision must be a positive safe integer without leading zeros.
+        An unknown, cross-book, cross-region, or not-yet-existing revision returns 404.
+        This rule also applies to a pending resource.
       operationId: getBookHistoryRevision
       tags:
         - Books
@@ -801,25 +837,27 @@ paths:
         - name: ASIN
           in: path
           required: true
+          description: This value identifies the book by its Audible ASIN.
           schema:
             type: string
         - name: revision
           in: path
           required: true
+          description: The revision must be a positive safe integer without leading zeros.
           schema:
             type: string
             pattern: '^[1-9][0-9]*$'
         - name: region
           in: query
           required: false
-          description: Region code
+          description: This value selects the Audible catalog region.
           schema:
             type: string
             enum: [au, ca, de, es, fr, in, it, jp, us, uk]
             default: us
       responses:
         '200':
-          description: The stored revision delta
+          description: The response contains the stored revision delta.
           content:
             application/json:
               schema:
@@ -852,35 +890,52 @@ paths:
                   changes:
                     type: object
                     description: |
-                      Editorial name keys each map to a before/after value
-                      envelope. An optional `artwork` key maps to the ordered
-                      rendition transitions, each entry carrying `rendition`,
-                      `before`, and `after`, both objects of `imageId` +
-                      `sourceUrl`. A first observation initializes baselines
-                      silently and produces no revision entry, so every
-                      recorded artwork transition has a non-null `before`.
+                      Editorial field keys map to objects with `before` and `after` values.
+                      The optional `artwork` key maps to ordered rendition transitions.
+                      Each transition includes `rendition`, `before`, and `after`.
+                      The `before` and `after` objects contain `imageId` and `sourceUrl`.
+                      The first observation initializes baselines without a revision entry.
+                      Every recorded artwork transition has a non-null `before` value.
                     additionalProperties: true
         '400':
-          description: Invalid path/query input (bad ASIN, revision format, bad region, or unexpected query keys)
+          description: The ASIN, revision, region, or query values are invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: No such revision for this book/region
+          description: The revision does not exist for this book and region.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   '/books/backfill-ratings':
     post:
-      summary: Backfill ratings
+      summary: The API starts a ratings backfill.
       description: |
-        Re-fetches every stored book that is missing the `ratings` field and
-        persists the rating counts and star distributions. Admin-only; disabled
-        unless the `UPDATE_STATS` environment flag is enabled.
+        The endpoint selects stored books that lack `ratings`, are not marked `ratingsBackfillSkip`, and do not have `rating` set to `0.0` or `0`.
+        It persists rating counts and star distributions.
+        The endpoint requires an admin token.
+        The endpoint runs only when `UPDATE_STATS` is `1`.
 
-        The backfill runs in the background: the endpoint returns `202`
-        immediately and the final summary (total / updated / skipped / failed)
-        is logged, not returned. Pre-order books (releaseDate in the future)
-        are reported as `skipped` — their refreshed data is not persisted
-        while pre-release, so they cannot be counted as updated. Only one
-        backfill can be queued or running at a time (queue-wide, durable
-        across API restarts); concurrent requests normally receive `409`,
-        though a racing request that is deduped on the job id before the
-        running check observes it receives `202` with the same job id.
+        The endpoint returns `202` at once.
+        It runs the backfill in the background.
+        The final summary lists total, updated, skipped, and failed counts.
+        The endpoint logs the summary and does not return it.
+
+        Pre-order books have a future `releaseDate`.
+        The backfill reports those books as `skipped`.
+        The backfill does not persist refreshed data before release.
+        A pre-order book cannot count as updated.
+
+        One backfill runs or waits in the queue at a time.
+        The queue-wide limit persists across API restarts.
+        A concurrent request normally returns `409`.
+        A request that reaches job-ID deduplication before the in-progress check returns `202` with the same job ID.
       operationId: backfillRatings
       tags:
         - Books
@@ -888,14 +943,16 @@ paths:
         - name: x-admin-token
           in: header
           description: |
-            Admin token used to authorize the backfill. Set via the `ADMIN_TOKEN`
-            environment variable.
+            This header carries the admin token.
+            The `ADMIN_TOKEN` environment variable sets this token.
           required: true
           schema:
             type: string
       responses:
         '202':
-          description: Backfill started and running in the background
+          description: |
+            The endpoint returns `202` at once.
+            The endpoint runs the backfill in the background.
           content:
             application/json:
               schema:
@@ -905,12 +962,12 @@ paths:
                     type: string
                   id:
                     type: string
-                    description: BullMQ job id of the queued backfill
+                    description: This value is the BullMQ job ID for the queued backfill.
                 example:
                   message: Ratings backfill started
                   id: backfill-ratings
         '401':
-          description: Missing or invalid admin token
+          description: The admin token is missing or invalid.
           content:
             application/json:
               schema:
@@ -924,7 +981,7 @@ paths:
                 error: Unauthorized
                 message: Invalid admin token
         '409':
-          description: A backfill is already queued or running
+          description: A backfill is already queued or in progress.
           content:
             application/json:
               schema:
@@ -938,7 +995,7 @@ paths:
                 error: Conflict
                 message: Backfill already in progress
         '404':
-          description: Backfill endpoint disabled
+          description: The backfill endpoint is disabled.
           content:
             application/json:
               schema:
@@ -953,10 +1010,10 @@ paths:
                 message: Route not available
         '503':
           description: |
-            Redis is missing or not ready, so the backfill cannot be queued.
-            A Redis that is ready but erroring surfaces as 500 instead; and
-            a 503 from a queue-add deadline does not prove nothing was
-            queued, so a later 409 may follow a 503.
+            Redis is missing or not ready, so the endpoint cannot queue the backfill.
+            When Redis is ready but returns an error, the endpoint returns 500.
+            A 503 from a queue-add deadline does not prove that the job was not queued.
+            A later request can return 409.
           content:
             application/json:
               schema:
@@ -969,48 +1026,41 @@ paths:
               example:
                 error: Service Unavailable
                 message: Backfill requires a ready Redis connection
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
   '/books/{ASIN}/chapters':
     get:
-      summary: Find chapters by ASIN
-      description: Returns a single book's chapters
-      operationId: getChapterById
+      summary: The API returns chapters for a book.
+      description: The endpoint returns chapters for the requested `ASIN`.
+      operationId: getBookChapters
       parameters:
-        - name: ASIN
-          in: path
-          description: ID of book to return
-          required: true
-          style: simple
-          explode: false
+        - name: name
+          in: query
+          description: This value can contain an author name.
+          required: false
           schema:
             type: string
-        - schema:
-            type: number
-            enum:
-              - 0
-              - 1
+            minLength: 2
+        - name: update
           in: query
-          name: update
-          description: Have server check for updated data upstream
-        - schema:
+          description: The value `1` requests an upstream data refresh.
+          required: false
+          schema:
             type: string
-            enum:
-              - au
-              - ca
-              - de
-              - es
-              - fr
-              - in
-              - it
-              - jp
-              - us
-              - uk
-            default: us
+            enum: ['0', '1']
+        - name: region
           in: query
-          name: region
-          description: Region code
+          description: This value selects the Audible catalog region.
+          required: false
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
+            default: us
       responses:
         '200':
-          description: OK
+          description: The request succeeded.
           content:
             application/json:
               schema:
@@ -1158,53 +1208,47 @@ paths:
                     region: us
                     runtimeLengthMs: 58252995
                     runtimeLengthSec: 58253
-            application/xml:
-              schema:
-                $ref: '#/components/schemas/Chapter'
         '400':
-          description: Invalid ID supplied
+          description: The ASIN or query values are invalid.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Chapters not found
+          description: Chapter data does not exist for this ASIN.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
+                $ref: '#/components/schemas/FastifyErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
       tags:
         - Chapters
     delete:
-      summary: Delete chapters by ASIN
-      operationId: delete-books-ASIN-chapters
+      summary: The API deletes chapter data.
+      operationId: deleteBookChapters
+      description: The endpoint deletes chapter data for the requested `ASIN`.
+      parameters:
+        - name: name
+          in: query
+          description: This value can contain an author name.
+          required: false
+          schema:
+            type: string
+            minLength: 2
+        - name: region
+          in: query
+          description: This value selects the Audible catalog region.
+          required: false
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
+            default: us
       responses:
         '200':
-          description: OK
+          description: The request succeeded.
           content:
             application/json:
               schema:
@@ -1213,60 +1257,21 @@ paths:
                   message:
                     type: string
         '400':
-          description: Bad Request
+          description: The ASIN or query values are invalid.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Not Found
+          description: Chapter data does not exist for this ASIN.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
-      description: Deletes a single book's chapters
-      parameters:
-        - schema:
-            type: string
-            enum:
-              - au
-              - ca
-              - de
-              - es
-              - fr
-              - in
-              - it
-              - jp
-              - us
-              - uk
-            default: us
-          in: query
-          name: region
-          description: Region code
+                $ref: '#/components/schemas/FastifyErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
       tags:
         - Chapters
     parameters:
@@ -1275,114 +1280,88 @@ paths:
         name: ASIN
         in: path
         required: true
-        description: Audible.com ID
+        description: This value identifies the book by its Audible ASIN.
   /authors:
     get:
-      summary: Find authors by name
-      description: 'Returns a list of authors, based on search query provided'
-      operationId: searchAuthorByName
+      summary: The API searches authors by name.
+      description: The endpoint returns up to 25 authors that match `name`.
+      operationId: searchAuthorsByName
       parameters:
         - name: name
           in: query
-          description: Name to search with
+          description: The author name to search for.
           required: true
-          explode: false
           schema:
             type: string
-        - schema:
-            type: string
-            enum:
-              - au
-              - ca
-              - de
-              - es
-              - fr
-              - in
-              - it
-              - jp
-              - us
-              - uk
-            default: us
-          in: query
-          name: region
-          description: Region code
+            minLength: 2
       responses:
         '200':
-          description: OK
+          description: The response contains up to 25 authors that match `name`.
           content:
             application/json:
               schema:
                 type: array
+                maxItems: 25
                 items:
-                  $ref: '#/components/schemas/Author'
-            application/xml:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Author'
+                  type: object
+                  properties:
+                    asin:
+                      type: string
+                    name:
+                      type: string
+                  required:
+                    - asin
+                    - name
         '400':
-          description: No search params provided
+          description: The `name` parameter must contain at least two characters.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
       tags:
         - Authors
         - Search
   '/authors/{ASIN}':
     get:
-      summary: Find author by ID
-      description: Returns a single author
+      summary: The API returns an author.
+      description: The endpoint returns one author for the requested `ASIN`.
       operationId: getAuthorById
       parameters:
         - name: ASIN
           in: path
-          description: ID of author to return
+          description: This value identifies the author by its Audible ASIN.
           required: true
-          style: simple
-          explode: false
           schema:
             type: string
-        - schema:
-            type: string
-            enum:
-              - '0'
-              - '1'
+        - name: name
           in: query
-          description: Have server check for updated data upstream
-          name: update
-        - schema:
+          description: This value can contain an author name.
+          required: false
+          schema:
             type: string
-            enum:
-              - au
-              - ca
-              - de
-              - es
-              - fr
-              - in
-              - it
-              - jp
-              - us
-              - uk
+            minLength: 2
+        - name: update
+          in: query
+          description: The value `1` requests an upstream data refresh.
+          required: false
+          schema:
+            type: string
+            enum: ['0', '1']
+        - name: region
+          in: query
+          description: This value selects the Audible catalog region.
+          required: false
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
             default: us
-          in: query
-          name: region
-          description: Region code
       responses:
         '200':
-          description: OK
+          description: The request succeeded.
           content:
             application/json:
               schema:
@@ -1422,79 +1401,60 @@ paths:
                         name: Frank Herbert
                       - asin: B00EDBZVNI
                         name: Pierce Brown
-            application/xml:
-              schema:
-                $ref: '#/components/schemas/Author'
         '400':
-          description: Invalid ID supplied
+          description: The ASIN or query values are invalid.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Author not found
+          description: The author does not exist.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
       tags:
         - Authors
     delete:
-      summary: Deletes a author
+      summary: The API deletes an author.
       operationId: deleteAuthor
+      description: The endpoint deletes the author identified by `ASIN`.
       parameters:
         - name: ASIN
           in: path
-          description: Author id to delete
+          description: This value identifies the author by its Audible ASIN.
           required: true
-          style: simple
-          explode: false
           schema:
             type: string
-        - schema:
-            type: string
-            enum:
-              - au
-              - ca
-              - de
-              - es
-              - fr
-              - in
-              - it
-              - jp
-              - us
-              - uk
-            default: us
+        - name: name
           in: query
-          name: region
-          description: Region code
+          description: This value can contain an author name.
+          required: false
+          schema:
+            type: string
+            minLength: 2
+        - name: update
+          in: query
+          description: The `update` value can be `0` or `1`.
+          required: false
+          schema:
+            type: string
+            enum: ['0', '1']
+        - name: region
+          in: query
+          description: This value selects the Audible catalog region.
+          required: false
+          schema:
+            type: string
+            enum: [au, ca, de, es, fr, in, it, jp, us, uk]
+            default: us
       responses:
         '200':
-          description: OK
+          description: The request succeeded.
           content:
             application/json:
               schema:
@@ -1503,94 +1463,112 @@ paths:
                   message:
                     type: string
         '400':
-          description: Invalid ID supplied
+          description: The ASIN or query values are invalid.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Author not found
+          description: The author does not exist.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  statusCode:
-                    type: integer
-                  error:
-                    type: string
-                  message:
-                    type: string
-                x-examples:
-                  example-1:
-                    statusCode: 400
-                    error: Bad Request
-                    message: Bad ASIN
-      description: Deletes a single author
+                $ref: '#/components/schemas/FastifyErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '429':
+          $ref: '#/components/responses/RateLimitExceeded'
       tags:
         - Authors
-    parameters:
-      - schema:
-          type: string
-        name: ASIN
-        in: path
-        required: true
-        description: Audible.com ID
-      - schema:
-          type: string
-          enum:
-            - au
-            - ca
-            - de
-            - es
-            - fr
-            - in
-            - it
-            - jp
-            - us
-            - uk
-          default: us
-        in: query
-        name: region
-        description: Region code
 components:
+  responses:
+    RateLimitExceeded:
+      description: The request exceeded its rate limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: RATE_LIMIT_EXCEEDED
+              message: Rate limit reached. Please try again later.
+              details: null
+    InternalServerError:
+      description: The server returned an untyped error.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/FastifyErrorResponse'
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
       in: header
       name: x-metrics-token
       description: |
-        Authentication token for metrics endpoint. Set via `METRICS_AUTH_TOKEN` environment variable.
-        Note: This is optional if `METRICS_ALLOWED_IPS` is configured for IP-based access.
+        The client sends the metrics token in `x-metrics-token`.
+        The `METRICS_AUTH_TOKEN` environment variable sets this token.
     ipAuth:
       type: apiKey
       in: header
       name: x-forwarded-for
       description: |
-        IP-based access control. Client IP is extracted from `x-forwarded-for` header or direct connection.
-        Set via `METRICS_ALLOWED_IPS` environment variable (comma-separated list, supports CIDR notation).
-        Note: This is optional if `METRICS_AUTH_TOKEN` is configured for token-based access.
+        The server allows client IP addresses listed in `METRICS_ALLOWED_IPS`.
+        The server trusts `x-forwarded-for` only when the request comes from a trusted proxy.
+        The allow-list accepts comma-separated IP addresses and CIDR ranges.
+        The server can use this allow-list instead of `METRICS_AUTH_TOKEN`.
   schemas:
+    ErrorResponse:
+      type: object
+      description: The API uses this envelope for typed errors.
+      properties:
+        error:
+          type: object
+          description: This object contains the typed error details.
+          properties:
+            code:
+              type: string
+              description: This value identifies the error.
+            message:
+              type: string
+              description: This value describes the error.
+            details:
+              type: object
+              nullable: true
+              description: This value contains an error details object or null.
+              additionalProperties: true
+          required:
+            - code
+            - message
+      required:
+        - error
+    FastifyErrorResponse:
+      type: object
+      description: Fastify returns this body for untyped errors.
+      properties:
+        statusCode:
+          type: integer
+          description: This value gives the HTTP status code.
+        error:
+          type: string
+          description: This value names the HTTP error.
+        message:
+          type: string
+          description: This value describes the error.
+      required:
+        - statusCode
+        - error
+        - message
     HistoryTracking:
       type: object
       description: |
-        Baseline coverage for a history resource. `pending` means no
-        comparable baseline is initialized yet (includes resources whose
-        state has not been established); `active` means at least one
-        field or rendition baseline exists. Absence of a rendition key in
-        `artwork` means unknown coverage, not deleted artwork.
+        HistoryTracking describes baseline coverage for one history resource.
+        `pending` means that no comparable baseline exists.
+        The resource can have no established state.
+        `active` means that at least one field or rendition baseline exists.
+
+        The `artwork` object lists initialized rendition baselines.
+        An absent rendition key means that coverage is unknown.
+        An absent key does not mean that artwork was deleted.
       properties:
         status:
           type: string
@@ -1615,7 +1593,7 @@ components:
                 nullable: true
         artwork:
           type: object
-          description: Initialized comparable renditions only, keyed by rendition.
+          description: Each key names a rendition with an initialized comparable baseline.
           additionalProperties:
             type: object
             properties:
@@ -1659,21 +1637,14 @@ components:
           default: us
         similar:
           type: array
-          x-stoplight:
-            id: lz8j0b6ux1bbl
           items:
             $ref: '#/components/schemas/Person'
       required:
         - asin
-        - description
         - name
         - region
-      description: ''
-      title: ''
     Book:
       type: object
-      xml:
-        name: Book
       properties:
         asin:
           type: string
@@ -1701,11 +1672,8 @@ components:
         language:
           type: string
         literatureType:
-          x-stoplight:
-            id: wotxyc7icmziz
           oneOf:
-            - x-stoplight:
-                id: nwzs4od1hbfse
+            - type: string
               enum:
                 - fiction
                 - nonfiction
@@ -1719,7 +1687,7 @@ components:
           type: string
         ratings:
           type: object
-          description: Rating counts and star distribution from Audible
+          description: Audible provides rating counts and star distributions.
           properties:
             value:
               type: string
@@ -1735,7 +1703,7 @@ components:
               $ref: '#/components/schemas/RatingDistribution'
             goodreads:
               type: object
-              description: Goodreads rating (US catalog only)
+              description: Goodreads ratings appear only in the US catalog.
               properties:
                 value:
                   type: number
@@ -1787,6 +1755,7 @@ components:
         - authors
         - description
         - formatType
+        - isAdult
         - language
         - publisherName
         - region
@@ -1821,7 +1790,7 @@ components:
         - type
     Book_summary:
       type: object
-      description: Compact book projection for list/related views
+      description: The schema defines a compact book view for list and related-book responses.
       properties:
         asin:
           type: string
@@ -1907,12 +1876,8 @@ components:
           type: string
         type:
           type: string
-      xml:
-        name: Genre
     Person:
       type: object
-      xml:
-        name: Person
       properties:
         asin:
           type: string
@@ -1922,7 +1887,7 @@ components:
         - name
     RatingDistribution:
       type: object
-      description: Star distribution counts
+      description: This schema contains counts for each star rating.
       properties:
         five:
           type: number
@@ -1950,14 +1915,6 @@ components:
         name:
           type: string
         position:
-          type: string
-      xml:
-        name: Series
-    Author_links:
-      properties:
-        link:
-          type: string
-        type:
           type: string
     Chapter_chapters:
       type: object
