@@ -13,7 +13,7 @@
 
 Audnexus does not curate metadata and returns provider data as-is. Audible and other providers have duplicates, misspellings, and inconsistent values, and delisted products can be hard to find. [AudiobookDB](https://audiobookdb.org) curates and corrects records, maintains the data, and applies standards to titles and credits. Start new projects there. Audnexus stays online for existing integrations.
 
-Audnexus is an HTTP API that combines audiobook metadata from Audible's API and product pages into consistent records. It is for self-hosters who need a metadata endpoint for a media server, and for developers building metadata-provider plugins. A client can retrieve the data it needs in one or two API calls. MongoDB stores records, and Redis can cache responses. Optional history records metadata and artwork changes as revisions.
+Audnexus is the legacy, self-hosted HTTP API for audiobook metadata. It combines Audible's API and product pages into consistent records for media servers and metadata-provider plugins. A client can retrieve what it needs in one or two API calls. MongoDB stores records, and Redis can cache responses. Optional history records metadata and artwork changes as revisions.
 
 ## About
 
@@ -21,7 +21,7 @@ _Nexus, noun: a connection or series of connections linking two or more things._
 
 When we looked for audiobook metadata, there was no single open source of truth. Some community-curated sources had closed their APIs. We built audnexus to bring audiobook content from multiple sources together in one response.
 
-That makes it easier to integrate with existing media servers. With one or two API calls, clients have little to no processing overhead, which helps developers build stable plugins quickly. We built audnexus as an interim provider and a future seeder for a community-driven database.
+That makes it easier to integrate with existing media servers. With one or two API calls, clients have little to no processing overhead, which helps developers build stable plugins quickly. We built audnexus as an interim provider and a future seeder for a community-driven database. AudiobookDB is where that curation happens now.
 
 ## Contents
 
