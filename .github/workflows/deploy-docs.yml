@@ -53,7 +53,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.4
+          bun-version: 1.4.5
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -136,7 +136,7 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.4.4
+          bun-version: 1.4.5
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -214,7 +214,7 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         if: steps.freshness.outputs.allowed == 'true'
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.0
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
       # If main advanced while this run built/deployed, trigger a fresh
       # current-main reconciliation run (fire-and-forget; the dispatched run
