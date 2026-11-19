@@ -172,7 +172,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version: stable
 
@@ -213,7 +213,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: '1.4.4'
+          bun-version: '1.4.5'
 
       - run: bun install --frozen-lockfile
 
@@ -230,7 +230,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: '1.4.4'
+          bun-version: '1.4.5'
 
       - run: bun install --frozen-lockfile
 
@@ -247,7 +247,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: '1.4.4'
+          bun-version: '1.4.5'
 
       - run: bun install --frozen-lockfile
 
@@ -271,7 +271,7 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: '1.4.4'
+          bun-version: '1.4.5'
 
       - run: bun install --frozen-lockfile
 
@@ -301,7 +301,7 @@ jobs:
 
       - name: Log into GHCR
         if: ${{ github.event_name != 'pull_request' || env.PR_IS_SAME_REPO == 'true' }}
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
