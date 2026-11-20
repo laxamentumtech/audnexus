@@ -307,12 +307,22 @@ describe('Audible API Live Tests', () => {
 
 		it('should validate genre ASINs from different regions', async () => {
 			const warnings: string[] = []
-			const foundGenreAsins: string[] = []
-			const regionsToTest = ['us', 'uk', 'au', 'br']
-			const asin = 'B08G9PRS1K'
+			// Marketplaces list titles under their own ASINs, so each region is
+			// checked with an ASIN its catalog actually serves: Project Hail Mary
+			// for us/uk/au and Dom Casmurro for br (Hail Mary is not listed in
+			// the Brazilian catalog). Genre ASINs are tracked per region so a
+			// healthy region cannot mask another region returning no genre data.
+			const asinByRegion: Record<string, string> = {
+				us: 'B08G9PRS1K',
+				uk: 'B08GB2RLKM',
+				au: 'B08GB646KR',
+				br: 'B0BYLKCT85'
+			}
+			const foundGenreAsins: Record<string, string[]> = {}
 
-			for (const region of regionsToTest) {
-				const helper = new ApiHelper(asin, region)
+			for (const region of Object.keys(asinByRegion)) {
+				foundGenreAsins[region] = []
+				const helper = new ApiHelper(asinByRegion[region], region)
 				const fetched = await helper.fetchBook()
 
 				// Extract category_ladders and validate IDs
@@ -321,7 +331,7 @@ describe('Audible API Live Tests', () => {
 						if (ladder.ladder) {
 							for (const category of ladder.ladder) {
 								if (category.id) {
-									foundGenreAsins.push(category.id)
+									foundGenreAsins[region].push(category.id)
 									if (!/^\d{10,12}$/.test(category.id)) {
 										warnings.push(
 											`[AUDIBLE API CHANGE] Genre ASIN '${category.id}' in region '${region}' does not match expected pattern (10-12 digits)`
@@ -332,6 +342,7 @@ describe('Audible API Live Tests', () => {
 						}
 					}
 				}
+				console.log(`Found ${foundGenreAsins[region].length} genre ASINs in region '${region}'`)
 			}
 
 			// Log warnings if any genre ASINs don't match expected pattern
@@ -341,7 +352,10 @@ describe('Audible API Live Tests', () => {
 				}
 			}
 
-			expect(foundGenreAsins.length).toBeGreaterThan(0)
+			// Each region must contribute genre ASINs on its own
+			for (const region of Object.keys(asinByRegion)) {
+				expect(foundGenreAsins[region].length).toBeGreaterThan(0)
+			}
 		}, 30000)
 	})
 
