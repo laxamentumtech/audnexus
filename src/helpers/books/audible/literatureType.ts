@@ -172,6 +172,25 @@ const LITERATURE_TABLES: Record<string, RegionTable> = {
 			]
 		}
 	},
+	br: {
+		fictionRoots: [
+			'Erótica',
+			'Ficção Científica e Fantasia',
+			'Literatura e Ficção',
+			'Mistério, Intriga e Suspense',
+			'Romance'
+		],
+		mixedChildren: {
+			'Adolescentes e Jovens Adultos': ['Ficção Científica e Fantasia', 'Literatura e Ficção'],
+			'Audiolivros Infantis': [
+				'Contos de Fadas, Contos Folclóricos e Mitos',
+				'Ficção Científica e Fantasia',
+				'Literatura e Ficção'
+			],
+			'Comédia e Humor': ['Literatura e Ficção'],
+			LGBT: ['Literatura e Ficção', 'Mistério, Intriga e Suspense']
+		}
+	},
 	de: {
 		fictionRoots: [
 			'Erotik',
