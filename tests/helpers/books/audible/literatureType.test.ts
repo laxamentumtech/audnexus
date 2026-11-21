@@ -67,4 +67,49 @@ describe('literatureTypeFromProduct', () => {
 		const ladders: Ladders = [cat(['SF・ファンタジー', 'SF'])]
 		expect(literatureTypeFromProduct(ladders, [], 'jp')).toBe('fiction')
 	})
+
+	test('Brazilian region localization', () => {
+		const ladders: Ladders = [cat(['Literatura e Ficção', 'Gênero Ficção', 'Ficção Literária'])]
+		expect(literatureTypeFromProduct(ladders, [], 'br')).toBe('fiction')
+	})
+
+	test('Brazilian mystery root is fiction', () => {
+		const ladders: Ladders = [cat(['Mistério, Intriga e Suspense', 'Thriller e Suspenses'])]
+		expect(literatureTypeFromProduct(ladders, [], 'br')).toBe('fiction')
+	})
+
+	test('Brazilian children fiction via 2nd level', () => {
+		const ladders: Ladders = [cat(['Audiolivros Infantis', 'Ficção Científica e Fantasia'])]
+		expect(literatureTypeFromProduct(ladders, [], 'br')).toBe('fiction')
+	})
+
+	test('Brazilian teen fiction via 2nd level', () => {
+		const ladders: Ladders = [cat(['Adolescentes e Jovens Adultos', 'Literatura e Ficção'])]
+		expect(literatureTypeFromProduct(ladders, [], 'br')).toBe('fiction')
+	})
+
+	test('Brazilian comedy fiction child', () => {
+		const ladders: Ladders = [cat(['Comédia e Humor', 'Literatura e Ficção'])]
+		expect(literatureTypeFromProduct(ladders, [], 'br')).toBe('fiction')
+	})
+
+	test('Brazilian LGBT fiction child', () => {
+		const ladders: Ladders = [cat(['LGBT', 'Mistério, Intriga e Suspense'])]
+		expect(literatureTypeFromProduct(ladders, [], 'br')).toBe('fiction')
+	})
+
+	test('Brazilian children nonfiction stays nonfiction', () => {
+		const ladders: Ladders = [cat(['Audiolivros Infantis', 'Animais e Natureza'])]
+		expect(literatureTypeFromProduct(ladders, [], 'br')).toBe('nonfiction')
+	})
+
+	test('Brazilian nonfiction root stays nonfiction', () => {
+		const ladders: Ladders = [cat(['Biografias e Memórias', 'Históricas'])]
+		expect(literatureTypeFromProduct(ladders, [], 'br')).toBe('nonfiction')
+	})
+
+	test('Brazilian region does not fall back to US category names', () => {
+		const ladders: Ladders = [cat(['Science Fiction & Fantasy', 'Science Fiction'])]
+		expect(literatureTypeFromProduct(ladders, [], 'br')).toBe('nonfiction')
+	})
 })
