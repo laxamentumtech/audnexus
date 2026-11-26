@@ -143,7 +143,11 @@ docker node update --label-add audnexus-redis=true NODE
 
 With no labeled node, Redis stays pending. A second labeled node can cause a reschedule onto an empty volume and loss of queue and rate-limit state. Before moving the label, restore or migrate the existing volume to the new node.
 
-Before deploying, make two changes to [`docker-compose.yml`](docker-compose.yml) so Traefik discovers and serves the API route. The stack declares its routing labels on the API's Swarm `deploy` block, which Traefik's Docker provider reads only when it runs in Swarm mode: add `--providers.docker.swarmmode=true` to the Traefik service command. The defined `myresolver` ACME resolver is not assigned to anything as written: add `traefik.http.routers.node-server.tls.certresolver=myresolver` to the API's labels so HTTPS requests use it.
+Before deploying, make three changes to [`docker-compose.yml`](docker-compose.yml) so Traefik discovers and serves the API route.
+
+1. **Use the Swarm provider.** The stack pins Traefik v3.7.8, which removed `--providers.docker.swarmmode`. Replace `--providers.docker=true` and `--providers.docker.exposedbydefault=false` in the Traefik command with `--providers.swarm=true` and `--providers.swarm.exposedbydefault=false`. Run Traefik on a Swarm manager: its Docker socket must reach the Swarm API, and a worker's socket cannot see the stack's service labels. Add `node.role == manager` to the Traefik deployment constraints.
+2. **Point the network label at the overlay.** The API's `traefik.docker.network` label says `traefik-overlay`, but Swarm prefixes network names with the stack name. Change the label to `audnexus_traefik-overlay` (or your stack name plus `_traefik-overlay`) so Traefik routes to the network the API actually joins.
+3. **Assign the ACME resolver.** The `myresolver` ACME resolver is defined but not attached to any router. Add `traefik.http.routers.node-server.tls.certresolver=myresolver` to the API's labels so HTTPS requests use it.
 
 Set and export `AUDNEXUS_IMAGE`, `TRAEFIK_DOMAIN`, and `TRAEFIK_EMAIL` in the deployment shell. Use a fully qualified immutable release version tag or SHA-256 digest for `AUDNEXUS_IMAGE`. Never use `:latest`, `:develop`, an untagged repository, or a bare version such as `v1.15.0` for production. The Compose file requires a nonempty image reference but does not prove it is immutable.
 

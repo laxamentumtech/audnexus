@@ -107,7 +107,14 @@ class BookSimilarHelper {
 			// response must not appear in the result.
 			if (!raw || typeof raw !== 'object' || !('asin' in raw)) continue
 			const productAsin = raw.asin
-			if (typeof productAsin !== 'string' || !requestedSet.has(productAsin)) continue
+			if (typeof productAsin !== 'string') continue
+			// Parse the response ASIN before the requested-set check: the
+			// requested values are trimmed by `getSimilarAsins`, so a
+			// product returning its ASIN with surrounding whitespace must
+			// still match — the raw string would miss the set and drop a
+			// valid related book.
+			const parsedAsin = AsinSchema.safeParse(productAsin)
+			if (!parsedAsin.success || !requestedSet.has(parsedAsin.data)) continue
 			const summary = this.productToSummary(raw)
 			if (summary) summaries.push(summary)
 		}

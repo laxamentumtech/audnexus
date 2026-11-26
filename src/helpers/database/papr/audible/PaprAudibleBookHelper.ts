@@ -203,34 +203,90 @@ export default class PaprAudibleBookHelper {
 			// uses the full effective write, so the short-circuit is
 			// unchanged.
 			const evidence = buildEvidenceOnlyWrite(this.bookData)
-			// Write the OBSERVED rating fields as dotted-path $set
-			// entries (`ratings.value`, `ratings.numRatings`, ...): the
-			// whole `ratings` object is never rewritten, so a concurrent
-			// Goodreads change is not clobbered and a concurrent addition
-			// is not erased when this read saw none. A legacy row that
-			// fails the full schema parse keeps its stored Goodreads for
-			// the same reason, replacing the merge-from-stored branch.
+			// Write the OBSERVED rating fields as a pipeline MERGE against
+			// the stored `ratings` object: a concurrent Goodreads change is
+			// not clobbered and a concurrent addition is not erased when
+			// this read saw none. A legacy row whose stored `ratings` is
+			// `null` or a scalar (a malformed parent a dotted-path `ratings.*`
+			// $set cannot address) is treated as empty, so the merge repairs
+			// it — the same outcome the old whole-object $set produced.
 			const incomingRatings = evidence.ratings as Record<string, unknown> | undefined
 			if (incomingRatings) {
 				delete evidence.ratings
+				const ratingsMerge: Record<string, unknown> = {}
 				for (const [field, value] of Object.entries(incomingRatings)) {
 					if (value === undefined) continue
-					evidence[`ratings.${field}`] = value
+					ratingsMerge[field] = value
 				}
+				// The papr model type omits the pipeline-update overload;
+				// the runtime model has it (UpdateScheduler.markChecked
+				// relies on the same).
+				const bookModel = BookModel as unknown as {
+					updateOne: (
+						filter: Record<string, unknown>,
+						update: Record<string, unknown> | Record<string, unknown>[],
+						options?: Record<string, unknown>
+					) => Promise<unknown>
+				}
+				// A single aggregation-pipeline update: the pipeline form
+				// (not a dotted path) tolerates a non-object `ratings`
+				// parent (`$cond` treats it as empty), and the merge keeps
+				// every stored sub-field the incoming ratings omit.
+				// The evidence values are plain catalog data, never
+				// aggregation expressions: a `$`-prefixed string (a title, a
+				// tag name) would be read as a field path by the pipeline,
+				// so every incoming value is stored as a literal.
+				const evidenceLiterals: Record<string, unknown> = {}
+				for (const [field, value] of Object.entries(evidence)) {
+					evidenceLiterals[field] = { $literal: value }
+				}
+				await bookModel.updateOne(
+					{
+						asin: this.asin,
+						$or: [{ region: { $exists: false } }, { region: this.options.region }]
+					},
+					[
+						{
+							$set: {
+								...evidenceLiterals,
+								ratings: {
+									$mergeObjects: [
+										{
+											$cond: [{ $eq: [{ $type: '$ratings' }, 'object'] }, '$ratings', {}]
+										},
+										ratingsMerge
+									]
+								},
+								createdAt: found.data._id.getTimestamp(),
+								// The driver computes the current timestamp:
+								// `$currentDate` is an update operator, not a
+								// pipeline stage, so the pipeline form $sets
+								// a literal date (the same approach
+								// BookHistoryStore uses for pipeline
+								// timestamp writes).
+								updatedAt: new Date()
+							}
+						},
+						// An accepted book write supersedes a backfill skip
+						// decision (e.g. upstream now reports a real book).
+						{ $unset: ['ratingsBackfillSkip'] }
+					]
+				)
+			} else {
+				await BookModel.updateOne(
+					{
+						asin: this.asin,
+						$or: [{ region: { $exists: false } }, { region: this.options.region }]
+					},
+					{
+						$set: { ...evidence, createdAt: found.data._id.getTimestamp() },
+						// An accepted book write supersedes a backfill skip
+						// decision (e.g. upstream now reports a real book).
+						$unset: { ratingsBackfillSkip: '' },
+						$currentDate: { updatedAt: true }
+					}
+				)
 			}
-			await BookModel.updateOne(
-				{
-					asin: this.asin,
-					$or: [{ region: { $exists: false } }, { region: this.options.region }]
-				},
-				{
-					$set: { ...evidence, createdAt: found.data._id.getTimestamp() },
-					// An accepted book write supersedes a backfill skip decision
-					// (e.g. upstream now reports a real book).
-					$unset: { ratingsBackfillSkip: '' },
-					$currentDate: { updatedAt: true }
-				}
-			)
 			// After updating, return with specific projection
 			const updatedBook = await this.findOneWithProjection()
 			// Set modified to true to indicate that the data has been updated

@@ -159,6 +159,11 @@ export default class BookBackfillHelper {
 				// (undefined prefetched), so failure classification is unchanged.
 				const prefetched = new Map<string, PrefetchedApiProduct>()
 				const reservedGenerations = new Map<string, number>()
+				// The snapshot generation that authorized each prefetched
+				// product: read from the pre-fetch snapshot (not the live
+				// map) so a later chunk's reservation cannot overwrite the
+				// generation that an earlier product was fetched under.
+				const prefetchedGenerations = new Map<string, number>()
 				// ASINs per upstream request (AUDIBLE_BATCH_SIZE) — distinct
 				// from the outer page-size `batchSize` (SCHEDULER_BATCH_SIZE
 				// rows per keyset page).
@@ -248,6 +253,21 @@ export default class BookBackfillHelper {
 							// batch chunks would otherwise fire back-to-back,
 							// bursting into upstream 503s exactly like the
 							// unjittered per-book walk did.
+							// Skip the batch request entirely when none of the
+							// chunk's keys were reserved before the fetch:
+							// every product the endpoint returns would be
+							// dropped by the reservation check below, and the
+							// per-book path (which reserves before its own
+							// fetch) carries the chunk with one request per
+							// book. A batch that reserved at least one key
+							// still runs — unreserved ASINs in the same
+							// chunk fall back per book.
+							if (historyEnabled && reservedBeforeFetch?.size === 0) {
+								this.logger.debug(
+									`[AUDIBLE BATCH] ${region}: no keys reserved before fetch; skipping batch for ${chunk.length} ASINs (per-book fallback)`
+								)
+								continue
+							}
 							await jitteredSleep()
 							await sleepCooldown()
 							try {
@@ -287,6 +307,18 @@ export default class BookBackfillHelper {
 									// authorize this batch's results.
 									if (!historyEnabled || reservedBeforeFetch?.has(key)) {
 										prefetched.set(key, product)
+										// Publish the product TOGETHER with the
+										// snapshot generation that authorized
+										// it: the live map can be overwritten by
+										// a later chunk's reservation for the
+										// same key, and dispatch must not accept
+										// this (earlier) product under a
+										// generation reserved after it was
+										// fetched.
+										const snapshotGeneration = reservedBeforeFetch?.get(key)
+										if (snapshotGeneration !== undefined) {
+											prefetchedGenerations.set(key, snapshotGeneration)
+										}
 									}
 								}
 							} catch (error) {
@@ -331,6 +363,7 @@ export default class BookBackfillHelper {
 
 				const { summary } = await processBatchByRegion(books, async (book) => {
 					const region = book.region ?? 'us'
+					const bookPrefetchedKey = `${region}:${book.asin}`
 					const helper = new BookShowHelper(
 						book.asin,
 						{ region, update: '1' },
@@ -342,7 +375,7 @@ export default class BookBackfillHelper {
 							// adds genres and would cost a 404/503 round trip
 							// per row.
 							skipHtml: true,
-							prefetched: prefetched.get(`${region}:${book.asin}`),
+							prefetched: prefetched.get(bookPrefetchedKey),
 							// Only a CONSUMED prefetched product may reuse the
 							// batch's pre-reserved generation: the reservation
 							// ordered the fence by the batch fetch's start. A
@@ -352,9 +385,13 @@ export default class BookBackfillHelper {
 							// `?? reserveGeneration` path) — forwarding the
 							// batch generation would mark a fallback write stale
 							// whenever a concurrent refresh accepted a newer
-							// generation, dropping its ratings.
-							reservedGeneration: prefetched.has(`${region}:${book.asin}`)
-								? reservedGenerations.get(`${region}:${book.asin}`)
+							// generation, dropping its ratings. The SNAPSHOT
+							// generation (not the live map) is the single source
+							// for both admission and dispatch: a reservation
+							// that completes after the snapshot must not
+							// re-authorize an already-fetched product.
+							reservedGeneration: prefetched.has(bookPrefetchedKey)
+								? prefetchedGenerations.get(bookPrefetchedKey)
 								: undefined
 						}
 					)
@@ -469,13 +506,24 @@ export default class BookBackfillHelper {
 							if (freshRatings) {
 								let modified: number
 								if (isBookHistoryEnabled() && helper.persistedGeneration !== undefined) {
-									const repair = await bookHistoryStore.persistRatingsRepair({
-										asin: book.asin,
-										region,
-										generation: helper.persistedGeneration,
-										bookId: book._id,
-										ratings: freshRatings
-									})
+									// The handler's deadline has already
+									// cleared: bound the repair with the
+									// same per-item budget so a slow
+									// transaction cannot commit in the
+									// background past the scheduler item
+									// timeout (in sequential mode the next
+									// book would wait for it).
+									const repair = await withDeadline(
+										bookHistoryStore.persistRatingsRepair({
+											asin: book.asin,
+											region,
+											generation: helper.persistedGeneration,
+											bookId: book._id,
+											ratings: freshRatings
+										}),
+										getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
+										`backfill ratings repair ${book.asin}`
+									)
 									if (repair.superseded) {
 										// A newer generation owns the fence:
 										// the books write was not attempted.
@@ -643,14 +691,22 @@ export default class BookBackfillHelper {
 							// generation accepted in between would let an older
 							// fetch's ratings land. The fence condition is part
 							// of the conditional update, so a superseded
-							// generation matches 0 and writes nothing.
-							const repair = await bookHistoryStore.persistRatingsRepair({
-								asin: book.asin,
-								region,
-								generation: helper.persistedGeneration,
-								bookId: book._id,
-								ratings
-							})
+							// generation matches 0 and writes nothing. The
+							// handler's deadline has already cleared, so bound
+							// the repair with the same per-item budget (a slow
+							// transaction must not commit in the background
+							// past the scheduler item timeout).
+							const repair = await withDeadline(
+								bookHistoryStore.persistRatingsRepair({
+									asin: book.asin,
+									region,
+									generation: helper.persistedGeneration,
+									bookId: book._id,
+									ratings
+								}),
+								getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
+								`backfill ratings repair ${book.asin}`
+							)
 							if (repair.superseded) {
 								// A newer generation accepted an equal
 								// projection in between the `rejected`

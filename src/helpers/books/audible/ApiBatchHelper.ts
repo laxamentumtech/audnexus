@@ -6,6 +6,7 @@ import {
 	buildProductQuery,
 	validateAsinList
 } from '#helpers/books/audible/apiParams'
+import { fetchWithTagsFallback } from '#helpers/books/audible/responseGroups'
 import fetch from '#helpers/utils/fetchPlus'
 import { regions } from '#static/regions'
 
@@ -74,7 +75,11 @@ export async function fetchProductsByAsin(
 		const url = `https://api.audible.${tld}/1.0/catalog/products?asins=${encodeURIComponent(
 			batch.join(',')
 		)}&${buildProductQuery(region)}`
-		const response = await fetch(url, { signal })
+		// The shared query requests `tags`; when upstream rejects that
+		// group with the known 400, retry the chunk once without it —
+		// the same one-shot fail-open the single-product path uses, so a
+		// rejected optional group does not disable batching for the page.
+		const response = await fetchWithTagsFallback((requestUrl) => fetch(requestUrl, { signal }), url)
 		const body = response.data as {
 			products?: unknown[]
 			response_groups?: unknown[]

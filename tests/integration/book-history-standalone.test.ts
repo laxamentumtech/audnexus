@@ -82,6 +82,9 @@ function observation(
 		imageId?: string | null
 		imageUrl?: string
 		tags?: Array<[string, string, string]>
+		/** Fields to record with `state: 'absent'` (an explicit empty
+		 * value, distinct from omitting the field entirely). */
+		absent?: string[]
 	} = {}
 ) {
 	const imageId = overrides.imageId !== undefined ? overrides.imageId : IMG1
@@ -98,6 +101,18 @@ function observation(
 			field: 'tags',
 			policy: 'tags:api:v1',
 			value: { state: 'value', value: overrides.tags },
+			source: 'audible_api'
+		})
+	}
+	// An explicit empty value (e.g. `tags: []` with `absent: ['tags']`)
+	// records `state: 'absent'`, which the history store treats as a
+	// deliberate clear — distinct from omitting the field (unknown
+	// evidence), which retains the stored value.
+	for (const field of overrides.absent ?? []) {
+		fields.push({
+			field,
+			policy: field === 'tags' ? 'tags:api:v1' : 'editorial:title:v1',
+			value: { state: 'absent' },
 			source: 'audible_api'
 		})
 	}
@@ -412,7 +427,7 @@ run('BookHistoryStore against a replica set', () => {
 			// write fails with a write conflict, the transaction retries on
 			// a fresh snapshot, and the advanced watermark makes the fence
 			// match 0: `superseded`.
-			const admin = client?.admin()
+			const admin = client?.db('admin')
 			if (!admin) throw new Error('no admin db for currentOp')
 			// BSON session IDs stringify as '[object Object]' — compare
 			// canonical JSON, not String().
@@ -453,16 +468,23 @@ run('BookHistoryStore against a replica set', () => {
 			while (Date.now() < deadline) {
 				if (repairSettled) break
 				const ops = await admin.command({ currentOp: 1, secs_running: 0 })
-				const inprogress = (ops.inprogress ?? []) as Array<{
+				// `currentOp` reports active operations under `inprog` (not
+				// `inprogress`). The repair's fence write is an `update` command
+				// on the `book_history_states` collection; match on the
+				// namespace and exclude the contender's own session (its write
+				// is the one being blocked, not the repair's).
+				const inprog = (ops.inprog ?? []) as Array<{
 					op?: string
-					opCmd?: string
+					cmd?: { update?: string; ns?: string }
 					lsid?: { id?: unknown }
 				}>
 				if (
-					inprogress.some(
+					inprog.some(
 						(op) =>
-							op.op === 'command' &&
-							op.opCmd === 'update' &&
+							op.op === 'query' &&
+							typeof op.cmd?.update === 'string' &&
+							typeof op.cmd?.ns === 'string' &&
+							op.cmd.ns.endsWith('book_history_states') &&
 							JSON.stringify(op.lsid?.id) !== contenderSession
 					)
 				) {
@@ -1819,7 +1841,7 @@ run('BookHistoryStore against a replica set', () => {
 		const savedBatch = process.env.AUDIBLE_BATCH_SIZE
 		process.env.BOOK_HISTORY_ENABLED = 'true'
 		process.env.AUDIBLE_BATCH_SIZE = '1'
-		const asin = 'B0BACKFILL1'
+		const asin = 'B0BACKFIL1'
 		const key = `${REGION}:${asin}`
 		const db7 = collections()
 		const baseBook = book({ asin, title: 'Legacy Backfill Row' })
@@ -1861,48 +1883,59 @@ run('BookHistoryStore against a replica set', () => {
 				response_groups: ['rating', 'contributors', 'product_desc', 'product_attrs', 'product_details']
 			}
 		})
+		// Isolate the fixture: the backfill walk selects EVERY backfill-
+		// eligible row in the shared DB (earlier tests seed rows with a
+		// `rating` and no `ratings`/marker, which match the walk's filter).
+		// Delete all books except this test's ASIN so the walk processes
+		// exactly one row and `total`/`updated`/`failed` are deterministic.
+		await db7.collection('books').deleteMany({ asin: { $ne: asin } })
 		const backfill = new BookBackfillHelper(createMockLogger(), null)
-		const result = await backfill.process()
+		try {
+			const result = await backfill.process()
 
-		// The summary reports one update and no failure (the ratings repair
-		// landed; the rejected full write is not a batch failure).
-		expect(result).toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
+			// The summary reports one update and no failure (the ratings
+			// repair landed; the rejected full write is not a batch failure).
+			expect(result).toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
 
-		// The ratings landed (the fenced repair's $set) ...
-		const current = await db7.collection('books').findOne({ asin })
-		expect(current?.ratings).toBeDefined()
-		expect(current?.ratings).toMatchObject({
-			value: expect.any(String),
-			numRatings: expect.any(Number)
-		})
-		// ...but the attempted title change did NOT (the full-document write
-		// was rejected by the validator before it could commit the title).
-		expect(current?.title).toBe('Legacy Backfill Row')
-		// The rejected extra field is untouched (the repair is a pure
-		// ratings-only addition).
-		expect(current?.seriesPrimary).toEqual({ asin: 'B0SERIEX1', name: 123 })
-		// The state version advanced (the repair's fence $inc) WITHOUT
-		// accepting the rejected observation: no title baseline, no title
-		// revision — the observation was never accepted, only the ratings
-		// fence advanced.
-		const stateAfter = await db7.collection('book_history_states').findOne({ _id: key })
-		expect(stateAfter).not.toBeNull()
-		expect(stateAfter?.stateVersion).toBeGreaterThan(0)
-		const titleBaseline = (stateAfter?.fields ?? []).find(
-			(f: { field: string }) => f.field === 'title'
-		)
-		expect(titleBaseline).toBeUndefined()
-		const titleRevision = await db7
-			.collection('book_history_revisions')
-			.find({ asin, region: REGION, changedFields: { $in: ['title'] } })
-			.toArray()
-		expect(titleRevision).toHaveLength(0)
-		// Restore the environment (the suite's other tests do not set
-		// BOOK_HISTORY_ENABLED; the default is disabled).
-		if (savedHistory === undefined) delete process.env.BOOK_HISTORY_ENABLED
-		else process.env.BOOK_HISTORY_ENABLED = savedHistory
-		if (savedBatch === undefined) delete process.env.AUDIBLE_BATCH_SIZE
-		else process.env.AUDIBLE_BATCH_SIZE = savedBatch
+			// The ratings landed (the fenced repair's $set) ...
+			const current = await db7.collection('books').findOne({ asin })
+			expect(current?.ratings).toBeDefined()
+			expect(current?.ratings).toMatchObject({
+				value: expect.any(String),
+				numRatings: expect.any(Number)
+			})
+			// ...but the attempted title change did NOT (the full-document
+			// write was rejected by the validator before it could commit
+			// the title).
+			expect(current?.title).toBe('Legacy Backfill Row')
+			// The rejected extra field is untouched (the repair is a pure
+			// ratings-only addition).
+			expect(current?.seriesPrimary).toEqual({ asin: 'B0SERIEX1', name: 123 })
+			// The state version advanced (the repair's fence $inc) WITHOUT
+			// accepting the rejected observation: no title baseline, no
+			// title revision — the observation was never accepted, only the
+			// ratings fence advanced.
+			const stateAfter = await db7.collection('book_history_states').findOne({ _id: key })
+			expect(stateAfter).not.toBeNull()
+			expect(stateAfter?.stateVersion).toBeGreaterThan(0)
+			const titleBaseline = (stateAfter?.fields ?? []).find(
+				(f: { field: string }) => f.field === 'title'
+			)
+			expect(titleBaseline).toBeUndefined()
+			const titleRevision = await db7
+				.collection('book_history_revisions')
+				.find({ asin, region: REGION, changedFields: { $in: ['title'] } })
+				.toArray()
+			expect(titleRevision).toHaveLength(0)
+		} finally {
+			// Restore the environment even if the assertions above throw:
+			// a leaked override would flip every later test's history and
+			// batch-size behavior.
+			if (savedHistory === undefined) delete process.env.BOOK_HISTORY_ENABLED
+			else process.env.BOOK_HISTORY_ENABLED = savedHistory
+			if (savedBatch === undefined) delete process.env.AUDIBLE_BATCH_SIZE
+			else process.env.AUDIBLE_BATCH_SIZE = savedBatch
+		}
 	}, 30000)
 
 	test('an equal observation on a marker row without createdAt is accepted, removes the marker, and leaves content and updatedAt alone', async () => {
@@ -1913,7 +1946,7 @@ run('BookHistoryStore against a replica set', () => {
 		// and makes NO content or `updatedAt` change (the short-circuit
 		// writes nothing to the books row — only the state watermark and the
 		// marker-only cleanup advance).
-		const asin = 'B0EQMARKER1'
+		const asin = 'B0EQMARKER'
 		const db7 = collections()
 		const baseBook = book({ asin, title: 'Marker Equal Row' })
 		await db7.collection('books').insertOne(baseBook as never)
@@ -1939,6 +1972,10 @@ run('BookHistoryStore against a replica set', () => {
 		expect(before).not.toBeNull()
 		expect(before).toHaveProperty('ratingsBackfillSkip')
 		expect(before).not.toHaveProperty('createdAt')
+		// The stored row must produce a valid public projection: the equal
+		// short-circuit (and its `modified: false` assertion) requires
+		// `toApiBook` to succeed, which an 11-character ASIN would break.
+		expect(ApiBookSchema.safeParse(before).success).toBe(true)
 		const updatedAtBefore = before?.updatedAt
 
 		const gen = await bookHistoryStore.reserveGeneration(asin, REGION)
@@ -1963,7 +2000,7 @@ run('BookHistoryStore against a replica set', () => {
 		expect(after?.title).toBe('Marker Equal Row')
 		// ...and `updatedAt` is untouched (the short-circuit's books write is
 		// marker-only; no `$currentDate` ran on the content).
-		expect(after?.updatedAt).toBe(updatedAtBefore)
+		expect(after?.updatedAt).toEqual(updatedAtBefore)
 	}, 30000)
 
 	test('an evidence-free refresh on a legacy-image row preserves the stored image and returns a valid projection', async () => {
@@ -2021,7 +2058,7 @@ run('BookHistoryStore against a replica set', () => {
 		// observation (`tags: []` → `state: 'absent'`) must CLEAR both the
 		// stored and returned tags and record EXACTLY ONE `tags` delta to
 		// `absent`.
-		const asin = 'B0TAGEVID1'
+		const asin = 'B0TAGEVID'
 		const key = `${REGION}:${asin}`
 		const db7 = collections()
 		const storedTags = [{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }]
@@ -2073,7 +2110,10 @@ run('BookHistoryStore against a replica set', () => {
 			asin,
 			region: REGION,
 			generation: gen3,
-			book: { ...baseBook, tags: storedTags },
+			// The incoming book carries NO `tags` field at all (the tags
+			// group was not fetched): the assertions below verify the stored
+			// tags survive a refresh whose evidence says nothing about tags.
+			book: baseBook,
 			observation: observation({ title: 'Tags Evidence', imageId: IMG1 })
 		})
 		expect(phase1.disposition).toBe('accepted')
@@ -2102,7 +2142,11 @@ run('BookHistoryStore against a replica set', () => {
 			region: REGION,
 			generation: gen4,
 			book: { ...baseBook, tags: [] },
-			observation: observation({ title: 'Tags Evidence', imageId: IMG1, tags: [] })
+			// `absent: ['tags']` records the explicit clear (`state:
+			// 'absent'`); passing `tags: []` alone would create
+			// `{ state: 'value', value: [] }` because the empty array is
+			// truthy, which the store would treat as a value, not a clear.
+			observation: observation({ title: 'Tags Evidence', imageId: IMG1, absent: ['tags'] })
 		})
 		expect(phase2.disposition).toBe('accepted')
 		expect(phase2.modified).toBe(true)

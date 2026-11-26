@@ -63,11 +63,25 @@ export function buildEffectiveWrite(
 		else delete effective.genres
 	}
 
-	// Ratings: incoming without Goodrides keeps stored Goodreads.
-	if (defined.ratings !== undefined && stored?.ratings?.goodreads !== undefined) {
-		const incomingRatings = defined.ratings as { goodreads?: unknown }
-		if (incomingRatings.goodreads === undefined) {
-			effective.ratings = { ...incomingRatings, goodreads: stored.ratings.goodreads }
+	// Ratings: incoming without a sub-field keeps the stored value for
+	// that sub-field. The dotted-path write in `PaprAudibleBookHelper`
+	// preserves stored `performanceDistribution`, `storyDistribution`,
+	// and `goodreads` when the incoming ratings omit them, so the
+	// effective write must carry them forward too — otherwise an
+	// identical refresh compares unequal and rewrites the same values.
+	if (defined.ratings !== undefined) {
+		const incomingRatings = defined.ratings as Record<string, unknown>
+		const storedRatings = stored?.ratings as Record<string, unknown> | undefined
+		if (storedRatings) {
+			const retained: Record<string, unknown> = {}
+			for (const field of ['goodreads', 'performanceDistribution', 'storyDistribution']) {
+				if (incomingRatings[field] === undefined && storedRatings[field] !== undefined) {
+					retained[field] = storedRatings[field]
+				}
+			}
+			if (Object.keys(retained).length > 0) {
+				effective.ratings = { ...incomingRatings, ...retained }
+			}
 		}
 	}
 

@@ -786,7 +786,6 @@ export class BookHistoryStore {
 					delete fallback[path]
 					parsed = toApiBook(fallback)
 				}
-				let repaired: Record<string, unknown> | null = null
 				if (parsed === null) {
 					// Deletion cannot reach a valid projection (the offender is
 					// a PRESENT, required field, e.g. `title: ''`): return the
@@ -799,9 +798,26 @@ export class BookHistoryStore {
 						if (toApiBook(candidate) !== null) minimal[key] = fallback[key]
 					}
 					parsed = toApiBook(minimal)
-					repaired = minimal
 				}
-				returned = (parsed ?? (repaired as unknown as ApiBook)) as ApiBook
+				// The repair loop cannot reach a valid projection when the
+				// offender is a PRESENT, required field (no single optional
+				// field satisfies the schema's required keys): `minimal`
+				// stays empty and `parsed` is null. Never cast `{}` to
+				// `ApiBook` — fall back to the validated incoming book (a
+				// fresh projection of what was just fetched), then to the
+				// stored valid projection, so the caller and the cache
+				// never receive an empty object.
+				if (parsed === null) {
+					parsed = toApiBook(normBook) ?? oldApi
+					if (parsed === null) {
+						// Neither projection validates: the row's required
+						// fields are unrecoverable. The write already
+						// committed; return the incoming book (freshest
+						// data) so the caller has a non-empty response.
+						parsed = normBook as unknown as ApiBook
+					}
+				}
+				returned = parsed
 			}
 
 			// 9. Watermark. A fresh state must retain the counter the
@@ -967,7 +983,12 @@ export class BookHistoryStore {
 							createdAt: { $ifNull: ['$createdAt', { $toDate: '$_id' }] },
 							ratingsBackfillSkip: {
 								reason: 'non_book',
-								contentType,
+								// The upstream `content_delivery_type` is
+								// unvalidated catalog data: a `$`-prefixed
+								// string would be read as an expression by
+								// the aggregation pipeline, so store it as
+								// a literal.
+								contentType: { $literal: contentType },
 								markedAt: new Date()
 							}
 						}

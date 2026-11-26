@@ -116,21 +116,17 @@ export function canonicalTags(tags: ApiTag[]): JsonValue {
 			name: t.name,
 			type: t.type
 		}))
-		// Sort by the `(tagId, name, type)` tuple comparison — not by the
-		// JSON key string, whose order differs from the previous NUL-join
-		// order and would false-revise an unchanged tag set against an
-		// existing `tags:api:v1` baseline. The JSON key stays collision-
-		// free for deduplication.
+		// Sort by the NUL-joined tuple so the order matches existing
+		// `tags:api:v1` baselines (a field-wise comparison orders
+		// NUL-bearing values differently and would false-revise an
+		// unchanged tag set on the first refresh after upgrade). Ties
+		// fall back to the collision-free JSON key, which also keeps
+		// deduplication stable.
 		.sort((a, b) => {
-			for (const [x, y] of [
-				[a.tagId, b.tagId],
-				[a.name, b.name],
-				[a.type, b.type]
-			] as const) {
-				if (x < y) return -1
-				if (x > y) return 1
-			}
-			return 0
+			const left = [a.tagId, a.name, a.type].join('\u0000')
+			const right = [b.tagId, b.name, b.type].join('\u0000')
+			if (left !== right) return left < right ? -1 : 1
+			return a.key < b.key ? -1 : a.key > b.key ? 1 : 0
 		})
 	const seen = new Set<string>()
 	const result: JsonValue[] = []

@@ -470,7 +470,11 @@ describe('markNonBook', () => {
 					createdAt: { $ifNull: ['$createdAt', { $toDate: '$_id' }] },
 					ratingsBackfillSkip: {
 						reason: 'non_book',
-						contentType: input.contentType,
+						// The upstream content type is unvalidated catalog
+						// data: a `$`-prefixed string would be read as an
+						// expression by the aggregation pipeline, so it is
+						// stored as a literal.
+						contentType: { $literal: input.contentType },
 						markedAt: expect.any(Date)
 					}
 				}

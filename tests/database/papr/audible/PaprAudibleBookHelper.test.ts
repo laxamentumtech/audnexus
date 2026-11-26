@@ -41,6 +41,51 @@ import {
 } from '#tests/datasets/helpers/books'
 
 
+/**
+ * The aggregation-pipeline update a ratings-bearing write issues: every
+ * evidence value is stored as a `$literal` (plain catalog data, never an
+ * expression), the incoming ratings ride as a `$mergeObjects` merge over
+ * the stored `ratings`, and the driver computes `updatedAt` (`$currentDate`
+ * is not a pipeline stage).
+ */
+const expectedRatingsPipeline = (
+	evidence: Record<string, unknown>
+): Record<string, unknown>[] => {
+	const evidenceLiterals: Record<string, unknown> = {}
+	for (const [field, value] of Object.entries(evidence)) {
+		evidenceLiterals[field] = { $literal: value }
+	}
+	return [
+		{
+			$set: {
+				...evidenceLiterals,
+				ratings: {
+					$mergeObjects: [
+						{
+							$cond: [
+								{ $eq: [{ $type: '$ratings' }, 'object'] },
+								'$ratings',
+								{}
+							]
+						},
+						{
+							value: ratings.value,
+							numRatings: ratings.numRatings,
+							numReviews: ratings.numReviews,
+							distribution: ratings.distribution,
+							performanceDistribution: ratings.performanceDistribution,
+							storyDistribution: ratings.storyDistribution
+						}
+					]
+				},
+				createdAt: bookWithoutProjection._id.getTimestamp(),
+				updatedAt: expect.any(Date)
+			}
+		},
+		{ $unset: ['ratingsBackfillSkip'] }
+	]
+}
+
 let asin: string
 let helper: PaprAudibleBookHelper
 let options: ApiQueryString
@@ -214,9 +259,9 @@ describe('PaprAudibleBookHelper should', () => {
 		// ABSENT from the $set — MongoDB leaves the stored ladder untouched
 		// and a concurrent refresh is never restored from a stale snapshot.
 		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
-		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }
-		expect(update.$set.summary).toBe('')
-		expect(update.$set).not.toHaveProperty('genres')
+		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }[]
+		expect(update[0].$set.summary).toEqual({ $literal: '' })
+		expect(update[0].$set).not.toHaveProperty('genres')
 		// The stored genres survive the write: the post-update read returns
 		// the row with its stored ladder intact.
 		expect(result.data?.genres).toEqual(parsedBook.genres)
@@ -249,9 +294,9 @@ describe('PaprAudibleBookHelper should', () => {
 		// refreshed row's genres B are never clobbered by a stale snapshot
 		// and the stored value survives the write.
 		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
-		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }
-		expect(update.$set.summary).toBe('')
-		expect(update.$set).not.toHaveProperty('genres')
+		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }[]
+		expect(update[0].$set.summary).toEqual({ $literal: '' })
+		expect(update[0].$set).not.toHaveProperty('genres')
 		expect(result.data?.genres).toEqual(genresB)
 	})
 	test('createOrUpdate identical book without genres', async () => {
@@ -272,12 +317,10 @@ describe('PaprAudibleBookHelper should', () => {
 		// ride along, genres is absent, and the stored genres survive
 		// untouched.
 		const incoming = { ...parsedBookWithoutGenres, genres: [], ratings: { ...ratings } }
-		// The whole `ratings` object is re-written as dotted paths
-		// (`ratings.value`, ...) and the empty `genres` carries no evidence,
-		// so neither the `ratings` object nor `genres` appears in the $set.
-		const { ratings: _wholeRatings, genres: _noEvidenceGenres, ...incomingWithoutRatings } =
-			incoming
-		void _wholeRatings
+		// The ratings-bearing write is a pipeline: the incoming ratings ride
+		// as a `$mergeObjects` merge, and the empty `genres` carries no
+		// evidence, so `genres` is absent from the $set.
+		const { genres: _noEvidenceGenres, ...incomingWithoutGenres } = incoming
 		void _noEvidenceGenres
 		mockIsEqualData.mockReturnValue(false)
 		mockFindOne
@@ -288,24 +331,11 @@ describe('PaprAudibleBookHelper should', () => {
 		expect(result.modified).toBe(true)
 		expect(mockUpdateOne).toHaveBeenCalledWith(
 			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{
-				$set: {
-					...incomingWithoutRatings,
-					'ratings.value': ratings.value,
-					'ratings.numRatings': ratings.numRatings,
-					'ratings.numReviews': ratings.numReviews,
-					'ratings.distribution': ratings.distribution,
-					'ratings.performanceDistribution': ratings.performanceDistribution,
-					'ratings.storyDistribution': ratings.storyDistribution,
-					createdAt: bookWithoutProjection._id.getTimestamp()
-				},
-				$unset: { ratingsBackfillSkip: '' },
-				$currentDate: { updatedAt: true }
-			}
+			expectedRatingsPipeline(incomingWithoutGenres)
 		)
 		// genres is absent from the $set, so the stored ladder survives.
-		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }
-		expect(update.$set).not.toHaveProperty('genres')
+		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }[]
+		expect(update[0].$set).not.toHaveProperty('genres')
 		expect(result.data?.genres).toEqual(parsedBook.genres)
 	})
 	test('createOrUpdate short-circuits when incoming has no genre evidence and everything else matches', async () => {
@@ -370,36 +400,20 @@ describe('PaprAudibleBookHelper should', () => {
 		// the row's ObjectId timestamp) and feeds the post-update read.
 		mockFindOne.mockResolvedValue(bookWithoutProjection)
 		await expect(helper.update()).resolves.toEqual(obj)
-		// Evidence-only write: the incoming book's own fields, with the
-		// ratings block re-written as dotted paths (`ratings.value`, ...) —
-		// the whole `ratings` object is deleted first so a concurrent
-		// Goodreads change is never clobbered by a whole-object rewrite.
-		const { ratings: _wholeRatings, ...incomingWithoutRatings } = parsedBook
-		void _wholeRatings
+		// Evidence-only write: the incoming book's own fields ride as
+		// `$literal` values, and the ratings block rides as a `$mergeObjects`
+		// merge — a concurrent Goodreads change is never clobbered by a
+		// whole-object rewrite.
 		expect(mockUpdateOne).toHaveBeenCalledWith(
 			{ asin: asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{
-				$set: {
-					...incomingWithoutRatings,
-					'ratings.value': parsedBook.ratings.value,
-					'ratings.numRatings': parsedBook.ratings.numRatings,
-					'ratings.numReviews': parsedBook.ratings.numReviews,
-					'ratings.distribution': parsedBook.ratings.distribution,
-					'ratings.performanceDistribution': parsedBook.ratings.performanceDistribution,
-					'ratings.storyDistribution': parsedBook.ratings.storyDistribution,
-					createdAt: bookWithoutProjection._id.getTimestamp()
-				},
-				$unset: { ratingsBackfillSkip: '' },
-				$currentDate: { updatedAt: true }
-			}
+			expectedRatingsPipeline(parsedBook)
 		)
 	})
 	test('update keeps stored Goodreads when the incoming ratings block omits it', async () => {
 		// Legacy-row regression: the stored document carries a Goodreads
-		// value the fresh fetch's ratings block does not have. The evidence
-		// write $sets the OBSERVED rating fields as dotted paths
-		// (`ratings.value`, ...) and never rewrites the `ratings` object, so
-		// the stored Goodreads is left untouched by the write.
+		// value the fresh fetch's ratings block does not have. The ratings
+		// write is a `$mergeObjects` merge over the stored `ratings` object,
+		// so the stored Goodreads is left untouched by the write.
 		const storedGoodreads = { value: 4.2, numRatings: 4210 }
 		const storedRatings = { ...ratings, goodreads: storedGoodreads }
 		// A LEGACY row: a non-URL `image` makes it fail the full `ApiBookSchema`
@@ -418,15 +432,21 @@ describe('PaprAudibleBookHelper should', () => {
 		const result = await helper.update()
 		expect(result.modified).toBe(true)
 		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
-		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }
-		// The `ratings` object is never rewritten: no whole-object key, and
-		// no `ratings.goodreads` dotted entry (the merge-from-stored branch
-		// is gone).
-		expect(update.$set).not.toHaveProperty('ratings')
-		expect(update.$set).not.toHaveProperty('ratings.goodreads')
-		// The observed rating fields land as dotted paths.
-		expect(update.$set['ratings.value']).toBe(ratings.value)
-		expect(update.$set['ratings.numRatings']).toBe(ratings.numRatings)
+		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }[]
+		// The `ratings` object is rewritten only by the merge: no
+		// `ratings.goodreads` sub-field is carried by the merge, so the
+		// stored Goodreads survives.
+		expect(update[0].$set).toHaveProperty('ratings')
+		const ratingsMerge = update[0].$set.ratings as unknown as Record<string, unknown>
+		const mergeObjects = ratingsMerge.$mergeObjects as unknown as Record<string, unknown>[]
+		expect(mergeObjects).toHaveLength(2)
+		expect(mergeObjects[1]).not.toHaveProperty('goodreads')
+		expect(mergeObjects[1]).not.toHaveProperty('ratings.goodreads')
+		// The observed rating fields land in the merge.
+		expect(mergeObjects[1]).toMatchObject({
+			value: ratings.value,
+			numRatings: ratings.numRatings
+		})
 	})
 	test('createOrUpdate tags-only change persists the effective write', async () => {
 		// A tags-only change is a real update even when genres are unchanged:
@@ -435,11 +455,9 @@ describe('PaprAudibleBookHelper should', () => {
 		const stored = parsedBook as unknown as Record<string, unknown>
 		const newTags = [{ tagId: 't1', name: 'Witty', type: 'mood' as const }]
 		const incoming = { ...parsedBook, tags: newTags }
-		// The whole `ratings` object is re-written as dotted paths
-		// (`ratings.value`, ...) — no whole-object key in the $set. The
-		// non-empty genres ARE evidence, so they ride along as a real key.
-		const { ratings: _wholeRatings, ...incomingWithoutRatings } = incoming
-		void _wholeRatings
+		// The ratings-bearing write is a pipeline: the incoming ratings ride
+		// as a `$mergeObjects` merge, and the non-empty genres ARE evidence,
+		// so they ride along as a real (literal) key.
 		mockIsEqualData.mockReturnValue(false)
 		mockFindOne
 			.mockResolvedValueOnce(bookWithoutProjection) // raw row read (projection + _id)
@@ -450,20 +468,7 @@ describe('PaprAudibleBookHelper should', () => {
 		expect(result.modified).toBe(true)
 		expect(mockUpdateOne).toHaveBeenCalledWith(
 			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{
-				$set: {
-					...incomingWithoutRatings,
-					'ratings.value': ratings.value,
-					'ratings.numRatings': ratings.numRatings,
-					'ratings.numReviews': ratings.numReviews,
-					'ratings.distribution': ratings.distribution,
-					'ratings.performanceDistribution': ratings.performanceDistribution,
-					'ratings.storyDistribution': ratings.storyDistribution,
-					createdAt: bookWithoutProjection._id.getTimestamp()
-				},
-				$unset: { ratingsBackfillSkip: '' },
-				$currentDate: { updatedAt: true }
-			}
+			expectedRatingsPipeline(incoming)
 		)
 	})
 	test('createOrUpdate empty incoming genres keep stored genres in the write', async () => {
@@ -473,11 +478,9 @@ describe('PaprAudibleBookHelper should', () => {
 		// write.
 		const stored = parsedBook as unknown as Record<string, unknown>
 		const incoming = { ...parsedBook, title: 'New Title', genres: [] }
-		// The empty `genres` carries no evidence (omitted from the $set) and
-		// the whole `ratings` object is re-written as dotted paths.
-		const { ratings: _wholeRatings, genres: _noEvidenceGenres, ...incomingWithoutRatings } =
-			incoming
-		void _wholeRatings
+		// The empty `genres` carries no evidence (omitted from the $set);
+		// the ratings block rides as a `$mergeObjects` merge.
+		const { genres: _noEvidenceGenres, ...incomingWithoutGenres } = incoming
 		void _noEvidenceGenres
 		mockIsEqualData.mockReturnValue(false)
 		mockFindOne
@@ -489,23 +492,10 @@ describe('PaprAudibleBookHelper should', () => {
 		expect(result.modified).toBe(true)
 		expect(mockUpdateOne).toHaveBeenCalledWith(
 			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{
-				$set: {
-					...incomingWithoutRatings,
-					'ratings.value': ratings.value,
-					'ratings.numRatings': ratings.numRatings,
-					'ratings.numReviews': ratings.numReviews,
-					'ratings.distribution': ratings.distribution,
-					'ratings.performanceDistribution': ratings.performanceDistribution,
-					'ratings.storyDistribution': ratings.storyDistribution,
-					createdAt: bookWithoutProjection._id.getTimestamp()
-				},
-				$unset: { ratingsBackfillSkip: '' },
-				$currentDate: { updatedAt: true }
-			}
+			expectedRatingsPipeline(incomingWithoutGenres)
 		)
-		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }
-		expect(update.$set).not.toHaveProperty('genres')
+		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }[]
+		expect(update[0].$set).not.toHaveProperty('genres')
 		// The stored genres survive the write (post-update read).
 		expect(result.data?.genres).toEqual(parsedBook.genres)
 	})
@@ -522,10 +512,6 @@ describe('PaprAudibleBookHelper should', () => {
 			tags: newTags
 		} as unknown as Record<string, unknown>
 		const incoming = { ...parsedBook, title: 'Changed Title' }
-		// The whole `ratings` object is re-written as dotted paths
-		// (`ratings.value`, ...) — no whole-object key in the $set.
-		const { ratings: _wholeRatings, ...incomingWithoutRatings } = incoming
-		void _wholeRatings
 		mockIsEqualData.mockReturnValue(false)
 		mockFindOne
 			.mockResolvedValueOnce(bookWithoutProjection) // raw row read (projection + _id)
@@ -535,25 +521,13 @@ describe('PaprAudibleBookHelper should', () => {
 		const result = await helper.createOrUpdate()
 		expect(result.modified).toBe(true)
 		expect(result.data?.tags).toEqual(newTags)
-		// Evidence-only write: the incoming book's own values are $set
-		// (title change and every other incoming field); T1's tags are not
-		// restored from the stale snapshot — they survive untouched.
+		// Evidence-only write: the incoming book's own values ride as
+		// `$literal` values (title change and every other incoming field);
+		// T1's tags are not restored from the stale snapshot — they survive
+		// untouched.
 		expect(mockUpdateOne).toHaveBeenCalledWith(
 			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
-			{
-				$set: {
-					...incomingWithoutRatings,
-					'ratings.value': ratings.value,
-					'ratings.numRatings': ratings.numRatings,
-					'ratings.numReviews': ratings.numReviews,
-					'ratings.distribution': ratings.distribution,
-					'ratings.performanceDistribution': ratings.performanceDistribution,
-					'ratings.storyDistribution': ratings.storyDistribution,
-					createdAt: bookWithoutProjection._id.getTimestamp()
-				},
-				$unset: { ratingsBackfillSkip: '' },
-				$currentDate: { updatedAt: true }
-			}
+			expectedRatingsPipeline(incoming)
 		)
 	})
 	test('createOrUpdate with stored empty genres is a no-op update', async () => {

@@ -48,8 +48,20 @@ export async function withDeadline<T>(
 	let timer: NodeJS.Timeout
 	const deadline = new Promise<never>((_, reject) => {
 		timer = setTimeout(() => {
-			onTimeout?.()
-			reject(new DeadlineExceededError(label, timeoutMs))
+			// Settle the deadline even when the caller's callback throws:
+			// an escaping exception would leave the deadline promise
+			// unsettled and strand every caller awaiting the race.
+			let cleanupError: unknown
+			try {
+				onTimeout?.()
+			} catch (error) {
+				cleanupError = error
+			}
+			reject(
+				cleanupError === undefined
+					? new DeadlineExceededError(label, timeoutMs)
+					: new DeadlineExceededError(label, timeoutMs, { cause: cleanupError })
+			)
 		}, timeoutMs)
 	})
 

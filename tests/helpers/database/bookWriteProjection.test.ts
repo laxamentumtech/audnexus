@@ -103,4 +103,29 @@ describe('buildEffectiveWrite ratings.goodreads retention', () => {
 		expect(book.ratings).toEqual(storedRatings)
 		expect(book.title).toBe('New Title')
 	})
+
+	test('stored performance/story distributions are retained when incoming omits them', () => {
+		// The dotted-path write preserves these stored sub-fields, so the
+		// effective write must carry them forward too: an identical refresh
+		// must compare equal, not rewrite the same values.
+		const performance = { five: 90, four: 8, three: 1, two: 0, one: 1 }
+		const story = { five: 85, four: 12, three: 2, two: 0, one: 1 }
+		const { book } = buildEffectiveWrite(
+			stored({
+				ratings: {
+					value: '4.5',
+					numRatings: 200,
+					numReviews: 10,
+					performanceDistribution: performance,
+					storyDistribution: story
+				}
+			}),
+			incoming({
+				ratings: { value: '4.5', numRatings: 200, numReviews: 10 }
+			}),
+			{}
+		)
+		expect(book.ratings?.performanceDistribution).toEqual(performance)
+		expect(book.ratings?.storyDistribution).toEqual(story)
+	})
 })
