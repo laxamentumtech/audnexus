@@ -21,11 +21,18 @@ export class DeadlineExceededError extends Error {
  * forever (e.g. a pooled keep-alive socket that never settles) instead
  * surfaces as a normal error the surrounding loop can catch, log, and count
  * as a failure, keeping the consuming loop alive.
+ *
+ * `onTimeout` runs exactly once when the deadline elapses (never when the
+ * underlying settles first), so a caller can abort an in-flight request the
+ * moment the item is abandoned: with an `AbortSignal` passed to the fetch,
+ * a late 503 from an abandoned item stops retrying and stops touching the
+ * shared adaptive cooldown.
  */
 export async function withDeadline<T>(
 	underlying: Promise<T>,
 	timeoutMs: number,
-	label: string
+	label: string,
+	onTimeout?: () => void
 ): Promise<T> {
 	// 0 disables the guard (documented SCHEDULER_ITEM_TIMEOUT_MS contract):
 	// return the underlying untouched — no timer, no race.
@@ -40,7 +47,10 @@ export async function withDeadline<T>(
 
 	let timer: NodeJS.Timeout
 	const deadline = new Promise<never>((_, reject) => {
-		timer = setTimeout(() => reject(new DeadlineExceededError(label, timeoutMs)), timeoutMs)
+		timer = setTimeout(() => {
+			onTimeout?.()
+			reject(new DeadlineExceededError(label, timeoutMs))
+		}, timeoutMs)
 	})
 
 	return Promise.race([underlying, deadline]).finally(() => clearTimeout(timer))

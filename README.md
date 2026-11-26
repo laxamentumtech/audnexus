@@ -11,7 +11,7 @@
 
 ## Start with AudiobookDB
 
-Audnexus does not curate metadata and returns provider data as-is. Audible and other providers have duplicates, misspellings, and inconsistent values, and delisted products can be hard to find. [AudiobookDB](https://audiobookdb.org) curates and corrects records, maintains the data, and applies standards to titles and credits. Start new projects there. Audnexus stays online for existing integrations.
+Audnexus does not curate metadata; it normalizes provider data, such as converting Audible's HTML to text, without editorial correction. Audible and other providers have duplicates, misspellings, and inconsistent values, and delisted products can be hard to find. [AudiobookDB](https://audiobookdb.org) curates and corrects records, maintains the data, and applies standards to titles and credits. Start new projects there. Audnexus stays online for existing integrations.
 
 Audnexus is the legacy, self-hosted HTTP API for audiobook metadata. It combines Audible's API and product pages into consistent records for media servers and metadata-provider plugins. A client can retrieve what it needs in one or two API calls. MongoDB stores records, and Redis can cache responses. Optional history records metadata and artwork changes as revisions.
 
@@ -51,6 +51,8 @@ That makes it easier to integrate with existing media servers. With one or two A
 ## Quick start
 
 You need Git, Docker with Compose, and `curl`. Create `/mnt/docker/mongo/data` on the Docker host and make it writable by the MongoDB container. Alternatively, change the bind mount in [`docker-compose.develop.yml`](docker-compose.develop.yml). This directory holds the database.
+
+The two application services default to the `develop` image, which is published only for `linux/amd64`. Run this quick start on an `amd64` host. On ARM64, build an image from source and point the stack at it with `AUDNEXUS_IMAGE` (see [Build an image from source](#build-an-image-from-source)).
 
 Clone the repository and start the stack:
 
@@ -121,7 +123,7 @@ For a local Compose deployment, set `AUDNEXUS_IMAGE=audnexus` so the stack uses 
 1. Create an application from the Git repository and select a branch.
 2. Configure `MONGODB_URI` and any settings you need from [Configuration](#configuration). Use a reachable MongoDB service with persistent storage.
 3. Build with the repository's Dockerfile. Set the application port to `3000` and the health check to `/health`.
-4. For scheduled updates, run a separate worker service from the same image with `bun run worker` as its start command. Give it the same MongoDB and Redis settings as the API, including `REDIS_URL`.
+4. For scheduled updates, run a separate worker service from the same image with `bun run worker` as its start command. Give it the same MongoDB and Redis settings as the API, including `REDIS_URL`. The image's health check probes the API's HTTP endpoint, which the worker does not serve; override it with a worker-appropriate check, as the bundled Compose worker does (its check pings the control and cache Redis roles).
 
 Use a separate cache Redis for `REDIS_CACHE_URL` if you enable cache eviction. The API can run without Redis, but the worker cannot.
 
@@ -140,6 +142,8 @@ docker node update --label-add audnexus-redis=true NODE
 ```
 
 With no labeled node, Redis stays pending. A second labeled node can cause a reschedule onto an empty volume and loss of queue and rate-limit state. Before moving the label, restore or migrate the existing volume to the new node.
+
+Before deploying, make two changes to [`docker-compose.yml`](docker-compose.yml) so Traefik discovers and serves the API route. The stack declares its routing labels on the API's Swarm `deploy` block, which Traefik's Docker provider reads only when it runs in Swarm mode: add `--providers.docker.swarmmode=true` to the Traefik service command. The defined `myresolver` ACME resolver is not assigned to anything as written: add `traefik.http.routers.node-server.tls.certresolver=myresolver` to the API's labels so HTTPS requests use it.
 
 Set and export `AUDNEXUS_IMAGE`, `TRAEFIK_DOMAIN`, and `TRAEFIK_EMAIL` in the deployment shell. Use a fully qualified immutable release version tag or SHA-256 digest for `AUDNEXUS_IMAGE`. Never use `:latest`, `:develop`, an untagged repository, or a bare version such as `v1.15.0` for production. The Compose file requires a nonempty image reference but does not prove it is immutable.
 
@@ -196,7 +200,7 @@ These are application defaults unless noted otherwise. Set them on each process 
 | `SCHEDULER_MAX_PER_REGION` | `5` | Maximum per-region concurrency in batch processing. |
 | `SCHEDULER_BATCH_SIZE` | `1000` | Documents per pagination batch, capped at `10000`. |
 | `SCHEDULER_ITEM_TIMEOUT_MS` | `120000` | Per-item wait deadline in milliseconds. `0` disables it. A late handler can continue and its writes can still land. |
-| `SCHEDULER_MAX_ITEMS` | `0` | Maximum documents visited per pass. `0` means unlimited. |
+| `SCHEDULER_MAX_ITEMS` | `0` | Maximum documents visited per pass by the scheduled author, book, and chapter walks. `0` means unlimited. It does not bound a ratings-backfill run. |
 | `JITTER_MS` | `0-5000` | Random pacing range in milliseconds, as `min-max` or a bare maximum. |
 | `AUDIBLE_BATCH_SIZE` | `1` | Ratings-backfill batch size. Values from `2` to `50` use Audible's undocumented multi-ASIN endpoint for same-region books. Stubs and failed chunks fall back to individual requests. |
 
@@ -289,7 +293,7 @@ This resets scan progress and its captured bound, not history data. `bun dist/hi
 ## Troubleshooting
 
 - If the API is not listening yet, check the container logs and allow time for the required index builds. Confirm that the MongoDB bind mount exists and is writable.
-- If `/health` returns `503`, check MongoDB and each configured Redis role. The response reports their connectivity.
+- If `/health` returns `503`, check MongoDB and each configured Redis role. The response reports the MongoDB result separately, but combines all Redis roles into one `checks.redis` value; the API logs identify which Redis role failed.
 - If updates are not running, confirm that the worker is running and has `REDIS_URL`. The API can serve requests without it, but cannot schedule updates without control Redis.
 - If history-enabled startup fails, verify that MongoDB is a transaction-capable replica set and that required history indexes are ready. The bundled standalone MongoDB cannot pass this check.
 - If startup reports an index conflict, inspect the report before making a migration. Startup does not replace or drop the conflicting index.
@@ -309,10 +313,11 @@ For a build followed by debug watch mode, use `bun run debug` with `MONGODB_URI`
 ```sh
 bun run test
 bun run test:indexes
+bun run test:indexes:docker
 RUN_LIVE_TESTS=true bun run test:live
 ```
 
-The default test command writes coverage to `coverage/`. The index integration tests start a MongoDB replica set in Docker. Live tests contact Audible and are disabled unless `RUN_LIVE_TESTS=true`. Chapter live tests also need `ADP_TOKEN` and `PRIVATE_KEY`. See the [live test guide](tests/live/README.md). For history integration tests, use `bun run test:history`.
+The default test command writes coverage to `coverage/`. `bun run test:indexes` runs the non-Docker index suites. `bun run test:indexes:docker` runs the Docker-backed replica-set integration suite. Live tests contact Audible and are disabled unless `RUN_LIVE_TESTS=true`. Chapter live tests also need `ADP_TOKEN` and `PRIVATE_KEY`. See the [live test guide](tests/live/README.md). For history integration tests, use `bun run test:history`.
 
 To generate HTML from the checked-in OpenAPI source, run `bun run build-docs`. This writes `docs/index.html`. The checked-in HTML and spec carry an older version label, so use the [live API reference](https://audnex.us/) or a release's documentation asset for published docs.
 

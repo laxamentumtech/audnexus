@@ -168,6 +168,33 @@ describe('BookSearchApiHelper', () => {
 			await expect(helper.parseResults()).rejects.toThrow()
 			expect(mockFetch).toHaveBeenCalledTimes(2)
 		})
+
+		it('caps the local parse at ten, in upstream order, when eleven parseable products are returned', async () => {
+			// `num_results` is an upstream hint, not a guarantee: the
+			// documented cap of ten is enforced LOCALLY by slicing the
+			// response. Eleven distinct parseable products → only the first
+			// ten survive, in upstream order (the 11th is dropped).
+			const asin = (i: number) => `B0${String(i).padStart(8, '0')}`
+			const products = Array.from({ length: 11 }, (_, i) => ({
+				asin: asin(i),
+				title: `Book ${i}`,
+				authors: [{ name: 'Author', asin: 'B002BLP1QY' }]
+			}))
+			mockFetch.mockResolvedValue({ data: { products } })
+			// Each product parses to a book carrying its own ASIN, so the
+			// result order reflects the upstream product order.
+			mockGetFinalData.mockImplementation(function (this: { audibleResponse: { asin: string } }) {
+				return Promise.resolve({ asin: this.audibleResponse.asin })
+			})
+			const helper = new BookSearchApiHelper('dungeon crawler carl', 'us', mockLogger)
+			const results = await helper.parseResults()
+			expect(results).toHaveLength(10)
+			// The first ten, in upstream order (the 11th is dropped).
+			for (let i = 0; i < 10; i += 1) {
+				expect(results[i].asin).toBe(asin(i))
+			}
+			expect(results.map((b) => b.asin)).not.toContain(asin(10))
+		})
 	})
 })
 

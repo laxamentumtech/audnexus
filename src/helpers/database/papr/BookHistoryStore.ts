@@ -153,33 +153,6 @@ function isPreOrderBook(book: ApiBook): boolean {
 }
 
 /**
- * The genre-preserving merge that enforces the anti-nuke invariant on this
- * write path (mirrored by `PaprAudibleBookHelper.createOrUpdate`): when
- * the incoming book carries no genre evidence and the stored row has
- * stored genres, the stored list is merged into the outgoing document so
- * an accepted update never nukes stored genre evidence.
- *
- * No merge when the incoming genres are non-empty (they replace the stored
- * list) or the stored side is empty (nothing to preserve); when neither
- * side has evidence, the genres key is omitted from the result. The
- * history store's write path enforces the same rule through
- * `#helpers/database/bookWriteProjection`'s `buildEffectiveWrite` (and the
- * inline genre preservation in `persistObservation`); this function is
- * retained as the tested unit for the merge semantics. An empty genre list
- * is NOT genre evidence on either side: the producer emits `genres: []`
- * for ladder-less books (skipHtml scheduler/backfill fetches).
- */
-export function mergeStoredGenresWhenIncomingEmpty(
-	stored: Record<string, unknown> | null,
-	incoming: ApiBook
-): Record<string, unknown> {
-	if (incoming.genres?.length) return { ...incoming }
-	const storedGenres = stored?.genres
-	if (!Array.isArray(storedGenres) || storedGenres.length === 0) return { ...incoming }
-	return { ...incoming, genres: storedGenres }
-}
-
-/**
  * The existing update flow's genre safeguard, reproduced exactly
  * (`PaprAudibleBookHelper.createOrUpdate`): an unequal update is only
  * allowed when genre evidence exists — the stored genres are non-empty,
@@ -235,20 +208,6 @@ export function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
 		}
 	}
 	return true
-}
-
-/** Same key pattern IN DECLARED ORDER: MongoDB composite indexes are
- * prefix-ordered, so `{revision:1, asin:1, region:1}` cannot serve an
- * `{asin:1, region:1, revision:1}` prefix scan. Key order is preserved in
- * JSON, so a positional walk over the definition's keys is authoritative.
- * Shared by `prepare` (src/history.ts) and the boot prerequisite gate. */
-export function sameIndexKeys(a: Record<string, number>, b: Record<string, number>): boolean {
-	const aKeys = Object.keys(a)
-	const bKeys = Object.keys(b)
-	return (
-		aKeys.length === bKeys.length &&
-		aKeys.every((field, i) => field === bKeys[i] && a[field] === b[field])
-	)
 }
 
 function sha256Hex(value: string): string {
@@ -675,10 +634,14 @@ export class BookHistoryStore {
 				// marker behind, or it would re-enter the skip set on the
 				// next walk.
 				if ('ratingsBackfillSkip' in currentBook) {
+					// Metadata-only cleanup: legacy rows may still lack
+					// validator-required fields (createdAt), so bypass
+					// document validation for this marker-only update — the
+					// same convention as the backfill-skip marker write.
 					await this.collection<Document>(COLLECTIONS.books).updateOne(
 						{ _id: currentBook._id },
 						{ $unset: { ratingsBackfillSkip: 1 } },
-						{ session }
+						{ session, bypassDocumentValidation: true }
 					)
 				}
 				return { data: oldApi, modified: false, disposition: 'accepted' }
@@ -798,12 +761,47 @@ export class BookHistoryStore {
 				// row that fails the public parse leaves `writeBook` as the
 				// raw merged document — including the internal
 				// ratingsBackfillSkip marker this same update unsets — so
-				// strip it from the fallback before returning.
+				// strip it from the fallback before returning. A projection
+				// that still fails the schema (a legacy non-URL `image` on
+				// an old row) is repaired field-by-field so the caller and
+				// the Redis cache never receive an unvalidated document.
 				const fallback: Record<string, unknown> = {
 					...(writeBook as unknown as Record<string, unknown>)
 				}
 				delete fallback.ratingsBackfillSkip
-				returned = toApiBook(writeBook) ?? (fallback as unknown as ApiBook)
+				let parsed = toApiBook(fallback)
+				// Drop schema-violating keys one at a time and re-validate
+				// (a legacy non-URL `image` is the known offender). Bounded by
+				// the initial key count: each productive pass removes one
+				// PRESENT key, so more passes than keys means no progress — an
+				// already-absent key (e.g. a required `title` the stored row
+				// emptied) can be reported forever and must not spin the loop.
+				const keys = Object.keys(fallback)
+				for (let pass = 0; parsed === null && pass < keys.length; pass += 1) {
+					const issue = ApiBookSchema.safeParse(fallback).error?.issues[0]
+					const path = issue?.path[0]
+					if (path === undefined || typeof path !== 'string' || !Object.hasOwn(fallback, path)) {
+						break
+					}
+					delete fallback[path]
+					parsed = toApiBook(fallback)
+				}
+				let repaired: Record<string, unknown> | null = null
+				if (parsed === null) {
+					// Deletion cannot reach a valid projection (the offender is
+					// a PRESENT, required field, e.g. `title: ''`): return the
+					// minimal validated projection — the subset of stored
+					// fields that parses — omitting the unrecoverable fields,
+					// instead of casting the raw document.
+					const minimal: Record<string, unknown> = {}
+					for (const key of Object.keys(fallback)) {
+						const candidate = { ...minimal, [key]: fallback[key] }
+						if (toApiBook(candidate) !== null) minimal[key] = fallback[key]
+					}
+					parsed = toApiBook(minimal)
+					repaired = minimal
+				}
+				returned = (parsed ?? (repaired as unknown as ApiBook)) as ApiBook
 			}
 
 			// 9. Watermark. A fresh state must retain the counter the
@@ -905,6 +903,76 @@ export class BookHistoryStore {
 					$unset: { ratingsBackfillSkip: '' },
 					$currentDate: { updatedAt: true }
 				},
+				{ session, bypassDocumentValidation: true }
+			)
+			return { modified: result.modifiedCount, superseded: false }
+		})
+	}
+
+	/**
+	 * Atomic terminal non-book marker for the ratings backfill (the
+	 * `ContentTypeMismatchError` path): the persistObservation stale fence
+	 * (same inequality) re-asserted as a CONDITIONAL UPDATE ON THE STATE
+	 * DOCUMENT in the SAME transaction as the marker write. A separate
+	 * superseded-check read proved non-staleness only while that read ran:
+	 * a newer generation accepted in between would let a stale batch
+	 * result mark the ASIN terminal after a newer refresh accepted it as
+	 * a book. The fence condition matches 0 for a superseded generation
+	 * and the marker write is not attempted before commit. The state
+	 * update is a REAL document modification (a `stateVersion` increment,
+	 * the same convention as `persistRatingsRepair`): a no-op $set
+	 * establishes no write conflict, so a superseded generation could
+	 * pass the fence while a newer generation advances the watermarks.
+	 * Document validation is bypassed deliberately: the target rows are
+	 * legacy stubs that already lack validator-required content fields.
+	 * @returns the marker's result: `superseded: true` when a newer
+	 * generation owns the fence (the marker write is not attempted — a
+	 * race, not a failure, so it is a result, not a throw), otherwise the
+	 * marker write's `modifiedCount` (0 when a concurrent writer already
+	 * handled the row — rated it, superseded the generation, or marked it).
+	 */
+	async markNonBook(input: {
+		asin: string
+		region: string
+		generation: number
+		bookId: ObjectId
+		contentType: string
+	}): Promise<RatingsRepairResult> {
+		const { asin, region, generation, bookId, contentType } = input
+		const key = bookKey(asin, region)
+		return await this.withTx(async (session) => {
+			const stateCol = this.collection<StateDoc>(COLLECTIONS.state)
+			const state = (await stateCol.findOne({ _id: key }, { session })) as StateDoc | null
+			if (state) {
+				const fence = await stateCol.updateOne(
+					{
+						_id: key,
+						acceptedGeneration: { $lt: generation },
+						deleteFence: { $lt: generation }
+					},
+					{ $inc: { stateVersion: 1 } },
+					{ session }
+				)
+				if (fence.matchedCount !== 1) return { modified: 0, superseded: true }
+			}
+			const result = await this.collection<Document>(COLLECTIONS.books).updateOne(
+				{
+					_id: bookId,
+					ratings: { $exists: false },
+					ratingsBackfillSkip: { $exists: false }
+				},
+				[
+					{
+						$set: {
+							createdAt: { $ifNull: ['$createdAt', { $toDate: '$_id' }] },
+							ratingsBackfillSkip: {
+								reason: 'non_book',
+								contentType,
+								markedAt: new Date()
+							}
+						}
+					}
+				],
 				{ session, bypassDocumentValidation: true }
 			)
 			return { modified: result.modifiedCount, superseded: false }

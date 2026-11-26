@@ -8,11 +8,8 @@ import { ObjectId } from 'mongodb'
 
 import { DATABASE_INDEXES } from '#config/databaseIndexes'
 import { ApiBookSchema } from '#config/types'
-import {
-	BookHistoryStore,
-	deepEqualBook,
-	mergeStoredGenresWhenIncomingEmpty
-} from '#helpers/database/papr/BookHistoryStore'
+import { buildEffectiveWrite } from '#helpers/database/bookWriteProjection'
+import { BookHistoryStore, deepEqualBook } from '#helpers/database/papr/BookHistoryStore'
 import { parsedBook, parsedBookWithoutGenres } from '#tests/datasets/helpers/books'
 
 const FAILURE =
@@ -267,42 +264,6 @@ describe('assertHistoryPrerequisites', () => {
 	})
 })
 
-describe('genre-preserving write splice', () => {
-	const storedWithGenres = {
-		genres: [{ asin: 'G1', name: 'Mystery', url: 'https://example.com/mystery' }]
-	}
-	const storedWithoutGenres = { genres: [] }
-	const incomingWithoutGenres = parsedBookWithoutGenres
-	const incomingWithGenres = parsedBook
-
-	test('preserves stored genres when the incoming book carries none', () => {
-		// Ladder-less fetches (skipHtml scheduler/backfill passes) carry no
-		// genre evidence; the accepted update must keep the stored list.
-		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithGenres, incomingWithoutGenres)
-		expect(merged.genres).toEqual(storedWithGenres.genres)
-	})
-
-	test('lets incoming genres replace the stored list', () => {
-		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithGenres, incomingWithGenres)
-		expect(merged.genres).toEqual(incomingWithGenres.genres)
-	})
-
-	test('keeps the empty list when neither side has genres', () => {
-		const merged = mergeStoredGenresWhenIncomingEmpty(
-			storedWithoutGenres,
-			incomingWithoutGenres
-		)
-		expect(merged).not.toHaveProperty('genres')
-	})
-
-	test('handles an empty stored genres array as no genre evidence', () => {
-		// The producer emits `genres: []` for ladder-less books: an empty
-		// stored list must not be treated as evidence to preserve.
-		const merged = mergeStoredGenresWhenIncomingEmpty(storedWithoutGenres, incomingWithGenres)
-		expect(merged.genres).toEqual(incomingWithGenres.genres)
-	})
-})
-
 describe('repeated-observation equality (no-evidence genre forms)', () => {
 	test('an identical second observation with stored `genres: []` is NOT modified', () => {
 		// The merge omits the genres key when neither side has evidence,
@@ -331,6 +292,17 @@ describe('repeated-observation equality (no-evidence genre forms)', () => {
 		const stored = ApiBookSchema.parse({ ...parsedBookWithoutGenres, genres: [] })
 		const incoming = ApiBookSchema.parse({ ...parsedBookWithoutGenres, genres: parsedBook.genres })
 		expect(deepEqualBook(stored, incoming)).toBe(false)
+	})
+	test('the effective write keeps a stored empty genres list when neither side has genre evidence', () => {
+		// The production write path (`buildEffectiveWrite`, used by
+		// `persistObservation` for the $set and the returned projection):
+		// a stored `genres: []` is a real key the row retains, so the
+		// effective write must keep it (not drop the key) when the
+		// incoming book carries no genre evidence.
+		const stored = ApiBookSchema.parse({ ...parsedBookWithoutGenres, genres: [] })
+		const incoming = ApiBookSchema.parse({ ...parsedBookWithoutGenres })
+		const { book: writeBook } = buildEffectiveWrite(stored, incoming, {})
+		expect(writeBook.genres).toEqual([])
 	})
 })
 
@@ -443,6 +415,104 @@ describe('persistRatingsRepair', () => {
 	test('propagates a 0-modified outcome (concurrent writer won)', async () => {
 		const { store } = clientWith({ updateOneResult: { modifiedCount: 0 } })
 		await expect(store.persistRatingsRepair(input)).resolves.toEqual({
+			modified: 0,
+			superseded: false
+		})
+	})
+})
+
+describe('markNonBook', () => {
+	const input = {
+		asin: 'B079LRSMNN',
+		region: 'us',
+		generation: 9,
+		bookId: new ObjectId('5c8f8f8f8f8f8f8f8f8f8f01'),
+		contentType: 'SinglePartIssue'
+	}
+
+	test('writes the marker when the generation is accepted by the fence', async () => {
+		// A state document exists and the fence matches (the reserved
+		// generation is ahead of the accepted watermarks): the marker write
+		// lands in the SAME transaction, and the result is the marker's
+		// modifiedCount (1), not a supersede.
+		const { store, calls } = clientWith({
+			stateDoc: {
+				_id: 'us:B079LRSMNN',
+				acceptedGeneration: 5,
+				deleteFence: 0,
+				stateVersion: 4
+			}
+		})
+		const result = await store.markNonBook(input)
+		expect(result).toEqual({ modified: 1, superseded: false })
+		// The fence is re-asserted on the STATE document (same inequality as
+		// persistRatingsRepair), in the same transaction as the marker write.
+		expect(calls.stateUpdateOne).toHaveLength(1)
+		expect(calls.stateUpdateOne[0].filter).toEqual({
+			_id: 'us:B079LRSMNN',
+			acceptedGeneration: { $lt: 9 },
+			deleteFence: { $lt: 9 }
+		})
+		expect(calls.stateUpdateOne[0].update).toEqual({ $inc: { stateVersion: 1 } })
+		// The marker is a REAL document modification: a conditional
+		// pipeline $set of the non-book marker (with the createdAt
+		// backfill from the ObjectId timestamp), bypassing document
+		// validation for the legacy stub row.
+		expect(calls.booksUpdateOne).toHaveLength(1)
+		expect(calls.booksUpdateOne[0].filter).toEqual({
+			_id: input.bookId,
+			ratings: { $exists: false },
+			ratingsBackfillSkip: { $exists: false }
+		})
+		expect(calls.booksUpdateOne[0].update).toEqual([
+			{
+				$set: {
+					createdAt: { $ifNull: ['$createdAt', { $toDate: '$_id' }] },
+					ratingsBackfillSkip: {
+						reason: 'non_book',
+						contentType: input.contentType,
+						markedAt: expect.any(Date)
+					}
+				}
+			}
+		])
+		expect(calls.booksUpdateOne[0].opts).toEqual({
+			session: {},
+			bypassDocumentValidation: true
+		})
+	})
+
+	test('returns superseded and writes no marker when the fence is lost', async () => {
+		// A concurrent accepted-watermark advance makes the state fence
+		// match 0: the marker write must NOT be attempted (the stale batch
+		// result would mark the ASIN terminal after a newer refresh
+		// accepted it as a book), and the lost fence is a RESULT
+		// (`superseded: true`), not a throw — the backfill tallies it as a
+		// race, not a failure.
+		const { store, calls } = clientWith({
+			stateDoc: { _id: 'us:B079LRSMNN', acceptedGeneration: 12, deleteFence: 0 },
+			stateUpdateMatchedCount: 0
+		})
+		await expect(store.markNonBook(input)).resolves.toEqual({
+			modified: 0,
+			superseded: true
+		})
+		expect(calls.booksUpdateOne).toHaveLength(0)
+	})
+
+	test('omits the fence when no history state exists (nothing can supersede the generation)', async () => {
+		// No state document: no watermarks to be superseded by, so the
+		// fence is skipped and the marker write proceeds.
+		const { store, calls } = clientWith({ stateDoc: null })
+		const result = await store.markNonBook(input)
+		expect(result).toEqual({ modified: 1, superseded: false })
+		expect(calls.stateUpdateOne).toHaveLength(0)
+		expect(calls.booksUpdateOne).toHaveLength(1)
+	})
+
+	test('propagates a 0-modified outcome (concurrent writer already marked or rated)', async () => {
+		const { store } = clientWith({ updateOneResult: { modifiedCount: 0 } })
+		await expect(store.markNonBook(input)).resolves.toEqual({
 			modified: 0,
 			superseded: false
 		})

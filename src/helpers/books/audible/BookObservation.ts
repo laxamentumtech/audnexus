@@ -108,16 +108,36 @@ export function canonicalGenres(genres: ApiGenre[]): JsonValue {
 export function canonicalTags(tags: ApiTag[]): JsonValue {
 	const tuples = tags
 		.map((t) => ({
-			key: `${t.tagId}\u0000${t.name}\u0000${t.type}`,
-			value: [t.tagId, t.name, t.type]
+			// JSON array: an unambiguous tuple key — the field values are
+			// arbitrary strings and a NUL-join can collide on NUL-bearing
+			// input, suppressing a legitimate revision.
+			key: JSON.stringify([t.tagId, t.name, t.type]),
+			tagId: t.tagId,
+			name: t.name,
+			type: t.type
 		}))
-		.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+		// Sort by the `(tagId, name, type)` tuple comparison — not by the
+		// JSON key string, whose order differs from the previous NUL-join
+		// order and would false-revise an unchanged tag set against an
+		// existing `tags:api:v1` baseline. The JSON key stays collision-
+		// free for deduplication.
+		.sort((a, b) => {
+			for (const [x, y] of [
+				[a.tagId, b.tagId],
+				[a.name, b.name],
+				[a.type, b.type]
+			] as const) {
+				if (x < y) return -1
+				if (x > y) return 1
+			}
+			return 0
+		})
 	const seen = new Set<string>()
 	const result: JsonValue[] = []
 	for (const tuple of tuples) {
 		if (!seen.has(tuple.key)) {
 			seen.add(tuple.key)
-			result.push(tuple.value)
+			result.push([tuple.tagId, tuple.name, tuple.type])
 		}
 	}
 	return result

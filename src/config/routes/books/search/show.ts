@@ -9,7 +9,7 @@ async function _show(fastify: FastifyInstance) {
 		if (typeof q !== 'string' || !q.trim()) {
 			return reply.code(400).send({ error: 'Bad Request', message: 'q is required' })
 		}
-		if (typeof region !== 'string' || !regions[region]) {
+		if (typeof region !== 'string' || !Object.hasOwn(regions, region)) {
 			return reply.code(400).send({ error: 'Bad Request', message: `Unknown region: ${region}` })
 		}
 		const helper = new BookSearchApiHelper(q.trim(), region, request.log)

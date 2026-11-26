@@ -20,12 +20,18 @@ All notable changes to this project will be documented in this file. Releases ar
 - Give each history integration-test replica set a unique container name and free port so an interrupted run can no longer block the next one.
 - Apply the five-day document-cache TTL atomically on every write, including overwrites; cache write failures retain the existing setter error contract.
 - Avoid parsing cached author and chapter JSON twice while preserving book release-date conversion.
-- Omit the `Accept-Encoding` header on product page fetches. Audible's edge answers requests that carry it with a 503, which made every book HTML scrape fail and drove the shared adaptive cooldown to its ceiling.
-- Pace the ratings backfill with the scheduler walk's jitter, so a rejected book paces the next fetch and the pass stops bursting into upstream 503s.
+- Pace the ratings backfill with the scheduler walk's jitter. The batch request pays the jitter and cooldown once, and prefetched products in the batch skip the per-book delay; fallback fetches for stubs and failed chunks keep per-book pacing. The pacing reduces burst pressure from the backfill; it does not eliminate upstream 503s.
 - Allow book updates without genre evidence when the stored row has no genres, so legacy rows without category ladders can be repaired; stored genres stay protected on genre-less updates.
-- Recover stalled ratings backfill jobs up to five times, so a restart no longer fails a multi-day pass.
 - Supply `createdAt` on the accepted update path for book rows written before the schema required it, so the strict books validator accepts the repair.
-- Omit undefined optional book fields instead of writing null, and bypass document validation for the metadata-only backfill marker and the direct ratings repair write.
+
+## [1.18.0](https://github.com/laxamentumtech/audnexus/compare/v1.17.1...v1.18.0) (2026-11-14)
+
+
+### Bug Fixes
+
+* Omit the `Accept-Encoding` header on product page fetches. Audible's edge answers requests that carry it with a 503, which made every book HTML scrape fail and drove the shared adaptive cooldown to its ceiling.
+* Recover stalled ratings backfill jobs up to five times (`maxStalledCount: 5`), so a restart no longer fails a multi-day pass.
+* Create the application MongoClient with `ignoreUndefined`, so undefined optional book fields are omitted instead of written as null; bypass document validation for the metadata-only backfill marker and the direct ratings repair write.
 
 ## [1.15.0](https://github.com/laxamentumtech/audnexus/compare/audnexus-v1.14.0...audnexus-v1.15.0) (2026-07-25)
 

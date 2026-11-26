@@ -1,7 +1,11 @@
 import type { FastifyBaseLogger } from 'fastify'
 
 import { AudibleProduct, AudibleProductSchema } from '#config/types'
-import { AUDIBLE_BATCH_MAX_ASINS, buildProductQuery } from '#helpers/books/audible/apiParams'
+import {
+	AUDIBLE_BATCH_MAX_ASINS,
+	buildProductQuery,
+	validateAsinList
+} from '#helpers/books/audible/apiParams'
 import fetch from '#helpers/utils/fetchPlus'
 import { regions } from '#static/regions'
 
@@ -41,21 +45,36 @@ function chunk<T>(items: T[], size: number): T[][] {
  *
  * Throws on transport/HTTP errors. Callers that can degrade per book should
  * catch and fall back to the single-product path.
+ *
+ * `signal` (optional) is forwarded to the batch requests: an aborted caller
+ * (e.g. a deadline-expired backfill item) stops the in-flight request and
+ * its retries, so a late 503 from an abandoned batch cannot raise the
+ * shared adaptive cooldown after the per-book fallback has started.
  */
 export async function fetchProductsByAsin(
 	asins: string[],
 	region: string,
-	logger?: FastifyBaseLogger
+	logger?: FastifyBaseLogger,
+	signal?: AbortSignal
 ): Promise<AudibleBatchResult> {
-	const unique = [...new Set(asins.filter(Boolean))]
+	// Only well-formed 10-char ASINs may enter the request URL: the batch
+	// `asins` value is interpolated verbatim, so a stray value containing
+	// `,`, `&` or `=` would change the request shape.
+	const unique = [...new Set(validateAsinList(asins))]
 	const found = new Map<string, PrefetchedApiProduct>()
 	const stubs = new Set<string>()
 	const tld = regions[region]?.tld
 	if (!tld) throw new Error(`Unknown Audible region: ${region}`)
 
 	for (const batch of chunk(unique, AUDIBLE_BATCH_MAX_ASINS)) {
-		const url = `https://api.audible.${tld}/1.0/catalog/products?asins=${batch.join(',')}&${buildProductQuery()}`
-		const response = await fetch(url)
+		// Scope the membership set to the CURRENT chunk: an unsolicited
+		// product for a later chunk must not be accepted while this
+		// earlier chunk's response is being filtered.
+		const requested = new Set(batch)
+		const url = `https://api.audible.${tld}/1.0/catalog/products?asins=${encodeURIComponent(
+			batch.join(',')
+		)}&${buildProductQuery(region)}`
+		const response = await fetch(url, { signal })
 		const body = response.data as {
 			products?: unknown[]
 			response_groups?: unknown[]
@@ -79,7 +98,9 @@ export async function fetchProductsByAsin(
 			if (!raw || typeof raw !== 'object') continue
 			const candidate = raw as Record<string, unknown>
 			const asin = typeof candidate.asin === 'string' ? candidate.asin : undefined
-			if (!asin) continue
+			// Only requested ASINs count: a product the endpoint returned
+			// without being asked must not satisfy the request.
+			if (!asin || !requested.has(asin)) continue
 			// A stub carries only the ASIN: not found (invalid or unavailable).
 			if (Object.keys(candidate).length <= 1) {
 				stubs.add(asin)

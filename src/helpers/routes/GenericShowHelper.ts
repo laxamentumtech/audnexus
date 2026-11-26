@@ -250,6 +250,13 @@ export default class GenericShowHelper {
 			generation =
 				this.reservedGeneration ??
 				(await bookHistoryStore.reserveGeneration(this.asin, this.options.region))
+			// Expose the generation the fetch was reserved under even when
+			// the fetch itself fails before persistence: a terminal
+			// content-type rejection consumes the reservation (the fence is
+			// ordered by fetch start), so the marker write the backfill
+			// fences on it must be able to recover it from the failed
+			// fetch.
+			this.reservedGeneration = generation
 		}
 		const newData = stitchHelper ? await stitchHelper.process() : await this.getNewData()
 		this.freshData = newData

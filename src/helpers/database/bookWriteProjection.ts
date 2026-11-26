@@ -84,3 +84,23 @@ export function buildEffectiveWrite(
 
 	return { book: effective as unknown as ApiBook, unset }
 }
+
+/**
+ * The evidence-only write for `PaprAudibleBookHelper.update()`: the incoming
+ * book's own defined values, with no stored-retained merge. Fields the
+ * incoming book has no evidence for (stored genres on a genre-less refresh,
+ * stored Goodreads, stored series, and any stored-only field) are omitted so
+ * MongoDB leaves them untouched instead of restoring them from the caller's
+ * snapshot — closing the read/merge/write race a full effective write
+ * re-introduced. An empty/absent incoming genres list carries no genre
+ * evidence, so it is omitted (never nukes stored genres).
+ */
+export function buildEvidenceOnlyWrite(incoming: ApiBook): Record<string, unknown> {
+	const write: Record<string, unknown> = {}
+	for (const [key, value] of Object.entries(incoming)) {
+		if (value === undefined) continue
+		if (key === 'genres' && !(Array.isArray(value) && value.length > 0)) continue
+		write[key] = value
+	}
+	return write
+}

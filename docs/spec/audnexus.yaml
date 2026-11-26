@@ -206,6 +206,7 @@ paths:
       security:
         - ApiKeyAuth: []
         - ipAuth: []
+        - {}
     parameters: []
   '/books/search':
     get:
@@ -274,13 +275,6 @@ paths:
       description: The endpoint returns one book.
       operationId: getBookById
       parameters:
-        - name: name
-          in: query
-          description: This value can contain an author name.
-          required: false
-          schema:
-            type: string
-            minLength: 2
         - name: update
           in: query
           description: The value `1` requests an upstream data refresh.
@@ -399,13 +393,6 @@ paths:
       summary: The API deletes a book.
       operationId: deleteBook
       parameters:
-        - name: name
-          in: query
-          description: This value can contain an author name.
-          required: false
-          schema:
-            type: string
-            minLength: 2
         - name: region
           in: query
           description: This value selects the Audible catalog region.
@@ -660,16 +647,25 @@ paths:
                     type: string
                   similarAsins:
                     type: array
+                    maxItems: 50
                     items:
                       type: string
                   expanded:
                     type: boolean
                   books:
                     type: array
+                    description: This array is present only for an expanded response, including when it is empty.
                     items:
                       $ref: '#/components/schemas/Book_summary'
+                required:
+                  - asin
+                  - region
+                  - similarAsins
+                  - expanded
         '400':
-          description: The request has an invalid ASIN, region, `expand` value, or query key.
+          description: |
+            The request has an invalid ASIN, region, `expand`, `name`, `seedAuthors`, or `update` value.
+            The API ignores other unexpected query keys.
           content:
             application/json:
               schema:
@@ -917,15 +913,16 @@ paths:
     post:
       summary: The API starts a ratings backfill.
       description: |
-        The endpoint selects stored books that lack `ratings`, are not marked `ratingsBackfillSkip`, and do not have `rating` set to `0.0` or `0`.
+        The endpoint selects stored books that lack `ratings`, are not marked `ratingsBackfillSkip`, and have a persisted `rating` that is not `0.0` or `0`; books that later gain a rating re-enter the walk.
         It persists rating counts and star distributions.
         The endpoint requires an admin token.
         The endpoint runs only when `UPDATE_STATS` is `1`.
 
         The endpoint returns `202` at once.
-        It runs the backfill in the background.
-        The final summary lists total, updated, skipped, and failed counts.
-        The endpoint logs the summary and does not return it.
+        It enqueues the backfill job in the background.
+        The BullMQ worker runs the job and logs the final summary.
+        The summary lists total, updated, skipped, terminalSkipped, and failed counts.
+        The endpoint does not return the summary.
 
         Pre-order books have a future `releaseDate`.
         The backfill reports those books as `skipped`.
@@ -1034,15 +1031,8 @@ paths:
     get:
       summary: The API returns chapters for a book.
       description: The endpoint returns chapters for the requested `ASIN`.
-      operationId: getBookChapters
+      operationId: getChapterById
       parameters:
-        - name: name
-          in: query
-          description: This value can contain an author name.
-          required: false
-          schema:
-            type: string
-            minLength: 2
         - name: update
           in: query
           description: The value `1` requests an upstream data refresh.
@@ -1215,11 +1205,16 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '404':
-          description: Chapter data does not exist for this ASIN.
+          description: |
+            Chapter data does not exist for this `ASIN`.
+            The response is a typed `NotFoundError` envelope,
+            or a plain Fastify error body when the route returns its untyped 404.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/FastifyErrorResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/ErrorResponse'
+                  - $ref: '#/components/schemas/FastifyErrorResponse'
         '500':
           $ref: '#/components/responses/InternalServerError'
         '429':
@@ -1228,16 +1223,9 @@ paths:
         - Chapters
     delete:
       summary: The API deletes chapter data.
-      operationId: deleteBookChapters
+      operationId: delete-books-ASIN-chapters
       description: The endpoint deletes chapter data for the requested `ASIN`.
       parameters:
-        - name: name
-          in: query
-          description: This value can contain an author name.
-          required: false
-          schema:
-            type: string
-            minLength: 2
         - name: region
           in: query
           description: This value selects the Audible catalog region.
@@ -1285,7 +1273,7 @@ paths:
     get:
       summary: The API searches authors by name.
       description: The endpoint returns up to 25 authors that match `name`.
-      operationId: searchAuthorsByName
+      operationId: searchAuthorByName
       parameters:
         - name: name
           in: query
@@ -1337,13 +1325,6 @@ paths:
           required: true
           schema:
             type: string
-        - name: name
-          in: query
-          description: This value can contain an author name.
-          required: false
-          schema:
-            type: string
-            minLength: 2
         - name: update
           in: query
           description: The value `1` requests an upstream data refresh.
@@ -1430,20 +1411,6 @@ paths:
           required: true
           schema:
             type: string
-        - name: name
-          in: query
-          description: This value can contain an author name.
-          required: false
-          schema:
-            type: string
-            minLength: 2
-        - name: update
-          in: query
-          description: The `update` value can be `0` or `1`.
-          required: false
-          schema:
-            type: string
-            enum: ['0', '1']
         - name: region
           in: query
           description: This value selects the Audible catalog region.
@@ -1490,8 +1457,8 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             error:
-              code: RATE_LIMIT_EXCEEDED
-              message: Rate limit reached. Please try again later.
+              code: '429'
+              message: Rate limit exceeded, retry in 1
               details: null
     InternalServerError:
       description: The server returned an untyped error.
