@@ -7,6 +7,7 @@ import AuthorModel from '#config/models/Author'
 import BookModel from '#config/models/Book'
 import ChapterModel from '#config/models/Chapter'
 import { getPerformanceConfig } from '#config/performance'
+import { ContentTypeMismatchError } from '#helpers/errors/ApiErrors'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
@@ -32,8 +33,9 @@ const MAX_PER_REGION_CONCURRENCY = 5
 
 /** What one document's update did: papr wrote it (`updated`), the upstream had
  * nothing usable but the row is not dead (`unchanged` — recency gate, swallowed
- * REGION_UNAVAILABLE/PRODUCT_DELISTED, no chapters), or the page no longer
- * exists (`gone`). Only `unchanged` and `gone` are marked checked; failures are not. */
+ * REGION_UNAVAILABLE/PRODUCT_DELISTED, no chapters, static content-type
+ * rejection), or the page no longer exists (`gone`). Only `unchanged` and
+ * `gone` are marked checked; transient failures are not. */
 type ItemOutcome = 'updated' | 'unchanged' | 'gone'
 
 /** Per-pass result, replacing the aggregate-summary plumbing. */
@@ -122,6 +124,20 @@ class UpdateScheduler {
 			return helper.persisted ? 'updated' : 'unchanged'
 		} catch (error) {
 			if (error instanceof UpstreamGoneError) return 'gone'
+			// A content-type rejection is a static upstream fact: a
+			// SinglePartIssue is not a book on this pass and will not become
+			// one on the next. Mark the row checked (the `unchanged` outcome)
+			// instead of logging it as an error and inflating `failures` on
+			// every scheduled pass. On-demand requests keep their
+			// CONTENT_TYPE_MISMATCH/400 contract — this only classifies the
+			// background reconcile. See BookBackfillHelper's terminal
+			// handling of the same typed error.
+			if (error instanceof ContentTypeMismatchError) {
+				this.logger.debug(
+					`${labelPrefix} item skipped upstream: asin=${doc.asin} region=${normalizeRegion(doc.region)} contentType=${error.details?.actualType ?? 'unknown'}`
+				)
+				return 'unchanged'
+			}
 			throw error
 		} finally {
 			// Pacing jitter is a serial-walk concern (items are sequential

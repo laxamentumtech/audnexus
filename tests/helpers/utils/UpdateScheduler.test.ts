@@ -80,6 +80,7 @@ mock.module('#helpers/utils/adaptiveCooldown', () => ({
 }))
 
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
+import { ContentTypeMismatchError } from '#helpers/errors/ApiErrors'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 import { UpstreamGoneError } from '#helpers/utils/upstreamGone'
@@ -311,6 +312,54 @@ describe('UpdateScheduler should', () => {
 		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 0, gone: 1, failures: 0 })
 		expect(mockAuthorUpdateOne).toHaveBeenCalledTimes(1)
 		expect(mockAuthorUpdateOne.mock.calls[0][1]).toEqual({ $currentDate: { updatedAt: true } })
+		expect(mockLogger.error).not.toHaveBeenCalled()
+	})
+
+	test('content-type rejection marks checked, counts unchanged, and logs no error', async () => {
+		setPerformanceConfig(
+			createTestPerformanceConfig({
+				USE_PARALLEL_SCHEDULER: false,
+				JITTER_MS: { min: 0, max: 0 }
+			})
+		)
+		const doc = makeStaleDoc()
+		mockBookFind.mockResolvedValueOnce([doc]).mockResolvedValueOnce([])
+		mockBookHandler.mockRejectedValue(
+			new ContentTypeMismatchError(`Item is a SinglePartIssue, not a book. ASIN: ${doc.asin}`, {
+				asin: doc.asin,
+				requestedType: 'book',
+				actualType: 'SinglePartIssue'
+			})
+		)
+		const pass = await helper.updateBooks()
+		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 1, gone: 0, failures: 0 })
+		// Terminal skip: the row leaves the staleness window instead of being
+		// retried (and re-logged) on every scheduled pass.
+		expect(mockBookUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockBookUpdateOne.mock.calls[0][1]).toEqual({ $currentDate: { updatedAt: true } })
+		expect(mockLogger.error).not.toHaveBeenCalled()
+		expect(mockLogger.debug).toHaveBeenCalledWith(
+			`book item skipped upstream: asin=${doc.asin} region=us contentType=SinglePartIssue`
+		)
+	})
+
+	test('parallel mode: content-type rejection marks checked without a failure', async () => {
+		setPerformanceConfig(
+			createTestPerformanceConfig({ USE_PARALLEL_SCHEDULER: true, JITTER_MS: { min: 0, max: 0 } })
+		)
+		const doc = makeStaleDoc()
+		mockBookFind.mockResolvedValueOnce([doc]).mockResolvedValueOnce([])
+		mockBookHandler.mockRejectedValue(
+			new ContentTypeMismatchError(`Item is a SinglePartIssue, not a book. ASIN: ${doc.asin}`, {
+				asin: doc.asin,
+				requestedType: 'book',
+				actualType: 'SinglePartIssue'
+			})
+		)
+		mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
+		const pass = await helper.updateBooks()
+		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 1, gone: 0, failures: 0 })
+		expect(mockBookUpdateOne).toHaveBeenCalledTimes(1)
 		expect(mockLogger.error).not.toHaveBeenCalled()
 	})
 
