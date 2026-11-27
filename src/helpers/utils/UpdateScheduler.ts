@@ -47,16 +47,26 @@ export interface PassSummary {
 	failures: number
 }
 
+/** The `$currentDate` update papr's generated update type does not model. */
+type CheckedUpdate = { $currentDate: { updatedAt: true } }
+
 /** The one papr method this file needs outside the generated generics:
- * `updateOne` with a `$currentDate` update and a validation bypass. Papr's
- * update type does not model `$currentDate`, and its `bypassDocumentValidation`
- * option is not part of the generated model signature. */
+ * `updateOne` with a `$currentDate` update and an optional validation bypass.
+ * Papr's `bypassDocumentValidation` option is not part of the generated model
+ * signature. */
 type CheckedWriter = {
 	updateOne: (
 		filter: { _id: ObjectId },
-		update: { $currentDate: { updatedAt: true } },
-		options: { bypassDocumentValidation: boolean }
+		update: CheckedUpdate,
+		options?: { bypassDocumentValidation: boolean }
 	) => Promise<unknown>
+}
+
+/** MongoDB rejects a strict-validator write with code 121
+ * (`DocumentValidationFailure`). */
+function isDocumentValidationFailure(error: unknown): boolean {
+	if (typeof error !== 'object' || error === null || !('code' in error)) return false
+	return error.code === 121
 }
 
 class UpdateScheduler {
@@ -96,22 +106,27 @@ class UpdateScheduler {
 	 * Cast matches the papr-generics bypass in keyset.ts (`$currentDate` is a
 	 * standard Mongo operator papr's update type does not model).
 	 *
-	 * Document validation is bypassed deliberately: a legacy row can predate the
-	 * strict collection validator and lack required content fields, so the
-	 * metadata-only write would be rejected for unrelated missing data and the
-	 * row would stay stale. Only `updatedAt` changes here, so no content can
-	 * slip past validation. Same rationale as `BookBackfillHelper.markNonBook`.
+	 * The validated write is the first attempt so a worker role that can update
+	 * but cannot bypass validation keeps marking ordinary rows. A legacy row can
+	 * predate the strict collection validator and lack required content fields,
+	 * which rejects the metadata-only write for unrelated missing data; only
+	 * that failure earns one retry with the bypass, and no content can slip past
+	 * validation because the update touches only `updatedAt`. Same rationale as
+	 * `BookBackfillHelper.markNonBook`.
 	 */
 	private async markChecked(
 		model: typeof AuthorModel | typeof BookModel | typeof ChapterModel,
 		id: ObjectId
 	): Promise<void> {
 		const writer = model as unknown as CheckedWriter
-		await writer.updateOne(
-			{ _id: id },
-			{ $currentDate: { updatedAt: true } },
-			{ bypassDocumentValidation: true }
-		)
+		const filter = { _id: id }
+		const update: CheckedUpdate = { $currentDate: { updatedAt: true } }
+		try {
+			await writer.updateOne(filter, update)
+		} catch (error) {
+			if (!isDocumentValidationFailure(error)) throw error
+			await writer.updateOne(filter, update, { bypassDocumentValidation: true })
+		}
 	}
 
 	/**

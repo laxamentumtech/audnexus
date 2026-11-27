@@ -337,9 +337,6 @@ describe('UpdateScheduler should', () => {
 		// retried (and re-logged) on every scheduled pass.
 		expect(mockBookUpdateOne).toHaveBeenCalledTimes(1)
 		expect(mockBookUpdateOne.mock.calls[0][1]).toEqual({ $currentDate: { updatedAt: true } })
-		// Metadata-only write: a legacy row that predates the strict books
-		// validator must still accept the check timestamp.
-		expect(mockBookUpdateOne.mock.calls[0][2]).toEqual({ bypassDocumentValidation: true })
 		expect(mockLogger.error).not.toHaveBeenCalled()
 		expect(mockLogger.debug).toHaveBeenCalledWith(
 			`book item skipped upstream: asin=${doc.asin} region=us contentType=SinglePartIssue`
@@ -363,6 +360,36 @@ describe('UpdateScheduler should', () => {
 		const pass = await helper.updateBooks()
 		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 1, gone: 0, failures: 0 })
 		expect(mockBookUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockLogger.error).not.toHaveBeenCalled()
+	})
+
+	test('legacy row: validator rejection retries the check write with the bypass', async () => {
+		// The validated write stays the first attempt (least-privilege workers
+		// keep marking ordinary rows); only MongoDB's code 121 earns the retry
+		// that a legacy stub lacking required content fields needs.
+		setPerformanceConfig(
+			createTestPerformanceConfig({
+				USE_PARALLEL_SCHEDULER: false,
+				JITTER_MS: { min: 0, max: 0 }
+			})
+		)
+		const doc = makeStaleDoc()
+		mockBookFind.mockResolvedValueOnce([doc]).mockResolvedValueOnce([])
+		mockBookHandler.mockRejectedValue(
+			new ContentTypeMismatchError(`Item is a SinglePartIssue, not a book. ASIN: ${doc.asin}`, {
+				asin: doc.asin,
+				requestedType: 'book',
+				actualType: 'SinglePartIssue'
+			})
+		)
+		mockBookUpdateOne
+			.mockRejectedValueOnce(Object.assign(new Error('Document failed validation'), { code: 121 }))
+			.mockResolvedValueOnce({ acknowledged: true })
+		const pass = await helper.updateBooks()
+		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 1, gone: 0, failures: 0 })
+		expect(mockBookUpdateOne).toHaveBeenCalledTimes(2)
+		expect(mockBookUpdateOne.mock.calls[0][2]).toBeUndefined()
+		expect(mockBookUpdateOne.mock.calls[1][2]).toEqual({ bypassDocumentValidation: true })
 		expect(mockLogger.error).not.toHaveBeenCalled()
 	})
 
