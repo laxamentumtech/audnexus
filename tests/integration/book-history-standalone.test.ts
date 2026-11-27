@@ -475,16 +475,15 @@ run('BookHistoryStore against a replica set', () => {
 				// is the one being blocked, not the repair's).
 				const inprog = (ops.inprog ?? []) as Array<{
 					op?: string
-					cmd?: { update?: string; ns?: string }
+					ns?: string
 					lsid?: { id?: unknown }
 				}>
 				if (
 					inprog.some(
 						(op) =>
-							op.op === 'query' &&
-							typeof op.cmd?.update === 'string' &&
-							typeof op.cmd?.ns === 'string' &&
-							op.cmd.ns.endsWith('book_history_states') &&
+							op.op === 'update' &&
+							typeof op.ns === 'string' &&
+							op.ns.endsWith('book_history_states') &&
 							JSON.stringify(op.lsid?.id) !== contenderSession
 					)
 				) {
@@ -2058,12 +2057,17 @@ run('BookHistoryStore against a replica set', () => {
 		// observation (`tags: []` → `state: 'absent'`) must CLEAR both the
 		// stored and returned tags and record EXACTLY ONE `tags` delta to
 		// `absent`.
-		const asin = 'B0TAGEVID'
+		const asin = 'B0TAGEVID1'
 		const key = `${REGION}:${asin}`
 		const db7 = collections()
 		const storedTags = [{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }]
 		const tagTuples = [['adbl_rec_tag_0-2-1', 'Witty', 'mood']]
 		const baseBook = book({ asin, title: 'Tags Evidence' })
+		// The stored row must parse as a public projection: a 9-char ASIN
+		// would fail `ApiBookSchema`, and the unknown-tags phase's fallback
+		// to `baseBook` would then return tags-less data — breaking the
+		// returned-tags assertion instead of testing retention.
+		expect(ApiBookSchema.safeParse(baseBook).success).toBe(true)
 
 		// Seed a tag-less row and its baselines (title/artwork) in one
 		// accepted observation.

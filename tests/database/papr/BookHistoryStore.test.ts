@@ -293,6 +293,30 @@ describe('repeated-observation equality (no-evidence genre forms)', () => {
 		const incoming = ApiBookSchema.parse({ ...parsedBookWithoutGenres, genres: parsedBook.genres })
 		expect(deepEqualBook(stored, incoming)).toBe(false)
 	})
+	test('a changed releaseDate is NOT equal (Date compares by value)', () => {
+		// A `Date` has no own enumerable keys, so the generic object
+		// comparison would call any two distinct dates equal — a changed
+		// `releaseDate` (which `ApiBookSchema` carries as a `Date`) would
+		// never persist. The equality contract must compare dates by
+		// value so a changed date is reported as a difference.
+		const stored = ApiBookSchema.parse({ ...parsedBook })
+		const incoming = ApiBookSchema.parse({
+			...parsedBook,
+			releaseDate: new Date('2019-03-01T00:00:00.000Z')
+		})
+		expect(deepEqualBook(stored, incoming)).toBe(false)
+	})
+	test('identical releaseDate values ARE equal (Date compares by value)', () => {
+		// Symmetric direction: two `Date` instances with the same time
+		// compare equal even though they are distinct objects (identity
+		// alone would call them unequal).
+		const stored = ApiBookSchema.parse({ ...parsedBook })
+		const incoming = ApiBookSchema.parse({
+			...parsedBook,
+			releaseDate: new Date(parsedBook.releaseDate.getTime())
+		})
+		expect(deepEqualBook(stored, incoming)).toBe(true)
+	})
 	test('the effective write keeps a stored empty genres list when neither side has genre evidence', () => {
 		// The production write path (`buildEffectiveWrite`, used by
 		// `persistObservation` for the $set and the returned projection):

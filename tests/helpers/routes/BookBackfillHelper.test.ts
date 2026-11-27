@@ -1474,6 +1474,117 @@ describe('BookBackfillHelper should', () => {
 			resetPerformanceConfig()
 		}
 	})
+
+	test('invalidates the book cache only after a timed-out fenced repair settles', async () => {
+		// Regression: `withDeadline` only stops AWAITING the repair — the
+		// background transaction can commit AFTER the deadline. Invalidating
+		// at the timeout leaves a gap in which a concurrent read repopulates
+		// the cache from the still-rating-less row, and the late commit
+		// carries no further invalidation. The invalidation must land after
+		// the repair SETTLES (commit or abort), not at the timeout.
+		historyEnabled = true
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockPersisted = false
+		mockPersistedGeneration = 9
+		mockFreshData = bookWithRatings
+		// The repair promise is held until the test resolves it. The `armed`
+		// resolver signals the moment the repair is invoked — and so the
+		// moment `withDeadline` has armed its deadline timer — so the timer
+		// advance below fires against a pending repair (a single microtask
+		// turn is not enough to reach the timer arm, and advancing with no
+		// pending timer would let the repair resolve normally).
+		const { promise: repairPromise, resolve: settleRepair } =
+			Promise.withResolvers<{ modified: number; superseded: boolean }>()
+		const { promise: repairArmed, resolve: signalArmed } = Promise.withResolvers<void>()
+		mockPersistRatingsRepair.mockImplementation(() => {
+			signalArmed()
+			return repairPromise
+		})
+		mockShowHandler.mockImplementation(async () => {
+			const cause = Object.assign(new Error('write rejected'), { code: 121 })
+			throw new Error('handler wrapper', {
+				cause: new Error('An error occurred while updating book', { cause })
+			})
+		})
+		setPerformanceConfig(createTestPerformanceConfig({ SCHEDULER_ITEM_TIMEOUT_MS: 50 }))
+		vi.useFakeTimers()
+		try {
+			const pending = helper.process()
+			await repairArmed
+			vi.advanceTimersByTime(60)
+			// The deadline fired, but the repair has NOT settled yet: no
+			// invalidation at timeout time.
+			expect(mockRedisDel).not.toHaveBeenCalled()
+			// The repair settles (commits) after the deadline: the
+			// settlement observer must now invalidate.
+			settleRepair({ modified: 1, superseded: false })
+			// Flush the observer's microtask chain (catch → finally →
+			// deleteOne) without touching the fake timers.
+			for (let i = 0; i < 12; i++) await Promise.resolve()
+			expect(mockRedisDel).toHaveBeenCalledTimes(1)
+			// The item still counts failed: the timeout outcome is
+			// preserved.
+			await expect(pending).resolves.toEqual({
+				total: 1,
+				updated: 0,
+				skipped: 0,
+				terminalSkipped: 0,
+				failed: 1
+			})
+		} finally {
+			vi.useRealTimers()
+			resetPerformanceConfig()
+			historyEnabled = false
+		}
+	})
+
+	test('invalidates the book cache only after a timed-out legacy repair settles', async () => {
+		// The history-disabled path bounds the legacy `updateOne` the same
+		// way: the invalidation must land after the write settles, not at
+		// the timeout.
+		mockBookFind.mockReset()
+		mockBookFind.mockResolvedValueOnce([books[0]]).mockResolvedValueOnce([])
+		mockFreshData = bookWithRatings
+		const { promise: repairPromise, resolve: settleRepair } =
+			Promise.withResolvers<{ modifiedCount: number }>()
+		const { promise: repairArmed, resolve: signalArmed } = Promise.withResolvers<void>()
+		mockBookUpdateOne.mockImplementation(() => {
+			signalArmed()
+			return repairPromise
+		})
+		mockShowHandler.mockImplementation(async () => {
+			const cause = Object.assign(new Error('write rejected'), { code: 121 })
+			throw new Error('handler wrapper', {
+				cause: new Error('An error occurred while updating book', { cause })
+			})
+		})
+		setPerformanceConfig(createTestPerformanceConfig({ SCHEDULER_ITEM_TIMEOUT_MS: 50 }))
+		vi.useFakeTimers()
+		try {
+			const pending = helper.process()
+			await repairArmed
+			vi.advanceTimersByTime(60)
+			// The deadline fired, but the write has NOT settled yet: no
+			// invalidation at timeout time.
+			expect(mockRedisDel).not.toHaveBeenCalled()
+			// The write settles (commits) after the deadline: the
+			// settlement observer must now invalidate.
+			settleRepair({ modifiedCount: 1 })
+			for (let i = 0; i < 12; i++) await Promise.resolve()
+			expect(mockRedisDel).toHaveBeenCalledTimes(1)
+			await expect(pending).resolves.toEqual({
+				total: 1,
+				updated: 0,
+				skipped: 0,
+				terminalSkipped: 0,
+				failed: 1
+			})
+		} finally {
+			vi.useRealTimers()
+			resetPerformanceConfig()
+		}
+	})
 })
 
 afterAll(() => {

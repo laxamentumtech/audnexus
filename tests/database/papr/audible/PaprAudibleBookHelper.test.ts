@@ -14,7 +14,13 @@ mock.module('#config/models/Book', () => ({
 		findOne: mockFindOne,
 		insertOne: mockInsertOne,
 		deleteOne: mockDeleteOne,
-		find: mockFind
+		find: mockFind,
+		// The ratings pipeline update is sent through the native collection
+		// (not the papr model, whose `timestampUpdateFilter` would transform
+		// the pipeline array into a replacement document).
+		collection: {
+			updateOne: mockUpdateOne
+		}
 	}
 }))
 
@@ -559,6 +565,74 @@ describe('PaprAudibleBookHelper should', () => {
 		expect(update).not.toHaveProperty('$set')
 		expect(update).not.toHaveProperty('$currentDate')
 		expect(update.$unset).toEqual({ ratingsBackfillSkip: '' })
+	})
+	test('createOrUpdate routes a malformed-ratings row to update() even when the incoming book omits ratings', async () => {
+		// Regression: a stored row whose `ratings` is a malformed parent
+		// (null/scalar/array) fails `ApiBookSchema`, so the sanitized
+		// projection strips `ratings`. An incoming book that omits `ratings`
+		// and otherwise matches would then hit the equality fast path and
+		// return `modified: false` WITHOUT calling `update()` — leaving the
+		// malformed `ratings` value in MongoDB, failing projection on every
+		// subsequent read. The malformed-ratings case must bypass the fast
+		// path so `update()` rewrites the row.
+		const stored = {
+			...bookWithoutProjection,
+			ratings: null
+		} as unknown as BookDocument
+		mockIsEqualData.mockReturnValue(true)
+		mockFindOne
+			.mockResolvedValueOnce(stored) // raw row read (projection + _id)
+			.mockResolvedValueOnce(stored) // fresh read in update()
+			.mockResolvedValue(bookWithoutProjection as unknown as BookDocument) // post-update read
+		// The incoming book OMITS ratings (the regression case): a genre-less
+		// refresh with no rating data. An explicit `undefined` is treated as
+		// absent by `buildEvidenceOnlyWrite`.
+		helper.setData({ ...parsedBookWithoutGenres, ratings: undefined })
+		const result = await helper.createOrUpdate()
+		// The fast path was bypassed: update() ran and reported a write.
+		expect(result.modified).toBe(true)
+		// The no-incoming-ratings branch clears the malformed parent with a
+		// pipeline $unset (a plain $set would leave it in place), sent
+		// through the native collection.
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		const [filter, update] = mockUpdateOne.mock.calls[0] as [unknown, unknown]
+		expect(Array.isArray(update)).toBe(true)
+		expect(filter).toEqual({
+			asin: asin,
+			$or: [{ region: { $exists: false } }, { region: options.region }]
+		})
+		const pipeline = update as Record<string, unknown>[]
+		expect(pipeline.some((stage) => '$unset' in stage && stage.$unset.includes('ratings'))).toBe(
+			true
+		)
+	})
+	test('createOrUpdate repairs a malformed-ratings row with the pipeline merge when the incoming book carries ratings', async () => {
+		// Symmetric case: the incoming book DOES carry ratings, so the
+		// pipeline MERGE repairs the malformed parent (tolerating a
+		// non-object ratings parent via $cond). The malformed case must
+		// still bypass the equality fast path so this write is reached.
+		const stored = {
+			...bookWithoutProjection,
+			ratings: 'not-an-object'
+		} as unknown as BookDocument
+		mockIsEqualData.mockReturnValue(true)
+		mockFindOne
+			.mockResolvedValueOnce(stored) // raw row read (projection + _id)
+			.mockResolvedValueOnce(stored) // fresh read in update()
+			.mockResolvedValue(bookWithoutProjection as unknown as BookDocument) // post-update read
+		helper.setData(parsedBook)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		// The ratings-bearing write is the pipeline merge through the
+		// native collection (not a plain $set).
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		const update = mockUpdateOne.mock.calls[0][1] as unknown
+		expect(Array.isArray(update)).toBe(true)
+		const pipeline = update as Record<string, unknown>[]
+		const setStage = pipeline.find((stage) => '$set' in stage)
+		expect(setStage).toBeDefined()
+		const setStageDoc = setStage as { $set: Record<string, unknown> }
+		expect(setStageDoc.$set.ratings).toHaveProperty('$mergeObjects')
 	})
 })
 

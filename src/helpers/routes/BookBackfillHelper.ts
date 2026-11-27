@@ -11,6 +11,7 @@ import {
 	fetchProductsByAsin,
 	type PrefetchedApiProduct
 } from '#helpers/books/audible/ApiBatchHelper'
+import type { RatingsRepairResult } from '#helpers/database/papr/BookHistoryStore'
 import RedisHelper from '#helpers/database/redis/RedisHelper'
 import { ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
@@ -24,7 +25,7 @@ import {
 	iterateKeyset,
 	keysetFindAdapter
 } from '#helpers/utils/keyset'
-import { withDeadline } from '#helpers/utils/withDeadline'
+import { DeadlineExceededError, withDeadline } from '#helpers/utils/withDeadline'
 import { NoticeUpdateScheduled } from '#static/messages'
 
 /** Per-request ASIN cap for the undocumented multi-ASIN endpoint. */
@@ -158,7 +159,6 @@ export default class BookBackfillHelper {
 				// one per book. Stubs/failed chunks fall back to the per-book path
 				// (undefined prefetched), so failure classification is unchanged.
 				const prefetched = new Map<string, PrefetchedApiProduct>()
-				const reservedGenerations = new Map<string, number>()
 				// The snapshot generation that authorized each prefetched
 				// product: read from the pre-fetch snapshot (not the live
 				// map) so a later chunk's reservation cannot overwrite the
@@ -216,11 +216,18 @@ export default class BookBackfillHelper {
 								// after the fetch starts, and a late one could then
 								// authorize an already-started batch.
 								let reservationStopped = false
+								// Successful reservations made BY THIS CHUNK: the
+								// pre-fetch snapshot is built from this map
+								// alone, so a reservation from an earlier
+								// chunk (a key that repeats across chunks) can
+								// neither authorize this chunk's results nor
+								// keep a fully-failed chunk from skipping.
+								const chunkReservations = new Map<string, number>()
 								await withDeadline(
 									(async () => {
 										for (let k = 0; k < chunk.length && !reservationStopped; k += 1) {
 											try {
-												reservedGenerations.set(
+												chunkReservations.set(
 													keys[k],
 													await bookHistoryStore.reserveGeneration(chunk[k].asin, region)
 												)
@@ -242,11 +249,14 @@ export default class BookBackfillHelper {
 									)
 								})
 								// Snapshot taken after the deadline settles the
-								// await: only reservations that completed BEFORE
-								// this fetch are eligible for its results — a
-								// late completion must not authorize an
-								// already-started batch.
-								reservedBeforeFetch = new Map(reservedGenerations)
+								// await: only THIS CHUNK's reservations that
+								// completed BEFORE this fetch are eligible for
+								// its results — a late completion must not
+								// authorize an already-started batch, and an
+								// earlier chunk's reservation for a repeated
+								// key must not stand in for one that failed
+								// here.
+								reservedBeforeFetch = new Map(chunkReservations)
 							}
 							// Pacing at the batch REQUEST boundary, not only per
 							// book after the fact: with the cooldown at zero the
@@ -505,52 +515,127 @@ export default class BookBackfillHelper {
 									: undefined
 							if (freshRatings) {
 								let modified: number
-								if (isBookHistoryEnabled() && helper.persistedGeneration !== undefined) {
-									// The handler's deadline has already
-									// cleared: bound the repair with the
-									// same per-item budget so a slow
-									// transaction cannot commit in the
-									// background past the scheduler item
-									// timeout (in sequential mode the next
-									// book would wait for it).
-									const repair = await withDeadline(
-										bookHistoryStore.persistRatingsRepair({
+								// The underlying repair promise, captured so a
+								// timeout can attach a settlement observer to
+								// it (see the catch below). `withDeadline`
+								// only stops AWAITING — the background repair
+								// can commit AFTER the deadline, so the cache
+								// invalidation must land after that commit,
+								// not at the timeout.
+								let repairPromise:
+									| Promise<RatingsRepairResult>
+									| Promise<{ modifiedCount: number }>
+									| undefined
+								try {
+									if (isBookHistoryEnabled() && helper.persistedGeneration !== undefined) {
+										// The handler's deadline has already
+										// cleared: bound the repair with the
+										// same per-item budget so a slow
+										// transaction cannot commit in the
+										// background past the scheduler item
+										// timeout (in sequential mode the next
+										// book would wait for it).
+										const fencedRepairPromise = bookHistoryStore.persistRatingsRepair({
 											asin: book.asin,
 											region,
 											generation: helper.persistedGeneration,
 											bookId: book._id,
 											ratings: freshRatings
-										}),
-										getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
-										`backfill ratings repair ${book.asin}`
-									)
-									if (repair.superseded) {
-										// A newer generation owns the fence:
-										// the books write was not attempted.
-										// A race, not a failure.
-										if (!prefetched.get(`${region}:${book.asin}`)) registerSuccess()
-										raced += 1
-										return
+										})
+										repairPromise = fencedRepairPromise
+										const repair: RatingsRepairResult = await withDeadline(
+											fencedRepairPromise,
+											getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
+											`backfill ratings repair ${book.asin}`
+										)
+										if (repair.superseded) {
+											// A newer generation owns the fence:
+											// the books write was not attempted.
+											// A race, not a failure.
+											if (!prefetched.get(`${region}:${book.asin}`)) registerSuccess()
+											raced += 1
+											return
+										}
+										modified = repair.modified
+									} else {
+										// The legacy write is a plain model
+										// call: bound it with the same budget
+										// so a hung updateOne cannot park the
+										// walk past the scheduler item timeout.
+										const bookModel = BookModel as unknown as {
+											updateOne: (
+												filter: object,
+												update: object,
+												options?: object
+											) => Promise<{ modifiedCount: number }>
+										}
+										const legacyRepairPromise = bookModel.updateOne(
+											{ _id: book._id, ratings: { $exists: false } },
+											{
+												$set: { ratings: freshRatings },
+												$unset: { ratingsBackfillSkip: '' },
+												$currentDate: { updatedAt: true }
+											},
+											{ bypassDocumentValidation: true }
+										)
+										repairPromise = legacyRepairPromise
+										const repair: { modifiedCount: number } = await withDeadline(
+											legacyRepairPromise,
+											getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
+											`backfill ratings repair ${book.asin}`
+										)
+										modified = repair.modifiedCount
 									}
-									modified = repair.modified
-								} else {
-									const bookModel = BookModel as unknown as {
-										updateOne: (
-											filter: object,
-											update: object,
-											options?: object
-										) => Promise<{ modifiedCount: number }>
+								} catch (error) {
+									if (error instanceof DeadlineExceededError) {
+										// The deadline bounded the AWAIT, not
+										// the write: a timed-out repair may
+										// still commit in the background, so
+										// the row may already carry ratings.
+										// Invalidate the rating-less cache
+										// entry a prior read left behind —
+										// but AFTER the background repair
+										// SETTLES (commits or aborts), not at
+										// the timeout: a concurrent read in
+										// the gap between a timeout-time
+										// invalidation and the late commit
+										// would repopulate the cache from the
+										// still-rating-less row, and the later
+										// commit carries no further
+										// invalidation, so a stale entry
+										// survives until TTL. Attach a
+										// best-effort settlement observer to
+										// the repair promise (the
+										// `withDeadline` late-rejection
+										// pattern) that runs the invalidation
+										// once the write settles, then
+										// rethrow so the row is retried on
+										// the next pass (a committed row is no
+										// longer in the target set).
+										const cacheHelper = new RedisHelper(
+											this.redis as unknown as FastifyRedis | null,
+											'book',
+											book.asin,
+											region,
+											this.logger
+										)
+										// A DeadlineExceededError can only come
+										// from the awaited repair, so the
+										// promise exists here (the optional
+										// chain is a type-level guard for a
+										// case that cannot occur).
+										repairPromise
+											?.catch(() => undefined)
+											.finally(async () => {
+												try {
+													await cacheHelper.deleteOne()
+												} catch {
+													// Best-effort: the entry
+													// expires on its TTL.
+												}
+											})
 									}
-									const repair = await bookModel.updateOne(
-										{ _id: book._id, ratings: { $exists: false } },
-										{
-											$set: { ratings: freshRatings },
-											$unset: { ratingsBackfillSkip: '' },
-											$currentDate: { updatedAt: true }
-										},
-										{ bypassDocumentValidation: true }
-									)
-									modified = repair.modifiedCount
+									throw error
 								}
 								if (modified === 1) {
 									// A prior read may have cached the rating-less
@@ -683,78 +768,113 @@ export default class BookBackfillHelper {
 						(helper.historyDisposition === undefined || helper.historyDisposition === 'rejected')
 					) {
 						let modified: number
-						if (isBookHistoryEnabled() && helper.persistedGeneration !== undefined) {
-							// History-enabled: revalidate the accepted-generation
-							// fence ATOMICALLY with the write. The `rejected`
-							// disposition only proves non-staleness while
-							// persistObservation's own transaction ran; a newer
-							// generation accepted in between would let an older
-							// fetch's ratings land. The fence condition is part
-							// of the conditional update, so a superseded
-							// generation matches 0 and writes nothing. The
-							// handler's deadline has already cleared, so bound
-							// the repair with the same per-item budget (a slow
-							// transaction must not commit in the background
-							// past the scheduler item timeout).
-							const repair = await withDeadline(
-								bookHistoryStore.persistRatingsRepair({
-									asin: book.asin,
+						try {
+							if (isBookHistoryEnabled() && helper.persistedGeneration !== undefined) {
+								// History-enabled: revalidate the accepted-generation
+								// fence ATOMICALLY with the write. The `rejected`
+								// disposition only proves non-staleness while
+								// persistObservation's own transaction ran; a newer
+								// generation accepted in between would let an older
+								// fetch's ratings land. The fence condition is part
+								// of the conditional update, so a superseded
+								// generation matches 0 and writes nothing. The
+								// handler's deadline has already cleared, so bound
+								// the repair with the same per-item budget (a slow
+								// transaction must not commit in the background
+								// past the scheduler item timeout).
+								const repair = await withDeadline(
+									bookHistoryStore.persistRatingsRepair({
+										asin: book.asin,
+										region,
+										generation: helper.persistedGeneration,
+										bookId: book._id,
+										ratings
+									}),
+									getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
+									`backfill ratings repair ${book.asin}`
+								)
+								if (repair.superseded) {
+									// A newer generation accepted an equal
+									// projection in between the `rejected`
+									// disposition and the repair: the fence is
+									// owned, the books write was not attempted.
+									// This is a race (subtracted from `updated`
+									// at the end) — not a batch failure, and it
+									// must not reach the batchProcessor tally.
+									// The fetch itself succeeded (a usable
+									// product with ratings), so the shared
+									// adaptive cooldown relaxes the same way as
+									// every other raced-but-fetched outcome.
+									if (!prefetched.get(`${region}:${book.asin}`)) registerSuccess()
+									raced += 1
+									return
+								}
+								modified = repair.modified
+							} else {
+								// History-disabled: the legacy papr genre guard is
+								// the only non-persisted outcome here. papr's model
+								// type omits updateOne; the runtime model has it
+								// (UpdateScheduler.markChecked relies on the same).
+								// The repair is a conditional field addition on
+								// legacy stubs that already fail the validator for
+								// unrelated missing content fields, so bypass
+								// validation (content writes keep full validation)
+								// — otherwise the row can never leave the target
+								// set. The filter re-checks `ratings` so a row that
+								// gained ratings concurrently is never touched.
+								// The legacy write is a plain model call: bound
+								// it with the same budget so a hung updateOne
+								// cannot park the walk past the scheduler item
+								// timeout.
+								const bookModel = BookModel as unknown as {
+									updateOne: (
+										filter: object,
+										update: object,
+										options?: object
+									) => Promise<{
+										modifiedCount: number
+									}>
+								}
+								const repair = await withDeadline(
+									bookModel.updateOne(
+										{ _id: book._id, ratings: { $exists: false } },
+										{
+											$set: { ratings },
+											$unset: { ratingsBackfillSkip: '' },
+											$currentDate: { updatedAt: true }
+										},
+										{ bypassDocumentValidation: true }
+									),
+									getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
+									`backfill ratings repair ${book.asin}`
+								)
+								modified = repair.modifiedCount
+							}
+						} catch (error) {
+							if (error instanceof DeadlineExceededError) {
+								// The deadline bounded the AWAIT, not the
+								// write: a timed-out repair may still commit
+								// in the background, so the row may already
+								// carry ratings. Invalidate the rating-less
+								// cache entry a prior read left behind
+								// (best-effort — the TTL covers a miss), then
+								// rethrow so the row is retried on the next
+								// pass (a committed row is no longer in the
+								// target set).
+								const cacheHelper = new RedisHelper(
+									this.redis as unknown as FastifyRedis | null,
+									'book',
+									book.asin,
 									region,
-									generation: helper.persistedGeneration,
-									bookId: book._id,
-									ratings
-								}),
-								getPerformanceConfig().SCHEDULER_ITEM_TIMEOUT_MS,
-								`backfill ratings repair ${book.asin}`
-							)
-							if (repair.superseded) {
-								// A newer generation accepted an equal
-								// projection in between the `rejected`
-								// disposition and the repair: the fence is
-								// owned, the books write was not attempted.
-								// This is a race (subtracted from `updated`
-								// at the end) — not a batch failure, and it
-								// must not reach the batchProcessor tally.
-								// The fetch itself succeeded (a usable
-								// product with ratings), so the shared
-								// adaptive cooldown relaxes the same way as
-								// every other raced-but-fetched outcome.
-								if (!prefetched.get(`${region}:${book.asin}`)) registerSuccess()
-								raced += 1
-								return
+									this.logger
+								)
+								try {
+									await cacheHelper.deleteOne()
+								} catch {
+									// Best-effort: the entry expires on its TTL.
+								}
 							}
-							modified = repair.modified
-						} else {
-							// History-disabled: the legacy papr genre guard is
-							// the only non-persisted outcome here. papr's model
-							// type omits updateOne; the runtime model has it
-							// (UpdateScheduler.markChecked relies on the same).
-							// The repair is a conditional field addition on
-							// legacy stubs that already fail the validator for
-							// unrelated missing content fields, so bypass
-							// validation (content writes keep full validation)
-							// — otherwise the row can never leave the target
-							// set. The filter re-checks `ratings` so a row that
-							// gained ratings concurrently is never touched.
-							const bookModel = BookModel as unknown as {
-								updateOne: (
-									filter: object,
-									update: object,
-									options?: object
-								) => Promise<{
-									modifiedCount: number
-								}>
-							}
-							const repair = await bookModel.updateOne(
-								{ _id: book._id, ratings: { $exists: false } },
-								{
-									$set: { ratings },
-									$unset: { ratingsBackfillSkip: '' },
-									$currentDate: { updatedAt: true }
-								},
-								{ bypassDocumentValidation: true }
-							)
-							modified = repair.modifiedCount
+							throw error
 						}
 						if (modified !== 1) {
 							// Matched 0: a concurrent write already handled the

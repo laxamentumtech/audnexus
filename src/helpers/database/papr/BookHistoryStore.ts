@@ -186,6 +186,39 @@ function normalizeGenreEvidence(value: unknown): unknown {
 	return Array.isArray(value) && value.length === 0 ? undefined : value
 }
 
+/** Recursive deep equality: own enumerable properties compared by key
+ * (OBJECT key order is irrelevant — `buildEffectiveWrite` merges retained
+ * ratings sub-fields after the incoming ones, and the stored row follows
+ * `ApiRatingsSchema` order, so an identical refresh can arrive with a
+ * different key order), array element order preserved, `undefined`
+ * properties compared value-wise (an absent key equals an explicit
+ * `undefined`). `Date` values compare by time: a `Date` has no own
+ * enumerable keys, so the generic object comparison would call any two
+ * distinct dates equal (a changed `releaseDate` would never persist).
+ * The schema's other values are plain objects, strings, numbers,
+ * booleans, or arrays — no other keyless class instances. Exported as a
+ * test seam for the equality-contract regression tests. */
+function deepEqualValue(av: unknown, bv: unknown): boolean {
+	if (av === bv) return true
+	if (av instanceof Date || bv instanceof Date) {
+		return av instanceof Date && bv instanceof Date && av.getTime() === bv.getTime()
+	}
+	if (Array.isArray(av) || Array.isArray(bv)) {
+		if (!Array.isArray(av) || !Array.isArray(bv) || av.length !== bv.length) return false
+		return av.every((item, i) => deepEqualValue(item, bv[i]))
+	}
+	if (typeof av === 'object' && typeof bv === 'object' && av !== null && bv !== null) {
+		const aObj = av as Record<string, unknown>
+		const bObj = bv as Record<string, unknown>
+		const keys = new Set([...Object.keys(aObj), ...Object.keys(bObj)])
+		for (const key of keys) {
+			if (!deepEqualValue(aObj[key], bObj[key])) return false
+		}
+		return true
+	}
+	return false
+}
+
 /** Deep structural equality over the sanitized public projections. Exported
  * as a test seam for the equality-contract regression tests. */
 export function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
@@ -195,17 +228,7 @@ export function deepEqualBook(a: ApiBook, b: ApiBook): boolean {
 	for (const key of keys) {
 		const av = key === 'genres' ? normalizeGenreEvidence(aObj[key]) : aObj[key]
 		const bv = key === 'genres' ? normalizeGenreEvidence(bObj[key]) : bObj[key]
-		if (av === bv) continue
-		if (
-			typeof av === 'object' ||
-			typeof bv === 'object' ||
-			Array.isArray(av) ||
-			Array.isArray(bv)
-		) {
-			if (JSON.stringify(av) !== JSON.stringify(bv)) return false
-		} else if (av !== bv) {
-			return false
-		}
+		if (!deepEqualValue(av, bv)) return false
 	}
 	return true
 }

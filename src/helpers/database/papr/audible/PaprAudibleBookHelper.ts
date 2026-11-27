@@ -138,14 +138,43 @@ export default class PaprAudibleBookHelper {
 		// Parse the raw row to ensure it's the correct type and remove
 		// any extra fields
 		const dataParsed = ApiBookSchema.safeParse(rawRow.data)
-		// Assign data to variable if it's valid, otherwise assign null
-		const data = dataParsed.success ? dataParsed.data : null
+		let data: ApiBook | null = dataParsed.success ? dataParsed.data : null
+		let malformedRatings = false
+
+		// A stored row whose `ratings` is `null` or a scalar (a malformed
+		// parent the pipeline merge in `update()` is designed to repair)
+		// fails `ApiBookSchema` because `ratings` expects an object.
+		// Detect that precise case and route to `update()` so the pipeline
+		// merge repairs it, instead of falling to the insert path. Other
+		// parse failures keep the existing insert behavior.
+		if (!data && rawRow.data) {
+			const raw = rawRow.data as Record<string, unknown>
+			const ratings = raw.ratings
+			malformedRatings =
+				ratings !== undefined &&
+				(ratings === null || typeof ratings !== 'object' || Array.isArray(ratings))
+			if (malformedRatings) {
+				const repairedParse = ApiBookSchema.safeParse({ ...raw, ratings: undefined })
+				if (repairedParse.success) {
+					data = repairedParse.data
+				}
+			}
+		}
 
 		// Update
 		if (this.options.update === '1' && data) {
 			const { book: effective } = buildEffectiveWrite(data, this.bookData, {})
-			// If the effective write is the exact same row return right away
-			const isEqual = this.sharedHelper.isEqualData(data, effective)
+			// If the effective write is the exact same row return right away.
+			// A malformed-ratings row is EXCLUDED from the fast path: the
+			// equality compares the sanitized projections, where the stored
+			// row's `ratings` is already stripped, so an incoming book that
+			// omits `ratings` and matches every other field would short-
+			// circuit — and the malformed stored `ratings` value would stay
+			// in MongoDB, failing projection on every subsequent read. The
+			// pipeline merge in `update()` (which tolerates a non-object
+			// ratings parent) rewrites the row, so the repair is forced
+			// even when the incoming book carries no ratings.
+			const isEqual = !malformedRatings && this.sharedHelper.isEqualData(data, effective)
 			if (isEqual) {
 				// An equal accepted refresh supersedes a backfill skip
 				// decision: a row marked non-book that keeps refreshing as a
@@ -218,16 +247,15 @@ export default class PaprAudibleBookHelper {
 					if (value === undefined) continue
 					ratingsMerge[field] = value
 				}
-				// The papr model type omits the pipeline-update overload;
-				// the runtime model has it (UpdateScheduler.markChecked
-				// relies on the same).
-				const bookModel = BookModel as unknown as {
-					updateOne: (
-						filter: Record<string, unknown>,
-						update: Record<string, unknown> | Record<string, unknown>[],
-						options?: Record<string, unknown>
-					) => Promise<unknown>
-				}
+				// A single aggregation-pipeline update, sent through the
+				// NATIVE collection: papr's model `updateOne` wraps the
+				// update in `timestampUpdateFilter`, which spreads a
+				// pipeline ARRAY into an object with numeric keys and adds
+				// `$currentDate` — MongoDB would receive a replacement
+				// document, not a pipeline. The raw collection applies the
+				// pipeline as-is, and the pipeline's own explicit
+				// `createdAt`/`updatedAt` handling below stands in for the
+				// model's timestamp management.
 				// A single aggregation-pipeline update: the pipeline form
 				// (not a dotted path) tolerates a non-object `ratings`
 				// parent (`$cond` treats it as empty), and the merge keeps
@@ -240,7 +268,7 @@ export default class PaprAudibleBookHelper {
 				for (const [field, value] of Object.entries(evidence)) {
 					evidenceLiterals[field] = { $literal: value }
 				}
-				await bookModel.updateOne(
+				await BookModel.collection.updateOne(
 					{
 						asin: this.asin,
 						$or: [{ region: { $exists: false } }, { region: this.options.region }]
@@ -273,19 +301,66 @@ export default class PaprAudibleBookHelper {
 					]
 				)
 			} else {
-				await BookModel.updateOne(
-					{
-						asin: this.asin,
-						$or: [{ region: { $exists: false } }, { region: this.options.region }]
-					},
-					{
-						$set: { ...evidence, createdAt: found.data._id.getTimestamp() },
-						// An accepted book write supersedes a backfill skip
-						// decision (e.g. upstream now reports a real book).
-						$unset: { ratingsBackfillSkip: '' },
-						$currentDate: { updatedAt: true }
+				const storedRatings = found.data.ratings
+				const malformedStoredRatings =
+					storedRatings !== undefined &&
+					(storedRatings === null ||
+						typeof storedRatings !== 'object' ||
+						Array.isArray(storedRatings))
+				if (malformedStoredRatings) {
+					// The incoming book carries no ratings to replace the
+					// stored parent with, and the pipeline merge above only
+					// runs when it does — so a malformed stored `ratings`
+					// (null/scalar/array, the case `createOrUpdate` routes
+					// here) would survive a plain $set and keep failing
+					// projection on every read. Clear it with a pipeline
+					// $unset so the row parses on the next read. The
+					// evidence values are plain catalog data, never
+					// aggregation expressions: a `$`-prefixed string (a
+					// title, a tag name) would be read as a field path by
+					// the pipeline, so every incoming value is stored as a
+					// literal (the same wrapping the merge branch applies).
+					const evidenceLiterals: Record<string, unknown> = {}
+					for (const [field, value] of Object.entries(evidence)) {
+						evidenceLiterals[field] = { $literal: value }
 					}
-				)
+					await BookModel.collection.updateOne(
+						{
+							asin: this.asin,
+							$or: [{ region: { $exists: false } }, { region: this.options.region }]
+						},
+						[
+							{
+								$set: {
+									...evidenceLiterals,
+									createdAt: found.data._id.getTimestamp()
+								}
+							},
+							{
+								// An accepted book write supersedes a backfill
+								// skip decision (e.g. upstream now reports a
+								// real book).
+								$unset: ['ratingsBackfillSkip', 'ratings']
+							},
+							{ $currentDate: { updatedAt: true } }
+						]
+					)
+				} else {
+					await BookModel.updateOne(
+						{
+							asin: this.asin,
+							$or: [{ region: { $exists: false } }, { region: this.options.region }]
+						},
+						{
+							$set: { ...evidence, createdAt: found.data._id.getTimestamp() },
+							// An accepted book write supersedes a backfill
+							// skip decision (e.g. upstream now reports a
+							// real book).
+							$unset: { ratingsBackfillSkip: '' },
+							$currentDate: { updatedAt: true }
+						}
+					)
+				}
 			}
 			// After updating, return with specific projection
 			const updatedBook = await this.findOneWithProjection()
