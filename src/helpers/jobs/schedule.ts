@@ -21,8 +21,12 @@ export async function registerUpdateScheduler(
 	}
 	try {
 		await upsertUpdateSchedulers(intervals, { skipBootPass: true })
+		const authorsBooks =
+			intervals.authors === intervals.books
+				? `authors/books every ${intervals.authors} days`
+				: `authors every ${intervals.authors} days, books every ${intervals.books} days`
 		logger.info(
-			`Update schedulers enqueued: authors/books every ${intervals.authors} days, chapters every ${intervals.chapters} days`
+			`Update schedulers enqueued: ${authorsBooks}, chapters every ${intervals.chapters} days`
 		)
 	} catch (err) {
 		logger.error(err, 'Failed to register update schedulers; scheduled updates disabled')

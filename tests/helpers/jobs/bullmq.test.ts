@@ -770,6 +770,95 @@ describe('bullmq queue helpers', () => {
 				else process.env.UPDATE_INTERVAL_CHAPTERS = savedChapters
 			}
 		})
+
+		it('applies UPDATE_INTERVAL_AUTHORS without touching the books default', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedAuthors = process.env.UPDATE_INTERVAL_AUTHORS
+			const savedBooks = process.env.UPDATE_INTERVAL_BOOKS
+			delete process.env.UPDATE_INTERVAL
+			process.env.UPDATE_INTERVAL_AUTHORS = '14'
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 14,
+					books: 30,
+					chapters: 30
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedAuthors === undefined) delete process.env.UPDATE_INTERVAL_AUTHORS
+				else process.env.UPDATE_INTERVAL_AUTHORS = savedAuthors
+				if (savedBooks === undefined) delete process.env.UPDATE_INTERVAL_BOOKS
+				else process.env.UPDATE_INTERVAL_BOOKS = savedBooks
+			}
+		})
+
+		it('lets an explicit zero override disable only that collection', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedAuthors = process.env.UPDATE_INTERVAL_AUTHORS
+			const savedBooks = process.env.UPDATE_INTERVAL_BOOKS
+			process.env.UPDATE_INTERVAL = '10'
+			process.env.UPDATE_INTERVAL_AUTHORS = '0'
+			process.env.UPDATE_INTERVAL_BOOKS = '21'
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 0,
+					books: 21,
+					chapters: 30
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedAuthors === undefined) delete process.env.UPDATE_INTERVAL_AUTHORS
+				else process.env.UPDATE_INTERVAL_AUTHORS = savedAuthors
+				if (savedBooks === undefined) delete process.env.UPDATE_INTERVAL_BOOKS
+				else process.env.UPDATE_INTERVAL_BOOKS = savedBooks
+			}
+		})
+
+		it('falls back to UPDATE_INTERVAL for an invalid override', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedAuthors = process.env.UPDATE_INTERVAL_AUTHORS
+			const savedBooks = process.env.UPDATE_INTERVAL_BOOKS
+			process.env.UPDATE_INTERVAL = '10'
+			process.env.UPDATE_INTERVAL_AUTHORS = 'abc'
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 10,
+					books: 10,
+					chapters: 30
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedAuthors === undefined) delete process.env.UPDATE_INTERVAL_AUTHORS
+				else process.env.UPDATE_INTERVAL_AUTHORS = savedAuthors
+				if (savedBooks === undefined) delete process.env.UPDATE_INTERVAL_BOOKS
+				else process.env.UPDATE_INTERVAL_BOOKS = savedBooks
+			}
+		})
+
+		it('keeps the override when the base UPDATE_INTERVAL is invalid', () => {
+			const savedInterval = process.env.UPDATE_INTERVAL
+			const savedAuthors = process.env.UPDATE_INTERVAL_AUTHORS
+			const savedBooks = process.env.UPDATE_INTERVAL_BOOKS
+			process.env.UPDATE_INTERVAL = 'abc'
+			process.env.UPDATE_INTERVAL_AUTHORS = '5'
+			try {
+				expect(getUpdateSchedulerIntervals()).toEqual({
+					authors: 5,
+					books: 30,
+					chapters: 30
+				})
+			} finally {
+				if (savedInterval === undefined) delete process.env.UPDATE_INTERVAL
+				else process.env.UPDATE_INTERVAL = savedInterval
+				if (savedAuthors === undefined) delete process.env.UPDATE_INTERVAL_AUTHORS
+				else process.env.UPDATE_INTERVAL_AUTHORS = savedAuthors
+				if (savedBooks === undefined) delete process.env.UPDATE_INTERVAL_BOOKS
+				else process.env.UPDATE_INTERVAL_BOOKS = savedBooks
+			}
+		})
 	})
 
 	it('does not create a scheduler for non-positive day intervals', async () => {

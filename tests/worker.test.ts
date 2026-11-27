@@ -36,8 +36,10 @@ const parseNonNegativeInt = (raw: string | undefined, fallback: number): number 
 }
 const mockGetUpdateSchedulerIntervals = mock(() => {
 	const base = parseNonNegativeInt(process.env.UPDATE_INTERVAL, 30)
+	const authors = parseNonNegativeInt(process.env.UPDATE_INTERVAL_AUTHORS, base)
+	const books = parseNonNegativeInt(process.env.UPDATE_INTERVAL_BOOKS, base)
 	const chapters = parseNonNegativeInt(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
-	return { authors: base, books: base, chapters }
+	return { authors, books, chapters }
 })
 const mockWorkerClose = mock()
 // Deadline the test's startShutdownBudget wrapper installs into the REAL
@@ -194,7 +196,15 @@ let exitSpy: Mock<(code?: number) => void>
 let exitCalled: Promise.withResolvers<void>
 
 beforeEach(() => {
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS', 'BOOK_HISTORY_ENABLED']) {
+	for (const key of [
+		'MONGODB_URI',
+		'REDIS_URL',
+		'UPDATE_INTERVAL',
+		'UPDATE_INTERVAL_AUTHORS',
+		'UPDATE_INTERVAL_BOOKS',
+		'UPDATE_INTERVAL_CHAPTERS',
+		'BOOK_HISTORY_ENABLED'
+	]) {
 		savedEnv[key] = process.env[key]
 	}
 	process.env.MONGODB_URI = 'mongodb://localhost:27017'
@@ -241,7 +251,15 @@ beforeEach(() => {
 
 afterEach(() => {
 	process.exit = originalExit
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS', 'BOOK_HISTORY_ENABLED']) {
+	for (const key of [
+		'MONGODB_URI',
+		'REDIS_URL',
+		'UPDATE_INTERVAL',
+		'UPDATE_INTERVAL_AUTHORS',
+		'UPDATE_INTERVAL_BOOKS',
+		'UPDATE_INTERVAL_CHAPTERS',
+		'BOOK_HISTORY_ENABLED'
+	]) {
 		if (savedEnv[key] === undefined) {
 			delete process.env[key]
 		} else {
@@ -319,6 +337,19 @@ describe('worker startup', () => {
 		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledWith({
 			authors: 12,
 			books: 12,
+			chapters: 45
+		})
+	})
+
+	it('upserts per-collection intervals when the overrides are set', async () => {
+		process.env.UPDATE_INTERVAL = '12'
+		process.env.UPDATE_INTERVAL_AUTHORS = '5'
+		process.env.UPDATE_INTERVAL_BOOKS = '18'
+		process.env.UPDATE_INTERVAL_CHAPTERS = '45'
+		await worker.startWorker()
+		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledWith({
+			authors: 5,
+			books: 18,
 			chapters: 45
 		})
 	})

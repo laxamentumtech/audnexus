@@ -384,10 +384,11 @@ export async function enqueueBackfillRatings(options?: {
 	}
 }
 
-/** Per-collection refresh interval in days: authors/books share the hot
- * `UPDATE_INTERVAL` cadence; chapters run on the slow `UPDATE_INTERVAL_CHAPTERS`
- * cadence (chapter lists rarely change, and a full 943k-row sweep is the
- * biggest contributor to upstream rate-limiting). */
+/** Per-collection refresh interval in days: authors/books default to the hot
+ * `UPDATE_INTERVAL` cadence, optionally overridden per collection by
+ * `UPDATE_INTERVAL_AUTHORS` / `UPDATE_INTERVAL_BOOKS`; chapters run on the
+ * slow `UPDATE_INTERVAL_CHAPTERS` cadence (chapter lists rarely change, and a
+ * full 943k-row sweep is the biggest contributor to upstream rate-limiting). */
 export interface UpdateSchedulerIntervals {
 	authors: number
 	books: number
@@ -395,17 +396,21 @@ export interface UpdateSchedulerIntervals {
 }
 
 /** Derive the per-collection refresh intervals (days) from the environment:
- * authors/books share `UPDATE_INTERVAL` (default 30); chapters run on
- * `UPDATE_INTERVAL_CHAPTERS` (default 30). A non-positive value disables that
- * collection's scheduler (see upsertUpdateSchedulers). */
+ * authors/books default to `UPDATE_INTERVAL` (default 30), optionally
+ * overridden per collection by `UPDATE_INTERVAL_AUTHORS` /
+ * `UPDATE_INTERVAL_BOOKS`; chapters run on `UPDATE_INTERVAL_CHAPTERS`
+ * (default 30). A non-positive value disables that collection's scheduler
+ * (see upsertUpdateSchedulers). */
 export function getUpdateSchedulerIntervals(): UpdateSchedulerIntervals {
 	// Strict `\d+` parse (shared with the performance config): an explicit 0
 	// disables the collection (see upsertUpdateSchedulers), while garbage like
-	// ' ', '0x1E' or 'Infinity' falls back to the 30-day default instead of
-	// silently disabling or producing a non-finite interval.
+	// ' ', '0x1E' or 'Infinity' falls back — for the per-collection overrides
+	// to `UPDATE_INTERVAL`, for the base to the 30-day default.
 	const base = parseNonNegativeInt(process.env.UPDATE_INTERVAL, 30)
+	const authors = parseNonNegativeInt(process.env.UPDATE_INTERVAL_AUTHORS, base)
+	const books = parseNonNegativeInt(process.env.UPDATE_INTERVAL_BOOKS, base)
 	const chapters = parseNonNegativeInt(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
-	return { authors: base, books: base, chapters }
+	return { authors, books, chapters }
 }
 
 /** Replace the toad-scheduler LongIntervalJob: one BullMQ repeatable job per
