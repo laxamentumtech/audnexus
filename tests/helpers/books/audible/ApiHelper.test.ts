@@ -73,22 +73,25 @@ describe('ApiHelper should', () => {
 	})
 
 	test('requests tags and goodreads_ratings groups for us', () => {
-		const paramSpy = spyOn(SharedHelper.prototype, 'getParamString').mockImplementation(
-			(arr: string[]) => arr.join(',')
-		)
 		const urlSpy = spyOn(SharedHelper.prototype, 'buildUrl').mockImplementation(
 			(a: string, _domain: string, tld: string, base: string, params?: string) =>
 				`https://api.audible.${tld}/${base}/${a}/?${params}`
 		)
 		const usHelper = new ApiHelper(asin, 'us')
-		expect(usHelper.requestUrl).toBe(
-			`https://api.audible.com/1.0/catalog/products/${asin}/?response_groups=category_ladders,contributors,media,product_attrs,product_desc,product_details,product_extended_attrs,rating,series,tags,goodreads_ratings,image_sizes=500,1024`
+		// The query builder separates `image_sizes` with `&` (the old
+		// inline serializer joined it into the groups with a comma), so
+		// assert the parsed parameters, not a hardcoded serialized form.
+		const usQuery = new URL(usHelper.requestUrl).searchParams
+		expect(usQuery.get('response_groups')).toBe(
+			'category_ladders,contributors,media,product_attrs,product_desc,product_details,product_extended_attrs,rating,series,tags,goodreads_ratings'
 		)
+		expect(usQuery.get('image_sizes')).toBe('500,1024')
 		const ukHelper = new ApiHelper(asin, 'uk')
-		expect(ukHelper.requestUrl).toBe(
-			`https://api.audible.co.uk/1.0/catalog/products/${asin}/?response_groups=category_ladders,contributors,media,product_attrs,product_desc,product_details,product_extended_attrs,rating,series,tags,image_sizes=500,1024`
+		const ukQuery = new URL(ukHelper.requestUrl).searchParams
+		expect(ukQuery.get('response_groups')).toBe(
+			'category_ladders,contributors,media,product_attrs,product_desc,product_details,product_extended_attrs,rating,series,tags'
 		)
-		paramSpy.mockRestore()
+		expect(ukQuery.get('image_sizes')).toBe('500,1024')
 		urlSpy.mockRestore()
 	})
 

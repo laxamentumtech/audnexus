@@ -105,7 +105,12 @@ describe('GET /books/:asin/similar', () => {
 			runtimeLengthMin: 100
 		})
 		expect(mockSimilarFetch).toHaveBeenCalledTimes(2)
-		expect(mockSimilarFetch.mock.calls[1][0]).toContain('asins=B01AAAAA11,B01BBBBB22')
+		// The ASIN list is encodeURIComponent'd in the request: a literal
+		// `,` would change the request shape the same way a stray value can.
+		expect(mockSimilarFetch.mock.calls[1][0]).toContain('asins=B01AAAAA11%2CB01BBBBB22')
+		expect(new URL(mockSimilarFetch.mock.calls[1][0] as string).searchParams.get('asins')).toBe(
+			'B01AAAAA11,B01BBBBB22'
+		)
 	})
 
 	test('expand=books with an empty similar list returns books: [] without the bulk fetch', async () => {

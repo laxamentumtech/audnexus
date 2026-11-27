@@ -23,7 +23,7 @@ import {
 	FallbackAudibleProduct,
 	fallbackShape
 } from '#config/types'
-import { AUDIBLE_RESPONSE_GROUPS, REQUESTED_IMAGE_SIZES } from '#helpers/books/audible/apiParams'
+import { buildProductQuery, REQUESTED_IMAGE_SIZES } from '#helpers/books/audible/apiParams'
 import {
 	buildArtworkReferences,
 	buildFieldObservations,
@@ -99,14 +99,15 @@ class ApiHelper {
 		const baseDomain = 'https://api.audible'
 		const regionTLD = regions[region].tld
 		const baseUrl = '1.0/catalog/products'
-		// Last item is intentionally image_sizes
-		const paramArr: string[] = [...AUDIBLE_RESPONSE_GROUPS, 'tags']
-		// Goodreads ratings are only requested for the US catalog
-		if (region === 'us') paramArr.push('goodreads_ratings')
-		paramArr.push(`image_sizes=${REQUESTED_IMAGE_SIZES.join(',')}`)
-		const paramStr = helper.getParamString(paramArr)
-		const params = `response_groups=${paramStr}`
-		this.requestUrl = helper.buildUrl(asin, baseDomain, regionTLD, baseUrl, params)
+		// The shared builder keeps the single-product and batch endpoints
+		// asking for the same groups (tags everywhere, goodreads_ratings US).
+		this.requestUrl = helper.buildUrl(
+			asin,
+			baseDomain,
+			regionTLD,
+			baseUrl,
+			buildProductQuery(region)
+		)
 	}
 
 	/**

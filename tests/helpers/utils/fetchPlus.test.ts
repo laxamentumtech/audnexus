@@ -17,6 +17,7 @@ mock.module('#helpers/utils/sleep', () => {
 })
 
 import type { AxiosResponse } from 'axios'
+import { CanceledError } from 'axios'
 
 import {
 	getConsecutiveRateLimited,
@@ -487,6 +488,66 @@ describe('fetchPlus should', () => {
 		expect(pooledAxios.get).toHaveBeenCalledTimes(1)
 		expect(sleepDelays).toEqual([])
 		expect(getCooldownMs()).toBe(0)
+	})
+
+	test('an already-aborted signal rejects immediately without a request, retry, or cooldown', async () => {
+		// The caller aborted before the request was even issued: fetchPlus
+		// must reject without hitting axios at all, without retrying, and
+		// without registering the abort as upstream rate-limit pressure.
+		const controller = new AbortController()
+		controller.abort()
+		mockGet.mockImplementation(() => {
+			throw new Error('axios should not be called for an aborted signal')
+		})
+
+		let caught: unknown
+		try {
+			await fetchPlus('test.com', { signal: controller.signal })
+		} catch (e) {
+			caught = e
+		}
+
+		expect(caught).toBeInstanceOf(CanceledError)
+		expect(pooledAxios.get).not.toHaveBeenCalled()
+		expect(sleepDelays).toEqual([])
+		expect(getCooldownMs()).toBe(0)
+		expect(getConsecutiveRateLimited()).toBe(0)
+	})
+
+	test('a late 503 from an in-flight aborted request is one attempt, no retry, no cooldown', async () => {
+		// The request is in flight, the caller aborts, and THEN the deferred
+		// response rejects with a 503. The abort must win: one axios attempt,
+		// no retry delay, and the late 503 must NOT raise the shared adaptive
+		// cooldown (an abandoned item must not touch the cooldown after its
+		// per-book fallback has started).
+		const controller = new AbortController()
+		const deferred = Promise.withResolvers<unknown>()
+		mockGet.mockImplementation(() => deferred.promise)
+
+		const pending = fetchPlus('test.com', { signal: controller.signal })
+		// The request is in flight; now abort it.
+		controller.abort()
+		// The deferred response settles with a 503 AFTER the abort.
+		const fiveHundredThree = Object.assign(new Error('Request failed'), {
+			response: { status: 503, headers: {} }
+		})
+		deferred.reject(fiveHundredThree)
+
+		let caught: unknown
+		try {
+			await pending
+		} catch (e) {
+			caught = e
+		}
+
+		// One attempt, no retry delay, cooldown untouched.
+		expect(pooledAxios.get).toHaveBeenCalledTimes(1)
+		expect(sleepDelays).toEqual([])
+		expect(getCooldownMs()).toBe(0)
+		expect(getConsecutiveRateLimited()).toBe(0)
+		// The rejection is the late 503 reason (the abort path rejects the
+		// in-flight reason as-is), not a synthesized CanceledError.
+		expect(caught).toBe(fiveHundredThree)
 	})
 
 	test('control: a plain 503 without a redirect URL still retries 3x and raises the cooldown', async () => {

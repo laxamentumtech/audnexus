@@ -63,11 +63,25 @@ export function buildEffectiveWrite(
 		else delete effective.genres
 	}
 
-	// Ratings: incoming without Goodrides keeps stored Goodreads.
-	if (defined.ratings !== undefined && stored?.ratings?.goodreads !== undefined) {
-		const incomingRatings = defined.ratings as { goodreads?: unknown }
-		if (incomingRatings.goodreads === undefined) {
-			effective.ratings = { ...incomingRatings, goodreads: stored.ratings.goodreads }
+	// Ratings: incoming without a sub-field keeps the stored value for
+	// that sub-field. The dotted-path write in `PaprAudibleBookHelper`
+	// preserves stored `performanceDistribution`, `storyDistribution`,
+	// and `goodreads` when the incoming ratings omit them, so the
+	// effective write must carry them forward too — otherwise an
+	// identical refresh compares unequal and rewrites the same values.
+	if (defined.ratings !== undefined) {
+		const incomingRatings = defined.ratings as Record<string, unknown>
+		const storedRatings = stored?.ratings as Record<string, unknown> | undefined
+		if (storedRatings) {
+			const retained: Record<string, unknown> = {}
+			for (const field of ['goodreads', 'performanceDistribution', 'storyDistribution']) {
+				if (incomingRatings[field] === undefined && storedRatings[field] !== undefined) {
+					retained[field] = storedRatings[field]
+				}
+			}
+			if (Object.keys(retained).length > 0) {
+				effective.ratings = { ...incomingRatings, ...retained }
+			}
 		}
 	}
 
@@ -83,4 +97,24 @@ export function buildEffectiveWrite(
 	}
 
 	return { book: effective as unknown as ApiBook, unset }
+}
+
+/**
+ * The evidence-only write for `PaprAudibleBookHelper.update()`: the incoming
+ * book's own defined values, with no stored-retained merge. Fields the
+ * incoming book has no evidence for (stored genres on a genre-less refresh,
+ * stored Goodreads, stored series, and any stored-only field) are omitted so
+ * MongoDB leaves them untouched instead of restoring them from the caller's
+ * snapshot — closing the read/merge/write race a full effective write
+ * re-introduced. An empty/absent incoming genres list carries no genre
+ * evidence, so it is omitted (never nukes stored genres).
+ */
+export function buildEvidenceOnlyWrite(incoming: ApiBook): Record<string, unknown> {
+	const write: Record<string, unknown> = {}
+	for (const [key, value] of Object.entries(incoming)) {
+		if (value === undefined) continue
+		if (key === 'genres' && !(Array.isArray(value) && value.length > 0)) continue
+		write[key] = value
+	}
+	return write
 }

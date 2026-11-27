@@ -48,6 +48,27 @@ describe('withDeadline', () => {
 		expect((error as Error).message).toContain('25ms')
 	})
 
+	test('settles even when the timeout callback throws', async () => {
+		// An escaping exception from onTimeout must not strand the
+		// deadline promise: the caller still gets a DeadlineExceededError
+		// (with the cleanup error preserved as its cause).
+		const { promise: never } = Promise.withResolvers<string>()
+		const cleanupError = new Error('cleanup blew up')
+		const error = await withDeadline(
+			never,
+			25,
+			'label',
+			() => {
+				throw cleanupError
+			}
+		).then(
+			() => undefined,
+			(e: unknown) => e
+		)
+		expect(error).toBeInstanceOf(DeadlineExceededError)
+		expect((error as Error).cause).toBe(cleanupError)
+	})
+
 	test('a late rejection after the deadline is discarded, not unhandled', async () => {
 		const { promise: underlying, reject } = Promise.withResolvers<string>()
 		const raced = withDeadline(underlying, 25, 'label')

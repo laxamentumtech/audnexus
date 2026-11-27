@@ -63,8 +63,11 @@ class BookSearchApiHelper {
 		const response = await this.fetchBooks()
 		if (!response?.products?.length) return []
 
+		// Enforce the documented cap locally; `num_results` is an upstream hint.
+		const products = response.products.slice(0, 10)
+
 		const results = await Promise.allSettled(
-			response.products.map(async (product) => {
+			products.map(async (product) => {
 				const helper = new ApiHelper(product.asin, this.region, this.logger)
 				helper.audibleResponse = product
 				return helper.getFinalData()

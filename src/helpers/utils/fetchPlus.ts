@@ -1,4 +1,4 @@
-import { AxiosError, AxiosResponse } from 'axios'
+import { AxiosError, AxiosRequestConfig, AxiosResponse, CanceledError } from 'axios'
 
 import { registerRateLimited } from '#helpers/utils/adaptiveCooldown'
 import pooledAxios from '#helpers/utils/connectionPool'
@@ -62,7 +62,21 @@ function calculateRetryDelay(retries: number, error: AxiosError): number {
  * @param {number} retries The number of retries to start from (default: 0)
  * @returns {Promise<AxiosResponse>} the response from the request
  */
-function fetchPlus(url: string, options = {}, retries = 0): Promise<AxiosResponse> {
+function fetchPlus(
+	url: string,
+	options: AxiosRequestConfig = {},
+	retries = 0
+): Promise<AxiosResponse> {
+	// An aborted caller has abandoned the request: reject immediately,
+	// WITHOUT registering the abort as an upstream rate-limit signal — a
+	// deadline-expired batch item must not touch the shared adaptive
+	// cooldown after its per-book fallback has started.
+	if (options.signal?.aborted) {
+		// `AxiosRequestConfig.signal` is a `GenericAbortSignal` (`aborted`
+		// only, no `reason`), so the rejection is the same shape axios
+		// itself produces for a canceled request.
+		return Promise.reject(new CanceledError())
+	}
 	return new Promise((resolve, reject) => {
 		pooledAxios
 			.get(url, options)
@@ -79,6 +93,14 @@ function fetchPlus(url: string, options = {}, retries = 0): Promise<AxiosRespons
 				}
 			})
 			.catch(async (reason: AxiosError) => {
+				// The caller aborted while the request was in flight (axios
+				// rejects with `ERR_CANCELED` and no response): reject it the
+				// same way, without counting it as a transient upstream
+				// signal or retrying an abandoned request.
+				if (options.signal?.aborted || reason.code === 'ERR_CANCELED') {
+					reject(reason)
+					return
+				}
 				const status = reason.response?.status
 				// Audible answers a dead deep link with 301 → /search?advsearchKeywords= → 503.
 				// That is terminal, not throttling: retrying burns 1s+2s+4s and, worse,

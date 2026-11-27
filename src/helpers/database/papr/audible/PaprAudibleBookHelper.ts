@@ -4,7 +4,7 @@ import BookModel, { BookDocument } from '#config/models/Book'
 import { ApiBook, ApiBookSchema, ApiQueryString } from '#config/types'
 import { isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
-import { buildEffectiveWrite } from '#helpers/database/bookWriteProjection'
+import { buildEffectiveWrite, buildEvidenceOnlyWrite } from '#helpers/database/bookWriteProjection'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -126,39 +126,82 @@ export default class PaprAudibleBookHelper {
 	 * longer block an update.
 	 */
 	async createOrUpdate(): Promise<PaprBookReturn> {
-		const findInDb = await this.findOneWithProjection()
+		// A SINGLE raw read feeds both the parsed projection and the
+		// `_id` the conditional marker-unset below targets (a region-less
+		// sibling row must not be unset by a region-scoped equality
+		// comparison). Two reads could diverge when the matched book is
+		// deleted between them, leaving the unset filter's `_id`
+		// undefined — and with `ignoreUndefined: true` an undefined
+		// filter key matches an arbitrary marked row.
+		const rawRow = await this.findOne()
+		const rowId = rawRow.data?._id
+		// Parse the raw row to ensure it's the correct type and remove
+		// any extra fields
+		const dataParsed = ApiBookSchema.safeParse(rawRow.data)
+		let data: ApiBook | null = dataParsed.success ? dataParsed.data : null
+		let malformedRatings = false
+
+		// A stored row whose `ratings` is `null` or a scalar (a malformed
+		// parent the pipeline merge in `update()` is designed to repair)
+		// fails `ApiBookSchema` because `ratings` expects an object.
+		// Detect that precise case and route to `update()` so the pipeline
+		// merge repairs it, instead of falling to the insert path. Other
+		// parse failures keep the existing insert behavior.
+		if (!data && rawRow.data) {
+			const raw = rawRow.data as Record<string, unknown>
+			const ratings = raw.ratings
+			malformedRatings =
+				ratings !== undefined &&
+				(ratings === null || typeof ratings !== 'object' || Array.isArray(ratings))
+			if (malformedRatings) {
+				const repairedParse = ApiBookSchema.safeParse({ ...raw, ratings: undefined })
+				if (repairedParse.success) {
+					data = repairedParse.data
+				}
+			}
+		}
 
 		// Update
-		if (this.options.update === '1' && findInDb.data) {
-			const data = findInDb.data
+		if (this.options.update === '1' && data) {
 			const { book: effective } = buildEffectiveWrite(data, this.bookData, {})
-			// If the effective write is the exact same row return right away
-			const isEqual = this.sharedHelper.isEqualData(data, effective)
+			// If the effective write is the exact same row return right away.
+			// A malformed-ratings row is EXCLUDED from the fast path: the
+			// equality compares the sanitized projections, where the stored
+			// row's `ratings` is already stripped, so an incoming book that
+			// omits `ratings` and matches every other field would short-
+			// circuit — and the malformed stored `ratings` value would stay
+			// in MongoDB, failing projection on every subsequent read. The
+			// pipeline merge in `update()` (which tolerates a non-object
+			// ratings parent) rewrites the row, so the repair is forced
+			// even when the incoming book carries no ratings.
+			const isEqual = !malformedRatings && this.sharedHelper.isEqualData(data, effective)
 			if (isEqual) {
 				// An equal accepted refresh supersedes a backfill skip
 				// decision: a row marked non-book that keeps refreshing as a
 				// book must leave the marker behind. Conditional, so the
 				// no-write fast path costs nothing when no marker exists.
-				await BookModel.updateOne(
-					{
-						asin: this.asin,
-						$or: [{ region: { $exists: false } }, { region: this.options.region }],
-						ratingsBackfillSkip: { $exists: true }
-					},
-					{ $unset: { ratingsBackfillSkip: '' } }
-				)
+				// Without an `_id` the filter key would drop out under
+				// `ignoreUndefined: true` and match an arbitrary marked
+				// row, so skip the cleanup entirely.
+				if (rowId) {
+					await BookModel.updateOne(
+						{
+							_id: rowId,
+							ratingsBackfillSkip: { $exists: true }
+						},
+						{ $unset: { ratingsBackfillSkip: '' } }
+					)
+				}
 				return {
 					data: data,
 					modified: false
 				}
 			}
 			this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
-			// update() re-reads the row and rebuilds the effective write
-			// against that fresh read, so evidence-free fields (rating,
-			// series, stored tags/Goodreads) are $set with the current
-			// stored values, and a concurrent refresh that lands between
-			// this read and the write is not restored from a stale
-			// snapshot.
+			// update() writes only the incoming evidence (its $set omits
+			// fields the incoming book has no value for), so a concurrent
+			// refresh that lands between this read and the write is not
+			// restored from a stale snapshot.
 			return this.update()
 		}
 
@@ -178,30 +221,147 @@ export default class PaprAudibleBookHelper {
 			if (!found.data) {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Book'))
 			}
-			// Rebuild the effective write against THIS fresh read, not a
-			// snapshot the caller took on an earlier read: a concurrent
-			// refresh that committed in between is not clobbered, and
-			// retained evidence-free fields take their values from the
-			// current row.
-			const storedParsed = ApiBookSchema.safeParse(found.data)
-			const { book: effective } = buildEffectiveWrite(
-				storedParsed.success ? storedParsed.data : null,
-				this.bookData,
-				{}
-			)
-			await BookModel.updateOne(
-				{
-					asin: this.asin,
-					$or: [{ region: { $exists: false } }, { region: this.options.region }]
-				},
-				{
-					$set: { ...effective, createdAt: found.data._id.getTimestamp() },
-					// An accepted book write supersedes a backfill skip decision
-					// (e.g. upstream now reports a real book).
-					$unset: { ratingsBackfillSkip: '' },
-					$currentDate: { updatedAt: true }
+			// Write only the incoming evidence: fields the incoming book has
+			// no value for are left out of the $set, so MongoDB leaves the
+			// stored row's retained fields (stored genres on a genre-less
+			// refresh, stored series) untouched. Writing
+			// those stored values back from a snapshot is the race this
+			// update used to carry: a concurrent refresh that committed
+			// between the read and the write was restored from the stale
+			// snapshot. The equality check in createOrUpdate() already
+			// uses the full effective write, so the short-circuit is
+			// unchanged.
+			const evidence = buildEvidenceOnlyWrite(this.bookData)
+			// Write the OBSERVED rating fields as a pipeline MERGE against
+			// the stored `ratings` object: a concurrent Goodreads change is
+			// not clobbered and a concurrent addition is not erased when
+			// this read saw none. A legacy row whose stored `ratings` is
+			// `null` or a scalar (a malformed parent a dotted-path `ratings.*`
+			// $set cannot address) is treated as empty, so the merge repairs
+			// it — the same outcome the old whole-object $set produced.
+			const incomingRatings = evidence.ratings as Record<string, unknown> | undefined
+			if (incomingRatings) {
+				delete evidence.ratings
+				const ratingsMerge: Record<string, unknown> = {}
+				for (const [field, value] of Object.entries(incomingRatings)) {
+					if (value === undefined) continue
+					ratingsMerge[field] = value
 				}
-			)
+				// A single aggregation-pipeline update, sent through the
+				// NATIVE collection: papr's model `updateOne` wraps the
+				// update in `timestampUpdateFilter`, which spreads a
+				// pipeline ARRAY into an object with numeric keys and adds
+				// `$currentDate` — MongoDB would receive a replacement
+				// document, not a pipeline. The raw collection applies the
+				// pipeline as-is, and the pipeline's own explicit
+				// `createdAt`/`updatedAt` handling below stands in for the
+				// model's timestamp management.
+				// A single aggregation-pipeline update: the pipeline form
+				// (not a dotted path) tolerates a non-object `ratings`
+				// parent (`$cond` treats it as empty), and the merge keeps
+				// every stored sub-field the incoming ratings omit.
+				// The evidence values are plain catalog data, never
+				// aggregation expressions: a `$`-prefixed string (a title, a
+				// tag name) would be read as a field path by the pipeline,
+				// so every incoming value is stored as a literal.
+				const evidenceLiterals: Record<string, unknown> = {}
+				for (const [field, value] of Object.entries(evidence)) {
+					evidenceLiterals[field] = { $literal: value }
+				}
+				await BookModel.collection.updateOne(
+					{
+						asin: this.asin,
+						$or: [{ region: { $exists: false } }, { region: this.options.region }]
+					},
+					[
+						{
+							$set: {
+								...evidenceLiterals,
+								ratings: {
+									$mergeObjects: [
+										{
+											$cond: [{ $eq: [{ $type: '$ratings' }, 'object'] }, '$ratings', {}]
+										},
+										ratingsMerge
+									]
+								},
+								createdAt: found.data._id.getTimestamp(),
+								// The driver computes the current timestamp:
+								// `$currentDate` is an update operator, not a
+								// pipeline stage, so the pipeline form $sets
+								// a literal date (the same approach
+								// BookHistoryStore uses for pipeline
+								// timestamp writes).
+								updatedAt: new Date()
+							}
+						},
+						// An accepted book write supersedes a backfill skip
+						// decision (e.g. upstream now reports a real book).
+						{ $unset: ['ratingsBackfillSkip'] }
+					]
+				)
+			} else {
+				const storedRatings = found.data.ratings
+				const malformedStoredRatings =
+					storedRatings !== undefined &&
+					(storedRatings === null ||
+						typeof storedRatings !== 'object' ||
+						Array.isArray(storedRatings))
+				if (malformedStoredRatings) {
+					// The incoming book carries no ratings to replace the
+					// stored parent with, and the pipeline merge above only
+					// runs when it does — so a malformed stored `ratings`
+					// (null/scalar/array, the case `createOrUpdate` routes
+					// here) would survive a plain $set and keep failing
+					// projection on every read. Clear it with a pipeline
+					// $unset so the row parses on the next read. The
+					// evidence values are plain catalog data, never
+					// aggregation expressions: a `$`-prefixed string (a
+					// title, a tag name) would be read as a field path by
+					// the pipeline, so every incoming value is stored as a
+					// literal (the same wrapping the merge branch applies).
+					const evidenceLiterals: Record<string, unknown> = {}
+					for (const [field, value] of Object.entries(evidence)) {
+						evidenceLiterals[field] = { $literal: value }
+					}
+					await BookModel.collection.updateOne(
+						{
+							asin: this.asin,
+							$or: [{ region: { $exists: false } }, { region: this.options.region }]
+						},
+						[
+							{
+								$set: {
+									...evidenceLiterals,
+									createdAt: found.data._id.getTimestamp()
+								}
+							},
+							{
+								// An accepted book write supersedes a backfill
+								// skip decision (e.g. upstream now reports a
+								// real book).
+								$unset: ['ratingsBackfillSkip', 'ratings']
+							},
+							{ $currentDate: { updatedAt: true } }
+						]
+					)
+				} else {
+					await BookModel.updateOne(
+						{
+							asin: this.asin,
+							$or: [{ region: { $exists: false } }, { region: this.options.region }]
+						},
+						{
+							$set: { ...evidence, createdAt: found.data._id.getTimestamp() },
+							// An accepted book write supersedes a backfill
+							// skip decision (e.g. upstream now reports a
+							// real book).
+							$unset: { ratingsBackfillSkip: '' },
+							$currentDate: { updatedAt: true }
+						}
+					)
+				}
+			}
 			// After updating, return with specific projection
 			const updatedBook = await this.findOneWithProjection()
 			// Set modified to true to indicate that the data has been updated

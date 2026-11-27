@@ -132,13 +132,13 @@ describe('BookHistoryHelper', () => {
 			expect(result.tracking.status).toBe('pending')
 			expect(result.tracking.startedAt).toBeNull()
 			expect(result.tracking.artwork).toEqual({})
-			for (const name of Object.keys(result.tracking.fields)) {
-				expect(result.tracking.fields[name as keyof typeof result.tracking.fields]).toEqual({
+			expect(Object.keys(result.tracking.fields).sort()).toEqual([...EDITORIAL_FIELD_NAMES].sort())
+			for (const name of EDITORIAL_FIELD_NAMES) {
+				expect(result.tracking.fields[name]).toEqual({
 					policy: null,
 					baselineAt: null
 				})
 			}
-			expect(Object.keys(result.tracking.fields).length).toBe(EDITORIAL_FIELD_NAMES.length)
 		})
 
 		test('reservation-only state without a trusted book is unknown (404)', async () => {

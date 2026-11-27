@@ -277,8 +277,20 @@ jobs:
 
       - run: bun run test:history
 
-      # Same docker/replica-set harness; the suite self-skips without Docker.
+      # Unit index suites run unconditionally (no Docker needed).
       - run: bun run test:indexes
+
+      # The integration suite starts a replica set unconditionally in
+      # beforeAll (no self-skip): gate it on Docker availability so the
+      # job is green on runners without Docker.
+      - name: Run Docker-backed index integration suite
+        if: ${{ success() }}
+        run: |
+          if docker info >/dev/null 2>&1; then
+            bun run test:indexes:docker
+          else
+            echo "Docker daemon unavailable; skipping index integration suite."
+          fi
 
   docker-build:
     # `test-history` is in the gate so an image can never push after a red

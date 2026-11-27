@@ -1,5 +1,6 @@
 import type { ApiBookSummary, ApiSeries } from '#config/types'
-import { ApiBookSummarySchema, AudibleSeriesSchema } from '#config/types'
+import { ApiBookSummarySchema, AsinSchema, AudibleSeriesSchema } from '#config/types'
+import { validateAsinList } from '#helpers/books/audible/apiParams'
 import { fetchStatus } from '#helpers/books/audible/responseGroups'
 import fetch from '#helpers/utils/fetchPlus'
 import { ErrorMessageHTTPFetch } from '#static/messages'
@@ -7,6 +8,10 @@ import { regions } from '#static/regions'
 
 /** Upstream caps similar products at 50 results. */
 const SIMILAR_RESULT_CAP = 50
+
+/** Book-shaped content types; everything else is rejected by the full
+ * parser, so the summary projection must reject it too. */
+const BOOK_CONTENT_TYPES: readonly string[] = ['MultiPartBook', 'SinglePartBook']
 
 function mapPeople(raw: unknown): { asin?: string; name: string }[] {
 	if (!Array.isArray(raw)) return []
@@ -65,11 +70,16 @@ class BookSimilarHelper {
 		const response = await this.fetchSimilar()
 		const seen = new Set<string>()
 		const asins: string[] = []
-		for (const product of response.similar_products ?? []) {
+		const products = response?.similar_products
+		for (const product of Array.isArray(products) ? products : []) {
 			if (typeof product?.asin !== 'string') continue
-			if (seen.has(product.asin)) continue
-			seen.add(product.asin)
-			asins.push(product.asin)
+			// Only well-formed 10-char ASINs may enter a request URL.
+			// Emit the parsed (trimmed) value so the list is canonical.
+			const parsed = AsinSchema.safeParse(product.asin)
+			if (!parsed.success) continue
+			if (seen.has(parsed.data)) continue
+			seen.add(parsed.data)
+			asins.push(parsed.data)
 			if (asins.length >= SIMILAR_RESULT_CAP) break
 		}
 		return asins
@@ -80,7 +90,9 @@ class BookSimilarHelper {
 	 * omitted; a bulk fetch failure throws (no partial response).
 	 */
 	async expand(asins: string[]): Promise<ApiBookSummary[]> {
-		const asinCsv = asins.join(',')
+		const requested = validateAsinList(asins)
+		const requestedSet = new Set(requested)
+		const asinCsv = encodeURIComponent(requested.join(','))
 		const url =
 			`${this.baseDomain}/1.0/catalog/products?asins=${asinCsv}` +
 			`&response_groups=contributors,media,product_attrs,product_desc,product_details,rating,series&image_sizes=500,1024`
@@ -91,6 +103,18 @@ class BookSimilarHelper {
 
 		const summaries: ApiBookSummary[] = []
 		for (const raw of products) {
+			// Only requested ASINs may expand: an unexpected product in the
+			// response must not appear in the result.
+			if (!raw || typeof raw !== 'object' || !('asin' in raw)) continue
+			const productAsin = raw.asin
+			if (typeof productAsin !== 'string') continue
+			// Parse the response ASIN before the requested-set check: the
+			// requested values are trimmed by `getSimilarAsins`, so a
+			// product returning its ASIN with surrounding whitespace must
+			// still match — the raw string would miss the set and drop a
+			// valid related book.
+			const parsedAsin = AsinSchema.safeParse(productAsin)
+			if (!parsedAsin.success || !requestedSet.has(parsedAsin.data)) continue
 			const summary = this.productToSummary(raw)
 			if (summary) summaries.push(summary)
 		}
@@ -105,6 +129,11 @@ class BookSimilarHelper {
 		if (!raw || typeof raw !== 'object') return undefined
 		const product = raw as Record<string, unknown>
 		if (typeof product.asin !== 'string' || typeof product.title !== 'string') return undefined
+		// Same book-type gate as the full parser: Bundle/Podcast/Periodical
+		// and other non-book content types are rejected, not mapped.
+		const contentType =
+			typeof product.content_delivery_type === 'string' ? product.content_delivery_type : undefined
+		if (contentType !== undefined && !BOOK_CONTENT_TYPES.includes(contentType)) return undefined
 
 		const authors = mapPeople(product.authors)
 		const narrators = mapPeople(product.narrators)
@@ -138,10 +167,27 @@ class BookSimilarHelper {
 
 		let seriesPrimary: ApiSeries | undefined
 		if (Array.isArray(product.series)) {
-			seriesPrimary = this.mapSeries(product.series[0])
+			// Same selection rule as the full parser: the primary series is
+			// the one matching publication_name, not the first entry.
+			const publicationName =
+				typeof product.publication_name === 'string' ? product.publication_name : undefined
+			for (const rawSeries of product.series) {
+				const mapped = this.mapSeries(rawSeries)
+				if (publicationName && mapped && mapped.name === publicationName) {
+					seriesPrimary = mapped
+					break
+				}
+			}
 		}
 
-		const releaseDate = typeof product.release_date === 'string' ? product.release_date : undefined
+		// Same date fallback as the full parser: a non-empty release_date,
+		// else the issue date, else no summary.
+		const releaseDate =
+			typeof product.release_date === 'string' && product.release_date.length > 0
+				? product.release_date
+				: typeof product.issue_date === 'string' && product.issue_date.length > 0
+					? product.issue_date
+					: undefined
 		if (!releaseDate) return undefined
 		const runtimeLengthMin =
 			typeof product.runtime_length_min === 'number' ? product.runtime_length_min : undefined

@@ -10,7 +10,7 @@
 // (the harness starts a single-node RS on a free port). Neither → the suite
 // skips, so `bun run test` stays green on machines without Docker.
 
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { afterAll, beforeAll, describe, expect, mock, test } from 'bun:test'
 import { MongoClient, ObjectId } from 'mongodb'
 
 import { prepare } from '../../src/history'
@@ -20,6 +20,15 @@ import { type HistoryMongo, resolveHistoryMongo } from './env'
 import { bookHistoryStore, initialize } from '#config/papr'
 import { ApiBookSchema } from '#config/types'
 import type { PersistInput } from '#helpers/database/papr/BookHistoryStore'
+import BookBackfillHelper from '#helpers/routes/BookBackfillHelper'
+import { apiResponse } from '#tests/datasets/helpers/books'
+import { createMockLogger } from '#tests/setup/mockLogger'
+
+// The ratings backfill's real fetch path (BookBackfillHelper →
+// ApiBatchHelper.fetchProductsByAsin → fetchPlus): only the batch prefetch
+// test drives it; the equal-short-circuit and tags tests never fetch.
+const mockFetch = mock()
+mock.module('#helpers/utils/fetchPlus', () => ({ default: mockFetch }))
 
 const available = (() => {
 	if (process.env.HISTORY_TEST_MONGODB_URI) return true
@@ -73,6 +82,9 @@ function observation(
 		imageId?: string | null
 		imageUrl?: string
 		tags?: Array<[string, string, string]>
+		/** Fields to record with `state: 'absent'` (an explicit empty
+		 * value, distinct from omitting the field entirely). */
+		absent?: string[]
 	} = {}
 ) {
 	const imageId = overrides.imageId !== undefined ? overrides.imageId : IMG1
@@ -89,6 +101,18 @@ function observation(
 			field: 'tags',
 			policy: 'tags:api:v1',
 			value: { state: 'value', value: overrides.tags },
+			source: 'audible_api'
+		})
+	}
+	// An explicit empty value (e.g. `tags: []` with `absent: ['tags']`)
+	// records `state: 'absent'`, which the history store treats as a
+	// deliberate clear — distinct from omitting the field (unknown
+	// evidence), which retains the stored value.
+	for (const field of overrides.absent ?? []) {
+		fields.push({
+			field,
+			policy: field === 'tags' ? 'tags:api:v1' : 'editorial:title:v1',
+			value: { state: 'absent' },
 			source: 'audible_api'
 		})
 	}
@@ -297,6 +321,12 @@ run('BookHistoryStore against a replica set', () => {
 			{ tagId: 'adbl_rec_tag_0-2-2', name: 'Feel-Good', type: 'mood' },
 			{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }
 		])
+		// The returned projection carries the tags too (optional in the
+		// schema — a projection without them would still parse).
+		expect(result.data?.tags).toEqual([
+			{ tagId: 'adbl_rec_tag_0-2-2', name: 'Feel-Good', type: 'mood' },
+			{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }
+		])
 		// The persisted row is the public response contract: it must parse
 		// against ApiBookSchema (an 11-char fixture ASIN would fail the 10-char
 		// AsinSchema and would have masked this).
@@ -388,24 +418,99 @@ run('BookHistoryStore against a replica set', () => {
 			await db2
 				.collection('book_history_states')
 				.updateOne({ _id: key }, { $set: { acceptedGeneration: 2 } }, { session: contender })
-			// Real delay: deterministic control is impossible — the contender
-			// must hold its uncommitted write claim while the live MongoDB
-			// server's repair transaction blocks on it, which only real
-			// server-side scheduling guarantees (a fake timer cannot advance
-			// the remote session).
-			const commit = (async () => {
-				await new Promise((resolve) => setTimeout(resolve, 500))
-				await contender.commitTransaction()
-			})()
-			const result = await bookHistoryStore.persistRatingsRepair({
+			// Deterministic commit order: the contender's write is
+			// uncommitted, so the repair's fence $inc BLOCKS on it — the
+			// repair is observable in `currentOp` as an active command
+			// from a DIFFERENT session (its `lsid`) only while that claim
+			// is held. Committing exactly when the repair's blocked fence
+			// write appears is what makes the conflict real: the fence
+			// write fails with a write conflict, the transaction retries on
+			// a fresh snapshot, and the advanced watermark makes the fence
+			// match 0: `superseded`.
+			const admin = client?.db('admin')
+			if (!admin) throw new Error('no admin db for currentOp')
+			// BSON session IDs stringify as '[object Object]' — compare
+			// canonical JSON, not String().
+			const contenderSession = JSON.stringify(contender.id?.id)
+			const repair = bookHistoryStore.persistRatingsRepair({
 				asin: fenceAsin,
 				region: REGION,
 				generation: 1,
 				bookId,
 				ratings: { value: '4.0', numRatings: 10, numReviews: 1 } as never
 			})
-			await commit
+			// Settlement is tracked as a FLAG, never awaited inside the
+			// poll: the repair is blocked on the contender's uncommitted
+			// claim (released only AFTER the loop), so awaiting its
+			// settlement promise would block the poll until the deadline,
+			// and a promise that resolves `true` on either outcome would
+			// exit the loop on the first settled microtask.
+			let repairSettled = false
+			repair.then(
+				() => {
+					repairSettled = true
+				},
+				() => {
+					repairSettled = true
+				}
+			)
+			// Bounded, deterministic sync on the ACTUAL fence write: poll
+			// `currentOp` for the repair's blocked command (an `update`
+			// from a session that is not the contender's), or stop once the
+			// repair has already settled. A fixed delay cannot order the
+			// commit after the blocked fence write (the repair may already
+			// be done by then, passing via the no-conflict superseded
+			// path), and an unbounded poll would strand the suite if the
+			// write never blocks.
+			const BOUND_MS = 15000
+			const deadline = Date.now() + BOUND_MS
+			let sawBlockedFence = false
+			while (Date.now() < deadline) {
+				if (repairSettled) break
+				const ops = await admin.command({ currentOp: 1, secs_running: 0 })
+				// `currentOp` reports active operations under `inprog` (not
+				// `inprogress`). The repair's fence write is an `update` command
+				// on the `book_history_states` collection; match on the
+				// namespace and exclude the contender's own session (its write
+				// is the one being blocked, not the repair's).
+				const inprog = (ops.inprog ?? []) as Array<{
+					op?: string
+					ns?: string
+					lsid?: { id?: unknown }
+				}>
+				if (
+					inprog.some(
+						(op) =>
+							op.op === 'update' &&
+							typeof op.ns === 'string' &&
+							op.ns.endsWith('book_history_states') &&
+							JSON.stringify(op.lsid?.id) !== contenderSession
+					)
+				) {
+					sawBlockedFence = true
+					break
+				}
+				// Poll pacing only; the observed condition is the repair's
+				// blocked fence write (real-server state, not a clock).
+				await Bun.sleep(25)
+			}
+			// Committing the contender now: if the repair's fence write is
+			// blocked on it, the contender's commit releases the claim and
+			// the repair's transaction hits a write conflict; if the repair
+			// already settled (no conflict), the advanced watermark still
+			// makes the fence match 0 → `superseded`.
+			try {
+				await contender.commitTransaction()
+			} catch {
+				// the repair committed first and the contender was
+				// already committed/aborted by the finally below
+			}
+			const result = await repair
 			expect(result).toEqual({ modified: 0, superseded: true })
+			// The bounded sync must have observed the real blocked fence
+			// write: a test that "passed" without it would not have
+			// exercised the conflict path.
+			expect(sawBlockedFence).toBe(true)
 		} finally {
 			// The contender is committed (or already aborted after a
 			// timeout): a second abort would throw.
@@ -528,11 +633,15 @@ run('BookHistoryStore against a replica set', () => {
 		// any observation is persisted.
 		await bookHistoryStore.reserveGeneration(seqAsin, REGION)
 
+		// The FIRST observation is genre-less too: only then does the
+		// genre-preserving merge (stored genres spliced into a
+		// genre-evidence-free write) run on the first-touch acceptance,
+		// which is the stated regression.
 		const first = await bookHistoryStore.persistObservation({
 			asin: seqAsin,
 			region: REGION,
 			generation: 1,
-			book: book({ asin: seqAsin, title: 'Seq Book' }),
+			book: book({ asin: seqAsin, title: 'Seq Book', genres: [] }),
 			observation: observation({ title: 'Seq Book', imageId: IMG1 })
 		})
 		expect(first.disposition).toBe('accepted')
@@ -1510,7 +1619,7 @@ run('BookHistoryStore against a replica set', () => {
 		// updates would freeze every other field on them (the books
 		// validator refuses partial writes), so the merge only preserves
 		// stored genres when it would actually drop them.
-		const noGenreAsin = 'B0GENRLESS1'
+		const noGenreAsin = 'B0GENRLESS'
 		const db3 = collections()
 		const gen1 = await bookHistoryStore.reserveGeneration(noGenreAsin, REGION)
 		const first = await bookHistoryStore.persistObservation({
@@ -1521,6 +1630,10 @@ run('BookHistoryStore against a replica set', () => {
 			observation: observation({ title: 'No Genres', imageId: IMG1 })
 		})
 		expect(first.disposition).toBe('accepted')
+		// The initial projection parses as a public book (an 11-char ASIN
+		// would fail AsinSchema and make the store fall back to the raw
+		// document, skipping the intended path below).
+		expect(ApiBookSchema.safeParse(first.data).success).toBe(true)
 		// An accepted book write must clear a prior backfill skip decision.
 		await db3.collection('books').updateOne(
 			{ asin: noGenreAsin },
@@ -1606,7 +1719,7 @@ run('BookHistoryStore against a replica set', () => {
 		// ratingsBackfillSkip marker. The marker must not reach the
 		// $set: the same update unsets it, and a $set on the same path
 		// is rejected by the server (code 40).
-		const legacyAsin = 'B0LEGACYSK1'
+		const legacyAsin = 'B0LEGACYSK'
 		const db5 = collections()
 		const gen1 = await bookHistoryStore.reserveGeneration(legacyAsin, REGION)
 		const first = await bookHistoryStore.persistObservation({
@@ -1617,6 +1730,10 @@ run('BookHistoryStore against a replica set', () => {
 			observation: observation({ title: 'Legacy Marker', imageId: IMG1 })
 		})
 		expect(first.disposition).toBe('accepted')
+		// The initial projection parses as a public book (an 11-char ASIN
+		// would fail AsinSchema and make the store fall back to the raw
+		// document, skipping the intended legacy-fallback path below).
+		expect(ApiBookSchema.safeParse(first.data).success).toBe(true)
 		// Corrupt the row for the legacy case: a non-URL image fails
 		// ApiBookSchema (z.string().url()) while the books validator
 		// (types.string) accepts it, and the marker rides along.
@@ -1659,7 +1776,7 @@ run('BookHistoryStore against a replica set', () => {
 		// returned book is the raw `writeBook` (toApiBook still fails on
 		// the inherited invalid image), so the marker must be stripped
 		// from the fallback return value as well.
-		const noImageAsin = 'B0LEGACYNO1'
+		const noImageAsin = 'B0LEGACYNO'
 		const db6 = collections()
 		const gen1 = await bookHistoryStore.reserveGeneration(noImageAsin, REGION)
 		const first = await bookHistoryStore.persistObservation({
@@ -1670,6 +1787,10 @@ run('BookHistoryStore against a replica set', () => {
 			observation: observation({ title: 'Marker No Image', imageId: IMG1 })
 		})
 		expect(first.disposition).toBe('accepted')
+		// The initial projection parses as a public book (an 11-char ASIN
+		// would fail AsinSchema and make the store fall back to the raw
+		// document, skipping the intended legacy-fallback path below).
+		expect(ApiBookSchema.safeParse(first.data).success).toBe(true)
 		// Corrupt the row the same way as the legacy case, but leave the
 		// incoming book without an `image` so the merged writeBook keeps
 		// the invalid value and the toApiBook parse fails again.
@@ -1702,5 +1823,364 @@ run('BookHistoryStore against a replica set', () => {
 		expect(current).not.toHaveProperty('ratingsBackfillSkip')
 		// ...and neither does the returned (fallback) projection.
 		expect(second.data).not.toHaveProperty('ratingsBackfillSkip')
+	}, 30000)
+
+	test('backfill: a legacy row with a validator-rejected extra field lands ratings without the rejected title change', async () => {
+		// A backfill-eligible legacy row whose stored document carries an
+		// extra field the strict books validator REJECTS: a `seriesPrimary`
+		// sub-document whose `name` is a number (the validator demands a
+		// string). The product the backfill fetches carries NO series, so the
+		// incoming book has no `seriesPrimary` and the merged write RETAINS
+		// the stored invalid one — the full-document persistObservation write
+		// is then rejected by the validator, and the fenced ratings repair
+		// lands the ratings block alone. The attempted title change does NOT
+		// land, the state version advances without accepting the rejected
+		// observation, and the summary reports one update and no failure.
+		const savedHistory = process.env.BOOK_HISTORY_ENABLED
+		const savedBatch = process.env.AUDIBLE_BATCH_SIZE
+		process.env.BOOK_HISTORY_ENABLED = 'true'
+		process.env.AUDIBLE_BATCH_SIZE = '1'
+		const asin = 'B0BACKFIL1'
+		const key = `${REGION}:${asin}`
+		const db7 = collections()
+		const baseBook = book({ asin, title: 'Legacy Backfill Row' })
+		// Seed a valid, backfill-eligible row (a `rating` so it enters the
+		// ratings walk; no `ratings` and no marker).
+		await db7.collection('books').insertOne(baseBook as never)
+		// Corrupt the row for the strict-validator case: a `seriesPrimary`
+		// with a numeric `name` fails the books validator (types.string) and
+		// is RETAINED by the merged write (the fetched product has no series),
+		// while the row stays backfill-eligible (rating present, ratings
+		// absent, no marker).
+		await db7
+			.collection('books')
+			.updateOne(
+				{ asin },
+				{ $set: { seriesPrimary: { asin: 'B0SERIEX1', name: 123 } } } as never,
+				{ bypassDocumentValidation: true }
+			)
+		const stateBefore = await db7.collection('book_history_states').findOne({ _id: key })
+		expect(stateBefore).toBeNull()
+
+		// The real backfill fetch path: ApiBatchHelper.fetchProductsByAsin →
+		// fetchPlus. The seeded row's ASIN answers with a full product whose
+		// title differs from the stored row (the "attempted title change");
+		// the product carries no series, so the merged write retains the
+		// stored invalid `seriesPrimary`.
+		const product = JSON.parse(JSON.stringify(apiResponse.product)) as Record<string, unknown>
+		product.asin = asin
+		product.title = 'Refreshed Title'
+		delete product.series
+		delete product.publication_name
+		// With AUDIBLE_BATCH_SIZE=1 the backfill takes the per-book path, so
+		// the REAL StitchHelper/ApiHelper fetches a SINGLE product
+		// (`response.data.product`), not the bulk `{ products: [...] }` shape.
+		mockFetch.mockClear()
+		mockFetch.mockResolvedValue({
+			data: {
+				product,
+				response_groups: ['rating', 'contributors', 'product_desc', 'product_attrs', 'product_details']
+			}
+		})
+		// Isolate the fixture: the backfill walk selects EVERY backfill-
+		// eligible row in the shared DB (earlier tests seed rows with a
+		// `rating` and no `ratings`/marker, which match the walk's filter).
+		// Delete all books except this test's ASIN so the walk processes
+		// exactly one row and `total`/`updated`/`failed` are deterministic.
+		await db7.collection('books').deleteMany({ asin: { $ne: asin } })
+		const backfill = new BookBackfillHelper(createMockLogger(), null)
+		try {
+			const result = await backfill.process()
+
+			// The summary reports one update and no failure (the ratings
+			// repair landed; the rejected full write is not a batch failure).
+			expect(result).toEqual({ total: 1, updated: 1, skipped: 0, terminalSkipped: 0, failed: 0 })
+
+			// The ratings landed (the fenced repair's $set) ...
+			const current = await db7.collection('books').findOne({ asin })
+			expect(current?.ratings).toBeDefined()
+			expect(current?.ratings).toMatchObject({
+				value: expect.any(String),
+				numRatings: expect.any(Number)
+			})
+			// ...but the attempted title change did NOT (the full-document
+			// write was rejected by the validator before it could commit
+			// the title).
+			expect(current?.title).toBe('Legacy Backfill Row')
+			// The rejected extra field is untouched (the repair is a pure
+			// ratings-only addition).
+			expect(current?.seriesPrimary).toEqual({ asin: 'B0SERIEX1', name: 123 })
+			// The state version advanced (the repair's fence $inc) WITHOUT
+			// accepting the rejected observation: no title baseline, no
+			// title revision — the observation was never accepted, only the
+			// ratings fence advanced.
+			const stateAfter = await db7.collection('book_history_states').findOne({ _id: key })
+			expect(stateAfter).not.toBeNull()
+			expect(stateAfter?.stateVersion).toBeGreaterThan(0)
+			const titleBaseline = (stateAfter?.fields ?? []).find(
+				(f: { field: string }) => f.field === 'title'
+			)
+			expect(titleBaseline).toBeUndefined()
+			const titleRevision = await db7
+				.collection('book_history_revisions')
+				.find({ asin, region: REGION, changedFields: { $in: ['title'] } })
+				.toArray()
+			expect(titleRevision).toHaveLength(0)
+		} finally {
+			// Restore the environment even if the assertions above throw:
+			// a leaked override would flip every later test's history and
+			// batch-size behavior.
+			if (savedHistory === undefined) delete process.env.BOOK_HISTORY_ENABLED
+			else process.env.BOOK_HISTORY_ENABLED = savedHistory
+			if (savedBatch === undefined) delete process.env.AUDIBLE_BATCH_SIZE
+			else process.env.AUDIBLE_BATCH_SIZE = savedBatch
+		}
+	}, 30000)
+
+	test('an equal observation on a marker row without createdAt is accepted, removes the marker, and leaves content and updatedAt alone', async () => {
+		// A row with a valid public projection, a terminal backfill-skip
+		// marker, and NO `createdAt`: submitting an EQUAL observation is
+		// accepted with `modified: false` (the equal short-circuit), removes
+		// the marker (an accepted book supersedes a backfill-skip decision),
+		// and makes NO content or `updatedAt` change (the short-circuit
+		// writes nothing to the books row — only the state watermark and the
+		// marker-only cleanup advance).
+		const asin = 'B0EQMARKER'
+		const db7 = collections()
+		const baseBook = book({ asin, title: 'Marker Equal Row' })
+		await db7.collection('books').insertOne(baseBook as never)
+		// Add the terminal marker and drop `createdAt` the way legacy rows
+		// lack it.
+		await db7
+			.collection('books')
+			.updateOne(
+				{ asin },
+				{
+					$set: {
+						ratingsBackfillSkip: {
+							reason: 'non_book',
+							contentType: 'SinglePartIssue',
+							markedAt: new Date('2026-01-01T00:00:00.000Z')
+						}
+					},
+					$unset: { createdAt: '' }
+				} as never,
+				{ bypassDocumentValidation: true }
+			)
+		const before = await db7.collection('books').findOne({ asin })
+		expect(before).not.toBeNull()
+		expect(before).toHaveProperty('ratingsBackfillSkip')
+		expect(before).not.toHaveProperty('createdAt')
+		// The stored row must produce a valid public projection: the equal
+		// short-circuit (and its `modified: false` assertion) requires
+		// `toApiBook` to succeed, which an 11-character ASIN would break.
+		expect(ApiBookSchema.safeParse(before).success).toBe(true)
+		const updatedAtBefore = before?.updatedAt
+
+		const gen = await bookHistoryStore.reserveGeneration(asin, REGION)
+		const result = await bookHistoryStore.persistObservation({
+			asin,
+			region: REGION,
+			generation: gen,
+			book: baseBook,
+			observation: observation({ title: 'Marker Equal Row', imageId: IMG1 })
+		})
+		// Accepted (the row is a valid book) but unmodified (equal
+		// projection short-circuit: the store wrote no content).
+		expect(result.disposition).toBe('accepted')
+		expect(result.modified).toBe(false)
+
+		// The marker is removed (an accepted book supersedes a backfill-skip
+		// decision, even an equal-projection no-op).
+		const after = await db7.collection('books').findOne({ asin })
+		expect(after).not.toBeNull()
+		expect(after).not.toHaveProperty('ratingsBackfillSkip')
+		// No content change: the title stands ...
+		expect(after?.title).toBe('Marker Equal Row')
+		// ...and `updatedAt` is untouched (the short-circuit's books write is
+		// marker-only; no `$currentDate` ran on the content).
+		expect(after?.updatedAt).toEqual(updatedAtBefore)
+	}, 30000)
+
+	test('an evidence-free refresh on a legacy-image row preserves the stored image and returns a valid projection', async () => {
+		// A stored row whose `image` is a non-URL string (fails ApiBookSchema
+		// but passes the books validator) is "legacy" for the public parse.
+		// An evidence-free refresh (the incoming book carries no `image`)
+		// must LEAVE THE STORED IMAGE ALONE (retention for evidence-free
+		// fields) while the returned book is repaired to a valid
+		// ApiBookSchema projection (the invalid `image` is omitted) that
+		// preserves the refreshed title.
+		const asin = 'B0LEGIMGEV'
+		const db7 = collections()
+		const baseBook = book({ asin, title: 'Legacy Image Base' })
+		await db7.collection('books').insertOne(baseBook as never)
+		// Corrupt the stored image the way legacy rows carry it (a non-URL
+		// ID): the books validator accepts it, ApiBookSchema does not.
+		await db7
+			.collection('books')
+			.updateOne({ asin }, { $set: { image: 'LEGACY-IMAGE-ID' } } as never)
+
+		const gen = await bookHistoryStore.reserveGeneration(asin, REGION)
+		const result = await bookHistoryStore.persistObservation({
+			asin,
+			region: REGION,
+			generation: gen,
+			// The incoming book carries NO `image` (evidence-free refresh):
+			// the merged writeBook retains the stored invalid image.
+			book: book({ asin, title: 'Legacy Image Refreshed', image: undefined }),
+			observation: observation({ title: 'Legacy Image Refreshed', imageId: IMG1 })
+		})
+		expect(result.disposition).toBe('accepted')
+		expect(result.modified).toBe(true)
+
+		// The returned book passes ApiBookSchema (the invalid `image` is
+		// omitted from the repaired projection) ...
+		expect(ApiBookSchema.safeParse(result.data).success).toBe(true)
+		// ...preserves the refreshed title ...
+		expect(result.data.title).toBe('Legacy Image Refreshed')
+		// ...and omits the invalid image.
+		expect(result.data.image).not.toBe('LEGACY-IMAGE-ID')
+
+		// The evidence-free refresh left the STORED image alone (retention:
+		// the incoming book carried no image evidence, so the stored
+		// non-URL image is not clobbered).
+		const current = await db7.collection('books').findOne({ asin })
+		expect(current?.image).toBe('LEGACY-IMAGE-ID')
+		expect(current?.title).toBe('Legacy Image Refreshed')
+	}, 30000)
+
+	test('tags evidence: a refresh with no tag evidence retains stored tags; an explicit empty-tags observation clears them with one delta', async () => {
+		// Two evidence classes for tags: (1) a refresh whose observation
+		// carries NO tags evidence (the tags group was not fetched →
+		// `undefined`, unknown, not absent) must PRESERVE the stored and
+		// returned tags with NO tag revision; (2) an explicit empty-tags
+		// observation (`tags: []` → `state: 'absent'`) must CLEAR both the
+		// stored and returned tags and record EXACTLY ONE `tags` delta to
+		// `absent`.
+		const asin = 'B0TAGEVID1'
+		const key = `${REGION}:${asin}`
+		const db7 = collections()
+		const storedTags = [{ tagId: 'adbl_rec_tag_0-2-1', name: 'Witty', type: 'mood' }]
+		const tagTuples = [['adbl_rec_tag_0-2-1', 'Witty', 'mood']]
+		const baseBook = book({ asin, title: 'Tags Evidence' })
+		// The stored row must parse as a public projection: a 9-char ASIN
+		// would fail `ApiBookSchema`, and the unknown-tags phase's fallback
+		// to `baseBook` would then return tags-less data — breaking the
+		// returned-tags assertion instead of testing retention.
+		expect(ApiBookSchema.safeParse(baseBook).success).toBe(true)
+
+		// Seed a tag-less row and its baselines (title/artwork) in one
+		// accepted observation.
+		await db7.collection('books').insertOne(baseBook as never)
+		const gen1 = await bookHistoryStore.reserveGeneration(asin, REGION)
+		await bookHistoryStore.persistObservation({
+			asin,
+			region: REGION,
+			generation: gen1,
+			book: baseBook,
+			observation: observation({ title: 'Tags Evidence', imageId: IMG1 })
+		})
+		// Then seed the stored tags: the FIRST observation carrying tag
+		// evidence initializes the `tags` baseline silently (no change event)
+		// while the real book write lands the tags on the row.
+		const gen2 = await bookHistoryStore.reserveGeneration(asin, REGION)
+		const seed = await bookHistoryStore.persistObservation({
+			asin,
+			region: REGION,
+			generation: gen2,
+			book: { ...baseBook, tags: storedTags },
+			observation: observation({ title: 'Tags Evidence', imageId: IMG1, tags: tagTuples })
+		})
+		expect(seed.disposition).toBe('accepted')
+		expect(seed.modified).toBe(true)
+		const stateAfterSeed = await db7.collection('book_history_states').findOne({ _id: key })
+		const seedRevision = stateAfterSeed?.revision ?? 0
+		const seedTagsBaseline = (stateAfterSeed?.fields ?? []).find(
+			(f: { field: string }) => f.field === 'tags'
+		)
+		expect(seedTagsBaseline).toMatchObject({
+			policy: 'tags:api:v1',
+			value: { state: 'value', value: tagTuples }
+		})
+		const rowAfterSeed = await db7.collection('books').findOne({ asin })
+		expect(rowAfterSeed?.tags).toEqual(storedTags)
+
+		// Phase 1: a refresh with NO tags evidence (the observation carries
+		// only the title; the tags group was not fetched). The stored and
+		// returned tags are preserved, and NO tag revision is recorded
+		// (unknown evidence retains, never compares).
+		const gen3 = await bookHistoryStore.reserveGeneration(asin, REGION)
+		const phase1 = await bookHistoryStore.persistObservation({
+			asin,
+			region: REGION,
+			generation: gen3,
+			// The incoming book carries NO `tags` field at all (the tags
+			// group was not fetched): the assertions below verify the stored
+			// tags survive a refresh whose evidence says nothing about tags.
+			book: baseBook,
+			observation: observation({ title: 'Tags Evidence', imageId: IMG1 })
+		})
+		expect(phase1.disposition).toBe('accepted')
+		// The stored row keeps its tags (retention for unknown evidence) ...
+		const rowAfterPhase1 = await db7.collection('books').findOne({ asin })
+		expect(rowAfterPhase1?.tags).toEqual(storedTags)
+		// ...and so does the returned/cached projection.
+		expect(phase1.data.tags).toEqual(storedTags)
+		// NO tag revision: the revision counter is unchanged from the seed.
+		const stateAfterPhase1 = await db7.collection('book_history_states').findOne({ _id: key })
+		expect(stateAfterPhase1?.revision).toBe(seedRevision)
+		// The tags baseline is retained (not advanced, not cleared).
+		const phase1TagsBaseline = (stateAfterPhase1?.fields ?? []).find(
+			(f: { field: string }) => f.field === 'tags'
+		)
+		expect(phase1TagsBaseline).toMatchObject({
+			value: { state: 'value', value: tagTuples }
+		})
+
+		// Phase 2: an explicit empty-tags observation (`tags: []` → the
+		// producer records `state: 'absent'`). The stored and returned tags
+		// are cleared, and EXACTLY ONE `tags` delta to `absent` is recorded.
+		const gen4 = await bookHistoryStore.reserveGeneration(asin, REGION)
+		const phase2 = await bookHistoryStore.persistObservation({
+			asin,
+			region: REGION,
+			generation: gen4,
+			book: { ...baseBook, tags: [] },
+			// `absent: ['tags']` records the explicit clear (`state:
+			// 'absent'`); passing `tags: []` alone would create
+			// `{ state: 'value', value: [] }` because the empty array is
+			// truthy, which the store would treat as a value, not a clear.
+			observation: observation({ title: 'Tags Evidence', imageId: IMG1, absent: ['tags'] })
+		})
+		expect(phase2.disposition).toBe('accepted')
+		expect(phase2.modified).toBe(true)
+		// The stored row's tags are cleared ...
+		const rowAfterPhase2 = await db7.collection('books').findOne({ asin })
+		expect(rowAfterPhase2?.tags).toEqual([])
+		// ...and so is the returned/cached projection.
+		expect(phase2.data.tags).toEqual([])
+
+		// Exactly ONE `tags` delta to `absent` was recorded (the phase-1
+		// refresh recorded none; the phase-2 clear is the only transition).
+		const stateAfterPhase2 = await db7.collection('book_history_states').findOne({ _id: key })
+		expect(stateAfterPhase2?.revision).toBe(seedRevision + 1)
+		const tagsBaselineAfter = (stateAfterPhase2?.fields ?? []).find(
+			(f: { field: string }) => f.field === 'tags'
+		)
+		expect(tagsBaselineAfter).toMatchObject({
+			policy: 'tags:api:v1',
+			value: { state: 'absent' }
+		})
+		const tagsRevisions = await db7
+			.collection('book_history_revisions')
+			.find({ asin, region: REGION, changedFields: { $in: ['tags'] } })
+			.toArray()
+		expect(tagsRevisions).toHaveLength(1)
+		expect(tagsRevisions[0].changedFields).toEqual(['tags'])
+		expect(tagsRevisions[0].changes.tags.before).toEqual({
+			state: 'value',
+			value: tagTuples
+		})
+		expect(tagsRevisions[0].changes.tags.after).toEqual({ state: 'absent' })
 	}, 30000)
 })

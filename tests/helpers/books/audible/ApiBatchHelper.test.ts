@@ -70,12 +70,12 @@ describe('fetchProductsByAsin', () => {
 
 	test('treats a bare { asin } stub as not found', async () => {
 		mockFetch.mockImplementation(async (url: string) =>
-			respond(url, [{ asin: 'INVALID999' }], ['INVALID999'])
+			respond(url, [{ asin: 'B0STUB0001' }], ['B0STUB0001'])
 		)
-		const result = await fetchProductsByAsin(['B000000001', 'INVALID999'], 'us')
+		const result = await fetchProductsByAsin(['B000000001', 'B0STUB0001'], 'us')
 		expect(result.found.has('B000000001')).toBe(true)
-		expect(result.found.has('INVALID999')).toBe(false)
-		expect(result.stubs.has('INVALID999')).toBe(true)
+		expect(result.found.has('B0STUB0001')).toBe(false)
+		expect(result.stubs.has('B0STUB0001')).toBe(true)
 	})
 
 	test('treats an unparseable product as a stub for per-book fallback', async () => {

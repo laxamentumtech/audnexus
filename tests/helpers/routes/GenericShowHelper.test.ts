@@ -73,7 +73,7 @@ import type { FastifyBaseLogger } from 'fastify'
 import type { BookObservation } from '#config/bookHistory'
 import type { ApiBook } from '#config/types'
 import type { PersistResult } from '#helpers/database/papr/BookHistoryStore'
-import { BadRequestError, NotFoundError } from '#helpers/errors/ApiErrors'
+import { BadRequestError, ContentTypeMismatchError, NotFoundError } from '#helpers/errors/ApiErrors'
 import GenericShowHelper from '#helpers/routes/GenericShowHelper'
 import { apiResponse, bookWithoutProjection } from '#tests/datasets/helpers/books'
 import { createMockLogger } from '#tests/setup/mockLogger'
@@ -451,16 +451,29 @@ describe('GenericShowHelper pre-order transient handling', () => {
 	test('sets fetchedFreshData on the normal persistence path', async () => {
 		const pastBook = {
 			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: new Date('2020-01-01'),
+			ratings: { value: '4.6', numRatings: 120, numReviews: 8 }
+		} as ApiBook
+		// The stored projection is a DISTINCT object without the fetched
+		// ratings: if freshData ever held the stored projection, the
+		// ratings assertion below would fail.
+		const storedProjection = {
+			...(bookWithoutProjection as unknown as ApiBook),
 			releaseDate: new Date('2020-01-01')
 		} as ApiBook
+		// bookWithoutProjection carries the fetched ratings; the stored
+		// projection is the pre-fetch row, which predates them.
+		delete storedProjection.ratings
 
 		spyOn(helper, 'getNewData').mockResolvedValue(pastBook)
-		spyOn(helper.paprHelper, 'createOrUpdate').mockResolvedValue({ data: pastBook })
-		spyOn(helper, 'getDataWithProjection').mockResolvedValue(pastBook)
+		spyOn(helper.paprHelper, 'createOrUpdate').mockResolvedValue({ data: storedProjection })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(storedProjection)
 
 		const result = await helper.createOrUpdateData()
 
-		expect(result).toBe(pastBook)
+		expect(result).toBe(storedProjection)
+		expect(result).not.toHaveProperty('ratings')
+		expect(helper.freshData).toBe(pastBook)
 		expect(helper.fetchedFreshData).toBe(true)
 	})
 
@@ -746,6 +759,40 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 		expect(mockPersistObservation).toHaveBeenCalledWith(
 			expect.objectContaining({ asin, region, generation: 12 })
 		)
+	})
+
+	test('a failed fetch still exposes the reserved generation', async () => {
+		// The generation is reserved BEFORE the fetch: a fetch that fails
+		// before persistence ran still consumed the reservation (the fence
+		// is ordered by fetch start), so the reserved generation must be
+		// exposed on the failed helper — the backfill's terminal marker
+		// fences on it when persistedGeneration is absent.
+		const fetchError = new ContentTypeMismatchError('Item is a SinglePartIssue, not a book.', {
+			asin,
+			requestedType: 'book',
+			actualType: 'SinglePartIssue'
+		})
+		mockStitchProcess.mockRejectedValue(fetchError)
+
+		let error: unknown
+		try {
+			await helper.handler()
+		} catch (err) {
+			error = err
+		}
+
+		expect(error).toBe(fetchError)
+		// The on-the-fly reservation ran (no pre-reserved generation was
+		// supplied) and the failed fetch exposes the generation it was
+		// reserved under.
+		expect(mockReserveGeneration).toHaveBeenCalledTimes(1)
+		expect(mockReserveGeneration).toHaveBeenCalledWith(asin, region)
+		expect(helper.reservedGeneration).toBe(7)
+		// No persistence ran, so there is no persisted generation and no
+		// disposition to report.
+		expect(helper.persistedGeneration).toBeUndefined()
+		expect(helper.historyDisposition).toBeUndefined()
+		expect(mockPersistObservation).not.toHaveBeenCalled()
 	})
 
 	test('missing observation → legacy persist path with warning', async () => {
