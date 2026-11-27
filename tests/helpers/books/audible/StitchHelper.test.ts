@@ -129,7 +129,7 @@ describe('SitchHelper should handle fallback', () => {
 		// genres/tags and ladder-less rows answer 404/503.
 		const obj = { data: mockApiResponse }
 		obj.data.product.category_ladders = []
-		const skipHelper = new StitchHelper(asin, region, undefined, false, true)
+		const skipHelper = new StitchHelper(asin, region, { skipHtml: true })
 		spyOn(skipHelper.apiHelper, 'fetchBook').mockImplementation(() => Promise.resolve(obj.data))
 		spyOn(skipHelper.apiHelper, 'parseResponse').mockImplementation(() =>
 			Promise.resolve(parsedBook)
@@ -336,7 +336,7 @@ describe('StitchHelper getHistoryObservation composition', () => {
 	}
 
 	const setupHelper = (captureHistory: boolean): HistoryState => {
-		const h = new StitchHelper(asin, region, undefined, captureHistory) as HistoryState
+		const h = new StitchHelper(asin, region, { captureHistory }) as HistoryState
 		spyOn(h.apiHelper, 'getHistoryObservation').mockImplementation(() => baseObservation())
 		return h
 	}

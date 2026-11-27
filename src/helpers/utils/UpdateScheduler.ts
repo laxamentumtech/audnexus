@@ -7,6 +7,7 @@ import AuthorModel from '#config/models/Author'
 import BookModel from '#config/models/Book'
 import ChapterModel from '#config/models/Chapter'
 import { getPerformanceConfig } from '#config/performance'
+import { ContentTypeMismatchError } from '#helpers/errors/ApiErrors'
 import AuthorShowHelper from '#helpers/routes/AuthorShowHelper'
 import BookShowHelper from '#helpers/routes/BookShowHelper'
 import ChapterShowHelper from '#helpers/routes/ChapterShowHelper'
@@ -32,8 +33,9 @@ const MAX_PER_REGION_CONCURRENCY = 5
 
 /** What one document's update did: papr wrote it (`updated`), the upstream had
  * nothing usable but the row is not dead (`unchanged` — recency gate, swallowed
- * REGION_UNAVAILABLE/PRODUCT_DELISTED, no chapters), or the page no longer
- * exists (`gone`). Only `unchanged` and `gone` are marked checked; failures are not. */
+ * REGION_UNAVAILABLE/PRODUCT_DELISTED, no chapters, static content-type
+ * rejection), or the page no longer exists (`gone`). Only `unchanged` and
+ * `gone` are marked checked; transient failures are not. */
 type ItemOutcome = 'updated' | 'unchanged' | 'gone'
 
 /** Per-pass result, replacing the aggregate-summary plumbing. */
@@ -43,6 +45,28 @@ export interface PassSummary {
 	unchanged: number
 	gone: number
 	failures: number
+}
+
+/** The `$currentDate` update papr's generated update type does not model. */
+type CheckedUpdate = { $currentDate: { updatedAt: true } }
+
+/** The one papr method this file needs outside the generated generics:
+ * `updateOne` with a `$currentDate` update and an optional validation bypass.
+ * Papr's `bypassDocumentValidation` option is not part of the generated model
+ * signature. */
+type CheckedWriter = {
+	updateOne: (
+		filter: { _id: ObjectId },
+		update: CheckedUpdate,
+		options?: { bypassDocumentValidation: boolean }
+	) => Promise<unknown>
+}
+
+/** MongoDB rejects a strict-validator write with code 121
+ * (`DocumentValidationFailure`). */
+function isDocumentValidationFailure(error: unknown): boolean {
+	if (typeof error !== 'object' || error === null || !('code' in error)) return false
+	return error.code === 121
 }
 
 class UpdateScheduler {
@@ -81,14 +105,28 @@ class UpdateScheduler {
 	 * one write that makes the row leave the staleness window the walk selects on.
 	 * Cast matches the papr-generics bypass in keyset.ts (`$currentDate` is a
 	 * standard Mongo operator papr's update type does not model).
+	 *
+	 * The validated write is the first attempt so a worker role that can update
+	 * but cannot bypass validation keeps marking ordinary rows. A legacy row can
+	 * predate the strict collection validator and lack required content fields,
+	 * which rejects the metadata-only write for unrelated missing data; only
+	 * that failure earns one retry with the bypass, and no content can slip past
+	 * validation because the update touches only `updatedAt`. Same rationale as
+	 * `BookBackfillHelper.markNonBook`.
 	 */
 	private async markChecked(
 		model: typeof AuthorModel | typeof BookModel | typeof ChapterModel,
 		id: ObjectId
 	): Promise<void> {
-		await (
-			model as unknown as { updateOne: (filter: object, update: object) => Promise<unknown> }
-		).updateOne({ _id: id }, { $currentDate: { updatedAt: true } })
+		const writer = model as unknown as CheckedWriter
+		const filter = { _id: id }
+		const update: CheckedUpdate = { $currentDate: { updatedAt: true } }
+		try {
+			await writer.updateOne(filter, update)
+		} catch (error) {
+			if (!isDocumentValidationFailure(error)) throw error
+			await writer.updateOne(filter, update, { bypassDocumentValidation: true })
+		}
 	}
 
 	/**
@@ -122,6 +160,20 @@ class UpdateScheduler {
 			return helper.persisted ? 'updated' : 'unchanged'
 		} catch (error) {
 			if (error instanceof UpstreamGoneError) return 'gone'
+			// A content-type rejection is a static upstream fact: a
+			// SinglePartIssue is not a book on this pass and will not become
+			// one on the next. Mark the row checked (the `unchanged` outcome)
+			// instead of logging it as an error and inflating `failures` on
+			// every scheduled pass. On-demand requests keep their
+			// CONTENT_TYPE_MISMATCH/400 contract — this only classifies the
+			// background reconcile. See BookBackfillHelper's terminal
+			// handling of the same typed error.
+			if (error instanceof ContentTypeMismatchError) {
+				this.logger.debug(
+					`${labelPrefix} item skipped upstream: asin=${doc.asin} region=${normalizeRegion(doc.region)} contentType=${error.details?.actualType ?? 'unknown'}`
+				)
+				return 'unchanged'
+			}
 			throw error
 		} finally {
 			// Pacing jitter is a serial-walk concern (items are sequential
@@ -150,7 +202,7 @@ class UpdateScheduler {
 					asin,
 					{ region, update: '1' },
 					this.redis as unknown as FastifyRedis | null,
-					this.logger
+					{ logger: this.logger }
 				),
 			'author',
 			author,
@@ -171,9 +223,10 @@ class UpdateScheduler {
 					asin,
 					{ region, update: '1' },
 					this.redis as unknown as FastifyRedis | null,
-					this.logger,
-					false,
-					true
+					{
+						logger: this.logger,
+						skipHtml: true
+					}
 				),
 			'book',
 			book,
@@ -194,7 +247,7 @@ class UpdateScheduler {
 					asin,
 					{ region, update: '1' },
 					this.redis as unknown as FastifyRedis | null,
-					this.logger
+					{ logger: this.logger }
 				),
 			'chapters',
 			chapter,

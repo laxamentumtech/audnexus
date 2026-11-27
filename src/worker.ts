@@ -80,13 +80,23 @@ async function doShutdown(): Promise<void> {
 		// contract: a worker close that genuinely FAILS aborts shutdown (the
 		// Mongo close is not run), while a HUNG close is force-cleaned on the
 		// deadline and shutdown continues.
-		await closeWithTimeout(
-			() => getWorker().close(),
-			() => getQueueRedisClient()?.disconnect(),
-			'worker',
-			remainingShutdownBudget(),
-			{ propagateRejection: true }
-		)
+		try {
+			await closeWithTimeout(
+				() => getWorker().close(),
+				() => getQueueRedisClient()?.disconnect(),
+				'worker',
+				remainingShutdownBudget(),
+				{ propagateRejection: true }
+			)
+		} catch (error) {
+			// Log BEFORE rethrow: the finally's process.exit(0) runs after
+			// the rejection reaches the shutdown() wrapper, and the wrapper
+			// catch's log line can be lost to the immediate exit.
+			logger.error(
+				`Worker close failed during shutdown: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}`
+			)
+			throw error
+		}
 		await closeQueue({ budgetMs: remainingShutdownBudget() })
 		await ctx.client.close()
 	} finally {

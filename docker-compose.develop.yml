@@ -4,6 +4,7 @@ services:
     restart: always
     environment:
       ADP_TOKEN: ${ADP_TOKEN}
+      AUDIBLE_BATCH_SIZE: ${AUDIBLE_BATCH_SIZE:-1}
       BOOK_HISTORY_ENABLED: ${BOOK_HISTORY_ENABLED:-false}
       DB_INDEX_BUILD_WAIT_MS: ${DB_INDEX_BUILD_WAIT_MS:-1800000}
       DB_INDEX_MODE: ${DB_INDEX_MODE:-auto}
@@ -46,6 +47,7 @@ services:
     command: ['bun', 'run', 'worker']
     environment:
       ADP_TOKEN: ${ADP_TOKEN}
+      AUDIBLE_BATCH_SIZE: ${AUDIBLE_BATCH_SIZE:-1}
       BOOK_HISTORY_ENABLED: ${BOOK_HISTORY_ENABLED:-false}
       DB_INDEX_BUILD_WAIT_MS: ${DB_INDEX_BUILD_WAIT_MS:-1800000}
       DB_INDEX_MODE: ${DB_INDEX_MODE:-auto}

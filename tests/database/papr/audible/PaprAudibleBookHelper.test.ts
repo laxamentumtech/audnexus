@@ -36,7 +36,8 @@ import {
 	bookWithoutGenresWithoutProjection,
 	bookWithoutProjection,
 	parsedBook,
-	parsedBookWithoutGenres
+	parsedBookWithoutGenres,
+	ratings
 } from '#tests/datasets/helpers/books'
 
 
@@ -171,15 +172,150 @@ describe('PaprAudibleBookHelper should', () => {
 		helper.setData(parsedBook)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
 	})
-	test('createOrUpdate genres on old, but not on new', async () => {
+	test('createOrUpdate empty incoming genres keep stored row', async () => {
+		// No genre gate: the effective write retains stored genres, so the
+		// projection is unchanged and no update is performed.
 		const obj = { data: parsedBook, modified: false }
-		mockIsEqualData.mockReturnValue(false)
+		mockIsEqualData.mockReturnValue(true)
 		mockFindOne
 			.mockResolvedValueOnce(parsedBook as unknown as BookDocument)
 			.mockResolvedValueOnce(bookWithoutProjection)
 			.mockResolvedValue(parsedBook as unknown as BookDocument)
 		helper.setData(parsedBookWithoutGenres)
 		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+	})
+	test('createOrUpdate preserves stored genres when the incoming book has none', async () => {
+		// Regression (skipHtml background passes): a stored book with
+		// genres is re-fetched as a genre-less product (no category
+		// ladders, no HTML scrape). The stored genres must be preserved
+		// so the remaining changed fields persist through the genre
+		// safeguard — previously the WHOLE update was rejected, freezing
+		// title/ratings while the scheduler marked the row checked and
+		// re-hit the same rejection every pass.
+		const incoming = { ...parsedBookWithoutGenres, summary: '' }
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(parsedBook as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutProjection)
+			.mockResolvedValue(parsedBook as unknown as BookDocument)
+		helper.setData(incoming)
+		await expect(helper.createOrUpdate()).resolves.toEqual({ data: parsedBook, modified: true })
+		// Effective write: the changed field (summary) rides along and the
+		// preserved stored genres replace the empty incoming genres, so a
+		// genre-less background pass cannot nuke the stored ladder.
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }
+		expect(update.$set.summary).toBe('')
+		expect(update.$set.genres).toEqual(parsedBook.genres)
+	})
+	test('createOrUpdate does not clobber concurrent genres on a genre-less update', async () => {
+		// Concurrent-refresh regression: the stored row carries genres A,
+		// the incoming book is genre-less (a skipHtml background pass),
+		// and a concurrent genre refresh stores genres B on the row
+		// BEFORE update() re-reads it (the fresh read the effective
+		// write is rebuilt against), so the write carries the fresh
+		// genres B, never a stale stored copy.
+		const genresB = [{ type: 'genre', asin: '9876543210', name: 'Mystery' }]
+		const refreshed = {
+			...bookWithoutProjection,
+			genres: genresB
+		} as BookDocument
+		const incoming = { ...parsedBookWithoutGenres, summary: '' }
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(parsedBook as unknown as BookDocument) // T0 read
+			.mockResolvedValueOnce(refreshed as unknown as BookDocument) // fresh read in update()
+			.mockResolvedValue(refreshed) // post-update read
+		helper.setData(incoming)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		// The final read sees the concurrently refreshed genres.
+		expect(result.data).toEqual({ ...parsedBook, genres: genresB })
+		// update() rebuilds the effective write against the fresh read, so
+		// the empty incoming genres take their value from the concurrently
+		// refreshed row: genres B are written, never a stale stored copy.
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		const update = mockUpdateOne.mock.calls[0][1] as { $set: Record<string, unknown> }
+		expect(update.$set.summary).toBe('')
+		expect(update.$set.genres).toEqual(genresB)
+	})
+	test('createOrUpdate identical book without genres', async () => {
+		// No genre gate: identical projections short-circuit to no update.
+		const obj = { data: parsedBookWithoutGenres, modified: false }
+		mockIsEqualData.mockReturnValue(true)
+		mockFindOne
+			.mockResolvedValueOnce(parsedBookWithoutGenres as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutGenresWithoutProjection)
+			.mockResolvedValue(parsedBookWithoutGenres as unknown as BookDocument)
+		helper.setData(parsedBookWithoutGenres)
+		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+	})
+	test('createOrUpdate empty incoming genres list does not clobber stored genres in the write', async () => {
+		// Incoming `genres: []` is not genre evidence, but the ratings
+		// change means the equality short-circuit fails (the comparator is
+		// mocked false, as in the genre-difference test). The update must
+		// proceed, and its $set must carry the stored genres, not the empty
+		// incoming list.
+		const stored = parsedBook as unknown as Record<string, unknown>
+		const incoming = { ...parsedBookWithoutGenres, genres: [], ratings: { ...ratings } }
+		const expectedSet = {
+			...stored,
+			ratings: { ...ratings },
+			createdAt: bookWithoutProjection._id.getTimestamp()
+		}
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(parsedBook as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutProjection)
+			.mockResolvedValue(parsedBook as unknown as BookDocument)
+		helper.setData(incoming)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{ $set: expectedSet, $unset: { ratingsBackfillSkip: '' }, $currentDate: { updatedAt: true } }
+		)
+	})
+	test('createOrUpdate short-circuits when incoming has no genre evidence and everything else matches', async () => {
+		// Stored row has genres, incoming is identical except the genre-less
+		// fetch carries no genre evidence: the effective write keeps the
+		// stored genres and equals the stored row, so modified: false.
+		const incoming = { ...parsedBookWithoutGenres, genres: [] }
+		const obj = { data: parsedBook, modified: false }
+		mockIsEqualData.mockReturnValue(true)
+		mockFindOne.mockResolvedValue(parsedBook as unknown as BookDocument)
+		helper.setData(incoming)
+		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		expect(mockIsEqualData).toHaveBeenCalledTimes(1)
+		expect(mockIsEqualData).toHaveBeenCalledWith(
+			parsedBook,
+			{ ...incoming, genres: parsedBook.genres }
+		)
+	})
+	test('createOrUpdate short-circuits when both sides carry an empty genre list', async () => {
+		// `genres: []` is not genre evidence on either side: an identical
+		// genre-less observation compares equal once the empty lists are
+		// normalized away, so it stays in the short-circuit (modified:
+		// false) instead of a redundant $set on every fetch.
+		const incoming = { ...parsedBookWithoutGenres, genres: [] }
+		const stored: BookDocument = {
+			...bookWithoutProjection,
+			genres: []
+		}
+		// The short-circuit returns the stored projection as-is, which
+		// keeps its `genres: []` key.
+		const obj = { data: { ...parsedBookWithoutGenres, genres: [] }, modified: false }
+		mockIsEqualData.mockReturnValue(true)
+		mockFindOne.mockResolvedValue(stored as unknown as BookDocument)
+		helper.setData(incoming)
+		await expect(helper.createOrUpdate()).resolves.toEqual(obj)
+		expect(mockIsEqualData).toHaveBeenCalledTimes(1)
+		// The stored `genres: []` key survives on both comparison copies:
+		// the row keeps the key and the effective write retains it.
+		expect(mockIsEqualData).toHaveBeenCalledWith(
+			{ ...parsedBookWithoutGenres, genres: [] },
+			{ ...parsedBookWithoutGenres, genres: [] }
+		)
 	})
 	test('createOrUpdate updates when neither side has genres', async () => {
 		// Genre-less legacy rows must still accept other fields (ratings):
@@ -208,6 +344,112 @@ describe('PaprAudibleBookHelper should', () => {
 				$currentDate: { updatedAt: true }
 			}
 		)
+	})
+	test('createOrUpdate tags-only change persists the effective write', async () => {
+		// A tags-only change is a real update even when genres are unchanged:
+		// the effective write $sets the new tags and every other stored value.
+		const stored = parsedBook as unknown as Record<string, unknown>
+		const newTags = [{ tagId: 't1', name: 'Witty', type: 'mood' as const }]
+		const incoming = { ...parsedBook, tags: newTags }
+		const expectedSet = {
+			...stored,
+			tags: newTags,
+			createdAt: bookWithoutProjection._id.getTimestamp()
+		}
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(stored as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutProjection)
+			.mockResolvedValue(stored as unknown as BookDocument)
+		helper.setData(incoming as typeof parsedBook)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{ $set: expectedSet, $unset: { ratingsBackfillSkip: '' }, $currentDate: { updatedAt: true } }
+		)
+	})
+	test('createOrUpdate empty incoming genres keep stored genres in the write', async () => {
+		// Genres retention: an empty incoming genres array never nukes the
+		// stored genres; a title change still triggers the effective write.
+		const stored = parsedBook as unknown as Record<string, unknown>
+		const incoming = { ...parsedBook, title: 'New Title', genres: [] }
+		const expectedSet = {
+			...stored,
+			title: 'New Title',
+			createdAt: bookWithoutProjection._id.getTimestamp()
+		}
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(stored as unknown as BookDocument)
+			.mockResolvedValueOnce(bookWithoutProjection)
+			.mockResolvedValue(stored as unknown as BookDocument)
+		helper.setData(incoming as typeof parsedBook)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{ $set: expectedSet, $unset: { ratingsBackfillSkip: '' }, $currentDate: { updatedAt: true } }
+		)
+	})
+
+	test('update keeps a concurrent refresh: stale T0 snapshot does not restore', async () => {
+		// Interleaving: createOrUpdate reads T0 (no tags), a concurrent
+		// refresh commits T1 (adds tags) before update() runs. The write
+		// must be built against the fresh T1 read, so T1's tags survive
+		// and only the incoming title changes.
+		const newTags = [{ tagId: 't2', name: 'Feel-Good', type: 'mood' as const }]
+		const t1 = {
+			...parsedBook,
+			title: 'Changed Title',
+			tags: newTags
+		} as unknown as Record<string, unknown>
+		const incoming = { ...parsedBook, title: 'Changed Title' }
+		mockIsEqualData.mockReturnValue(false)
+		mockFindOne
+			.mockResolvedValueOnce(parsedBook as unknown as BookDocument) // T0 read
+			.mockResolvedValueOnce({ ...bookWithoutProjection, tags: newTags }) // T1 read
+			.mockResolvedValue(t1 as unknown as BookDocument) // post-update read
+		helper.setData(incoming as typeof parsedBook)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(true)
+		expect(result.data?.tags).toEqual(newTags)
+		expect(mockUpdateOne).toHaveBeenCalledWith(
+			{ asin, $or: [{ region: { $exists: false } }, { region: options.region }] },
+			{
+				$set: {
+					...t1,
+					createdAt: bookWithoutProjection._id.getTimestamp()
+				},
+				$unset: { ratingsBackfillSkip: '' },
+				$currentDate: { updatedAt: true }
+			}
+		)
+	})
+	test('createOrUpdate with stored empty genres is a no-op update', async () => {
+		// A stored `genres: []` is a real key the database retains, so the
+		// effective write must keep it: the write equals the stored row and
+		// createOrUpdate short-circuits. If the projection dropped the key,
+		// the deep comparison below fails and an update is issued.
+		const sortedJson = (value: unknown): string =>
+			JSON.stringify(value, Object.keys(value as object).sort())
+		const stored = {
+			...parsedBook,
+			genres: []
+		} as unknown as Record<string, unknown>
+		const incoming = { ...parsedBook, genres: [] }
+		mockIsEqualData.mockImplementation((a: unknown, b: unknown) => sortedJson(a) === sortedJson(b))
+		mockFindOne.mockResolvedValue(stored as unknown as BookDocument)
+		helper.setData(incoming as typeof parsedBook)
+		const result = await helper.createOrUpdate()
+		expect(result.modified).toBe(false)
+		// The equal fast path only issues the conditional ratingsBackfillSkip
+		// $unset (a no-op write when no marker exists) — no $set, no $currentDate.
+		expect(mockUpdateOne).toHaveBeenCalledTimes(1)
+		const update = mockUpdateOne.mock.calls[0][1] as Record<string, unknown>
+		expect(update).not.toHaveProperty('$set')
+		expect(update).not.toHaveProperty('$currentDate')
+		expect(update.$unset).toEqual({ ratingsBackfillSkip: '' })
 	})
 })
 

@@ -96,6 +96,15 @@ function fetchPlus(url: string, options = {}, retries = 0): Promise<AxiosRespons
 					// Retry-After hints feed both the retry delay and the cooldown.
 					registerRateLimited(retryAfterToMs(reason))
 				}
+				// Deterministic client errors (4xx other than 429/408) are
+				// never fixed by retrying: reject immediately so callers can
+				// react (e.g. drop a rejected response group) without backoff
+				// delay. 408 (Request Timeout) is transient and stays on the
+				// retry path.
+				if (status && status >= 400 && status < 500 && status !== 429 && status !== 408) {
+					reject(reason.response)
+					return
+				}
 				if (retries < 3) {
 					// Transient (429/503/504) responses back off before retrying.
 					if (status && TRANSIENT_STATUSES[status]) {

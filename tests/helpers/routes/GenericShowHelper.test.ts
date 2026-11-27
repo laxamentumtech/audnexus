@@ -35,8 +35,34 @@ mock.module('#config/papr', () => ({
 	}
 }))
 
+const stitchConstructorArgs: unknown[][] = []
+// Shared fetch fixture: a released book (no pre-order transient path) plus
+// the history evidence the fetched instance reports after a success.
+const apiBook = {
+	...(bookWithoutProjection as unknown as ApiBook),
+	releaseDate: new Date('2020-01-01')
+} as ApiBook
+const observation: BookObservation = {
+	observedAt: new Date('2026-11-07T12:00:00.000Z'),
+	apiReceivedAt: new Date('2026-11-07T12:00:00.000Z'),
+	responseGroups: ['category_ladders'],
+	requestedRenditions: ['500', '1024'],
+	fields: [
+		{
+			field: 'title',
+			policy: 'editorial:title:v1',
+			value: { state: 'value', value: 'Galaxy' },
+			source: 'audible_api'
+		}
+	],
+	artwork: []
+}
+
 mock.module('#helpers/books/audible/StitchHelper', () => ({
 	default: class StitchHelper {
+		constructor(...args: unknown[]) {
+			stitchConstructorArgs.push(args)
+		}
 		process = () => mockStitchProcess()
 		getHistoryObservation = () => mockStitchObservation
 	}
@@ -49,7 +75,7 @@ import type { ApiBook } from '#config/types'
 import type { PersistResult } from '#helpers/database/papr/BookHistoryStore'
 import { BadRequestError, NotFoundError } from '#helpers/errors/ApiErrors'
 import GenericShowHelper from '#helpers/routes/GenericShowHelper'
-import { bookWithoutProjection } from '#tests/datasets/helpers/books'
+import { apiResponse, bookWithoutProjection } from '#tests/datasets/helpers/books'
 import { createMockLogger } from '#tests/setup/mockLogger'
 
 describe('GenericShowHelper handler error propagation', () => {
@@ -159,7 +185,7 @@ describe('GenericShowHelper updateActions NotFoundError code handling', () => {
 			{ region: 'us', seedAuthors: undefined, update: '1' },
 			null,
 			'book',
-			mockLogger
+			{ logger: mockLogger }
 		)
 	})
 
@@ -341,7 +367,7 @@ describe('GenericShowHelper pre-order transient handling', () => {
 			{ region: 'us', seedAuthors: undefined, update: '1' },
 			null,
 			'book',
-			mockLogger
+			{ logger: mockLogger }
 		)
 	})
 
@@ -394,6 +420,9 @@ describe('GenericShowHelper pre-order transient handling', () => {
 		expect(setDataSpy).toHaveBeenCalledTimes(1)
 		expect(createOrUpdateSpy).toHaveBeenCalledTimes(1)
 		expect(setOneSpy).toHaveBeenCalledTimes(1)
+		// The producer side of the repair contract: consumers read the
+		// fetched book off freshData, not off the stored projection.
+		expect(helper.freshData).toBe(preOrderBook)
 	})
 
 	test('persists released books normally (releaseDate in the past)', async () => {
@@ -414,6 +443,9 @@ describe('GenericShowHelper pre-order transient handling', () => {
 		expect(setDataSpy).toHaveBeenCalledTimes(1)
 		expect(createOrUpdateSpy).toHaveBeenCalledTimes(1)
 		expect(setOneSpy).toHaveBeenCalledTimes(1)
+		// The producer side of the repair contract: consumers read the
+		// fetched book off freshData, not off the stored projection.
+		expect(helper.freshData).toBe(pastBook)
 	})
 
 	test('sets fetchedFreshData on the normal persistence path', async () => {
@@ -483,29 +515,10 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 	let mockLogger: FastifyBaseLogger
 	const savedEnv = process.env.BOOK_HISTORY_ENABLED
 
-	const apiBook = {
-		...(bookWithoutProjection as unknown as ApiBook),
-		releaseDate: new Date('2020-01-01')
-	} as ApiBook
 	const storedBook = {
 		...(bookWithoutProjection as unknown as ApiBook),
 		releaseDate: new Date('2019-06-01')
 	} as ApiBook
-	const observation: BookObservation = {
-		observedAt: new Date('2026-11-07T12:00:00.000Z'),
-		apiReceivedAt: new Date('2026-11-07T12:00:00.000Z'),
-		responseGroups: ['category_ladders'],
-		requestedRenditions: ['500', '1024'],
-		fields: [
-			{
-				field: 'title',
-				policy: 'editorial:title:v1',
-				value: { state: 'value', value: 'Galaxy' },
-				source: 'audible_api'
-			}
-		],
-		artwork: []
-	}
 
 	beforeEach(() => {
 		process.env.BOOK_HISTORY_ENABLED = 'true'
@@ -515,7 +528,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			{ region, seedAuthors: undefined, update: '1' },
 			null,
 			'book',
-			mockLogger
+			{ logger: mockLogger }
 		)
 		helper.originalData = bookWithoutProjection
 		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
@@ -527,6 +540,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 		mockStitchProcess.mockClear()
 		mockStitchProcess.mockResolvedValue(apiBook)
 		mockStitchObservation = observation
+		stitchConstructorArgs.length = 0
 	})
 
 	afterEach(() => {
@@ -535,7 +549,7 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 	})
 
 	const dispositions: [string, PersistResult][] = [
-		['rejected', { data: null, modified: false, disposition: 'rejected' }],
+		['stale-with-data', { data: storedBook, modified: false, disposition: 'stale' }],
 		['stale', { data: null, modified: false, disposition: 'stale' }],
 		['accepted', { data: storedBook, modified: true, disposition: 'accepted' }],
 		['accepted-unchanged', { data: storedBook, modified: false, disposition: 'accepted' }]
@@ -568,11 +582,12 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			observation
 		})
 
-		if (disposition === 'rejected') {
-			// The update is refused; the stored projection stands with 200.
+		if (disposition === 'stale-with-data') {
+			// A stale generation with a surviving current row: the stored
+			// projection stands with 200 and no cache refresh (only an
+			// accepted write repopulates the cache).
 			expect(result).toBe(storedBook)
-			expect(setOneSpy).toHaveBeenCalledTimes(1)
-			expect(setOneSpy).toHaveBeenCalledWith(storedBook, { log: false })
+			expect(setOneSpy).not.toHaveBeenCalled()
 		} else if (disposition === 'stale') {
 			// A concurrent delete left no current row: the book is gone.
 			expect(error).toBeInstanceOf(NotFoundError)
@@ -588,11 +603,77 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			// acceptance is a real write; the equal short-circuit
 			// (accepted but unchanged) is not.
 			expect(helper.persisted).toBe(persistResult.modified === true)
+			// The producer side of the repair contract: consumers read the
+			// fetched book off freshData, not off the stored projection.
+			expect(helper.freshData).toBe(apiBook)
 		}
 	})
 
+	test('preserves stored genres when the API returns no category ladders', async () => {
+		// Regression (skipHtml background passes): the stored book carries
+		// genres, the fresh ladder-less API response carries none, and the
+		// title changed. The store's genre preservation (persistObservation
+		// merges stored genres into a genre-less incoming book) makes the
+		// observation ACCEPTED — the changed field persists, genres stay —
+		// so the handler reports a real write instead of a rejection that
+		// the scheduler would mark checked and re-hit every pass.
+		const storedWithGenres = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: new Date('2019-06-01'),
+			title: 'Original Title',
+			genres: [{ type: 'genre', asin: '1234567890', name: 'Fiction' }]
+		} as ApiBook
+		// The fresh API response is genuinely genre-less: the base fixture
+		// carries genres, so the key must be removed, not just overwritten.
+		const genrelessFresh: ApiBook = {
+			...(bookWithoutProjection as unknown as ApiBook),
+			releaseDate: new Date('2020-01-01'),
+			title: 'Renamed Title'
+		} as ApiBook
+		delete genrelessFresh.genres
+		expect(genrelessFresh.genres).toBeUndefined()
+		// The store's genre-preserving merge (persistObservation) returned
+		// a SEPARATE merged projection: the changed book carrying the
+		// stored genres. Identity against this object proves the handler
+		// serves what the store persisted, not the raw incoming book.
+		const mergedProjection: ApiBook = {
+			...genrelessFresh,
+			genres: storedWithGenres.genres
+		} as ApiBook
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(storedWithGenres)
+		mockStitchProcess.mockResolvedValue(genrelessFresh)
+		// The store accepted the genre-preserving merge (see
+		// persistObservation's genre preservation): a real write of the
+		// changed field.
+		mockPersistObservation.mockResolvedValue({
+			data: mergedProjection,
+			modified: true,
+			disposition: 'accepted'
+		})
+
+		const setOneSpy = spyOn(helper.redisHelper, 'setOne')
+		const result = (await helper.handler()) as ApiBook
+
+		// The changed book is persisted (genre-preserving merge accepted
+		// it) and served: a write, not a guard rejection.
+		expect(mockPersistObservation).toHaveBeenCalledTimes(1)
+		expect(mockPersistObservation).toHaveBeenCalledWith(
+			expect.objectContaining({
+				book: genrelessFresh,
+				observation
+			})
+		)
+		// The merged projection (stored genres intact) is the returned and
+		// cached book — not the genre-less incoming fixture.
+		expect(result).toBe(mergedProjection)
+		expect(helper.persisted).toBe(true)
+		expect(helper.historyDisposition).toBe('accepted')
+		expect(setOneSpy).toHaveBeenCalledTimes(1)
+		expect(setOneSpy).toHaveBeenCalledWith(mergedProjection, { log: false })
+	})
+
 	test.each([
-		['rejected', { data: null, modified: false, disposition: 'rejected' as const }],
+		['accepted-unchanged', { data: storedBook, modified: false, disposition: 'accepted' as const }],
 		['accepted', { data: storedBook, modified: true, disposition: 'accepted' as const }]
 	])(
 		'cache refresh failure after a committed %s disposition still resolves to the projection',
@@ -613,6 +694,59 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 			)
 		}
 	)
+
+	test('forwards skipHtml, prefetched, and a pre-reserved generation to the history path', async () => {
+		// Background passes (the ratings backfill) supply skipHtml, a
+		// prefetched product, and a generation reserved BEFORE the batched
+		// fetch: the history-enabled path must pass all three through to
+		// the StitchHelper that consumes the fetch session, and persist
+		// under the supplied generation instead of reserving a new one
+		// (a later reservation would reorder the fence).
+		const prefetched = {
+			product: apiResponse.product,
+			responseGroups: ['rating'],
+			receivedAt: new Date('2026-11-14T10:00:00.000Z')
+		}
+		const optionsHelper = new GenericShowHelper(
+			asin,
+			{ region, seedAuthors: undefined, update: '1' },
+			null,
+			'book',
+			{ logger: mockLogger, skipHtml: true, prefetched, reservedGeneration: 12 }
+		)
+		optionsHelper.originalData = bookWithoutProjection
+		spyOn(optionsHelper, 'isUpdatedRecently').mockReturnValue(false)
+		spyOn(optionsHelper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		spyOn(optionsHelper.redisHelper, 'findOne').mockResolvedValue(null)
+		mockPersistObservation.mockResolvedValue({
+			data: storedBook,
+			modified: true,
+			disposition: 'accepted'
+		})
+		spyOn(optionsHelper, 'getDataWithProjection').mockResolvedValue(storedBook)
+
+		const result = (await optionsHelper.handler()) as ApiBook
+
+		expect(result).toBe(storedBook)
+		// The history-enabled StitchHelper received the forwarded options
+		// (constructor: asin, region, options).
+		expect(stitchConstructorArgs).toHaveLength(1)
+		const [, , stitchOptions] = stitchConstructorArgs[0] as [
+			string,
+			string,
+			{ skipHtml?: boolean; prefetched?: unknown; captureHistory?: boolean }
+		]
+		expect(stitchOptions.skipHtml).toBe(true)
+		expect(stitchOptions.prefetched).toBe(prefetched)
+		expect(stitchOptions.captureHistory).toBe(true)
+		// The pre-reserved generation is used: no new reservation, and the
+		// observation persists under generation 12.
+		expect(mockReserveGeneration).not.toHaveBeenCalled()
+		expect(mockPersistObservation).toHaveBeenCalledTimes(1)
+		expect(mockPersistObservation).toHaveBeenCalledWith(
+			expect.objectContaining({ asin, region, generation: 12 })
+		)
+	})
 
 	test('missing observation → legacy persist path with warning', async () => {
 		mockStitchObservation = undefined
@@ -638,6 +772,107 @@ describe('GenericShowHelper history-enabled persist dispositions', () => {
 		expect(mockLogger.warn).toHaveBeenCalledTimes(1)
 		const warnMessage = (mockLogger.warn as ReturnType<typeof mock>).mock.calls[0][0] as string
 		expect(warnMessage).toBe(`History evidence missing for ${asin}; persisting via legacy path.`)
+	})
+})
+
+describe('GenericShowHelper skipHtml passthrough', () => {
+	const asin = 'B079LRSMNN'
+	const region = 'us'
+	let mockLogger: FastifyBaseLogger
+	const savedEnv = process.env.BOOK_HISTORY_ENABLED
+
+	beforeEach(() => {
+		mockLogger = createMockLogger()
+		stitchConstructorArgs.length = 0
+	})
+
+	afterEach(() => {
+		if (savedEnv === undefined) delete process.env.BOOK_HISTORY_ENABLED
+		else process.env.BOOK_HISTORY_ENABLED = savedEnv
+	})
+
+	test('passes skipHtml to the history-enabled StitchHelper', async () => {
+		// Background passes set skipHtml: the product page only adds
+		// genres and would 404/503 per row. The history path must forward
+		// the flag to the fetch consumer it constructs (captureHistory true).
+		process.env.BOOK_HISTORY_ENABLED = 'true'
+		const helper = new GenericShowHelper(
+			asin,
+			{ region, seedAuthors: undefined, update: '1' },
+			null,
+			'book',
+			{ logger: mockLogger, skipHtml: true }
+		)
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		spyOn(helper.redisHelper, 'findOne').mockResolvedValue(null)
+		mockStitchProcess.mockResolvedValue(apiBook)
+		mockStitchObservation = observation
+		mockPersistObservation.mockResolvedValue({
+			data: apiBook,
+			modified: true,
+			disposition: 'accepted'
+		})
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(apiBook)
+
+		await helper.updateActions()
+
+		expect(stitchConstructorArgs).toHaveLength(1)
+		const [, , stitchOptions] = stitchConstructorArgs[0] as [
+			string,
+			string,
+			{
+				logger?: FastifyBaseLogger
+				captureHistory?: boolean
+				skipHtml?: boolean
+				prefetched?: unknown
+			}
+		]
+		expect(stitchOptions.logger).toBe(mockLogger)
+		expect(stitchOptions.captureHistory).toBe(true)
+		expect(stitchOptions.skipHtml).toBe(true)
+		expect(stitchOptions.prefetched).toBeUndefined()
+	})
+
+	test('passes skipHtml to the non-history getNewData StitchHelper', async () => {
+		// History disabled: createOrUpdateData builds its own StitchHelper
+		// through getNewData (captureHistory false); the flag must reach it.
+		// Set the flag explicitly (not rely on it being unset) so an
+		// inherited `true` cannot route the test down the history path.
+		process.env.BOOK_HISTORY_ENABLED = 'false'
+		const helper = new GenericShowHelper(
+			asin,
+			{ region, seedAuthors: undefined, update: '1' },
+			null,
+			'book',
+			{ logger: mockLogger, skipHtml: true }
+		)
+		helper.originalData = bookWithoutProjection
+		spyOn(helper, 'isUpdatedRecently').mockReturnValue(false)
+		spyOn(helper, 'getDataFromPapr').mockResolvedValue(bookWithoutProjection)
+		spyOn(helper.redisHelper, 'findOne').mockResolvedValue(null)
+		mockStitchProcess.mockResolvedValue(apiBook)
+		spyOn(helper.paprHelper, 'createOrUpdate').mockResolvedValue({ data: apiBook, modified: true })
+		spyOn(helper, 'getDataWithProjection').mockResolvedValue(apiBook)
+
+		await helper.updateActions()
+
+		expect(stitchConstructorArgs).toHaveLength(1)
+		const [, , stitchOptions] = stitchConstructorArgs[0] as [
+			string,
+			string,
+			{
+				logger?: FastifyBaseLogger
+				captureHistory?: boolean
+				skipHtml?: boolean
+				prefetched?: unknown
+			}
+		]
+		expect(stitchOptions.logger).toBe(mockLogger)
+		expect(stitchOptions.captureHistory).toBeUndefined()
+		expect(stitchOptions.skipHtml).toBe(true)
+		expect(stitchOptions.prefetched).toBeUndefined()
 	})
 })
 

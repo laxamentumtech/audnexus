@@ -29,6 +29,7 @@ const mockRedisLrem = mock()
 const mockRedisExists = mock()
 const mockWorkerClose = mock()
 const mockWorkerOn = mock()
+const workerConstructorArgs: unknown[][] = []
 const mockSchedulerUpdateAuthors = mock()
 const mockSchedulerUpdateBooks = mock()
 const mockSchedulerUpdateChapters = mock()
@@ -94,6 +95,9 @@ mock.module('bullmq', () => ({
 	Worker: class {
 		close = mockWorkerClose
 		on = mockWorkerOn
+		constructor(...args: unknown[]) {
+			workerConstructorArgs.push(args)
+		}
 	},
 	Job: class {
 		static fromId = mockJobFromId
@@ -134,8 +138,10 @@ import {
 	JOB_NAMES,
 	JOB_RETRIES,
 	LEGACY_UPDATE_SCHEDULER_ID,
+	LOCK_DURATION_MS,
 	QUEUE_NAME,
 	QueueUnavailableError,
+	STALLED_CHECK_INTERVAL_MS,
 	UPDATE_SCHEDULER_IDS,
 	UPDATE_SCHEDULERS,
 	upsertUpdateSchedulers,
@@ -160,6 +166,7 @@ beforeEach(() => {
 	mockRedisStatus = 'ready'
 	mockJobFromIdSequence = [null]
 	backfillConstructorArgs.length = 0
+	workerConstructorArgs.length = 0
 	redisConstructorCalls.length = 0
 	// mockReset (not mockClear) so the per-test once-queues never leak:
 	// a leftover resolved/rejected-once on add/remove would be consumed by a
@@ -1147,6 +1154,32 @@ describe('bullmq queue helpers', () => {
 		expect(events).toContain('failed')
 	})
 
+	it('creates the worker with the long-job stall recovery options', () => {
+		// The ratings backfill runs for days: a restart must recover the job,
+		// not fail it on the first stall (BullMQ's default maxStalledCount of
+		// 1 turned every deploy into "job stalled more than allowable
+		// limit"). Five stalls covers repeated deploy/restart windows on a
+		// multi-day pass.
+		const logger = createMockLogger()
+		createWorker(logger)
+		// workerConstructorArgs is cleared in beforeEach: exactly one
+		// (new) constructor invocation must have been recorded by this
+		// test's createWorker call.
+		expect(workerConstructorArgs).toHaveLength(1)
+		const args = workerConstructorArgs.at(-1)
+		expect(args?.[0]).toBe(QUEUE_NAME)
+		const options = args?.[2] as {
+			concurrency: number
+			lockDuration: number
+			stalledInterval: number
+			maxStalledCount: number
+		}
+		expect(options.concurrency).toBe(1)
+		expect(options.lockDuration).toBe(LOCK_DURATION_MS)
+		expect(options.stalledInterval).toBe(STALLED_CHECK_INTERVAL_MS)
+		expect(options.maxStalledCount).toBe(5)
+	})
+
 	it('bounds closeQueue when queue and both Redis clients hang offline, so shutdown continues', async () => {
 		const hanging = new Promise<never>(() => {})
 		// Ensure all three singletons (queue + both Redis clients) exist so
@@ -1160,15 +1193,42 @@ describe('bullmq queue helpers', () => {
 		// a pending command and never settles.
 		mockQueueClose.mockReturnValue(hanging)
 		mockRedisQuit.mockReturnValue(hanging)
-		const started = Date.now()
-		// The three per-close deadlines are carved from ONE 600ms budget
-		// (remaining budget per close), so the aggregate is ~600ms — not
-		// 3 x the per-close bound. A serial sum of the per-close defaults
-		// (15s) would exceed this margin by an order of magnitude, so the
-		// bound that keeps the Mongo close inside the Docker stop grace is
-		// the real assertion; the margin only absorbs scheduling jitter.
-		await closeQueue({ budgetMs: 600 })
-		expect(Date.now() - started).toBeLessThan(3000)
+		vi.useFakeTimers()
+		try {
+			const started = Date.now()
+			const pending = closeQueue({ budgetMs: 600 })
+			// Drive the sequence with fake timers (bun advances Date.now
+			// with them), so the elapsed time is deterministic: advance the
+			// clock in 1ms steps until all three forced-disconnect fallbacks
+			// have fired — termination is guaranteed by OBSERVING the
+			// fallbacks, not by guessing microtask turns. 1ms steps (plus the
+			// microtask turns to run the continuations) keep every close's
+			// next deadline registered before it can lapse, so the measured
+			// elapsed time is the budget's clock cost, not the driver's.
+			for (let steps = 0; steps < 100_000; steps += 1) {
+				if (
+					(queueRedis.disconnect as unknown as Mock).mock.calls.length +
+						(cacheRedis.disconnect as unknown as Mock).mock.calls.length >=
+					queueDisconnectsBefore + cacheDisconnectsBefore + 3
+				) {
+					break
+				}
+				vi.advanceTimersByTime(1)
+				for (let turn = 0; turn < 20; turn += 1) await Promise.resolve()
+			}
+			await pending
+			// The three per-close deadlines are carved from ONE 600ms budget
+			// (remaining budget per close), so the aggregate is ~602ms — while
+			// THREE SEPARATE 600ms per-close deadlines would run ~1800ms. The
+			// margin is 2x the budget: it passes the shared path with headroom
+			// and still fails the separate-budgets regression, and a serial sum
+			// of the per-close defaults (15s) exceeds it by an order of
+			// magnitude, so the bound that keeps the Mongo close inside the
+			// Docker stop grace is the real assertion.
+			expect(Date.now() - started).toBeLessThan(2 * 600)
+		} finally {
+			vi.useRealTimers()
+		}
 		// The deadline forced a hard disconnect of both clients instead of
 		// waiting on the blocked quit. queueRedis is hit twice: the stuck
 		// queue close and the stuck queue-redis quit both fall back to it
@@ -1348,19 +1408,55 @@ describe('bullmq queue helpers', () => {
 		// Meaningful regression: the aggregate deadline is the budget itself,
 		// not N x the per-close bound. With every close hanging, the three
 		// remaining-budget deadlines must sum to at most the budget, so a
-		// 300ms budget finishes in well under the 3 x per-close default.
-		// (A serial implementation would take 3 x 5000ms here.)
+		// 300ms budget finishes in ~302ms — while three SEPARATE 300ms
+		// per-close deadlines would take ~900ms. The margin is 2x the
+		// budget: it passes the shared path with headroom and fails the
+		// separate-budgets regression; a serial sum of the per-close
+		// defaults (15s) exceeds it by an order of magnitude.
 		const hanging = new Promise<never>(() => {})
 		await countBackfillJobsInFlight()
+		const queueRedis = getQueueRedis()
+		const cacheRedis = getCacheRedis()
+		const queueDisconnectsBefore = (queueRedis.disconnect as unknown as Mock).mock.calls.length
+		const cacheDisconnectsBefore = (cacheRedis.disconnect as unknown as Mock).mock.calls.length
 		mockQueueClose.mockReturnValue(hanging)
 		mockRedisQuit.mockReturnValue(hanging)
+		vi.useFakeTimers()
 		try {
 			const started = Date.now()
-			await closeQueue({ budgetMs: 300 })
-			// A serial sum of the per-close defaults (15s) would exceed this
-			// by an order of magnitude; the margin only absorbs jitter.
-			expect(Date.now() - started).toBeLessThan(3000)
+			const pending = closeQueue({ budgetMs: 300 })
+			// Fake timers (bun advances Date.now with them) make the elapsed
+			// time deterministic: advance the clock in 1ms steps until all
+			// three forced-disconnect fallbacks have fired — termination is
+			// guaranteed by OBSERVING the fallbacks, not by guessing
+			// microtask turns. 1ms steps (plus the microtask turns to run
+			// the continuations) keep every close's next deadline registered
+			// before it can lapse, so the measured elapsed time is the
+			// budget's clock cost, not the driver's.
+			for (let steps = 0; steps < 100_000; steps += 1) {
+				if (
+					(queueRedis.disconnect as unknown as Mock).mock.calls.length +
+						(cacheRedis.disconnect as unknown as Mock).mock.calls.length >=
+					queueDisconnectsBefore + cacheDisconnectsBefore + 3
+				) {
+					break
+				}
+				vi.advanceTimersByTime(1)
+				for (let turn = 0; turn < 20; turn += 1) await Promise.resolve()
+			}
+			await pending
+			// Meaningful regression: the aggregate deadline is the budget
+			// itself, not N x the per-close bound. With every close hanging,
+			// the three remaining-budget deadlines must sum to at most the
+			// budget, so a 300ms budget finishes in ~302ms — while three
+			// SEPARATE 300ms per-close deadlines would take ~900ms. The
+			// margin is 2x the budget: it passes the shared path with
+			// headroom and fails the separate-budgets regression; a serial
+			// sum of the per-close defaults (15s) exceeds it by an order of
+			// magnitude.
+			expect(Date.now() - started).toBeLessThan(2 * 300)
 		} finally {
+			vi.useRealTimers()
 			mockQueueClose.mockResolvedValue(undefined)
 			mockRedisQuit.mockResolvedValue(undefined)
 		}

@@ -4,6 +4,7 @@ import BookModel, { BookDocument } from '#config/models/Book'
 import { ApiBook, ApiBookSchema, ApiQueryString } from '#config/types'
 import { isBookDocument } from '#config/typing/checkers'
 import { PaprBookDocumentReturn, PaprBookReturn, PaprDeleteReturn } from '#config/typing/papr'
+import { buildEffectiveWrite } from '#helpers/database/bookWriteProjection'
 import getErrorMessage from '#helpers/utils/getErrorMessage'
 import SharedHelper from '#helpers/utils/shared'
 import {
@@ -118,11 +119,11 @@ export default class PaprAudibleBookHelper {
 	/**
 	 * Creates a book if it doesn't exist.
 	 *
-	 * Updates a existing book if:
-	 *
-	 * 1. `options.update` is 1 and the book exists
-	 * 2. The incoming data is different from the existing data
-	 * 3. Genres exist or are different
+	 * Updates an existing book when `options.update` is 1 and the
+	 * effective write (stored projection + incoming evidence, retention
+	 * rules for evidence-free fields) differs from the stored row. A
+	 * tags/ratings-only change persists; empty incoming genres no
+	 * longer block an update.
 	 */
 	async createOrUpdate(): Promise<PaprBookReturn> {
 		const findInDb = await this.findOneWithProjection()
@@ -130,29 +131,35 @@ export default class PaprAudibleBookHelper {
 		// Update
 		if (this.options.update === '1' && findInDb.data) {
 			const data = findInDb.data
-			// If the objects are the exact same return right away
-			const isEqual = this.sharedHelper.isEqualData(data, this.bookData)
+			const { book: effective } = buildEffectiveWrite(data, this.bookData, {})
+			// If the effective write is the exact same row return right away
+			const isEqual = this.sharedHelper.isEqualData(data, effective)
 			if (isEqual) {
+				// An equal accepted refresh supersedes a backfill skip
+				// decision: a row marked non-book that keeps refreshing as a
+				// book must leave the marker behind. Conditional, so the
+				// no-write fast path costs nothing when no marker exists.
+				await BookModel.updateOne(
+					{
+						asin: this.asin,
+						$or: [{ region: { $exists: false } }, { region: this.options.region }],
+						ratingsBackfillSkip: { $exists: true }
+					},
+					{ $unset: { ratingsBackfillSkip: '' } }
+				)
 				return {
 					data: data,
 					modified: false
 				}
 			}
-			// Check state of existing book
-			// Update when the incoming data carries genre evidence, or when the
-			// stored row never had any: with no stored genres there is nothing
-			// the update could nuke, and refusing here froze genre-less legacy
-			// rows permanently — every other field, ratings included, stayed
-			// unreachable and the books validator rejects partial repairs.
-			const storedHasGenres = Boolean(data.genres)
-			const incomingHasGenres = Boolean(this.bookData.genres?.length)
-			if (incomingHasGenres || !storedHasGenres) {
-				this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
-				// Update
-				return this.update()
-			}
-			// No update performed, return original
-			return findInDb
+			this.logger?.info(NoticeUpdateAsin(this.asin, 'book'))
+			// update() re-reads the row and rebuilds the effective write
+			// against that fresh read, so evidence-free fields (rating,
+			// series, stored tags/Goodreads) are $set with the current
+			// stored values, and a concurrent refresh that lands between
+			// this read and the write is not restored from a stale
+			// snapshot.
+			return this.update()
 		}
 
 		// Create
@@ -171,13 +178,24 @@ export default class PaprAudibleBookHelper {
 			if (!found.data) {
 				throw new Error(ErrorMessageNotFoundInDb(this.asin, 'Book'))
 			}
+			// Rebuild the effective write against THIS fresh read, not a
+			// snapshot the caller took on an earlier read: a concurrent
+			// refresh that committed in between is not clobbered, and
+			// retained evidence-free fields take their values from the
+			// current row.
+			const storedParsed = ApiBookSchema.safeParse(found.data)
+			const { book: effective } = buildEffectiveWrite(
+				storedParsed.success ? storedParsed.data : null,
+				this.bookData,
+				{}
+			)
 			await BookModel.updateOne(
 				{
 					asin: this.asin,
 					$or: [{ region: { $exists: false } }, { region: this.options.region }]
 				},
 				{
-					$set: { ...this.bookData, createdAt: found.data._id.getTimestamp() },
+					$set: { ...effective, createdAt: found.data._id.getTimestamp() },
 					// An accepted book write supersedes a backfill skip decision
 					// (e.g. upstream now reports a real book).
 					$unset: { ratingsBackfillSkip: '' },

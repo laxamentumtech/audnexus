@@ -25,6 +25,7 @@ mock.module('#config/models/Chapter', () => ({
 const mockAuthorHandler = mock()
 const mockBookHandler = mock()
 const mockChapterHandler = mock()
+const bookShowConstructorArgs: unknown[][] = []
 
 // Fresh-fetch + persistence signals on the helper. `fetchedFreshData` drives
 // the cooldown decay (registerSuccess); `persisted` drives the `updated`
@@ -44,6 +45,9 @@ mock.module('#helpers/routes/AuthorShowHelper', () => ({
 
 mock.module('#helpers/routes/BookShowHelper', () => ({
 	default: class BookShowHelper {
+		constructor(...args: unknown[]) {
+			bookShowConstructorArgs.push(args)
+		}
 		handler = mockBookHandler
 		fetchedFreshData = bookFresh.fetched
 		persisted = bookFresh.persisted
@@ -76,6 +80,7 @@ mock.module('#helpers/utils/adaptiveCooldown', () => ({
 }))
 
 import { resetPerformanceConfig, setPerformanceConfig } from '#config/performance'
+import { ContentTypeMismatchError } from '#helpers/errors/ApiErrors'
 import { processBatchByRegion } from '#helpers/utils/batchProcessor'
 import UpdateScheduler from '#helpers/utils/UpdateScheduler'
 import { UpstreamGoneError } from '#helpers/utils/upstreamGone'
@@ -171,6 +176,7 @@ beforeEach(() => {
 	mockAuthorHandler.mockClear()
 	mockBookHandler.mockClear()
 	mockChapterHandler.mockClear()
+	bookShowConstructorArgs.length = 0
 	mockProcessBatchByRegion.mockClear()
 	mockSleepCooldown.mockClear()
 	mockSleepCooldown.mockResolvedValue(undefined)
@@ -230,6 +236,26 @@ describe('UpdateScheduler should', () => {
 		)
 	})
 
+	test('book walk pins forceUpdate off and skipHtml true', async () => {
+		// The walk already selects stale rows, so forceUpdate must stay off
+		// (a forced refetch would refetch every row on every pass);
+		// skipHtml keeps the background walk off the product page. The
+		// options-object API carries both: `forceUpdate` absent (the helper
+		// defaults it off) and `skipHtml` pinned true.
+		const doc = makeStaleDoc()
+		mockBookFind.mockResolvedValueOnce([doc]).mockResolvedValueOnce([])
+		mockBookHandler.mockResolvedValue(undefined)
+		await helper.updateBooks()
+		expect(bookShowConstructorArgs).toHaveLength(1)
+		const [asin, options, redis, showOptions] = bookShowConstructorArgs[0]
+		expect(asin).toBe(doc.asin)
+		expect(options).toEqual({ region: doc.region, update: '1' })
+		expect(redis).toBe(ctx.client)
+		expect(showOptions).toEqual({ logger: mockLogger, skipHtml: true })
+		expect(showOptions.forceUpdate).toBeUndefined()
+		expect(showOptions.skipHtml).toBe(true)
+	})
+
 	test('walks chapters stalest-first with the updatedAt filter', async () => {
 		mockChapterFind.mockResolvedValueOnce([makeStaleDoc()]).mockResolvedValueOnce([])
 		mockChapterHandler.mockResolvedValue(undefined)
@@ -286,6 +312,84 @@ describe('UpdateScheduler should', () => {
 		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 0, gone: 1, failures: 0 })
 		expect(mockAuthorUpdateOne).toHaveBeenCalledTimes(1)
 		expect(mockAuthorUpdateOne.mock.calls[0][1]).toEqual({ $currentDate: { updatedAt: true } })
+		expect(mockLogger.error).not.toHaveBeenCalled()
+	})
+
+	test('content-type rejection marks checked, counts unchanged, and logs no error', async () => {
+		setPerformanceConfig(
+			createTestPerformanceConfig({
+				USE_PARALLEL_SCHEDULER: false,
+				JITTER_MS: { min: 0, max: 0 }
+			})
+		)
+		const doc = makeStaleDoc()
+		mockBookFind.mockResolvedValueOnce([doc]).mockResolvedValueOnce([])
+		mockBookHandler.mockRejectedValue(
+			new ContentTypeMismatchError(`Item is a SinglePartIssue, not a book. ASIN: ${doc.asin}`, {
+				asin: doc.asin,
+				requestedType: 'book',
+				actualType: 'SinglePartIssue'
+			})
+		)
+		const pass = await helper.updateBooks()
+		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 1, gone: 0, failures: 0 })
+		// Terminal skip: the row leaves the staleness window instead of being
+		// retried (and re-logged) on every scheduled pass.
+		expect(mockBookUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockBookUpdateOne.mock.calls[0][1]).toEqual({ $currentDate: { updatedAt: true } })
+		expect(mockLogger.error).not.toHaveBeenCalled()
+		expect(mockLogger.debug).toHaveBeenCalledWith(
+			`book item skipped upstream: asin=${doc.asin} region=us contentType=SinglePartIssue`
+		)
+	})
+
+	test('parallel mode: content-type rejection marks checked without a failure', async () => {
+		setPerformanceConfig(
+			createTestPerformanceConfig({ USE_PARALLEL_SCHEDULER: true, JITTER_MS: { min: 0, max: 0 } })
+		)
+		const doc = makeStaleDoc()
+		mockBookFind.mockResolvedValueOnce([doc]).mockResolvedValueOnce([])
+		mockBookHandler.mockRejectedValue(
+			new ContentTypeMismatchError(`Item is a SinglePartIssue, not a book. ASIN: ${doc.asin}`, {
+				asin: doc.asin,
+				requestedType: 'book',
+				actualType: 'SinglePartIssue'
+			})
+		)
+		mockProcessBatchByRegion.mockImplementation(createProcessBatchByRegionMock())
+		const pass = await helper.updateBooks()
+		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 1, gone: 0, failures: 0 })
+		expect(mockBookUpdateOne).toHaveBeenCalledTimes(1)
+		expect(mockLogger.error).not.toHaveBeenCalled()
+	})
+
+	test('legacy row: validator rejection retries the check write with the bypass', async () => {
+		// The validated write stays the first attempt (least-privilege workers
+		// keep marking ordinary rows); only MongoDB's code 121 earns the retry
+		// that a legacy stub lacking required content fields needs.
+		setPerformanceConfig(
+			createTestPerformanceConfig({
+				USE_PARALLEL_SCHEDULER: false,
+				JITTER_MS: { min: 0, max: 0 }
+			})
+		)
+		const doc = makeStaleDoc()
+		mockBookFind.mockResolvedValueOnce([doc]).mockResolvedValueOnce([])
+		mockBookHandler.mockRejectedValue(
+			new ContentTypeMismatchError(`Item is a SinglePartIssue, not a book. ASIN: ${doc.asin}`, {
+				asin: doc.asin,
+				requestedType: 'book',
+				actualType: 'SinglePartIssue'
+			})
+		)
+		mockBookUpdateOne
+			.mockRejectedValueOnce(Object.assign(new Error('Document failed validation'), { code: 121 }))
+			.mockResolvedValueOnce({ acknowledged: true })
+		const pass = await helper.updateBooks()
+		expect(pass).toEqual({ total: 1, updated: 0, unchanged: 1, gone: 0, failures: 0 })
+		expect(mockBookUpdateOne).toHaveBeenCalledTimes(2)
+		expect(mockBookUpdateOne.mock.calls[0][2]).toBeUndefined()
+		expect(mockBookUpdateOne.mock.calls[1][2]).toEqual({ bypassDocumentValidation: true })
 		expect(mockLogger.error).not.toHaveBeenCalled()
 	})
 
