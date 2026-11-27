@@ -204,6 +204,8 @@ These are application defaults unless noted otherwise. Set them on each process 
 
 The worker creates or refreshes the enabled schedules and enqueues startup passes where needed. You do not need to set up the scheduler manually.
 
+Both the API and the worker read the same interval variables and apply them to the shared Redis at startup. Set them to the same values on both processes: a restart of either one rewrites the schedules from its own environment. For example, with `UPDATE_INTERVAL_AUTHORS=0` set only on the worker, a later API restart recreates the author schedule at the base cadence. A non-numeric `UPDATE_INTERVAL_AUTHORS` or `UPDATE_INTERVAL_BOOKS` value is treated as unset and falls back to `UPDATE_INTERVAL`, or to the 30-day default when that variable is unset or invalid.
+
 ### Feature flags and administration
 
 The general Boolean flags accept `true` in any case or `1` for true. `BOOK_HISTORY_ENABLED` is stricter: use lowercase `true` or `false`.
