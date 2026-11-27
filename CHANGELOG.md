@@ -26,6 +26,7 @@ All notable changes to this project will be documented in this file. Releases ar
 - Recover stalled ratings backfill jobs up to five times, so a restart no longer fails a multi-day pass.
 - Supply `createdAt` on the accepted update path for book rows written before the schema required it, so the strict books validator accepts the repair.
 - Omit undefined optional book fields instead of writing null, and bypass document validation for the metadata-only backfill marker and the direct ratings repair write.
+- Treat a static content-type rejection (for example `SinglePartIssue`) as a terminal skip in scheduled updates, so the row leaves the staleness window instead of re-logging an error and counting a failure on every pass.
 
 ## [1.15.0](https://github.com/laxamentumtech/audnexus/compare/audnexus-v1.14.0...audnexus-v1.15.0) (2026-07-25)
 
