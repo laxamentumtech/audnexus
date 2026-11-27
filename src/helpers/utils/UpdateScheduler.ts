@@ -47,6 +47,18 @@ export interface PassSummary {
 	failures: number
 }
 
+/** The one papr method this file needs outside the generated generics:
+ * `updateOne` with a `$currentDate` update and a validation bypass. Papr's
+ * update type does not model `$currentDate`, and its `bypassDocumentValidation`
+ * option is not part of the generated model signature. */
+type CheckedWriter = {
+	updateOne: (
+		filter: { _id: ObjectId },
+		update: { $currentDate: { updatedAt: true } },
+		options: { bypassDocumentValidation: boolean }
+	) => Promise<unknown>
+}
+
 class UpdateScheduler {
 	redis: Redis | null
 	logger: FastifyBaseLogger
@@ -83,14 +95,23 @@ class UpdateScheduler {
 	 * one write that makes the row leave the staleness window the walk selects on.
 	 * Cast matches the papr-generics bypass in keyset.ts (`$currentDate` is a
 	 * standard Mongo operator papr's update type does not model).
+	 *
+	 * Document validation is bypassed deliberately: a legacy row can predate the
+	 * strict collection validator and lack required content fields, so the
+	 * metadata-only write would be rejected for unrelated missing data and the
+	 * row would stay stale. Only `updatedAt` changes here, so no content can
+	 * slip past validation. Same rationale as `BookBackfillHelper.markNonBook`.
 	 */
 	private async markChecked(
 		model: typeof AuthorModel | typeof BookModel | typeof ChapterModel,
 		id: ObjectId
 	): Promise<void> {
-		await (
-			model as unknown as { updateOne: (filter: object, update: object) => Promise<unknown> }
-		).updateOne({ _id: id }, { $currentDate: { updatedAt: true } })
+		const writer = model as unknown as CheckedWriter
+		await writer.updateOne(
+			{ _id: id },
+			{ $currentDate: { updatedAt: true } },
+			{ bypassDocumentValidation: true }
+		)
 	}
 
 	/**

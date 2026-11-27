@@ -337,6 +337,9 @@ describe('UpdateScheduler should', () => {
 		// retried (and re-logged) on every scheduled pass.
 		expect(mockBookUpdateOne).toHaveBeenCalledTimes(1)
 		expect(mockBookUpdateOne.mock.calls[0][1]).toEqual({ $currentDate: { updatedAt: true } })
+		// Metadata-only write: a legacy row that predates the strict books
+		// validator must still accept the check timestamp.
+		expect(mockBookUpdateOne.mock.calls[0][2]).toEqual({ bypassDocumentValidation: true })
 		expect(mockLogger.error).not.toHaveBeenCalled()
 		expect(mockLogger.debug).toHaveBeenCalledWith(
 			`book item skipped upstream: asin=${doc.asin} region=us contentType=SinglePartIssue`
