@@ -185,7 +185,7 @@ These are application defaults unless noted otherwise. Set them on each process 
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `UPDATE_INTERVAL` | `30` | Default days between author and book update passes, used when the per-collection overrides are unset. `0` disables both schedules. |
+| `UPDATE_INTERVAL` | `30` | Default days between author and book update passes, used when the per-collection overrides are unset. `0` disables both schedules when no override is set. |
 | `UPDATE_INTERVAL_AUTHORS` | `UPDATE_INTERVAL` (else `30`) | Days between author update passes. `0` disables only the author schedule. |
 | `UPDATE_INTERVAL_BOOKS` | `UPDATE_INTERVAL` (else `30`) | Days between book update passes. `0` disables only the book schedule. |
 | `UPDATE_INTERVAL_CHAPTERS` | `30` | Days between chapter update passes. `0` disables the chapter schedule. |

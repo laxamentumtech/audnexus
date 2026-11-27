@@ -23,9 +23,10 @@ const mockQueueRedisDisconnect = mock()
 const mockGetQueueRedisClient = mock(() => ({ disconnect: mockQueueRedisDisconnect }))
 const mockUpsertUpdateSchedulers = mock()
 const mockAssertHistoryPrerequisites = mock()
-// Mirrors the real helper (strict `\d+` parse: explicit 0 disables, anything
-// non-numeric falls back to 30) so the worker test can assert on the derived
-// object.
+// Mirrors the real helper (strict `\d+` parse: explicit 0 disables, a
+// non-numeric UPDATE_INTERVAL falls back to 30, and a non-numeric
+// per-collection override falls back to UPDATE_INTERVAL) so the worker
+// test can assert on the derived object.
 const parseNonNegativeInt = (raw: string | undefined, fallback: number): number => {
 	const trimmed = raw?.trim()
 	if (trimmed && /^\d+$/.test(trimmed)) {
@@ -333,6 +334,8 @@ describe('worker startup', () => {
 	it('upserts the update scheduler with the derived per-collection intervals', async () => {
 		process.env.UPDATE_INTERVAL = '12'
 		process.env.UPDATE_INTERVAL_CHAPTERS = '45'
+		delete process.env.UPDATE_INTERVAL_AUTHORS
+		delete process.env.UPDATE_INTERVAL_BOOKS
 		await worker.startWorker()
 		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledWith({
 			authors: 12,
@@ -357,6 +360,8 @@ describe('worker startup', () => {
 	it('falls back to 30 when UPDATE_INTERVAL is unset or non-numeric', async () => {
 		delete process.env.UPDATE_INTERVAL
 		delete process.env.UPDATE_INTERVAL_CHAPTERS
+		delete process.env.UPDATE_INTERVAL_AUTHORS
+		delete process.env.UPDATE_INTERVAL_BOOKS
 		await worker.startWorker()
 		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith({
 			authors: 30,
