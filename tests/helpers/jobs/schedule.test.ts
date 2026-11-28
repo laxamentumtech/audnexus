@@ -51,6 +51,36 @@ describe('registerUpdateScheduler should', () => {
 		)
 	})
 
+	it('log divergent authors and books intervals separately', async () => {
+		const log = createMockLogger()
+		process.env.REDIS_URL = TEST_REDIS_URL
+		mockUpsert.mockResolvedValueOnce(undefined)
+		await registerUpdateScheduler({ authors: 7, books: 14, chapters: 30 }, log)
+		expect(log.info).toHaveBeenCalledWith(
+			'Update schedulers enqueued: authors every 7 days, books every 14 days, chapters every 30 days'
+		)
+	})
+
+	it('log a disabled collection separately from enabled ones', async () => {
+		const log = createMockLogger()
+		process.env.REDIS_URL = TEST_REDIS_URL
+		mockUpsert.mockResolvedValueOnce(undefined)
+		await registerUpdateScheduler({ authors: 0, books: 14, chapters: 30 }, log)
+		expect(log.info).toHaveBeenCalledWith(
+			'Update schedulers enqueued: authors disabled, books every 14 days, chapters every 30 days'
+		)
+	})
+
+	it('log a shared zero interval as disabled', async () => {
+		const log = createMockLogger()
+		process.env.REDIS_URL = TEST_REDIS_URL
+		mockUpsert.mockResolvedValueOnce(undefined)
+		await registerUpdateScheduler({ authors: 0, books: 0, chapters: 30 }, log)
+		expect(log.info).toHaveBeenCalledWith(
+			'Update schedulers enqueued: authors/books disabled, chapters every 30 days'
+		)
+	})
+
 	it('log and swallow scheduler registration failures', async () => {
 		const log = createMockLogger()
 		process.env.REDIS_URL = TEST_REDIS_URL

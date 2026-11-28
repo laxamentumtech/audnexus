@@ -185,7 +185,9 @@ These are application defaults unless noted otherwise. Set them on each process 
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `UPDATE_INTERVAL` | `30` | Days between book and author update passes. `0` disables those schedules. |
+| `UPDATE_INTERVAL` | `30` | Default days between author and book update passes, used when the per-collection overrides are unset. `0` disables both schedules when no override is set. |
+| `UPDATE_INTERVAL_AUTHORS` | `UPDATE_INTERVAL` (else `30`) | Days between author update passes. `0` disables only the author schedule. |
+| `UPDATE_INTERVAL_BOOKS` | `UPDATE_INTERVAL` (else `30`) | Days between book update passes. `0` disables only the book schedule. |
 | `UPDATE_INTERVAL_CHAPTERS` | `30` | Days between chapter update passes. `0` disables the chapter schedule. |
 | `UPDATE_THRESHOLD` | `7` | Minimum age in days before checking a document for updates again. |
 | `RATE_LIMIT_COOLDOWN_BASE_MS` | `120000` | Initial inter-item cooldown after consecutive rate-limit responses. |
@@ -201,6 +203,8 @@ These are application defaults unless noted otherwise. Set them on each process 
 | `AUDIBLE_BATCH_SIZE` | `1` | Ratings-backfill batch size. Values from `2` to `50` use Audible's undocumented multi-ASIN endpoint for same-region books. Stubs and failed chunks fall back to individual requests. |
 
 The worker creates or refreshes the enabled schedules and enqueues startup passes where needed. You do not need to set up the scheduler manually.
+
+Both the API and the worker read the same interval variables and apply them to the shared Redis at startup. Set them to the same values on both processes: a restart of either one rewrites the schedules from its own environment. For example, with `UPDATE_INTERVAL_AUTHORS=0` set only on the worker, a later API restart recreates the author schedule at the base cadence. A non-numeric `UPDATE_INTERVAL_AUTHORS` or `UPDATE_INTERVAL_BOOKS` value is treated as unset and falls back to `UPDATE_INTERVAL`, or to the 30-day default when that variable is unset or invalid.
 
 ### Feature flags and administration
 

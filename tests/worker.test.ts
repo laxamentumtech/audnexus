@@ -23,9 +23,10 @@ const mockQueueRedisDisconnect = mock()
 const mockGetQueueRedisClient = mock(() => ({ disconnect: mockQueueRedisDisconnect }))
 const mockUpsertUpdateSchedulers = mock()
 const mockAssertHistoryPrerequisites = mock()
-// Mirrors the real helper (strict `\d+` parse: explicit 0 disables, anything
-// non-numeric falls back to 30) so the worker test can assert on the derived
-// object.
+// Mirrors the real helper (strict `\d+` parse: explicit 0 disables, a
+// non-numeric UPDATE_INTERVAL falls back to 30, and a non-numeric
+// per-collection override falls back to UPDATE_INTERVAL) so the worker
+// test can assert on the derived object.
 const parseNonNegativeInt = (raw: string | undefined, fallback: number): number => {
 	const trimmed = raw?.trim()
 	if (trimmed && /^\d+$/.test(trimmed)) {
@@ -36,8 +37,10 @@ const parseNonNegativeInt = (raw: string | undefined, fallback: number): number 
 }
 const mockGetUpdateSchedulerIntervals = mock(() => {
 	const base = parseNonNegativeInt(process.env.UPDATE_INTERVAL, 30)
+	const authors = parseNonNegativeInt(process.env.UPDATE_INTERVAL_AUTHORS, base)
+	const books = parseNonNegativeInt(process.env.UPDATE_INTERVAL_BOOKS, base)
 	const chapters = parseNonNegativeInt(process.env.UPDATE_INTERVAL_CHAPTERS, 30)
-	return { authors: base, books: base, chapters }
+	return { authors, books, chapters }
 })
 const mockWorkerClose = mock()
 // Deadline the test's startShutdownBudget wrapper installs into the REAL
@@ -194,7 +197,15 @@ let exitSpy: Mock<(code?: number) => void>
 let exitCalled: Promise.withResolvers<void>
 
 beforeEach(() => {
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS', 'BOOK_HISTORY_ENABLED']) {
+	for (const key of [
+		'MONGODB_URI',
+		'REDIS_URL',
+		'UPDATE_INTERVAL',
+		'UPDATE_INTERVAL_AUTHORS',
+		'UPDATE_INTERVAL_BOOKS',
+		'UPDATE_INTERVAL_CHAPTERS',
+		'BOOK_HISTORY_ENABLED'
+	]) {
 		savedEnv[key] = process.env[key]
 	}
 	process.env.MONGODB_URI = 'mongodb://localhost:27017'
@@ -241,7 +252,15 @@ beforeEach(() => {
 
 afterEach(() => {
 	process.exit = originalExit
-	for (const key of ['MONGODB_URI', 'REDIS_URL', 'UPDATE_INTERVAL', 'UPDATE_INTERVAL_CHAPTERS', 'BOOK_HISTORY_ENABLED']) {
+	for (const key of [
+		'MONGODB_URI',
+		'REDIS_URL',
+		'UPDATE_INTERVAL',
+		'UPDATE_INTERVAL_AUTHORS',
+		'UPDATE_INTERVAL_BOOKS',
+		'UPDATE_INTERVAL_CHAPTERS',
+		'BOOK_HISTORY_ENABLED'
+	]) {
 		if (savedEnv[key] === undefined) {
 			delete process.env[key]
 		} else {
@@ -315,6 +334,8 @@ describe('worker startup', () => {
 	it('upserts the update scheduler with the derived per-collection intervals', async () => {
 		process.env.UPDATE_INTERVAL = '12'
 		process.env.UPDATE_INTERVAL_CHAPTERS = '45'
+		delete process.env.UPDATE_INTERVAL_AUTHORS
+		delete process.env.UPDATE_INTERVAL_BOOKS
 		await worker.startWorker()
 		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledWith({
 			authors: 12,
@@ -323,9 +344,24 @@ describe('worker startup', () => {
 		})
 	})
 
+	it('upserts per-collection intervals when the overrides are set', async () => {
+		process.env.UPDATE_INTERVAL = '12'
+		process.env.UPDATE_INTERVAL_AUTHORS = '5'
+		process.env.UPDATE_INTERVAL_BOOKS = '18'
+		process.env.UPDATE_INTERVAL_CHAPTERS = '45'
+		await worker.startWorker()
+		expect(mockUpsertUpdateSchedulers).toHaveBeenCalledWith({
+			authors: 5,
+			books: 18,
+			chapters: 45
+		})
+	})
+
 	it('falls back to 30 when UPDATE_INTERVAL is unset or non-numeric', async () => {
 		delete process.env.UPDATE_INTERVAL
 		delete process.env.UPDATE_INTERVAL_CHAPTERS
+		delete process.env.UPDATE_INTERVAL_AUTHORS
+		delete process.env.UPDATE_INTERVAL_BOOKS
 		await worker.startWorker()
 		expect(mockUpsertUpdateSchedulers).toHaveBeenLastCalledWith({
 			authors: 30,
